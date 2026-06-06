@@ -607,13 +607,13 @@ impl App {
                     p.px = px;
                     p.py = py;
                 }
-                self.advance_clock_hour();
                 let terrain = self
                     .sim
                     .as_ref()
                     .and_then(|sim| sim.world.regions.get(region_idx))
                     .and_then(|r| r.terrain.get(px, py))
                     .unwrap_or(Terrain::Grass);
+                self.advance_clock(terrain.travel_hours());
                 self.check_encounter(terrain);
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
@@ -624,13 +624,13 @@ impl App {
                     p.px = px;
                     p.py = py;
                 }
-                self.advance_clock_hour();
                 let terrain = self
                     .sim
                     .as_ref()
                     .and_then(|sim| sim.world.regions.get(region_idx))
                     .and_then(|r| r.terrain.get(px, py))
                     .unwrap_or(Terrain::Grass);
+                self.advance_clock(terrain.travel_hours());
                 self.check_encounter(terrain);
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };

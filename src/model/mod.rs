@@ -33,6 +33,15 @@ impl Terrain {
     pub fn passable(self) -> bool {
         !matches!(self, Terrain::Water | Terrain::Mountain)
     }
+
+    pub fn travel_hours(self) -> u32 {
+        match self {
+            Terrain::Road | Terrain::Settlement => 1,
+            Terrain::Grass | Terrain::Farmland | Terrain::Sand => 2,
+            Terrain::Forest | Terrain::Swamp => 3,
+            Terrain::Water | Terrain::Mountain => 2,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -1389,5 +1398,14 @@ mod tests {
             neighbors: RegionNeighbors::default(),
         };
         assert_eq!(region.danger_level(), DangerLevel::Dangerous);
+    }
+
+    #[test]
+    fn terrain_travel_hours() {
+        assert_eq!(Terrain::Road.travel_hours(), 1);
+        assert_eq!(Terrain::Settlement.travel_hours(), 1);
+        assert_eq!(Terrain::Grass.travel_hours(), 2);
+        assert_eq!(Terrain::Forest.travel_hours(), 3);
+        assert_eq!(Terrain::Swamp.travel_hours(), 3);
     }
 }
