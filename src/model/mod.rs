@@ -89,6 +89,33 @@ impl ItemType {
         }
     }
 
+    pub fn base_price(self) -> u32 {
+        match self {
+            ItemType::Coin => 1,
+            ItemType::Herb => 2,
+            ItemType::Food => 3,
+            ItemType::Wood => 2,
+            ItemType::Stone => 3,
+            ItemType::Cloth => 4,
+            ItemType::Iron => 5,
+        }
+    }
+
+    pub fn tradeable(self) -> bool {
+        self != ItemType::Coin
+    }
+
+    pub fn tradeable_items() -> Vec<ItemType> {
+        vec![
+            ItemType::Herb,
+            ItemType::Food,
+            ItemType::Wood,
+            ItemType::Stone,
+            ItemType::Cloth,
+            ItemType::Iron,
+        ]
+    }
+
     pub fn gather_from(terrain: Terrain) -> Option<ItemType> {
         match terrain {
             Terrain::Grass | Terrain::Farmland => Some(ItemType::Herb),
@@ -1054,5 +1081,33 @@ mod tests {
     fn player_vitals_serialization() {
         let v = PlayerVitals::new();
         roundtrip(&v);
+    }
+
+    #[test]
+    fn item_type_base_prices() {
+        assert!(ItemType::Herb.base_price() > 0);
+        assert!(ItemType::Iron.base_price() > ItemType::Herb.base_price());
+        assert_eq!(ItemType::Coin.base_price(), 1);
+    }
+
+    #[test]
+    fn tradeable_items_excludes_coin() {
+        let items = ItemType::tradeable_items();
+        assert!(!items.contains(&ItemType::Coin));
+        assert_eq!(items.len(), 6);
+    }
+
+    #[test]
+    fn buy_sell_round_trip() {
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Coin, 10);
+        let price = ItemType::Herb.base_price();
+        assert!(inv.remove(ItemType::Coin, price));
+        inv.add(ItemType::Herb, 1);
+        assert_eq!(inv.get(ItemType::Herb), 1);
+        assert_eq!(inv.get(ItemType::Coin), 10 - price);
+        assert!(inv.remove(ItemType::Herb, 1));
+        inv.add(ItemType::Coin, price);
+        assert_eq!(inv.get(ItemType::Coin), 10);
     }
 }

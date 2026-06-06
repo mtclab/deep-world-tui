@@ -48,6 +48,11 @@ pub enum Screen {
         person_idx: usize,
         scroll: u16,
     },
+    Market {
+        region_idx: usize,
+        settlement_idx: usize,
+        scroll: u16,
+    },
 }
 
 pub struct App {
@@ -435,6 +440,56 @@ impl App {
                 } else {
                     self.status_msg = Some("Not enough materials".into());
                 }
+            }
+        }
+    }
+
+    pub fn enter_market(&mut self, region_idx: usize, settlement_idx: usize) {
+        self.screen = Screen::Market {
+            region_idx,
+            settlement_idx,
+            scroll: 0,
+        };
+    }
+
+    pub fn exit_market(&mut self) {
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
+        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
+        self.screen = Screen::Map { region_idx, px, py };
+    }
+
+    pub fn buy_item(&mut self, item: ItemType) {
+        if !item.tradeable() {
+            self.status_msg = Some("Cannot buy that".into());
+            return;
+        }
+        let price = item.base_price();
+        if let Some(ref mut ps) = self.player_start {
+            if ps.inventory.remove(ItemType::Coin, price) {
+                ps.inventory.add(item, 1);
+                self.advance_clock_hour();
+                self.status_msg =
+                    Some(format!("Bought 1 {} for {} coins (1h)", item.name(), price));
+            } else {
+                self.status_msg = Some(format!("Need {} coins", price));
+            }
+        }
+    }
+
+    pub fn sell_item(&mut self, item: ItemType) {
+        if !item.tradeable() {
+            self.status_msg = Some("Cannot sell that".into());
+            return;
+        }
+        let price = item.base_price();
+        if let Some(ref mut ps) = self.player_start {
+            if ps.inventory.remove(item, 1) {
+                ps.inventory.add(ItemType::Coin, price);
+                self.advance_clock_hour();
+                self.status_msg = Some(format!("Sold 1 {} for {} coins (1h)", item.name(), price));
+            } else {
+                self.status_msg = Some(format!("No {} to sell", item.name()));
             }
         }
     }
@@ -871,6 +926,9 @@ impl App {
                         let idx = (c as usize) - ('1' as usize);
                         self.enter_npc(region_idx, settlement_idx, idx);
                     }
+                    crossterm::event::KeyCode::Char('m') => {
+                        self.enter_market(region_idx, settlement_idx);
+                    }
                     _ => {}
                 },
                 Screen::Npc {
@@ -942,6 +1000,32 @@ impl App {
                     }
                     crossterm::event::KeyCode::Up => {
                         *scroll = scroll.saturating_sub(1);
+                    }
+                    _ => {}
+                },
+                Screen::Market { ref mut scroll, .. } => match key.code {
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.exit_market();
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        *scroll = scroll.saturating_add(1);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        *scroll = scroll.saturating_sub(1);
+                    }
+                    crossterm::event::KeyCode::Char(c) if ('1'..='6').contains(&c) => {
+                        let idx = (c as usize) - ('1' as usize);
+                        let items = ItemType::tradeable_items();
+                        if let Some(&item) = items.get(idx) {
+                            self.buy_item(item);
+                        }
+                    }
+                    crossterm::event::KeyCode::Char(c) if ('a'..='f').contains(&c) => {
+                        let idx = (c as usize) - ('a' as usize);
+                        let items = ItemType::tradeable_items();
+                        if let Some(&item) = items.get(idx) {
+                            self.sell_item(item);
+                        }
                     }
                     _ => {}
                 },
