@@ -71,6 +71,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::Map { region_idx, px, py } => {
             draw_map_screen(f, app, region_idx, px, py);
         }
+        Screen::Overmap { region_idx } => {
+            draw_overmap_screen(f, app, region_idx);
+        }
     }
 }
 
@@ -1134,6 +1137,158 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
         ),
         Span::styled(" back", Style::default().fg(DARK_BROWN)),
         Span::styled(coord, Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn region_type_glyph(region_type: &str) -> char {
+    match region_type {
+        "river_valley" => '~',
+        "coast" => '≈',
+        "forest" => '♣',
+        "upland" => '▲',
+        "steppe" => '░',
+        "delta" => '¤',
+        _ => '?',
+    }
+}
+
+fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let header = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " World Map — ",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled("choose region", Style::default().fg(WARM_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(header, chunks[0]);
+
+    let (regions, cols) = if let Some(ref sim) = app.sim {
+        (sim.world.regions.len(), sim.world.region_cols)
+    } else {
+        (0, 1)
+    };
+
+    if regions == 0 {
+        let empty = Paragraph::new("No regions").style(Style::default().fg(DARK_BROWN));
+        f.render_widget(empty, chunks[1]);
+        return;
+    }
+
+    let rows_count = regions.div_ceil(cols);
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(""));
+    for row in 0..rows_count {
+        let mut spans: Vec<Span> = Vec::new();
+        spans.push(Span::styled("  ", Style::default().fg(DARK_BROWN)));
+        for col in 0..cols {
+            let idx = row * cols + col;
+            if idx < regions {
+                if let Some(ref sim) = app.sim {
+                    if let Some(region) = sim.world.regions.get(idx) {
+                        let glyph = region_type_glyph(&region.region_type);
+                        let width_label = format!(" {:3} ", idx + 1);
+                        if idx == current_region {
+                            spans.push(Span::styled(
+                                format!("[{}]", glyph),
+                                Style::default()
+                                    .fg(Color::White)
+                                    .add_modifier(Modifier::BOLD),
+                            ));
+                            spans.push(Span::styled(width_label, Style::default().fg(INK)));
+                        } else {
+                            spans.push(Span::styled(
+                                format!(" {} ", glyph),
+                                Style::default().fg(terrain_color(
+                                    match region.region_type.as_str() {
+                                        "river_valley" => Terrain::Water,
+                                        "coast" => Terrain::Sand,
+                                        "forest" => Terrain::Forest,
+                                        "upland" => Terrain::Mountain,
+                                        "steppe" => Terrain::Grass,
+                                        "delta" => Terrain::Swamp,
+                                        _ => Terrain::Grass,
+                                    },
+                                )),
+                            ));
+                            spans.push(Span::styled(width_label, Style::default().fg(DARK_BROWN)));
+                        }
+                    }
+                }
+            } else {
+                spans.push(Span::styled("     ", Style::default().fg(DARK_BROWN)));
+            }
+        }
+        let mut name_spans: Vec<Span> = Vec::new();
+        name_spans.push(Span::styled("  ", Style::default().fg(DARK_BROWN)));
+        for col in 0..cols {
+            let idx = row * cols + col;
+            if idx < regions {
+                if let Some(ref sim) = app.sim {
+                    if let Some(region) = sim.world.regions.get(idx) {
+                        let label = if region.name.len() > 12 {
+                            format!("{:.9}..", region.name)
+                        } else {
+                            format!("{:<12}", region.name)
+                        };
+                        if idx == current_region {
+                            name_spans.push(Span::styled(
+                                label,
+                                Style::default().fg(INK).add_modifier(Modifier::BOLD),
+                            ));
+                        } else {
+                            name_spans.push(Span::styled(label, Style::default().fg(DARK_BROWN)));
+                        }
+                    }
+                }
+            } else {
+                name_spans.push(Span::styled(
+                    "            ",
+                    Style::default().fg(DARK_BROWN),
+                ));
+            }
+        }
+        lines.push(Line::from(spans));
+        lines.push(Line::from(name_spans));
+        lines.push(Line::from(""));
+    }
+
+    let map_widget = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    f.render_widget(map_widget, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [hjkl/↑↓←→]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" navigate  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[Enter]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" enter map  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[Esc/M]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" back", Style::default().fg(DARK_BROWN)),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);

@@ -60,6 +60,16 @@ pub struct World {
     pub tick: u64,
     pub regions: Vec<Region>,
     pub charts_version: String,
+    #[serde(default)]
+    pub region_cols: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct RegionNeighbors {
+    pub north: Option<usize>,
+    pub south: Option<usize>,
+    pub east: Option<usize>,
+    pub west: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -71,6 +81,8 @@ pub struct Region {
     pub settlements: Vec<Settlement>,
     #[serde(default)]
     pub terrain: TerrainMap,
+    #[serde(default)]
+    pub neighbors: RegionNeighbors,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -350,6 +362,7 @@ mod tests {
             description: "Fertile lowlands".into(),
             settlements: vec![],
             terrain: TerrainMap::default(),
+            neighbors: RegionNeighbors::default(),
         };
         roundtrip(&r);
     }
@@ -361,6 +374,7 @@ mod tests {
             tick: 0,
             regions: vec![],
             charts_version: "0.1.0".into(),
+            region_cols: 1,
         };
         roundtrip(&w);
     }
@@ -381,6 +395,7 @@ mod tests {
             region_type: "river_valley".into(),
             description: "desc".into(),
             terrain: TerrainMap::default(),
+            neighbors: RegionNeighbors::default(),
             settlements: vec![Settlement {
                 id: "s1".into(),
                 name: "V".into(),

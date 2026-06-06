@@ -15,6 +15,9 @@ pub enum Screen {
         px: usize,
         py: usize,
     },
+    Overmap {
+        region_idx: usize,
+    },
     WorldAlerts {
         scroll: u16,
     },
@@ -273,6 +276,26 @@ impl App {
         self.screen = Screen::World;
     }
 
+    pub fn enter_overmap(&mut self) {
+        let region_idx = match &self.screen {
+            Screen::Map { region_idx, .. } => *region_idx,
+            _ => 0,
+        };
+        self.screen = Screen::Overmap { region_idx };
+    }
+
+    pub fn exit_overmap(&mut self) {
+        let region_idx = match &self.screen {
+            Screen::Overmap { region_idx } => *region_idx,
+            _ => 0,
+        };
+        self.screen = Screen::Map {
+            region_idx,
+            px: 20,
+            py: 10,
+        };
+    }
+
     pub fn move_player(&mut self, dx: i32, dy: i32) {
         if let Screen::Map {
             region_idx,
@@ -282,11 +305,46 @@ impl App {
         {
             if let Some(ref sim) = self.sim {
                 if let Some(region) = sim.world.regions.get(region_idx) {
-                    let map = &region.terrain;
-                    let nx = (*px as i32 + dx).max(0).min(map.width as i32 - 1) as usize;
-                    let ny = (*py as i32 + dy).max(0).min(map.height as i32 - 1) as usize;
-                    *px = nx;
-                    *py = ny;
+                    let map_w = region.terrain.width;
+                    let map_h = region.terrain.height;
+                    let nx = *px as i32 + dx;
+                    let ny = *py as i32 + dy;
+                    if nx < 0 {
+                        if let Some(west) = region.neighbors.west {
+                            self.screen = Screen::Map {
+                                region_idx: west,
+                                px: map_w - 1,
+                                py: *py,
+                            };
+                        }
+                    } else if nx >= map_w as i32 {
+                        if let Some(east) = region.neighbors.east {
+                            self.screen = Screen::Map {
+                                region_idx: east,
+                                px: 0,
+                                py: *py,
+                            };
+                        }
+                    } else if ny < 0 {
+                        if let Some(north) = region.neighbors.north {
+                            self.screen = Screen::Map {
+                                region_idx: north,
+                                px: *px,
+                                py: map_h - 1,
+                            };
+                        }
+                    } else if ny >= map_h as i32 {
+                        if let Some(south) = region.neighbors.south {
+                            self.screen = Screen::Map {
+                                region_idx: south,
+                                px: *px,
+                                py: 0,
+                            };
+                        }
+                    } else {
+                        *px = nx as usize;
+                        *py = ny as usize;
+                    }
                 }
             }
         }
@@ -454,6 +512,60 @@ impl App {
                                 ),
                             );
                         }
+                    }
+                    crossterm::event::KeyCode::Char('M') => {
+                        self.enter_overmap();
+                    }
+                    _ => {}
+                },
+                Screen::Overmap { region_idx } => match key.code {
+                    crossterm::event::KeyCode::Char('q')
+                    | crossterm::event::KeyCode::Esc
+                    | crossterm::event::KeyCode::Char('M') => {
+                        self.exit_overmap();
+                    }
+                    crossterm::event::KeyCode::Char('h') | crossterm::event::KeyCode::Left => {
+                        if let Some(ref sim) = self.sim {
+                            if let Some(region) = sim.world.regions.get(region_idx) {
+                                if let Some(west) = region.neighbors.west {
+                                    self.screen = Screen::Overmap { region_idx: west };
+                                }
+                            }
+                        }
+                    }
+                    crossterm::event::KeyCode::Char('l') | crossterm::event::KeyCode::Right => {
+                        if let Some(ref sim) = self.sim {
+                            if let Some(region) = sim.world.regions.get(region_idx) {
+                                if let Some(east) = region.neighbors.east {
+                                    self.screen = Screen::Overmap { region_idx: east };
+                                }
+                            }
+                        }
+                    }
+                    crossterm::event::KeyCode::Char('k') | crossterm::event::KeyCode::Up => {
+                        if let Some(ref sim) = self.sim {
+                            if let Some(region) = sim.world.regions.get(region_idx) {
+                                if let Some(north) = region.neighbors.north {
+                                    self.screen = Screen::Overmap { region_idx: north };
+                                }
+                            }
+                        }
+                    }
+                    crossterm::event::KeyCode::Char('j') | crossterm::event::KeyCode::Down => {
+                        if let Some(ref sim) = self.sim {
+                            if let Some(region) = sim.world.regions.get(region_idx) {
+                                if let Some(south) = region.neighbors.south {
+                                    self.screen = Screen::Overmap { region_idx: south };
+                                }
+                            }
+                        }
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        self.screen = Screen::Map {
+                            region_idx,
+                            px: 20,
+                            py: 10,
+                        };
                     }
                     _ => {}
                 },

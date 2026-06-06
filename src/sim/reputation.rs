@@ -201,6 +201,7 @@ mod tests {
                 region_type: "river_valley".into(),
                 description: String::new(),
                 terrain: crate::model::TerrainMap::default(),
+                neighbors: crate::model::RegionNeighbors::default(),
                 settlements: vec![
                     crate::model::Settlement {
                         id: "s1".into(),
@@ -232,6 +233,7 @@ mod tests {
                 ],
             }],
             charts_version: "0.1.0".into(),
+            region_cols: 1,
         }
     }
 

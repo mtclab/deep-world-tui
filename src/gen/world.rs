@@ -19,11 +19,100 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
         regions.push(region);
     }
 
+    let region_cols = compute_grid_cols(n_regions);
+    for (i, region) in regions.iter_mut().enumerate() {
+        region.neighbors = compute_neighbors(i, n_regions, region_cols);
+    }
+
+    seamless_terrain_edges(&mut regions);
+
     World {
         seed,
         tick: 0,
         regions,
         charts_version: "0.1.0".into(),
+        region_cols,
+    }
+}
+
+fn compute_grid_cols(n: usize) -> usize {
+    let cols = (n as f64).sqrt().ceil() as usize;
+    cols.max(1)
+}
+
+fn compute_neighbors(index: usize, total: usize, cols: usize) -> crate::model::RegionNeighbors {
+    let row = index / cols;
+    let col = index % cols;
+    let north = if row > 0 {
+        Some((row - 1) * cols + col)
+    } else {
+        None
+    };
+    let south = {
+        let si = (row + 1) * cols + col;
+        if si < total {
+            Some(si)
+        } else {
+            None
+        }
+    };
+    let east = {
+        if col + 1 < cols {
+            let ei = row * cols + col + 1;
+            if ei < total {
+                Some(ei)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+    let west = if col > 0 {
+        Some(row * cols + col - 1)
+    } else {
+        None
+    };
+    crate::model::RegionNeighbors {
+        north,
+        south,
+        east,
+        west,
+    }
+}
+
+fn seamless_terrain_edges(regions: &mut [Region]) {
+    let n = regions.len();
+    for pass in 0..2 {
+        for i in 0..n {
+            if pass == 0 {
+                let north = regions[i].neighbors.north;
+                if let Some(ni) = north {
+                    let w = regions[i].terrain.width;
+                    let h = regions[i].terrain.height;
+                    let h_other = regions[ni].terrain.height;
+                    if h == h_other && regions[ni].terrain.width == w {
+                        for x in 0..w {
+                            let top = regions[ni].terrain.get(x, h - 1).unwrap_or(Terrain::Grass);
+                            regions[i].terrain.set(x, 0, top);
+                        }
+                    }
+                }
+            } else {
+                let east = regions[i].neighbors.east;
+                if let Some(ei) = east {
+                    let w = regions[i].terrain.width;
+                    let h = regions[i].terrain.height;
+                    let w_other = regions[ei].terrain.width;
+                    if w_other == w && regions[ei].terrain.height == h {
+                        for y in 1..h.saturating_sub(1) {
+                            let right = regions[ei].terrain.get(0, y).unwrap_or(Terrain::Grass);
+                            regions[i].terrain.set(w - 1, y, right);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -102,6 +191,7 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
         description,
         settlements,
         terrain,
+        neighbors: crate::model::RegionNeighbors::default(),
     }
 }
 
@@ -226,6 +316,7 @@ fn generate_terrain(
         }
         settle_positions.push((sx, sy));
     }
+
     for window in settle_positions.windows(2) {
         let (x1, y1) = window[0];
         let (x2, y2) = window[1];
@@ -751,6 +842,120 @@ mod tests {
                 r1.terrain, r2.terrain,
                 "terrain must be deterministic for same seed"
             );
+        }
+    }
+
+    #[test]
+    fn world_has_region_grid_cols() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        assert!(w.region_cols > 0, "region_cols must be > 0");
+        let rows = w.regions.len().div_ceil(w.region_cols);
+        assert!(
+            rows * w.region_cols >= w.regions.len(),
+            "grid must fit all regions"
+        );
+    }
+
+    #[test]
+    fn region_neighbors_consistent() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        let cols = w.region_cols;
+        for (i, region) in w.regions.iter().enumerate() {
+            let row = i / cols;
+            let col = i % cols;
+            if row > 0 {
+                assert_eq!(
+                    region.neighbors.north,
+                    Some((row - 1) * cols + col),
+                    "north neighbor must match grid"
+                );
+            }
+            if row > 0 {
+                if let Some(ni) = region.neighbors.north {
+                    let north_region = &w.regions[ni];
+                    assert_eq!(
+                        north_region.neighbors.south,
+                        Some(i),
+                        "north's south must point back"
+                    );
+                }
+            }
+            if let Some(ei) = region.neighbors.east {
+                let east_region = &w.regions[ei];
+                assert_eq!(
+                    east_region.neighbors.west,
+                    Some(i),
+                    "east's west must point back"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn edge_regions_have_no_out_of_bounds_neighbors() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        let cols = w.region_cols;
+        for (i, region) in w.regions.iter().enumerate() {
+            let row = i / cols;
+            let col = i % cols;
+            if col == 0 {
+                assert_eq!(region.neighbors.west, None, "leftmost column has no west");
+            }
+            if col == cols - 1 || i == w.regions.len() - 1 {
+                // Last in row or last region
+            }
+            if row == 0 {
+                assert_eq!(region.neighbors.north, None, "top row has no north");
+            }
+            if let Some(si) = region.neighbors.south {
+                assert!(si < w.regions.len(), "south neighbor must be valid index");
+            }
+        }
+    }
+
+    #[test]
+    fn seamless_edges_match_neighbors() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        for i in 0..w.regions.len() {
+            if let Some(ni) = w.regions[i].neighbors.north {
+                let w_width = w.regions[i].terrain.width;
+                if w.regions[ni].terrain.width == w_width
+                    && w.regions[ni].terrain.height == w.regions[i].terrain.height
+                {
+                    for x in 0..w_width {
+                        let north_bottom = w.regions[ni]
+                            .terrain
+                            .get(x, w.regions[ni].terrain.height - 1);
+                        let my_top = w.regions[i].terrain.get(x, 0);
+                        assert_eq!(
+                            north_bottom, my_top,
+                            "region {} top row must match region {} bottom row at x={}",
+                            i, ni, x
+                        );
+                    }
+                }
+            }
+            if let Some(ei) = w.regions[i].neighbors.east {
+                let h = w.regions[i].terrain.height;
+                if w.regions[ei].terrain.height == h
+                    && w.regions[ei].terrain.width == w.regions[i].terrain.width
+                    && h > 2
+                {
+                    for y in 1..h.saturating_sub(1) {
+                        let east_left = w.regions[ei].terrain.get(0, y);
+                        let my_right = w.regions[i].terrain.get(w.regions[i].terrain.width - 1, y);
+                        assert_eq!(
+                            east_left, my_right,
+                            "region {} right col must match region {} left col at y={}",
+                            i, ei, y
+                        );
+                    }
+                }
+            }
         }
     }
 }
