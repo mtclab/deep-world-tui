@@ -275,6 +275,27 @@ impl App {
                 return;
             }
         }
+        let npc_people = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| PeopleKind::from_name(&p.people))
+        });
+        if let Some(npc_pk) = npc_people {
+            let bias = self.inter_people_bias.player_people.bias_toward(npc_pk);
+            if bias < -0.20 {
+                if let Some(ref mut ps) = self.player_start {
+                    ps.inventory.add(ItemType::Food, 1);
+                }
+                self.status_msg = Some(format!(
+                    "'Keep your food, {}.' They push it back. 'We don't take from clearing-sympathizers.'",
+                    self.inter_people_bias.player_people.label()
+                ));
+                return;
+            }
+        }
         let player_id = self.player_start.as_ref().map(|ps| ps.person.id.clone());
         let settlement_id = self.sim.as_ref().and_then(|sim| {
             sim.world
@@ -327,6 +348,27 @@ impl App {
         if let Some(ref mut ps) = self.player_start {
             if !ps.inventory.remove(ItemType::Coin, 1) {
                 self.status_msg = Some("No coin to give".into());
+                return;
+            }
+        }
+        let npc_people = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| PeopleKind::from_name(&p.people))
+        });
+        if let Some(npc_pk) = npc_people {
+            let bias = self.inter_people_bias.player_people.bias_toward(npc_pk);
+            if bias < -0.20 {
+                if let Some(ref mut ps) = self.player_start {
+                    ps.inventory.add(ItemType::Coin, 1);
+                }
+                self.status_msg = Some(format!(
+                    "The coin is set back on the table. 'We don't take {} coin here.'",
+                    self.inter_people_bias.player_people.label()
+                ));
                 return;
             }
         }
