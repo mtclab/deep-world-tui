@@ -481,6 +481,50 @@ pub struct Region {
     pub neighbors: RegionNeighbors,
 }
 
+impl Region {
+    pub fn danger_level(&self) -> DangerLevel {
+        let total = self.terrain.width * self.terrain.height;
+        if total == 0 {
+            return DangerLevel::Safe;
+        }
+        let mut hostile = 0u32;
+        for y in 0..self.terrain.height {
+            for x in 0..self.terrain.width {
+                if let Some(Terrain::Forest | Terrain::Mountain | Terrain::Swamp) =
+                    self.terrain.get(x, y)
+                {
+                    hostile += 1;
+                }
+            }
+        }
+        let ratio = hostile as f64 / total as f64;
+        if ratio > 0.5 {
+            DangerLevel::Dangerous
+        } else if ratio > 0.25 {
+            DangerLevel::Risky
+        } else {
+            DangerLevel::Safe
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DangerLevel {
+    Safe,
+    Risky,
+    Dangerous,
+}
+
+impl DangerLevel {
+    pub fn glyph(self) -> char {
+        match self {
+            DangerLevel::Safe => '·',
+            DangerLevel::Risky => '⚠',
+            DangerLevel::Dangerous => '☠',
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settlement {
     pub id: String,
@@ -1297,5 +1341,53 @@ mod tests {
     fn clock_season() {
         let clock = GameClock::new(90, 12);
         assert_eq!(clock.season(), Season::Summer);
+    }
+
+    #[test]
+    fn danger_level_safe_region() {
+        let mut terrain = TerrainMap {
+            width: 4,
+            height: 4,
+            tiles: vec![Terrain::Grass; 16],
+        };
+        for y in 0..4 {
+            for x in 0..4 {
+                terrain.set(x, y, Terrain::Grass);
+            }
+        }
+        let region = Region {
+            id: "r1".into(),
+            name: "Safeville".into(),
+            region_type: "river_valley".into(),
+            description: String::new(),
+            settlements: vec![],
+            terrain,
+            neighbors: RegionNeighbors::default(),
+        };
+        assert_eq!(region.danger_level(), DangerLevel::Safe);
+    }
+
+    #[test]
+    fn danger_level_forest_heavy() {
+        let mut terrain = TerrainMap {
+            width: 4,
+            height: 4,
+            tiles: vec![Terrain::Grass; 16],
+        };
+        for y in 0..4 {
+            for x in 0..4 {
+                terrain.set(x, y, Terrain::Forest);
+            }
+        }
+        let region = Region {
+            id: "r2".into(),
+            name: "Darkwood".into(),
+            region_type: "forest".into(),
+            description: String::new(),
+            settlements: vec![],
+            terrain,
+            neighbors: RegionNeighbors::default(),
+        };
+        assert_eq!(region.danger_level(), DangerLevel::Dangerous);
     }
 }

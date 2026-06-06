@@ -1369,7 +1369,14 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                 if let Some(ref sim) = app.sim {
                     if let Some(region) = sim.world.regions.get(idx) {
                         let glyph = region_type_glyph(&region.region_type);
-                        let width_label = format!(" {:3} ", idx + 1);
+                        let danger = region.danger_level();
+                        let danger_glyph = danger.glyph();
+                        let danger_color = match danger {
+                            crate::model::DangerLevel::Safe => NEED_LOW,
+                            crate::model::DangerLevel::Risky => WARM_BROWN,
+                            crate::model::DangerLevel::Dangerous => NEED_HIGH,
+                        };
+                        let width_label = format!(" {:3}{}", idx + 1, danger_glyph);
                         if idx == current_region {
                             spans.push(Span::styled(
                                 format!("[{}]", glyph),
@@ -1378,6 +1385,10 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                                     .add_modifier(Modifier::BOLD),
                             ));
                             spans.push(Span::styled(width_label, Style::default().fg(INK)));
+                            spans.push(Span::styled(
+                                format!("{}", danger_glyph),
+                                Style::default().fg(danger_color),
+                            ));
                         } else {
                             spans.push(Span::styled(
                                 format!(" {} ", glyph),
@@ -1394,6 +1405,10 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                                 )),
                             ));
                             spans.push(Span::styled(width_label, Style::default().fg(DARK_BROWN)));
+                            spans.push(Span::styled(
+                                format!("{}", danger_glyph),
+                                Style::default().fg(danger_color),
+                            ));
                         }
                     }
                 }
@@ -1434,6 +1449,15 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
         lines.push(Line::from(name_spans));
         lines.push(Line::from(""));
     }
+    lines.push(Line::from(vec![
+        Span::styled("  Danger: ", Style::default().fg(DARK_BROWN)),
+        Span::styled("·", Style::default().fg(NEED_LOW)),
+        Span::styled(" safe  ", Style::default().fg(DARK_BROWN)),
+        Span::styled("⚠", Style::default().fg(WARM_BROWN)),
+        Span::styled(" risky  ", Style::default().fg(DARK_BROWN)),
+        Span::styled("☠", Style::default().fg(NEED_HIGH)),
+        Span::styled(" dangerous", Style::default().fg(DARK_BROWN)),
+    ]));
 
     let map_widget = Paragraph::new(lines).style(Style::default().bg(PAPER));
     f.render_widget(map_widget, chunks[1]);
