@@ -519,7 +519,13 @@ impl App {
             }
             let season = self.clock.season();
             let mult = season.gather_multiplier();
-            let count = if mult > 0.5 { 1 } else { 0 };
+            let pp = self.inter_people_bias.player_people;
+            let people_bonus = Terrain::people_gather_bonus(pp, terrain);
+            let count = if mult > 0.5 {
+                1 + people_bonus
+            } else {
+                people_bonus
+            };
             if count == 0 {
                 self.status_msg = Some(format!(
                     "Too scarce in {} to gather {}",

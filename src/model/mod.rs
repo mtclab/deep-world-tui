@@ -42,6 +42,15 @@ impl Terrain {
             Terrain::Water | Terrain::Mountain => 2,
         }
     }
+
+    pub fn people_gather_bonus(people: PeopleKind, terrain: Terrain) -> u32 {
+        match (people, terrain) {
+            (PeopleKind::Metsik, Terrain::Forest) => 1,
+            (PeopleKind::Sepat, Terrain::Mountain) => 1,
+            (PeopleKind::Ahjo, Terrain::Grass | Terrain::Farmland) => 1,
+            _ => 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -2283,5 +2292,41 @@ mod tests {
         let greeting = PeopleKind::Metsik.greeting_to(PeopleKind::Sepat);
         assert!(!greeting.is_empty());
         assert!(greeting.contains("Forest-people") || greeting.contains("iron-ore"));
+    }
+
+    #[test]
+    fn people_gather_bonus_metsik_forest() {
+        assert_eq!(
+            Terrain::people_gather_bonus(PeopleKind::Metsik, Terrain::Forest),
+            1
+        );
+    }
+
+    #[test]
+    fn people_gather_bonus_sepat_mountain() {
+        assert_eq!(
+            Terrain::people_gather_bonus(PeopleKind::Sepat, Terrain::Mountain),
+            1
+        );
+    }
+
+    #[test]
+    fn people_gather_bonus_ahjo_farmland() {
+        assert_eq!(
+            Terrain::people_gather_bonus(PeopleKind::Ahjo, Terrain::Farmland),
+            1
+        );
+    }
+
+    #[test]
+    fn people_gather_bonus_no_match() {
+        assert_eq!(
+            Terrain::people_gather_bonus(PeopleKind::Laakso, Terrain::Forest),
+            0
+        );
+        assert_eq!(
+            Terrain::people_gather_bonus(PeopleKind::Metsik, Terrain::Mountain),
+            0
+        );
     }
 }
