@@ -1,6 +1,7 @@
 use crate::model::{Need, World};
 
 pub mod effects;
+pub mod needs_dependent;
 
 const FOOD_DECAY_RATE: f64 = 0.08;
 const MONEY_DECAY_RATE: f64 = 0.04;
