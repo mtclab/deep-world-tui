@@ -1,0 +1,83 @@
+// Possibility charts — STARTER (schema illustration + lore-grounded starter
+// weights). Loaded at runtime (serde/RON); tune without recompiling. The exact
+// serde shape is finalized by charts/load.rs (issue #3); keep this in sync.
+// Weights are STARTERS — tune against deep-world-history (see GENERATION.md §5).
+// Demographics note: river-corridor density; most people farm/labour; soldiers +
+// merchants are minorities. Numbers are relative weights (need not sum to 1).
+Charts(
+    // ---- people (≈ lore demographics; SAST names) ----
+    people: WeightedTable(entries: {
+        "metsik": 22, "arkit": 14, "vayla": 16, "laakso": 10, "sepat": 12, "ahjo": 20,
+        // non-humans rare/edge — add later: "vaskarii", "merak", "shear", "hal", "khor"
+    }),
+
+    // ---- region / settlement (river-corridor principle) ----
+    region: WeightedTable(entries: {
+        "river_valley": 38, "coast": 22, "forest": 18, "upland": 12, "steppe": 6, "delta": 4,
+    }),
+    settlement_size: WeightedTable(entries: {  // most people are rural
+        "hamlet": 50, "village": 30, "town": 15, "city": 5,
+    }),
+
+    // ---- social class ----
+    social_class: WeightedTable(entries: { "low": 70, "middling": 25, "high": 5 }),
+
+    // ---- profession: broad base, then conditioned (the "not 99% soldiers" core) ----
+    profession: ConditionalTable(
+        base: WeightedTable(entries: {
+            "farmer": 100, "labourer": 70, "herder": 30, "fisher": 22, "forester": 18,
+            "weaver": 12, "smith": 8, "carpenter": 8, "trader": 6, "miner": 6,
+            "sailor": 6, "soldier": 5, "healer": 4, "scribe": 3, "priest": 2,
+        }),
+        modifiers: [
+            (when: People("sepat"),       mult: { "smith": 6.0, "miner": 4.0, "carpenter": 2.0, "farmer": 0.4 }),
+            (when: People("ahjo"),        mult: { "miner": 4.0, "smith": 3.0, "soldier": 3.0, "farmer": 0.5 }),
+            (when: People("vayla"),       mult: { "trader": 8.0, "sailor": 5.0, "farmer": 0.5 }),
+            (when: People("metsik"),      mult: { "forester": 5.0, "herder": 2.0, "healer": 2.0 }),
+            (when: People("arkit"),       mult: { "scribe": 6.0, "healer": 2.0 }),
+            (when: People("laakso"),      mult: { "priest": 4.0, "herder": 2.0 }),
+            (when: Region("coast"),       mult: { "fisher": 4.0, "sailor": 3.0, "farmer": 0.6 }),
+            (when: Region("forest"),      mult: { "forester": 4.0, "herder": 1.5, "farmer": 0.7 }),
+            (when: Region("upland"),      mult: { "miner": 3.0, "herder": 2.0, "farmer": 0.6 }),
+            (when: Class("low"),          mult: { "scribe": 0.1, "priest": 0.2, "trader": 0.4 }),
+            (when: Class("high"),         mult: { "scribe": 4.0, "trader": 3.0, "labourer": 0.1, "soldier": 2.0 }),
+            (when: Settlement("city"),    mult: { "trader": 3.0, "scribe": 2.0, "smith": 1.5, "farmer": 0.2 }),
+        ],
+    ),
+
+    // ---- craft affinity (rare; "none" dominates) ----
+    craft_affinity: ConditionalTable(
+        base: WeightedTable(entries: { "none": 100, "word": 2, "current": 2, "still": 2, "forge": 2, "root": 2 }),
+        modifiers: [
+            (when: People("arkit"),  mult: { "word": 6.0 }),
+            (when: People("vayla"),  mult: { "current": 6.0 }),
+            (when: People("laakso"), mult: { "still": 6.0 }),
+            (when: People("sepat"),  mult: { "forge": 6.0 }),
+            (when: People("ahjo"),   mult: { "forge": 4.0 }),
+            (when: People("metsik"), mult: { "root": 6.0 }),
+        ],
+    ),
+
+    // ---- personality: a small tag set (sample 2-3) + per-people value leanings ----
+    personality_traits: WeightedTable(entries: {
+        "stoic": 10, "warm": 10, "proud": 8, "cautious": 9, "reckless": 6, "devout": 6,
+        "mercenary": 6, "loyal": 9, "bitter": 5, "curious": 7, "withdrawn": 6, "shrewd": 7,
+    }),
+
+    // ---- household (the consequence hooks) ----
+    has_spouse: WeightedTable(entries: { "yes": 55, "no": 45 }),
+    children_count: WeightedTable(entries: { "0": 45, "1": 22, "2": 18, "3": 10, "4+": 5 }),
+    has_debt: WeightedTable(entries: { "no": 70, "yes": 30 }),
+
+    // ---- age / sex ----
+    age_band: WeightedTable(entries: { "child": 0, "youth": 22, "adult": 50, "elder": 18, "aged": 10 }),
+    sex: WeightedTable(entries: { "f": 50, "m": 50 }),
+
+    // ---- name grammars per people: pointer to data/names/<people>.ron (issue #4) ----
+    // Generated from the lore Naming Atlas/Guide; names MUST fit the sampled people.
+    name_grammars: {
+        "metsik": "names/metsik.ron", "arkit": "names/arkit.ron",
+        "vayla": "names/vayla.ron", "laakso": "names/laakso.ron",
+        "sepat": "names/sepat.ron", "ahjo": "names/ahjo.ron",
+    },
+)
