@@ -2036,6 +2036,30 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
             format!("  Kind: {}", kind_str),
             Style::default().fg(WARM_BROWN),
         )));
+        if let Some(npc_people) = app.current_settlement_people() {
+            let bias = app.inter_people_bias.player_people.bias_toward(npc_people)
+                + app.clock.season().bias_modifier();
+            let stance = if bias > 0.05 {
+                "ally"
+            } else if bias > -0.05 {
+                "neutral"
+            } else if bias > -0.15 {
+                "wary"
+            } else {
+                "hostile"
+            };
+            let stance_color = if bias > 0.05 {
+                NEED_LOW
+            } else if bias < -0.05 {
+                NEED_HIGH
+            } else {
+                DARK_BROWN
+            };
+            lines.push(Line::from(vec![
+                Span::styled("  Local stance: ", Style::default().fg(WARM_BROWN)),
+                Span::styled(stance, Style::default().fg(stance_color)),
+            ]));
+        }
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             " What do you do?",
