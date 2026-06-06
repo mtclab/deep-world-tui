@@ -475,4 +475,59 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn determinism_world_partial_eq() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w1 = generate_world(42, &charts);
+        let w2 = generate_world(42, &charts);
+        assert_eq!(w1, w2, "same-seed worlds must be deeply equal");
+    }
+
+    #[test]
+    fn determinism_person_partial_eq() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let mut rng1 = crate::rng::SeedRng::new(42);
+        let mut rng2 = crate::rng::SeedRng::new(42);
+        let p1 = crate::gen::person::generate_person(&mut rng1, &charts);
+        let p2 = crate::gen::person::generate_person(&mut rng2, &charts);
+        assert_eq!(p1, p2, "same-seed persons must be deeply equal");
+    }
+
+    #[test]
+    fn determinism_name_sequence() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let mut rng1 = crate::rng::SeedRng::new(77);
+        let mut rng2 = crate::rng::SeedRng::new(77);
+        for _ in 0..50 {
+            let n1 = crate::gen::name::generate_name(&mut rng1, "metsik", "f", &charts).unwrap();
+            let n2 = crate::gen::name::generate_name(&mut rng2, "metsik", "f", &charts).unwrap();
+            assert_eq!(n1, n2, "name sequence must be deterministic");
+        }
+    }
+
+    #[test]
+    fn determinism_after_forking() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let _intermediate = generate_world(42, &charts);
+        let w1 = generate_world(99, &charts);
+        let w2 = generate_world(99, &charts);
+        assert_eq!(
+            w1, w2,
+            "world gen must be deterministic regardless of prior calls"
+        );
+    }
+
+    #[test]
+    fn different_seed_produces_different_person() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let mut rng1 = crate::rng::SeedRng::new(42);
+        let mut rng2 = crate::rng::SeedRng::new(99);
+        let p1 = crate::gen::person::generate_person(&mut rng1, &charts);
+        let p2 = crate::gen::person::generate_person(&mut rng2, &charts);
+        assert_ne!(
+            p1.id, p2.id,
+            "different seeds should produce different person ids"
+        );
+    }
 }
