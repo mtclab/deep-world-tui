@@ -1,0 +1,8 @@
+// Laakso name grammar — valley/quiet-naming tradition
+// Roots: valley, quiet, echo, dawn, mist
+NameGrammar(
+    prefixes: ["Hilj", "Kuk", "Aamu", "Usva", "Kai"],
+    roots: ["Laakso", "Kukku", "Kaiku", "Sammal", "Piha", "Puro", "Notko", "Korpi", "Vuo", "Harju"],
+    suffixes: ["nen", "la", "kkä", "nen", "kko", "tär", "nen", "ja"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)

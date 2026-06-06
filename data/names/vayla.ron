@@ -1,0 +1,8 @@
+// Väylä name grammar — maritime/tide-naming tradition
+// Roots: water, channel, passage, harbor, wave
+NameGrammar(
+    prefixes: ["Meri", "Saari", "Ranta", "Satama", "Aalto"],
+    roots: ["Vesi", "Virta", "Laine", "Purje", "Kivi", "Haven", "Vuoksi", "Salmi", "Luoto", "Riutta"],
+    suffixes: ["nen", "la", "kka", "ri", "tär", "inen", "ainen", "nen"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)

@@ -1,0 +1,10 @@
+// Metsik name grammar — forest-naming tradition
+// Roots: ecological (growth, green, deep, clearing, moss, bark)
+// Suffixes: feminine -a/-ä, masculine -o/-ö, patronymic -nen
+// Patterns: Root (simple), Root+Suffix, Prefix+Root
+NameGrammar(
+    prefixes: ["Ala", "Yli", "Piha", "Syvä", "Raja"],
+    roots: ["Honka", "Kuusi", "Sammal", "Lehti", "Orava", "Korpi", "Vihta", "Petäjä", "Rääkkä", "Kuusikko"],
+    suffixes: ["nen", "lä", "nen", "kkä", "ja", "kki", "niemi", "ranta"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)
