@@ -834,9 +834,18 @@ impl App {
             })
             .unwrap_or_default();
         let people_bias_mod = self.current_settlement_people().map_or(0.0, |npc_people| {
-            self.inter_people_bias.player_people.bias_toward(npc_people)
-                + self.clock.season().bias_modifier()
+            self.inter_people_bias.effective_bias(npc_people) + self.clock.season().bias_modifier()
         });
+        let god_calm_bonus = if self.god_affinity.get(GodName::Metsik) > 0.4 {
+            0.03
+        } else {
+            0.0
+        };
+        let god_intimidate_bonus = if self.god_affinity.get(GodName::Ahjo) > 0.4 {
+            0.03
+        } else {
+            0.0
+        };
         let talk_success = people_bias_mod > -0.20;
         let trade_bonus = people_bias_mod > 0.05;
         let msg = match action {
@@ -869,14 +878,14 @@ impl App {
                 }
             }
             EncounterAction::Calm => {
-                if enc_mod.calm > 0.03 {
+                if enc_mod.calm + god_calm_bonus > 0.03 {
                     "Your calm presence soothed the beast. It bows its head.".into()
                 } else {
                     "The beast settled. It watches you leave.".into()
                 }
             }
             EncounterAction::Intimidate => {
-                if enc_mod.intimidate > 0.03 {
+                if enc_mod.intimidate + god_intimidate_bonus > 0.03 {
                     "You loomed large. They scattered before you.".into()
                 } else {
                     "You stared them down. They backed off.".into()
