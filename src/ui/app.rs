@@ -226,6 +226,20 @@ impl App {
     }
 
     pub fn give_food(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        if let Some(ref mut ps) = self.player_start {
+            if !ps.inventory.remove(ItemType::Food, 1) {
+                self.status_msg = Some("No food to give".into());
+                return;
+            }
+        }
+        let player_id = self.player_start.as_ref().map(|ps| ps.person.id.clone());
+        let settlement_id = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .map(|s| s.id.clone())
+        });
         if let Some(ref mut sim) = self.sim {
             if let Some(person) = sim
                 .world
@@ -234,13 +248,39 @@ impl App {
                 .and_then(|r| r.settlements.get_mut(settlement_idx))
                 .and_then(|s| s.people.get_mut(person_idx))
             {
+                let person_id = person.id.clone();
                 person.needs.satisfy(Need::Food, 0.2);
+                if let (Some(pid), Some(sid)) = (&player_id, &settlement_id) {
+                    sim.relationships.update_relationship(
+                        pid,
+                        &person_id,
+                        "gave food",
+                        sim.world.tick,
+                        0.05,
+                        0.03,
+                    );
+                    sim.reputation.adjust_local(pid, sid, 0.02);
+                }
                 self.status_msg = Some(format!("Gave food to {}", person.name));
             }
         }
     }
 
     pub fn give_coin(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        if let Some(ref mut ps) = self.player_start {
+            if !ps.inventory.remove(ItemType::Coin, 1) {
+                self.status_msg = Some("No coin to give".into());
+                return;
+            }
+        }
+        let player_id = self.player_start.as_ref().map(|ps| ps.person.id.clone());
+        let settlement_id = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .map(|s| s.id.clone())
+        });
         if let Some(ref mut sim) = self.sim {
             if let Some(person) = sim
                 .world
@@ -249,7 +289,19 @@ impl App {
                 .and_then(|r| r.settlements.get_mut(settlement_idx))
                 .and_then(|s| s.people.get_mut(person_idx))
             {
+                let person_id = person.id.clone();
                 person.needs.satisfy(Need::Money, 0.2);
+                if let (Some(pid), Some(sid)) = (&player_id, &settlement_id) {
+                    sim.relationships.update_relationship(
+                        pid,
+                        &person_id,
+                        "gave coin",
+                        sim.world.tick,
+                        0.03,
+                        0.02,
+                    );
+                    sim.reputation.adjust_local(pid, sid, 0.01);
+                }
                 self.status_msg = Some(format!("Gave coin to {}", person.name));
             }
         }
