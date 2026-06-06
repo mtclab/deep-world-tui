@@ -398,6 +398,24 @@ fn draw_location_screen(
                     .fg(ARCHIVE_RED)
                     .add_modifier(Modifier::BOLD),
             )));
+            if let Some(ref ps) = app.player_start {
+                let rep = sim.reputation.get(&ps.person.id, &s.id);
+                let rep_label = if rep >= 0.8 {
+                    "trusted"
+                } else if rep >= 0.6 {
+                    "liked"
+                } else if rep >= 0.4 {
+                    "neutral"
+                } else if rep >= 0.2 {
+                    "suspect"
+                } else {
+                    "shunned"
+                };
+                lines.push(Line::from(Span::styled(
+                    format!(" Your reputation: {:.0}% ({})", rep * 100.0, rep_label),
+                    Style::default().fg(WARM_BROWN),
+                )));
+            }
         }
         lines.push(Line::from(Span::styled(
             format!(" Population: {}", s.population),
@@ -590,6 +608,40 @@ fn draw_npc_screen(
                 Style::default().fg(INK),
             )));
         }
+        lines.push(Line::from(""));
+
+        if let Some(ref sim) = app.sim {
+            if let Some(ref ps) = app.player_start {
+                let bond = sim.relationships.get(&ps.person.id, &p.id);
+                let (bond_str, bond_color) = if let Some(rel) = bond {
+                    let cat = crate::sim::relationships::BondCategory::from_strength(rel.strength);
+                    let label = match cat {
+                        crate::sim::relationships::BondCategory::Bonded => "bonded",
+                        crate::sim::relationships::BondCategory::Kin => "kin",
+                        crate::sim::relationships::BondCategory::Friend => "friend",
+                        crate::sim::relationships::BondCategory::Acquaintance => "acquaintance",
+                        crate::sim::relationships::BondCategory::Stranger => "stranger",
+                    };
+                    (
+                        format!("   Bond     {:.0}% {}", rel.strength * 100.0, label),
+                        need_color(rel.strength),
+                    )
+                } else {
+                    ("   Bond     stranger".into(), DARK_BROWN)
+                };
+                lines.push(Line::from(Span::styled(
+                    " Relationship",
+                    Style::default()
+                        .fg(ARCHIVE_RED)
+                        .add_modifier(Modifier::BOLD),
+                )));
+                lines.push(Line::from(Span::styled(
+                    bond_str,
+                    Style::default().fg(bond_color),
+                )));
+            }
+        }
+
         lines.push(Line::from(""));
 
         lines.push(Line::from(Span::styled(
