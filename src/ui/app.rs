@@ -742,20 +742,91 @@ impl App {
             self.god_affinity.adjust(god, delta);
         }
         let enc_kind = self.encounter.map(|e| e.kind);
+        let enc_mod = self
+            .encounter
+            .and_then(|_| {
+                self.sim.as_ref().and_then(|sim| {
+                    let pos = self.player_pos?;
+                    let region = sim.world.regions.get(pos.region_idx)?;
+                    let settlement = region.settlements.first()?;
+                    let person = settlement.people.first()?;
+                    Some(InterPeopleBias::encounter_modifier(&person.personality))
+                })
+            })
+            .unwrap_or_default();
         let msg = match action {
-            EncounterAction::Flee => "You fled! (cost some energy)".into(),
-            EncounterAction::Bribe => "You paid the bandit off (2 coins)".into(),
-            EncounterAction::Calm => "The beast settled. It watches you leave.".into(),
-            EncounterAction::Intimidate => "You stared them down. They backed off.".into(),
-            EncounterAction::Talk => "The traveler shared road wisdom (1h)".into(),
+            EncounterAction::Flee => {
+                if enc_mod.flee > 0.05 {
+                    "You fled quickly! Your instincts served you.".into()
+                } else {
+                    "You fled! (cost some energy)".into()
+                }
+            }
+            EncounterAction::Bribe => {
+                let effective_cost = ((coins as f64) * (1.0 + enc_mod.bribe_cost)).max(1.0) as u32;
+                if effective_cost > coins {
+                    if let Some(ref mut ps) = self.player_start {
+                        let extra = effective_cost - coins;
+                        if ps.inventory.get(ItemType::Coin) >= extra {
+                            ps.inventory.remove(ItemType::Coin, extra);
+                            format!(
+                                "You paid {} coins total — they drove a hard bargain.",
+                                effective_cost
+                            )
+                        } else {
+                            "You paid the bandit off (2 coins).".into()
+                        }
+                    } else {
+                        "You paid the bandit off.".into()
+                    }
+                } else {
+                    "You paid them off (2 coins).".into()
+                }
+            }
+            EncounterAction::Calm => {
+                if enc_mod.calm > 0.03 {
+                    "Your calm presence soothed the beast. It bows its head.".into()
+                } else {
+                    "The beast settled. It watches you leave.".into()
+                }
+            }
+            EncounterAction::Intimidate => {
+                if enc_mod.intimidate > 0.03 {
+                    "You loomed large. They scattered before you.".into()
+                } else {
+                    "You stared them down. They backed off.".into()
+                }
+            }
+            EncounterAction::Talk => {
+                if enc_mod.talk > 0.03 {
+                    "The traveler warmed to you quickly. Wisdom flows freely.".into()
+                } else if enc_mod.talk < -0.02 {
+                    "Words came slow. They barely shared a thing.".into()
+                } else {
+                    "The traveler shared road wisdom (1h).".into()
+                }
+            }
             EncounterAction::Trade => {
                 if let Some(ref mut ps) = self.player_start {
-                    ps.inventory.add(ItemType::Herb, 1);
+                    let herbs = if enc_mod.trade > 0.02 { 2 } else { 1 };
+                    ps.inventory.add(ItemType::Herb, herbs);
+                    if herbs > 1 {
+                        "A shrewd trade — you got extra herbs! (1h)".into()
+                    } else {
+                        "Traded news for herbs (1h)".into()
+                    }
+                } else {
+                    "Traded news for herbs (1h)".into()
                 }
-                "Traded news for herbs (1h)".into()
             }
-            EncounterAction::Shelter => "You waited out the storm (1h)".into(),
-            EncounterAction::PushThrough => "You pushed through regardless!".into(),
+            EncounterAction::Shelter => "You waited out the storm (1h).".into(),
+            EncounterAction::PushThrough => {
+                if enc_mod.push_through > 0.03 {
+                    "You surged ahead — nothing could slow you!".into()
+                } else {
+                    "You pushed through regardless!".into()
+                }
+            }
         };
         if let Some(ref mut sim) = self.sim {
             if let Some(kind) = enc_kind {
@@ -894,6 +965,17 @@ impl App {
             if bias < -0.05 {
                 cost += 1;
             }
+        }
+        let npc_personality = self.sim.as_ref().and_then(|sim| {
+            let pos = self.player_pos?;
+            let region = sim.world.regions.get(pos.region_idx)?;
+            let settlement = region.settlements.first()?;
+            settlement.people.first().map(|p| p.personality.clone())
+        });
+        if let Some(ref personality) = npc_personality {
+            let price_mod = InterPeopleBias::trade_price_modifier(personality);
+            let extra = (service.cost() as f64 * price_mod).ceil() as u32;
+            cost = cost.saturating_add(extra);
         }
         if let Some(ref mut ps) = self.player_start {
             if !ps.inventory.remove(ItemType::Coin, cost) {

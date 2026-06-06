@@ -677,6 +677,56 @@ impl InterPeopleBias {
         }
         mod_val
     }
+
+    pub fn trade_price_modifier(personality: &[String]) -> f64 {
+        let mut mod_val = 0.0;
+        for trait_val in personality {
+            match trait_val.as_str() {
+                "hospitable" | "generous" => mod_val -= 0.05,
+                "mercenary" | "greedy" => mod_val += 0.08,
+                "miserly" => mod_val += 0.10,
+                "cautious" | "guarded" => mod_val += 0.03,
+                "open" | "curious" => mod_val -= 0.02,
+                "bitter" | "shrewd" => mod_val += 0.04,
+                "reckless" => mod_val -= 0.03,
+                _ => {}
+            }
+        }
+        mod_val
+    }
+
+    pub fn encounter_modifier(personality: &[String]) -> EncounterMod {
+        let mut mod_val = EncounterMod::default();
+        for trait_val in personality {
+            match trait_val.as_str() {
+                "hospitable" | "warm" | "generous" => mod_val.talk += 0.05,
+                "xenophobic" | "suspicious" | "insular" => mod_val.flee += 0.08,
+                "cautious" | "guarded" => mod_val.flee += 0.03,
+                "open" | "curious" => mod_val.talk += 0.03,
+                "mercenary" => mod_val.bribe_cost -= 0.10,
+                "devout" => mod_val.calm += 0.05,
+                "reckless" => mod_val.push_through += 0.05,
+                "loyal" => mod_val.calm += 0.03,
+                "bitter" => mod_val.intimidate += 0.04,
+                "stoic" => mod_val.calm += 0.04,
+                "withdrawn" => mod_val.talk -= 0.03,
+                "shrewd" => mod_val.trade += 0.04,
+                _ => {}
+            }
+        }
+        mod_val
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EncounterMod {
+    pub talk: f64,
+    pub flee: f64,
+    pub calm: f64,
+    pub push_through: f64,
+    pub bribe_cost: f64,
+    pub intimidate: f64,
+    pub trade: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2366,6 +2416,30 @@ mod tests {
         assert_eq!(Season::Winter.bias_modifier(), -0.05);
         assert_eq!(Season::Spring.bias_modifier(), 0.0);
         assert_eq!(Season::Autumn.bias_modifier(), 0.0);
+    }
+
+    #[test]
+    fn trade_price_modifier_hospitable() {
+        let r = InterPeopleBias::trade_price_modifier(&["hospitable".into()]);
+        assert!(r < 0.0, "hospitable should reduce price: {r}");
+    }
+
+    #[test]
+    fn trade_price_modifier_mercenary() {
+        let r = InterPeopleBias::trade_price_modifier(&["mercenary".into()]);
+        assert!(r > 0.0, "mercenary should increase price: {r}");
+    }
+
+    #[test]
+    fn encounter_modifier_devout() {
+        let r = InterPeopleBias::encounter_modifier(&["devout".into()]);
+        assert!(r.calm > 0.0, "devout should boost calm: {}", r.calm);
+    }
+
+    #[test]
+    fn encounter_modifier_xenophobic() {
+        let r = InterPeopleBias::encounter_modifier(&["xenophobic".into()]);
+        assert!(r.flee > 0.0, "xenophobic should boost flee: {}", r.flee);
     }
 
     #[test]
