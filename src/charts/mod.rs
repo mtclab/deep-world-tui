@@ -91,6 +91,21 @@ impl ConditionalTable {
         }
         result
     }
+
+    /// Resolve effective weights and sample one key.
+    /// Convenience: wraps the resolved HashMap → WeightedTable → sample.
+    pub fn resolve_and_sample(
+        &self,
+        people: &str,
+        region: &str,
+        class: &str,
+        settlement_size: &str,
+        rng: &mut crate::rng::SeedRng,
+    ) -> Option<String> {
+        let resolved = self.resolve(people, region, class, settlement_size);
+        let table = WeightedTable { entries: resolved };
+        table.sample(rng)
+    }
 }
 
 /// The top-level charts loaded from data/charts.ron.
@@ -218,6 +233,115 @@ mod tests {
         let mut rng = SeedRng::new(42);
         for _ in 0..50 {
             assert_eq!(table.sample(&mut rng).as_deref(), Some("one"));
+        }
+    }
+
+    // ---- ConditionalTable resolve_and_sample tests ----
+
+    #[test]
+    fn resolve_and_sample_deterministic() {
+        let charts = load::load_charts("data/charts.ron").unwrap();
+        let mut a = SeedRng::new(42);
+        let mut b = SeedRng::new(42);
+        for _ in 0..50 {
+            assert_eq!(
+                charts
+                    .profession
+                    .resolve_and_sample("sepat", "forest", "low", "hamlet", &mut a),
+                charts
+                    .profession
+                    .resolve_and_sample("sepat", "forest", "low", "hamlet", &mut b)
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_modifier_only_matches_context() {
+        let charts = load::load_charts("data/charts.ron").unwrap();
+        let sepat = charts
+            .profession
+            .resolve("sepat", "river_valley", "low", "hamlet");
+        let base = charts
+            .profession
+            .resolve("metsik", "river_valley", "low", "hamlet");
+        let sepat_smith = sepat.get("smith").copied().unwrap_or(0);
+        let base_smith = base.get("smith").copied().unwrap_or(0);
+        assert!(
+            sepat_smith > base_smith,
+            "sepat smith weight ({}) should exceed base ({})",
+            sepat_smith,
+            base_smith
+        );
+    }
+
+    #[test]
+    fn resolve_and_sample_sepat_boosts_smith() {
+        let charts = load::load_charts("data/charts.ron").unwrap();
+        let n = 10_000usize;
+        let mut counts = HashMap::new();
+
+        let mut rng = SeedRng::new(77);
+        for _ in 0..n {
+            if let Some(k) = charts.profession.resolve_and_sample(
+                "sepat",
+                "river_valley",
+                "low",
+                "hamlet",
+                &mut rng,
+            ) {
+                *counts.entry(k).or_insert(0usize) += 1;
+            }
+        }
+
+        let mut baseline_counts = HashMap::new();
+        let mut rng_base = SeedRng::new(77);
+        for _ in 0..n {
+            if let Some(k) = charts.profession.resolve_and_sample(
+                "metsik",
+                "river_valley",
+                "low",
+                "hamlet",
+                &mut rng_base,
+            ) {
+                *baseline_counts.entry(k).or_insert(0usize) += 1;
+            }
+        }
+
+        let sepat_smith = counts.get("smith").copied().unwrap_or(0);
+        let base_smith = baseline_counts.get("smith").copied().unwrap_or(0);
+        assert!(
+            sepat_smith > base_smith * 2,
+            "sepat smith count ({}) should be significantly higher than baseline ({})",
+            sepat_smith,
+            base_smith
+        );
+    }
+
+    #[test]
+    fn resolve_and_sample_no_profession_dominance() {
+        let charts = load::load_charts("data/charts.ron").unwrap();
+        let n = 10_000usize;
+        let mut rng = SeedRng::new(88);
+        let mut counts = HashMap::new();
+
+        for _ in 0..n {
+            if let Some(k) = charts
+                .profession
+                .resolve_and_sample("sepat", "forest", "low", "hamlet", &mut rng)
+            {
+                *counts.entry(k).or_insert(0usize) += 1;
+            }
+        }
+
+        let total = counts.values().sum::<usize>() as f64;
+        for (prof, count) in &counts {
+            let fraction = *count as f64 / total;
+            assert!(
+                fraction < 0.5,
+                "profession '{}' dominates at {:.1}%, no single profession should exceed 50%",
+                prof,
+                fraction * 100.0
+            );
         }
     }
 }
