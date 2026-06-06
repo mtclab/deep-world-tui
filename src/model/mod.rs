@@ -51,6 +51,16 @@ impl Terrain {
             _ => 0,
         }
     }
+
+    pub fn patron_god(self) -> Option<GodName> {
+        match self {
+            Terrain::Forest => Some(GodName::Metsik),
+            Terrain::Grass | Terrain::Farmland | Terrain::Settlement => Some(GodName::Ahjo),
+            Terrain::Mountain => Some(GodName::Ahjo),
+            Terrain::Road | Terrain::Water => Some(GodName::Vayla),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]

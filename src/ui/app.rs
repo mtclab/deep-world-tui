@@ -578,6 +578,18 @@ impl App {
             } else {
                 people_bonus
             };
+            let mut boon_msg = None;
+            let patron = terrain.patron_god();
+            let count = if let Some(god) = patron {
+                if self.god_affinity.get(god) > 0.5 && count > 0 {
+                    boon_msg = Some("The land yields generously under your hands.");
+                    count + 1
+                } else {
+                    count
+                }
+            } else {
+                count
+            };
             if count == 0 {
                 self.status_msg = Some(format!(
                     "Too scarce in {} to gather {}",
@@ -590,12 +602,12 @@ impl App {
                 ps.inventory.add(item, count);
             }
             self.advance_clock_hour();
-            self.status_msg = Some(format!(
-                "Gathered {} {} (1h, {})",
-                count,
-                item.name(),
-                season
-            ));
+            let msg = format!("Gathered {} {} (1h, {})", count, item.name(), season);
+            self.status_msg = Some(if let Some(b) = boon_msg {
+                format!("{}. {}", msg, b)
+            } else {
+                msg
+            });
         } else {
             self.status_msg = Some("Nothing to gather here".into());
         }
@@ -1107,7 +1119,12 @@ impl App {
         self.advance_clock(8);
         self.vitals.rest();
         self.god_affinity.adjust(GodName::Vayla, 0.02);
-        self.status_msg = Some("Rested (8h)".into());
+        if self.god_affinity.get(GodName::Vayla) > 0.5 {
+            self.vitals.energy = (self.vitals.energy + 0.05).min(1.0);
+            self.status_msg = Some("Rested deeply. Dreams of clear water. (8h)".into());
+        } else {
+            self.status_msg = Some("Rested (8h)".into());
+        }
     }
 
     pub fn clock_str(&self) -> String {
