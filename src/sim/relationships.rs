@@ -1,4 +1,4 @@
-use crate::model::{Relationship, RelationshipEvent, RelationshipKind};
+use crate::model::{PeopleKind, Relationship, RelationshipEvent, RelationshipKind};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -67,6 +67,33 @@ impl RelationshipTracker {
                 kind: RelationshipKind::Friend,
                 strength: 0.0,
                 trust: TRUST_BASELINE,
+                trust_baseline: TRUST_BASELINE,
+                history: Vec::new(),
+            })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn get_or_create_with_bias(
+        &mut self,
+        from: &str,
+        to: &str,
+        from_people: PeopleKind,
+        to_people: PeopleKind,
+        player_personality: &[String],
+    ) -> &mut Relationship {
+        let key = (from.to_string(), to.to_string());
+        let bias = from_people.bias_toward(to_people);
+        let personality_mod = crate::model::InterPeopleBias::personality_mod(player_personality);
+        let base = (TRUST_BASELINE + bias + personality_mod).clamp(0.1, 0.9);
+        self.relationships
+            .entry(key)
+            .or_insert_with(|| Relationship {
+                from_id: from.to_string(),
+                to_id: to.to_string(),
+                kind: RelationshipKind::Friend,
+                strength: 0.0,
+                trust: base,
+                trust_baseline: base,
                 history: Vec::new(),
             })
     }
@@ -92,12 +119,52 @@ impl RelationshipTracker {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_relationship_biased(
+        &mut self,
+        from: &str,
+        to: &str,
+        event: &str,
+        tick: u64,
+        strength_delta: f64,
+        trust_delta: f64,
+        from_people: PeopleKind,
+        to_people: PeopleKind,
+    ) {
+        let bias_mod = 1.0 + from_people.bias_toward(to_people) * 0.5;
+        let adjusted_strength = strength_delta * bias_mod.max(0.3);
+        let adjusted_trust = trust_delta * bias_mod.max(0.3);
+        self.update_relationship(from, to, event, tick, adjusted_strength, adjusted_trust);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_relationship_biased_full(
+        &mut self,
+        from: &str,
+        to: &str,
+        event: &str,
+        tick: u64,
+        strength_delta: f64,
+        trust_delta: f64,
+        from_people: PeopleKind,
+        to_people: PeopleKind,
+        personality: &[String],
+    ) {
+        self.get_or_create_with_bias(from, to, from_people, to_people, personality);
+        let bias_mod = 1.0 + from_people.bias_toward(to_people) * 0.5;
+        let personality_bias = crate::model::InterPeopleBias::personality_mod(personality);
+        let adjusted_strength = strength_delta * (bias_mod + personality_bias).max(0.3);
+        let adjusted_trust = trust_delta * (bias_mod + personality_bias).max(0.3);
+        self.update_relationship(from, to, event, tick, adjusted_strength, adjusted_trust);
+    }
+
     pub fn tick_converge(&mut self, dt: f64) {
         for rel in self.relationships.values_mut() {
-            if rel.trust > TRUST_BASELINE {
-                rel.trust = (rel.trust - TRUST_CONVERGENCE_RATE * dt).max(TRUST_BASELINE);
-            } else if rel.trust < TRUST_BASELINE {
-                rel.trust = (rel.trust + TRUST_CONVERGENCE_RATE * dt).min(TRUST_BASELINE);
+            let baseline = rel.trust_baseline;
+            if rel.trust > baseline {
+                rel.trust = (rel.trust - TRUST_CONVERGENCE_RATE * dt).max(baseline);
+            } else if rel.trust < baseline {
+                rel.trust = (rel.trust + TRUST_CONVERGENCE_RATE * dt).min(baseline);
             }
         }
     }

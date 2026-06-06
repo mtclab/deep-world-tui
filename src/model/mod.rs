@@ -490,6 +490,153 @@ impl GodAffinity {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum PeopleKind {
+    #[default]
+    Metsik,
+    Arkit,
+    Vayla,
+    Laakso,
+    Sepat,
+    Ahjo,
+}
+
+impl PeopleKind {
+    pub fn from_name(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "metsik" => PeopleKind::Metsik,
+            "arkit" => PeopleKind::Arkit,
+            "vayla" => PeopleKind::Vayla,
+            "laakso" => PeopleKind::Laakso,
+            "sepat" | "sepät" => PeopleKind::Sepat,
+            "ahjo" => PeopleKind::Ahjo,
+            _ => PeopleKind::Metsik,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            PeopleKind::Metsik => "Metsik",
+            PeopleKind::Arkit => "Arkit",
+            PeopleKind::Vayla => "Väylä",
+            PeopleKind::Laakso => "Laakso",
+            PeopleKind::Sepat => "Sepät",
+            PeopleKind::Ahjo => "Ahjo",
+        }
+    }
+
+    pub fn bias_toward(self, other: PeopleKind) -> f64 {
+        if self == other {
+            return 0.15;
+        }
+        match (self, other) {
+            (PeopleKind::Metsik, PeopleKind::Sepat) => -0.20,
+            (PeopleKind::Metsik, PeopleKind::Ahjo) => -0.15,
+            (PeopleKind::Sepat, PeopleKind::Metsik) => -0.15,
+            (PeopleKind::Ahjo, PeopleKind::Metsik) => -0.12,
+            (PeopleKind::Sepat, PeopleKind::Ahjo) => 0.10,
+            (PeopleKind::Ahjo, PeopleKind::Sepat) => 0.10,
+            (PeopleKind::Metsik, PeopleKind::Vayla) => -0.05,
+            (PeopleKind::Vayla, PeopleKind::Metsik) => -0.05,
+            (PeopleKind::Sepat, PeopleKind::Arkit) => 0.08,
+            (PeopleKind::Arkit, PeopleKind::Sepat) => 0.05,
+            (PeopleKind::Ahjo, PeopleKind::Vayla) => 0.05,
+            (PeopleKind::Vayla, PeopleKind::Ahjo) => 0.05,
+            (PeopleKind::Laakso, PeopleKind::Metsik) => 0.05,
+            (PeopleKind::Metsik, PeopleKind::Laakso) => 0.05,
+            (PeopleKind::Laakso, PeopleKind::Vayla) => -0.08,
+            (PeopleKind::Vayla, PeopleKind::Laakso) => -0.05,
+            (PeopleKind::Laakso, _) => -0.05,
+            (PeopleKind::Arkit, _) => 0.0,
+            (PeopleKind::Vayla, _) => 0.0,
+            _ => 0.0,
+        }
+    }
+
+    pub fn greeting_to(self, other: PeopleKind) -> &'static str {
+        if self == other {
+            return "You are among your own. Their eyes warm with recognition.";
+        }
+        match (self, other) {
+            (PeopleKind::Metsik, PeopleKind::Sepat) | (PeopleKind::Metsik, PeopleKind::Ahjo) => {
+                "They size you up. Forest-people are not loved here. 'Clearing-sympathizer,' someone mutters."
+            }
+            (PeopleKind::Sepat, PeopleKind::Metsik) => {
+                "They eye your hands. 'Forest-dweller. Your kind took good iron-ore ground.'"
+            }
+            (PeopleKind::Ahjo, PeopleKind::Metsik) => {
+                "A guarded look. 'Another one who thinks trees matter more than forge-heat.'"
+            }
+            (PeopleKind::Metsik, PeopleKind::Vayla) => {
+                "Neutral, but watchful. 'Trader. You would sell the forest if the price was right.'"
+            }
+            (PeopleKind::Vayla, PeopleKind::Metsik) => {
+                "Interested. 'Forest goods fetch fine prices. But we respect your... boundaries.'"
+            }
+            (PeopleKind::Laakso, PeopleKind::Vayla) => {
+                "A long pause. 'You move too fast. Everything with you is a transaction.'"
+            }
+            (PeopleKind::Sepat, PeopleKind::Arkit) => {
+                "A nod of respect. 'Keeper of knowledge. That is honest work.'"
+            }
+            (PeopleKind::Arkit, PeopleKind::Sepat) => {
+                "Professional courtesy. 'Makers. You preserve things differently than we do.'"
+            }
+            (PeopleKind::Laakso, _) => "They watch you in silence. You must prove patience to earn their warmth.",
+            (PeopleKind::Vayla, _) => "Open face, calculating eyes. 'Welcome, stranger. What do you trade?'",
+            (PeopleKind::Arkit, _) => "Polite, measured. The archivist's neutral welcome.",
+            _ => "Cautious eyes. A stranger from another people.",
+        }
+    }
+
+    pub fn trade_modifier(self, seller: PeopleKind) -> f64 {
+        1.0 - seller.bias_toward(self) * 0.3
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq)]
+pub struct InterPeopleBias {
+    pub player_people: PeopleKind,
+}
+
+impl InterPeopleBias {
+    pub fn new(player_people: PeopleKind) -> Self {
+        InterPeopleBias { player_people }
+    }
+
+    pub fn trust_baseline(self, npc_people: PeopleKind) -> f64 {
+        let bias = self.player_people.bias_toward(npc_people);
+        (0.5 + bias).clamp(0.1, 0.9)
+    }
+
+    pub fn npc_trust_baseline(self, npc_people: PeopleKind) -> f64 {
+        let bias = npc_people.bias_toward(self.player_people);
+        (0.5 + bias).clamp(0.1, 0.9)
+    }
+
+    pub fn strength_modifier(self, npc_people: PeopleKind) -> f64 {
+        self.player_people.bias_toward(npc_people) * 0.5
+    }
+
+    pub fn price_modifier(self, seller_people: PeopleKind) -> f64 {
+        self.player_people.trade_modifier(seller_people)
+    }
+
+    pub fn personality_mod(personality: &[String]) -> f64 {
+        let mut mod_val = 0.0;
+        for trait_val in personality {
+            match trait_val.as_str() {
+                "hospitable" | "warm" | "generous" => mod_val += 0.08,
+                "xenophobic" | "suspicious" | "insular" => mod_val -= 0.10,
+                "cautious" | "guarded" => mod_val -= 0.04,
+                "open" | "curious" => mod_val += 0.05,
+                _ => {}
+            }
+        }
+        mod_val
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CollapseOutcome {
     BeastNest,
@@ -1216,6 +1363,10 @@ pub struct RelationshipEvent {
     pub description: String,
 }
 
+fn default_trust_baseline() -> f64 {
+    0.5
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Relationship {
     pub from_id: String,
@@ -1223,6 +1374,8 @@ pub struct Relationship {
     pub kind: RelationshipKind,
     pub strength: f64,
     pub trust: f64,
+    #[serde(default = "default_trust_baseline")]
+    pub trust_baseline: f64,
     pub history: Vec<RelationshipEvent>,
 }
 
@@ -1381,6 +1534,7 @@ mod tests {
             kind: RelationshipKind::Friend,
             strength: 0.7,
             trust: 0.5,
+            trust_baseline: 0.5,
             history: vec![RelationshipEvent {
                 tick: 10,
                 description: "shared a meal".into(),
@@ -2037,5 +2191,72 @@ mod tests {
             Some((GodName::Vayla, 0.03))
         );
         assert_eq!(EncounterAction::Flee.god_affinity_effect(), None);
+    }
+
+    #[test]
+    fn people_kind_from_str() {
+        assert_eq!(PeopleKind::from_name("metsik"), PeopleKind::Metsik);
+        assert_eq!(PeopleKind::from_name("Sepät"), PeopleKind::Sepat);
+        assert_eq!(PeopleKind::from_name("vayla"), PeopleKind::Vayla);
+    }
+
+    #[test]
+    fn people_bias_same_people() {
+        assert!((PeopleKind::Metsik.bias_toward(PeopleKind::Metsik) - 0.15).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn people_bias_metsik_sepat_hostile() {
+        assert!(PeopleKind::Metsik.bias_toward(PeopleKind::Sepat) < -0.15);
+        assert!(PeopleKind::Sepat.bias_toward(PeopleKind::Metsik) < -0.10);
+    }
+
+    #[test]
+    fn people_bias_sepat_ahjo_allied() {
+        assert!(PeopleKind::Sepat.bias_toward(PeopleKind::Ahjo) > 0.0);
+        assert!(PeopleKind::Ahjo.bias_toward(PeopleKind::Sepat) > 0.0);
+    }
+
+    #[test]
+    fn people_bias_valya_neutral() {
+        assert_eq!(PeopleKind::Vayla.bias_toward(PeopleKind::Arkit), 0.0);
+    }
+
+    #[test]
+    fn people_bias_laakso_xenophobic() {
+        assert!(PeopleKind::Laakso.bias_toward(PeopleKind::Vayla) < 0.0);
+        assert!(PeopleKind::Laakso.bias_toward(PeopleKind::Ahjo) < 0.0);
+    }
+
+    #[test]
+    fn inter_people_bias_price_modifier() {
+        let ib = InterPeopleBias::new(PeopleKind::Metsik);
+        assert!(
+            ib.price_modifier(PeopleKind::Sepat) > 1.0,
+            "Metsik buying from Sepat (hostile seller) should pay more"
+        );
+        assert!(
+            ib.price_modifier(PeopleKind::Metsik) < 1.0,
+            "Metsik buying from fellow Metsik (friendly seller) should pay less"
+        );
+    }
+
+    #[test]
+    fn personality_mod_hospitable() {
+        let mod_val = InterPeopleBias::personality_mod(&["hospitable".into()]);
+        assert!(mod_val > 0.0, "hospitable should increase trust");
+    }
+
+    #[test]
+    fn personality_mod_xenophobic() {
+        let mod_val = InterPeopleBias::personality_mod(&["xenophobic".into()]);
+        assert!(mod_val < 0.0, "xenophobic should decrease trust");
+    }
+
+    #[test]
+    fn greeting_cross_people() {
+        let greeting = PeopleKind::Metsik.greeting_to(PeopleKind::Sepat);
+        assert!(!greeting.is_empty());
+        assert!(greeting.contains("Forest-people") || greeting.contains("iron-ore"));
     }
 }

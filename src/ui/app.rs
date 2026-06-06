@@ -2,8 +2,8 @@ use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{
     craft_recipes, Collapse, Encounter, EncounterAction, GameClock, GodAffinity, GodName,
-    Inventory, ItemType, Need, PlayerPos, PlayerStart, PlayerVitals, Settlement, SettlementService,
-    Terrain,
+    InterPeopleBias, Inventory, ItemType, Need, PeopleKind, PlayerPos, PlayerStart, PlayerVitals,
+    Settlement, SettlementService, Terrain,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -72,6 +72,7 @@ pub struct App {
     pub encounter: Option<Encounter>,
     pub collapse: Option<Collapse>,
     pub god_affinity: GodAffinity,
+    pub inter_people_bias: InterPeopleBias,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -93,6 +94,7 @@ impl App {
             encounter: None,
             collapse: None,
             god_affinity: GodAffinity::new(),
+            inter_people_bias: InterPeopleBias::default(),
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -102,6 +104,8 @@ impl App {
     pub fn generate_player(&mut self) {
         if let Some(ref mut rng) = self.player_rng {
             let ps = generate_player_start(rng, &self.charts);
+            let pk = PeopleKind::from_name(&ps.person.people);
+            self.inter_people_bias = InterPeopleBias::new(pk);
             self.player_start = Some(ps);
         }
     }
@@ -297,13 +301,16 @@ impl App {
                     if self.god_affinity.get(GodName::Vayla) > 0.3 {
                         trust_bonus += 0.01;
                     }
-                    sim.relationships.update_relationship(
+                    let npc_people = PeopleKind::from_name(&person.people);
+                    sim.relationships.update_relationship_biased(
                         pid,
                         &person_id,
                         "gave food",
                         sim.world.tick,
                         trust_bonus,
                         0.03,
+                        self.inter_people_bias.player_people,
+                        npc_people,
                     );
                     sim.reputation.adjust_local(pid, sid, rep_bonus);
                 }
@@ -349,13 +356,16 @@ impl App {
                     if self.god_affinity.get(GodName::Vayla) > 0.3 {
                         trust_bonus += 0.01;
                     }
-                    sim.relationships.update_relationship(
+                    let npc_people = PeopleKind::from_name(&person.people);
+                    sim.relationships.update_relationship_biased(
                         pid,
                         &person_id,
                         "gave coin",
                         sim.world.tick,
                         trust_bonus,
                         rep_bonus,
+                        self.inter_people_bias.player_people,
+                        npc_people,
                     );
                     sim.reputation.adjust_local(pid, sid, 0.01);
                 }
@@ -540,12 +550,26 @@ impl App {
         self.screen = Screen::Map { region_idx, px, py };
     }
 
+    pub fn current_settlement_people(&self) -> Option<PeopleKind> {
+        let pos = self.player_pos?;
+        let sim = self.sim.as_ref()?;
+        let region = sim.world.regions.get(pos.region_idx)?;
+        let settlement = region.settlements.first()?;
+        let dominant = settlement.people.first()?;
+        Some(PeopleKind::from_name(&dominant.people))
+    }
+
     pub fn buy_item(&mut self, item: ItemType) {
         if !item.tradeable() {
             self.status_msg = Some("Cannot buy that".into());
             return;
         }
-        let price = item.base_price();
+        let base_price = item.base_price();
+        let seller_people = self.current_settlement_people();
+        let modifier = seller_people
+            .map(|sp| self.inter_people_bias.price_modifier(sp))
+            .unwrap_or(1.0);
+        let price = ((base_price as f64 * modifier).ceil() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(ItemType::Coin, price) {
                 ps.inventory.add(item, 1);
@@ -564,7 +588,12 @@ impl App {
             self.status_msg = Some("Cannot sell that".into());
             return;
         }
-        let price = item.base_price();
+        let base_price = item.base_price();
+        let buyer_people = self.current_settlement_people();
+        let modifier = buyer_people
+            .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
+            .unwrap_or(1.0);
+        let price = ((base_price as f64 * modifier).floor() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(item, 1) {
                 ps.inventory.add(ItemType::Coin, price);

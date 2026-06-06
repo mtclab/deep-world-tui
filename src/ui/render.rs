@@ -927,6 +927,15 @@ fn draw_talk_screen(
                 .fg(ARCHIVE_RED)
                 .add_modifier(Modifier::BOLD),
         )));
+        let npc_people = crate::model::PeopleKind::from_name(&p.people);
+        let player_people = app.inter_people_bias.player_people;
+        if player_people != npc_people {
+            let greeting = player_people.greeting_to(npc_people);
+            lines.push(Line::from(Span::styled(
+                format!("  {}", greeting),
+                Style::default().fg(DARK_BROWN),
+            )));
+        }
         lines.push(Line::from(""));
 
         for (sit, label) in &situations {
