@@ -1185,7 +1185,19 @@ impl App {
                     .and_then(|sim| sim.world.regions.get(region_idx))
                     .and_then(|r| r.terrain.get(px, py))
                     .unwrap_or(Terrain::Grass);
-                self.advance_clock(terrain.travel_hours());
+                let bias_mod = self.current_settlement_people().map_or(0, |npc_people| {
+                    let bias = self.inter_people_bias.effective_bias(npc_people)
+                        + self.clock.season().bias_modifier();
+                    if bias < -0.15 {
+                        1
+                    } else if bias > 0.10 {
+                        -1
+                    } else {
+                        0
+                    }
+                });
+                let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
+                self.advance_clock(hours);
                 self.check_encounter(terrain);
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
@@ -1202,7 +1214,19 @@ impl App {
                     .and_then(|sim| sim.world.regions.get(region_idx))
                     .and_then(|r| r.terrain.get(px, py))
                     .unwrap_or(Terrain::Grass);
-                self.advance_clock(terrain.travel_hours());
+                let bias_mod = self.current_settlement_people().map_or(0, |npc_people| {
+                    let bias = self.inter_people_bias.effective_bias(npc_people)
+                        + self.clock.season().bias_modifier();
+                    if bias < -0.15 {
+                        1
+                    } else if bias > 0.10 {
+                        -1
+                    } else {
+                        0
+                    }
+                });
+                let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
+                self.advance_clock(hours);
                 self.check_encounter(terrain);
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
