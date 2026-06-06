@@ -15,21 +15,28 @@ impl WeightedTable {
     }
 
     /// Pick a key from the table using the provided RNG.
-    /// Returns None if the table is empty.
+    /// Returns None if the table is empty or all weights are zero.
+    /// Zero-weight entries are skipped. Iterates in sorted key order for determinism.
     pub fn sample(&self, rng: &mut crate::rng::SeedRng) -> Option<String> {
-        let total = self.total();
+        let mut sorted: Vec<(&String, u32)> = self
+            .entries
+            .iter()
+            .filter(|(_, w)| **w > 0)
+            .map(|(k, w)| (k, *w))
+            .collect();
+        sorted.sort_by_key(|(k, _)| *k);
+        let total: u32 = sorted.iter().map(|(_, w)| *w).sum();
         if total == 0 {
             return None;
         }
         let mut roll = rng.gen_range(total);
-        for (key, weight) in &self.entries {
+        for (key, weight) in &sorted {
             if roll < *weight {
-                return Some(key.clone());
+                return Some((*key).clone());
             }
-            roll -= *weight;
+            roll -= weight;
         }
-        // Fallback to last entry (shouldn't reach here)
-        self.entries.keys().last().cloned()
+        sorted.last().map(|(k, _)| (*k).clone())
     }
 }
 
@@ -105,3 +112,112 @@ pub struct Charts {
 }
 
 pub use load::load_charts;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rng::SeedRng;
+
+    #[test]
+    fn sample_empty_table_returns_none() {
+        let table = WeightedTable {
+            entries: HashMap::new(),
+        };
+        let mut rng = SeedRng::new(42);
+        assert!(table.sample(&mut rng).is_none());
+    }
+
+    #[test]
+    fn sample_single_entry_always_returns_it() {
+        let mut entries = HashMap::new();
+        entries.insert("only".into(), 10u32);
+        let table = WeightedTable { entries };
+        let mut rng = SeedRng::new(42);
+        for _ in 0..100 {
+            assert_eq!(table.sample(&mut rng).as_deref(), Some("only"));
+        }
+    }
+
+    #[test]
+    fn sample_all_zero_weights_returns_none() {
+        let mut entries = HashMap::new();
+        entries.insert("a".into(), 0u32);
+        entries.insert("b".into(), 0u32);
+        let table = WeightedTable { entries };
+        let mut rng = SeedRng::new(42);
+        assert!(table.sample(&mut rng).is_none());
+    }
+
+    #[test]
+    fn sample_deterministic_same_seed() {
+        let charts = load::load_charts("data/charts.ron").unwrap();
+        let mut a = SeedRng::new(42);
+        let mut b = SeedRng::new(42);
+        for _ in 0..50 {
+            assert_eq!(charts.people.sample(&mut a), charts.people.sample(&mut b));
+        }
+    }
+
+    #[test]
+    fn sample_people_distribution_covers_all_keys() {
+        let charts = load::load_charts("data/charts.ron").unwrap();
+        let mut rng = SeedRng::new(77);
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..10_000 {
+            if let Some(k) = charts.people.sample(&mut rng) {
+                seen.insert(k);
+            }
+        }
+        for key in charts.people.entries.keys() {
+            if charts.people.entries[key] > 0 {
+                assert!(
+                    seen.contains(key),
+                    "people key '{}' never sampled in 10k draws",
+                    key
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sample_people_distribution_sane_ratios() {
+        let charts = load::load_charts("data/charts.ron").unwrap();
+        let mut rng = SeedRng::new(99);
+        let mut counts = HashMap::new();
+        let n = 10_000usize;
+        for _ in 0..n {
+            if let Some(k) = charts.people.sample(&mut rng) {
+                *counts.entry(k).or_insert(0usize) += 1;
+            }
+        }
+        let total_weight = charts.people.total() as f64;
+        for (key, weight) in &charts.people.entries {
+            if *weight == 0 {
+                continue;
+            }
+            let expected = (*weight as f64 / total_weight) * n as f64;
+            let actual = counts.get(key).copied().unwrap_or(0) as f64;
+            let ratio = actual / expected;
+            assert!(
+                ratio > 0.33 && ratio < 3.0,
+                "people '{}' ratio {:.2} out of range [0.33, 3.0] (actual={}, expected={:.0})",
+                key,
+                ratio,
+                actual as usize,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn sample_skips_zero_weight() {
+        let mut entries = HashMap::new();
+        entries.insert("zero".into(), 0u32);
+        entries.insert("one".into(), 1u32);
+        let table = WeightedTable { entries };
+        let mut rng = SeedRng::new(42);
+        for _ in 0..50 {
+            assert_eq!(table.sample(&mut rng).as_deref(), Some("one"));
+        }
+    }
+}
