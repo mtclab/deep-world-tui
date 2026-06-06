@@ -3,7 +3,7 @@ use crate::gen::player::generate_player_start;
 use crate::model::{
     craft_recipes, Collapse, Encounter, EncounterAction, FestivalKind, GameClock, GodAffinity,
     GodName, InterPeopleBias, Inventory, ItemType, Need, PeopleKind, PlayerPos, PlayerStart,
-    PlayerVitals, Settlement, SettlementService, Terrain,
+    PlayerVitals, Settlement, SettlementService, TensionEvent, Terrain,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -142,7 +142,7 @@ impl App {
 
     pub fn enter_settlement(&mut self, region_idx: usize, settlement_idx: usize) {
         if let Some(npc_people) = self.current_settlement_people() {
-            let bias = self.inter_people_bias.player_people.bias_toward(npc_people)
+            let bias = self.inter_people_bias.effective_bias(npc_people)
                 + self.clock.season().bias_modifier();
             if bias < -0.20 {
                 self.status_msg = Some(format!(
@@ -256,7 +256,7 @@ impl App {
                 vitals: self.vitals,
                 player_pos: self.player_pos,
                 god_affinity: self.god_affinity,
-                inter_people_bias: self.inter_people_bias,
+                inter_people_bias: self.inter_people_bias.clone(),
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -741,6 +741,15 @@ impl App {
             for _ in 0..hours {
                 sim.step();
             }
+        }
+        if let Some((event, a, b)) = TensionEvent::roll(self.seed, self.clock.day) {
+            let shift = event.bias_shift();
+            if self.inter_people_bias.player_people == a {
+                self.inter_people_bias.mod_toward(b, shift);
+            } else if self.inter_people_bias.player_people == b {
+                self.inter_people_bias.mod_toward(a, -shift);
+            }
+            self.status_msg = Some(event.flavor(a, b));
         }
         self.check_collapse();
     }

@@ -334,6 +334,97 @@ impl Season {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TensionEvent {
+    BorderDispute,
+    TradeSanction,
+    LandClaim,
+    BloodFeud,
+    AllianceSigned,
+}
+
+impl TensionEvent {
+    pub fn label(self) -> &'static str {
+        match self {
+            TensionEvent::BorderDispute => "border dispute",
+            TensionEvent::TradeSanction => "trade sanction",
+            TensionEvent::LandClaim => "land claim",
+            TensionEvent::BloodFeud => "blood-feud",
+            TensionEvent::AllianceSigned => "alliance",
+        }
+    }
+
+    pub fn flavor(self, a: PeopleKind, b: PeopleKind) -> String {
+        match self {
+            TensionEvent::BorderDispute => format!(
+                "Word spreads of a {} between {} and {} settlements. Tempers run short.",
+                self.label(),
+                a.label(),
+                b.label()
+            ),
+            TensionEvent::TradeSanction => format!(
+                "Traders whisper: {} merchants refuse {} goods. Prices shift.",
+                a.label(),
+                b.label()
+            ),
+            TensionEvent::LandClaim => format!(
+                "A {} elder claims {} ground as ancestral. Guards double at the gate.",
+                a.label(),
+                b.label()
+            ),
+            TensionEvent::BloodFeud => format!(
+                "Bad blood boils between {} and {}. Old grievances, fresh wounds.",
+                a.label(),
+                b.label()
+            ),
+            TensionEvent::AllianceSigned => format!(
+                "An alliance is signed between {} and {} councils. Handshakes and hope.",
+                a.label(),
+                b.label()
+            ),
+        }
+    }
+
+    pub fn bias_shift(self) -> f64 {
+        match self {
+            TensionEvent::BorderDispute => -0.01,
+            TensionEvent::TradeSanction => -0.005,
+            TensionEvent::LandClaim => -0.01,
+            TensionEvent::BloodFeud => -0.02,
+            TensionEvent::AllianceSigned => 0.01,
+        }
+    }
+
+    pub fn roll(seed: u64, day: u32) -> Option<(Self, PeopleKind, PeopleKind)> {
+        let hash = seed.wrapping_mul(2654435769) ^ (day as u64).wrapping_mul(7919);
+        let val = hash % 1000;
+        if val > 8 {
+            return None;
+        }
+        let all = [
+            PeopleKind::Metsik,
+            PeopleKind::Ahjo,
+            PeopleKind::Sepat,
+            PeopleKind::Vayla,
+            PeopleKind::Arkit,
+            PeopleKind::Laakso,
+        ];
+        let a = all[(hash / 7) as usize % all.len()];
+        let b = all[(hash / 13) as usize % all.len()];
+        if a == b {
+            return None;
+        }
+        let event = match val % 5 {
+            0 => TensionEvent::BorderDispute,
+            1 => TensionEvent::TradeSanction,
+            2 => TensionEvent::LandClaim,
+            3 => TensionEvent::BloodFeud,
+            _ => TensionEvent::AllianceSigned,
+        };
+        Some((event, a, b))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FestivalKind {
     HarvestFeast,
     ForgeDay,
@@ -755,31 +846,49 @@ impl PeopleKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct InterPeopleBias {
     pub player_people: PeopleKind,
+    #[serde(default)]
+    pub bias_modifiers: HashMap<String, f64>,
 }
 
 impl InterPeopleBias {
     pub fn new(player_people: PeopleKind) -> Self {
-        InterPeopleBias { player_people }
+        InterPeopleBias {
+            player_people,
+            bias_modifiers: HashMap::new(),
+        }
     }
 
-    pub fn trust_baseline(self, npc_people: PeopleKind) -> f64 {
-        let bias = self.player_people.bias_toward(npc_people);
+    pub fn mod_toward(&mut self, other: PeopleKind, delta: f64) {
+        let key = format!("{:?}", other);
+        let entry = self.bias_modifiers.entry(key).or_insert(0.0);
+        *entry = (*entry + delta).clamp(-0.15, 0.15);
+    }
+
+    pub fn effective_bias(&self, other: PeopleKind) -> f64 {
+        let base = self.player_people.bias_toward(other);
+        let key = format!("{:?}", other);
+        let modifier = self.bias_modifiers.get(&key).copied().unwrap_or(0.0);
+        base + modifier
+    }
+
+    pub fn trust_baseline(&self, npc_people: PeopleKind) -> f64 {
+        let bias = self.effective_bias(npc_people);
         (0.5 + bias).clamp(0.1, 0.9)
     }
 
-    pub fn npc_trust_baseline(self, npc_people: PeopleKind) -> f64 {
+    pub fn npc_trust_baseline(&self, npc_people: PeopleKind) -> f64 {
         let bias = npc_people.bias_toward(self.player_people);
         (0.5 + bias).clamp(0.1, 0.9)
     }
 
-    pub fn strength_modifier(self, npc_people: PeopleKind) -> f64 {
-        self.player_people.bias_toward(npc_people) * 0.5
+    pub fn strength_modifier(&self, npc_people: PeopleKind) -> f64 {
+        self.effective_bias(npc_people) * 0.5
     }
 
-    pub fn price_modifier(self, seller_people: PeopleKind) -> f64 {
+    pub fn price_modifier(&self, seller_people: PeopleKind) -> f64 {
         self.player_people.trade_modifier(seller_people)
     }
 
