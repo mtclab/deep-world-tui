@@ -1179,6 +1179,17 @@ fn terrain_color(terrain: Terrain) -> Color {
     }
 }
 
+fn people_color(people: crate::model::PeopleKind) -> Color {
+    match people {
+        crate::model::PeopleKind::Metsik => Color::Rgb(0x3a, 0x5a, 0x2a),
+        crate::model::PeopleKind::Arkit => Color::Rgb(0x7a, 0x8a, 0x6a),
+        crate::model::PeopleKind::Vayla => Color::Rgb(0x4a, 0x7a, 0x9e),
+        crate::model::PeopleKind::Laakso => Color::Rgb(0x5a, 0x6a, 0x3a),
+        crate::model::PeopleKind::Sepat => Color::Rgb(0x8a, 0x7a, 0x6a),
+        crate::model::PeopleKind::Ahjo => Color::Rgb(0x7a, 0x2e, 0x1d),
+    }
+}
+
 fn dim_color(c: Color) -> Color {
     match c {
         Color::Rgb(r, g, b) => Color::Rgb(r / 2, g / 2, b / 2),
@@ -1515,6 +1526,11 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
             if idx < regions {
                 if let Some(ref sim) = app.sim {
                     if let Some(region) = sim.world.regions.get(idx) {
+                        let dominant = region
+                            .settlements
+                            .first()
+                            .and_then(|s| s.people.first())
+                            .map(|p| crate::model::PeopleKind::from_name(&p.people));
                         let label = if region.name.len() > 12 {
                             format!("{:.9}..", region.name)
                         } else {
@@ -1526,7 +1542,8 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                                 Style::default().fg(INK).add_modifier(Modifier::BOLD),
                             ));
                         } else {
-                            name_spans.push(Span::styled(label, Style::default().fg(DARK_BROWN)));
+                            let name_color = dominant.map_or(DARK_BROWN, people_color);
+                            name_spans.push(Span::styled(label, Style::default().fg(name_color)));
                         }
                     }
                 }
@@ -1549,6 +1566,33 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
         Span::styled(" risky  ", Style::default().fg(DARK_BROWN)),
         Span::styled("☠", Style::default().fg(NEED_HIGH)),
         Span::styled(" dangerous", Style::default().fg(DARK_BROWN)),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled("  People: ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "Metsik ",
+            Style::default().fg(people_color(crate::model::PeopleKind::Metsik)),
+        ),
+        Span::styled(
+            "Arkit ",
+            Style::default().fg(people_color(crate::model::PeopleKind::Arkit)),
+        ),
+        Span::styled(
+            "Väylä ",
+            Style::default().fg(people_color(crate::model::PeopleKind::Vayla)),
+        ),
+        Span::styled(
+            "Laakso ",
+            Style::default().fg(people_color(crate::model::PeopleKind::Laakso)),
+        ),
+        Span::styled(
+            "Sepät ",
+            Style::default().fg(people_color(crate::model::PeopleKind::Sepat)),
+        ),
+        Span::styled(
+            "Ahjo",
+            Style::default().fg(people_color(crate::model::PeopleKind::Ahjo)),
+        ),
     ]));
 
     let map_widget = Paragraph::new(lines).style(Style::default().bg(PAPER));
