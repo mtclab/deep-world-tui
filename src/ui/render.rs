@@ -429,6 +429,38 @@ fn draw_location_screen(
                 )));
             }
         }
+        if let Some(dominant) = s.people.first() {
+            let npc_people = crate::model::PeopleKind::from_name(&dominant.people);
+            let player_people = app.inter_people_bias.player_people;
+            let atmosphere = if player_people == npc_people {
+                "Your people's settlement. Familiar faces, familiar ways."
+            } else {
+                let bias = player_people.bias_toward(npc_people);
+                if bias > 0.05 {
+                    "Allies dwell here. You sense goodwill in the air."
+                } else if bias > -0.05 {
+                    "Strangers, but not unfriendly. The market watches you evenly."
+                } else if bias > -0.15 {
+                    "Tension in the glances. You are watched more than welcomed."
+                } else {
+                    "Hostile gazes follow you. You are not wanted here."
+                }
+            };
+            let atm_color = {
+                let bias = player_people.bias_toward(npc_people);
+                if bias > 0.05 {
+                    NEED_LOW
+                } else if bias < -0.05 {
+                    NEED_HIGH
+                } else {
+                    DARK_BROWN
+                }
+            };
+            lines.push(Line::from(Span::styled(
+                format!(" {}", atmosphere),
+                Style::default().fg(atm_color),
+            )));
+        }
         lines.push(Line::from(Span::styled(
             format!(" Population: {}", s.population),
             Style::default().fg(WARM_BROWN),
