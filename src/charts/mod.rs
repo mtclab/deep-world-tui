@@ -1,10 +1,10 @@
 mod load;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// A simple weighted table: pick a key by relative weight.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WeightedTable {
     pub entries: HashMap<String, u32>,
 }
@@ -41,7 +41,7 @@ impl WeightedTable {
 }
 
 /// A condition for the conditional table modifiers.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Condition {
     People(String),
     Region(String),
@@ -50,14 +50,14 @@ pub enum Condition {
 }
 
 /// A modifier entry: when condition matches, multiply the listed keys' weights.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Modifier {
     pub when: Condition,
     pub mult: HashMap<String, f64>,
 }
 
 /// A conditional weighted table: base distribution plus context-dependent modifiers.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ConditionalTable {
     pub base: WeightedTable,
     pub modifiers: Vec<Modifier>,
@@ -109,7 +109,7 @@ impl ConditionalTable {
 }
 
 /// The top-level charts loaded from data/charts.ron.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Charts {
     pub people: WeightedTable,
     pub region: WeightedTable,
