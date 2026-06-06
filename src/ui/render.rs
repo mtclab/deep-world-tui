@@ -971,7 +971,11 @@ fn draw_talk_screen(
         lines.push(Line::from(""));
 
         for (sit, label) in &situations {
-            let vline = crate::voice::voice_line_situation(p, *sit);
+            let vline = crate::voice::voice_line_situation_biased(
+                p,
+                *sit,
+                app.inter_people_bias.player_people,
+            );
             lines.push(Line::from(Span::styled(
                 format!(" [{}]", label),
                 Style::default().fg(WARM_BROWN).add_modifier(Modifier::BOLD),

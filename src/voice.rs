@@ -1,4 +1,4 @@
-use crate::model::{Need, Person};
+use crate::model::{Need, PeopleKind, Person};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Situation {
@@ -77,6 +77,38 @@ pub fn voice_line_situation(person: &Person, situation: Situation) -> String {
             }
         }
     }
+}
+
+pub fn voice_line_situation_biased(
+    person: &Person,
+    situation: Situation,
+    player_people: PeopleKind,
+) -> String {
+    let npc_people = PeopleKind::from_name(&person.people);
+    let bias = player_people.bias_toward(npc_people);
+    let base = voice_line_situation(person, situation);
+
+    if player_people == npc_people || bias > -0.05 {
+        return base;
+    }
+
+    let prefix = if bias < -0.15 {
+        match situation {
+            Situation::Greeting => "They barely glance at you. ",
+            Situation::Trade => "Arms fold. 'We don't trade with your kind.' ",
+            Situation::Farewell => "A curt nod. Nothing more. ",
+            _ => "",
+        }
+    } else {
+        match situation {
+            Situation::Greeting => "Eyes narrow slightly. ",
+            Situation::Trade => "Reluctant hands count the coins twice. ",
+            Situation::Farewell => "A guarded farewell. ",
+            _ => "",
+        }
+    };
+
+    format!("{prefix}{base}")
 }
 
 #[cfg(test)]
@@ -163,5 +195,33 @@ mod tests {
         let p = test_person();
         let line = voice_line(&p, "unknown");
         assert!(!line.is_empty());
+    }
+
+    #[test]
+    fn biased_voice_same_people() {
+        let p = test_person();
+        let base = voice_line_situation(&p, Situation::Greeting);
+        let biased = voice_line_situation_biased(&p, Situation::Greeting, PeopleKind::Sepat);
+        assert_eq!(base, biased, "same people should have no bias prefix");
+    }
+
+    #[test]
+    fn biased_voice_hostile_prefix() {
+        let p = test_person();
+        let biased = voice_line_situation_biased(&p, Situation::Greeting, PeopleKind::Metsik);
+        assert!(
+            biased.contains("barely glance") || biased.contains("Eyes narrow"),
+            "hostile bias should add prefix to greeting"
+        );
+    }
+
+    #[test]
+    fn biased_voice_neutral_no_prefix() {
+        let p = test_person();
+        let biased = voice_line_situation_biased(&p, Situation::Greeting, PeopleKind::Arkit);
+        assert!(
+            !biased.starts_with("They barely") && !biased.starts_with("Eyes narrow"),
+            "Arkit→Sepät is neutral, no bias prefix"
+        );
     }
 }
