@@ -1,9 +1,15 @@
+use crate::charts::Charts;
+use crate::gen::world::generate_world;
 use crate::model::{Need, World};
 
 pub mod effects;
 pub mod needs_dependent;
 pub mod relationships;
 pub mod reputation;
+
+use effects::{fire_due_effects, EffectContext, EffectQueue};
+use relationships::RelationshipTracker;
+use reputation::ReputationStore;
 
 const FOOD_DECAY_RATE: f64 = 0.08;
 const MONEY_DECAY_RATE: f64 = 0.04;
@@ -33,6 +39,49 @@ pub fn tick_needs(world: &mut World, dt: f64) {
 pub fn tick(world: &mut World) {
     tick_needs(world, 1.0);
     world.tick += 1;
+}
+
+pub struct SimState {
+    pub world: World,
+    pub effect_queue: EffectQueue,
+    pub relationships: RelationshipTracker,
+    pub reputation: ReputationStore,
+    pub obligations: Vec<needs_dependent::Obligation>,
+    pub charts: Charts,
+}
+
+impl SimState {
+    pub fn new(seed: u64, charts: Charts) -> Self {
+        let world = generate_world(seed, &charts);
+        SimState {
+            world,
+            effect_queue: EffectQueue::new(),
+            relationships: RelationshipTracker::new(),
+            reputation: ReputationStore::new(),
+            obligations: Vec::new(),
+            charts,
+        }
+    }
+
+    pub fn step(&mut self) {
+        sim_tick(self);
+    }
+}
+
+pub fn sim_tick(sim: &mut SimState) {
+    sim.world.tick += 1;
+    let current_tick = sim.world.tick;
+    let mut ctx = EffectContext {
+        world: &mut sim.world,
+        relationships: &mut sim.relationships,
+        reputation: &mut sim.reputation,
+        current_tick,
+    };
+    fire_due_effects(&mut sim.effect_queue, current_tick, &mut ctx);
+    tick_needs(&mut sim.world, 1.0);
+    needs_dependent::propagate_dependent_needs(&mut sim.world, &sim.obligations);
+    reputation::spread_reputation(&mut sim.reputation, &sim.world, 1.0);
+    sim.relationships.tick_converge(1.0);
 }
 
 #[cfg(test)]
@@ -177,5 +226,109 @@ mod tests {
         assert_eq!(world.tick, 1);
         tick(&mut world);
         assert_eq!(world.tick, 2);
+    }
+
+    fn make_sim(seed: u64) -> SimState {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        SimState::new(seed, charts)
+    }
+
+    #[test]
+    fn sim_tick_100_deterministic() {
+        let mut a = make_sim(42);
+        let mut b = make_sim(42);
+        for _ in 0..100 {
+            a.step();
+            b.step();
+        }
+        assert_eq!(a.world.tick, b.world.tick);
+        let pa = &a.world.regions[0].settlements[0].people[0];
+        let pb = &b.world.regions[0].settlements[0].people[0];
+        assert_eq!(
+            pa.needs, pb.needs,
+            "sim needs must be deterministic after 100 ticks"
+        );
+        assert_eq!(a.world.regions.len(), b.world.regions.len());
+    }
+
+    #[test]
+    fn sim_tick_advances_time() {
+        let mut sim = make_sim(42);
+        assert_eq!(sim.world.tick, 0);
+        sim.step();
+        assert_eq!(sim.world.tick, 1);
+        for _ in 0..99 {
+            sim.step();
+        }
+        assert_eq!(sim.world.tick, 100);
+    }
+
+    #[test]
+    fn sim_tick_needs_decay_over_time() {
+        let mut sim = make_sim(42);
+        let food_before = sim.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        for _ in 0..10 {
+            sim.step();
+        }
+        let food_after = sim.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        assert!(
+            food_after < food_before,
+            "food should decay over 10 sim ticks: before={}, after={}",
+            food_before,
+            food_after
+        );
+    }
+
+    #[test]
+    fn sim_tick_empty_queue_no_panic() {
+        let mut sim = make_sim(42);
+        for _ in 0..5 {
+            sim.step();
+        }
+    }
+
+    #[test]
+    fn sim_tick_fire_scheduled_effect() {
+        let mut sim_with = make_sim(42);
+        let mut sim_without = make_sim(42);
+        sim_with.effect_queue.queue(effects::Effect::deferred(
+            "feast",
+            3,
+            vec![effects::Change::NeedDelta {
+                person_id: sim_with.world.regions[0].settlements[0].people[0]
+                    .id
+                    .clone(),
+                need: Need::Food,
+                delta: 0.5,
+            }],
+        ));
+        for _ in 0..5 {
+            sim_with.step();
+            sim_without.step();
+        }
+        let food_with = sim_with.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        let food_without = sim_without.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        assert!(
+            food_with > food_without,
+            "feast effect should result in higher food: with={}, without={}",
+            food_with,
+            food_without
+        );
+    }
+
+    #[test]
+    fn sim_state_new_generates_world() {
+        let sim = make_sim(42);
+        assert_eq!(sim.world.seed, 42);
+        assert!(!sim.world.regions.is_empty());
+        assert!(sim.effect_queue.is_empty());
     }
 }
