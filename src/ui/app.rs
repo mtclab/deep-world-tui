@@ -628,7 +628,8 @@ impl App {
     }
 
     pub fn check_encounter(&mut self, terrain: Terrain) {
-        if let Some(enc) = Encounter::roll(terrain, self.clock.hour, self.seed) {
+        let pp = Some(self.inter_people_bias.player_people);
+        if let Some(enc) = Encounter::roll_biased(terrain, self.clock.hour, self.seed, pp) {
             self.encounter = Some(enc);
             self.screen = Screen::Encounter;
         }

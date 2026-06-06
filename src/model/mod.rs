@@ -1028,11 +1028,20 @@ pub struct Encounter {
 
 impl Encounter {
     pub fn roll(terrain: Terrain, hour: u32, seed: u64) -> Option<Self> {
+        Self::roll_biased(terrain, hour, seed, None)
+    }
+
+    pub fn roll_biased(
+        terrain: Terrain,
+        hour: u32,
+        seed: u64,
+        player_people: Option<PeopleKind>,
+    ) -> Option<Self> {
         let hash = seed.wrapping_mul(2654435761)
             ^ (terrain as u64).wrapping_mul(40503)
             ^ (hour as u64).wrapping_mul(92000);
         let val = hash % 100;
-        let (threshold, kind) = match terrain {
+        let (mut threshold, mut kind): (u32, EncounterKind) = match terrain {
             Terrain::Forest => (
                 25,
                 if val.is_multiple_of(2) {
@@ -1048,7 +1057,23 @@ impl Encounter {
             Terrain::Settlement => (0, EncounterKind::Traveler),
             _ => (8, EncounterKind::Wildlife),
         };
-        if (val % 100) < threshold {
+        if let Some(pp) = player_people {
+            match (pp, terrain) {
+                (PeopleKind::Metsik, Terrain::Forest) => {
+                    threshold = threshold.saturating_sub(5);
+                    kind = EncounterKind::Wildlife;
+                }
+                (PeopleKind::Vayla, Terrain::Road) => {
+                    threshold = threshold.saturating_add(5);
+                    kind = EncounterKind::Traveler;
+                }
+                (PeopleKind::Sepat, Terrain::Mountain) => {
+                    threshold = threshold.saturating_sub(5);
+                }
+                _ => {}
+            }
+        }
+        if (val % 100) < (threshold as u64) {
             Some(Encounter { kind })
         } else {
             None
