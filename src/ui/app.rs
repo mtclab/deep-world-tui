@@ -773,7 +773,36 @@ impl App {
     }
 
     pub fn use_service(&mut self, service: SettlementService) {
-        let cost = service.cost();
+        if let Some(npc_people) = self.current_settlement_people() {
+            let bias = self.inter_people_bias.player_people.bias_toward(npc_people);
+            if bias < -0.15 {
+                self.status_msg = Some(format!(
+                    "They refuse to serve {} here. 'We don't serve your kind.'",
+                    self.inter_people_bias.player_people.label()
+                ));
+                return;
+            }
+            if bias < -0.05 {
+                let cost_extra = service.cost();
+                let total = cost_extra + 1;
+                if let Some(ref ps) = self.player_start {
+                    if ps.inventory.get(ItemType::Coin) < total {
+                        self.status_msg = Some(format!(
+                            "They serve you grudgingly. Price is {} coins (surcharge for outsiders). You can't afford it.",
+                            total
+                        ));
+                        return;
+                    }
+                }
+            }
+        }
+        let mut cost = service.cost();
+        if let Some(npc_people) = self.current_settlement_people() {
+            let bias = self.inter_people_bias.player_people.bias_toward(npc_people);
+            if bias < -0.05 {
+                cost += 1;
+            }
+        }
         if let Some(ref mut ps) = self.player_start {
             if !ps.inventory.remove(ItemType::Coin, cost) {
                 self.status_msg = Some(format!("Need {} coins for {}", cost, service.label()));
