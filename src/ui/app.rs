@@ -451,6 +451,11 @@ impl App {
         if let Some(ref mut ps) = self.player_start {
             self.vitals.tick(hours, &mut ps.inventory);
         }
+        if let Some(ref mut sim) = self.sim {
+            for _ in 0..hours {
+                sim.step();
+            }
+        }
     }
 
     pub fn advance_clock_hour(&mut self) {
