@@ -20,6 +20,9 @@ pub enum Screen {
         person_idx: usize,
         scroll: u16,
     },
+    Journal {
+        scroll: u16,
+    },
 }
 
 pub struct App {
@@ -135,6 +138,14 @@ impl App {
         };
     }
 
+    pub fn enter_journal(&mut self) {
+        self.screen = Screen::Journal { scroll: 0 };
+    }
+
+    pub fn exit_journal(&mut self) {
+        self.screen = Screen::World;
+    }
+
     pub fn handle_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Key(key) => match self.screen {
@@ -175,6 +186,9 @@ impl App {
                         if let Some((ri, si, _)) = list.get(idx) {
                             self.enter_settlement(*ri, *si);
                         }
+                    }
+                    crossterm::event::KeyCode::Char('j') => {
+                        self.enter_journal();
                     }
                     _ => {}
                 },
@@ -219,6 +233,18 @@ impl App {
                         if let Some(ref mut sim) = self.sim {
                             sim.step();
                         }
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        *scroll = scroll.saturating_add(1);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        *scroll = scroll.saturating_sub(1);
+                    }
+                    _ => {}
+                },
+                Screen::Journal { ref mut scroll } => match key.code {
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.exit_journal();
                     }
                     crossterm::event::KeyCode::Down => {
                         *scroll = scroll.saturating_add(1);

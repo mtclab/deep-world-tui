@@ -7,9 +7,17 @@ pub mod needs_dependent;
 pub mod relationships;
 pub mod reputation;
 
-use effects::{fire_due_effects, EffectContext, EffectQueue};
+use effects::{EffectContext, EffectQueue};
 use relationships::RelationshipTracker;
 use reputation::ReputationStore;
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct JournalEntry {
+    pub tick: u64,
+    pub text: String,
+}
+
+const MAX_JOURNAL: usize = 200;
 
 const FOOD_DECAY_RATE: f64 = 0.08;
 const MONEY_DECAY_RATE: f64 = 0.04;
@@ -48,6 +56,7 @@ pub struct SimState {
     pub reputation: ReputationStore,
     pub obligations: Vec<needs_dependent::Obligation>,
     pub charts: Charts,
+    pub journal: Vec<JournalEntry>,
 }
 
 impl SimState {
@@ -60,24 +69,48 @@ impl SimState {
             reputation: ReputationStore::new(),
             obligations: Vec::new(),
             charts,
+            journal: Vec::new(),
         }
     }
 
     pub fn step(&mut self) {
         sim_tick(self);
     }
+
+    pub fn log_journal(&mut self, tick: u64, text: String) {
+        if self.journal.len() >= MAX_JOURNAL {
+            self.journal.remove(0);
+        }
+        self.journal.push(JournalEntry { tick, text });
+    }
 }
 
 pub fn sim_tick(sim: &mut SimState) {
     sim.world.tick += 1;
     let current_tick = sim.world.tick;
-    let mut ctx = EffectContext {
-        world: &mut sim.world,
-        relationships: &mut sim.relationships,
-        reputation: &mut sim.reputation,
-        current_tick,
-    };
-    fire_due_effects(&mut sim.effect_queue, current_tick, &mut ctx);
+    let due = sim.effect_queue.due(current_tick);
+    let descs: Vec<String> = due
+        .iter()
+        .map(|e| match e {
+            effects::Effect::Immediate { description, .. } => description.clone(),
+            effects::Effect::Deferred { description, .. } => description.clone(),
+        })
+        .filter(|d| !d.is_empty())
+        .collect();
+    {
+        let mut ctx = EffectContext {
+            world: &mut sim.world,
+            relationships: &mut sim.relationships,
+            reputation: &mut sim.reputation,
+            current_tick,
+        };
+        for effect in &due {
+            effects::apply_effect(&mut ctx, effect);
+        }
+    }
+    for desc in descs {
+        sim.log_journal(current_tick, desc);
+    }
     tick_needs(&mut sim.world, 1.0);
     needs_dependent::propagate_dependent_needs(&mut sim.world, &sim.obligations);
     reputation::spread_reputation(&mut sim.reputation, &sim.world, 1.0);

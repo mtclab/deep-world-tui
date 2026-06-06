@@ -55,6 +55,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         } => {
             draw_npc_screen(f, app, region_idx, settlement_idx, person_idx, scroll);
         }
+        Screen::Journal { scroll } => {
+            draw_journal_screen(f, app, scroll);
+        }
     }
 }
 
@@ -286,6 +289,13 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" x10  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[J]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" journal  ", Style::default().fg(DARK_BROWN)),
         Span::styled(
             "[Q]",
             Style::default()
@@ -636,6 +646,79 @@ fn draw_npc_screen(
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" step", Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let title = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " Deep World",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" — Journal", Style::default().fg(WARM_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(title, chunks[0]);
+
+    let mut lines: Vec<Line> = Vec::new();
+    if let Some(ref sim) = app.sim {
+        if sim.journal.is_empty() {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                " The Archive holds no records yet.",
+                Style::default().fg(WARM_BROWN),
+            )));
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                " Time passes. Events will be recorded here.",
+                Style::default().fg(DARK_BROWN),
+            )));
+        } else {
+            for entry in sim.journal.iter().rev() {
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!(" [{}] ", entry.tick),
+                        Style::default()
+                            .fg(ARCHIVE_RED)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(entry.text.clone(), Style::default().fg(INK)),
+                ]));
+            }
+        }
+    }
+
+    let para = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll, 0));
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [Esc/Q]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" back  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[↑↓]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" scroll", Style::default().fg(DARK_BROWN)),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
