@@ -45,7 +45,7 @@ pub struct ReputationEntry {
     pub reputation: Reputation,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ReputationStore {
     pub entries: HashMap<String, ReputationEntry>,
 }

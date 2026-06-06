@@ -49,6 +49,7 @@ pub fn tick(world: &mut World) {
     world.tick += 1;
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SimState {
     pub world: World,
     pub effect_queue: EffectQueue,
