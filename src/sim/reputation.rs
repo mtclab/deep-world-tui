@@ -200,6 +200,7 @@ mod tests {
                 name: "R".into(),
                 region_type: "river_valley".into(),
                 description: String::new(),
+                terrain: crate::model::TerrainMap::default(),
                 settlements: vec![
                     crate::model::Settlement {
                         id: "s1".into(),

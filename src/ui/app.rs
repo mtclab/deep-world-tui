@@ -1,6 +1,6 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
-use crate::model::{Need, PlayerStart, Settlement};
+use crate::model::{Need, PlayerStart, Settlement, Terrain};
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
 use crate::sim::SimState;
@@ -10,11 +10,34 @@ use super::event::AppEvent;
 pub enum Screen {
     CharacterCreation,
     World,
-    WorldAlerts { scroll: u16 },
-    Location { region_idx: usize, settlement_idx: usize, scroll: u16 },
-    Npc { region_idx: usize, settlement_idx: usize, person_idx: usize, scroll: u16 },
-    Journal { scroll: u16 },
-    Talk { region_idx: usize, settlement_idx: usize, person_idx: usize, scroll: u16 },
+    Map {
+        region_idx: usize,
+        px: usize,
+        py: usize,
+    },
+    WorldAlerts {
+        scroll: u16,
+    },
+    Location {
+        region_idx: usize,
+        settlement_idx: usize,
+        scroll: u16,
+    },
+    Npc {
+        region_idx: usize,
+        settlement_idx: usize,
+        person_idx: usize,
+        scroll: u16,
+    },
+    Journal {
+        scroll: u16,
+    },
+    Talk {
+        region_idx: usize,
+        settlement_idx: usize,
+        person_idx: usize,
+        scroll: u16,
+    },
 }
 
 pub struct App {
@@ -102,6 +125,11 @@ impl App {
                 ..
             }
             | Screen::Npc {
+                region_idx,
+                settlement_idx,
+                ..
+            }
+            | Screen::Talk {
                 region_idx,
                 settlement_idx,
                 ..
@@ -200,7 +228,10 @@ impl App {
 
     pub fn give_coin(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
         if let Some(ref mut sim) = self.sim {
-            if let Some(person) = sim.world.regions.get_mut(region_idx)
+            if let Some(person) = sim
+                .world
+                .regions
+                .get_mut(region_idx)
                 .and_then(|r| r.settlements.get_mut(settlement_idx))
                 .and_then(|s| s.people.get_mut(person_idx))
             {
@@ -218,17 +249,94 @@ impl App {
         self.screen = Screen::World;
     }
 
+    pub fn enter_map(&mut self, region_idx: usize) {
+        let (px, py) = if let Some(ref sim) = self.sim {
+            let map = &sim.world.regions.get(region_idx).map(|r| &r.terrain);
+            if let Some(Some(t)) = map
+                .as_ref()
+                .map(|m| m.tiles.iter().position(|&t| t == Terrain::Settlement))
+            {
+                let pos = t;
+                let x = pos % 40;
+                let y = pos / 40;
+                (x, y)
+            } else {
+                (20, 10)
+            }
+        } else {
+            (20, 10)
+        };
+        self.screen = Screen::Map { region_idx, px, py };
+    }
+
+    pub fn exit_map(&mut self) {
+        self.screen = Screen::World;
+    }
+
+    pub fn move_player(&mut self, dx: i32, dy: i32) {
+        if let Screen::Map {
+            region_idx,
+            ref mut px,
+            ref mut py,
+        } = self.screen
+        {
+            if let Some(ref sim) = self.sim {
+                if let Some(region) = sim.world.regions.get(region_idx) {
+                    let map = &region.terrain;
+                    let nx = (*px as i32 + dx).max(0).min(map.width as i32 - 1) as usize;
+                    let ny = (*py as i32 + dy).max(0).min(map.height as i32 - 1) as usize;
+                    *px = nx;
+                    *py = ny;
+                }
+            }
+        }
+    }
+
+    pub fn player_on_settlement(&self) -> Option<(usize, usize)> {
+        if let Screen::Map { region_idx, px, py } = &self.screen {
+            if let Some(ref sim) = self.sim {
+                if let Some(region) = sim.world.regions.get(*region_idx) {
+                    if region.terrain.get(*px, *py) == Some(Terrain::Settlement) {
+                        let mut idx = 0;
+                        for (si, _sett) in region.settlements.iter().enumerate() {
+                            let spacing = 40 / region.settlements.len().max(1);
+                            let sx = (spacing / 2 + si * spacing).min(39);
+                            if sx == *px {
+                                idx = si;
+                                break;
+                            }
+                        }
+                        return Some((*region_idx, idx));
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub fn critical_need_people(&self) -> Vec<(String, String, String, Need, f64)> {
         let mut out = Vec::new();
         if let Some(ref sim) = self.sim {
-            let needs = [Need::Food, Need::Money, Need::Care, Need::Presence, Need::Safety];
+            let needs = [
+                Need::Food,
+                Need::Money,
+                Need::Care,
+                Need::Presence,
+                Need::Safety,
+            ];
             for region in &sim.world.regions {
                 for settlement in &region.settlements {
                     for person in &settlement.people {
                         for need in &needs {
                             let val = person.needs.get(*need);
                             if val < 0.2 {
-                                out.push((person.name.clone(), person.settlement.clone(), person.profession.clone(), *need, val));
+                                out.push((
+                                    person.name.clone(),
+                                    person.settlement.clone(),
+                                    person.profession.clone(),
+                                    *need,
+                                    val,
+                                ));
                             }
                         }
                     }
@@ -291,6 +399,61 @@ impl App {
                     }
                     crossterm::event::KeyCode::Char('!') => {
                         self.enter_alerts();
+                    }
+                    crossterm::event::KeyCode::Char('m') => {
+                        self.enter_map(0);
+                    }
+                    _ => {}
+                },
+                Screen::Map {
+                    region_idx,
+                    px: _,
+                    py: _,
+                } => match key.code {
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.exit_map();
+                    }
+                    crossterm::event::KeyCode::Char('h') | crossterm::event::KeyCode::Left => {
+                        self.move_player(-1, 0);
+                    }
+                    crossterm::event::KeyCode::Char('l') => {
+                        self.move_player(1, 0);
+                    }
+                    crossterm::event::KeyCode::Char('k') | crossterm::event::KeyCode::Up => {
+                        self.move_player(0, -1);
+                    }
+                    crossterm::event::KeyCode::Char('j') => {
+                        self.move_player(0, 1);
+                    }
+                    crossterm::event::KeyCode::Right => {
+                        self.move_player(1, 0);
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        self.move_player(0, 1);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        if let Some((ri, si)) = self.player_on_settlement() {
+                            self.enter_settlement(ri, si);
+                        }
+                    }
+                    crossterm::event::KeyCode::Char(' ') => {
+                        if let Some(ref mut sim) = self.sim {
+                            sim.step();
+                        }
+                    }
+                    crossterm::event::KeyCode::Char(c @ '1'..='9') => {
+                        let idx = (c as usize) - ('1' as usize);
+                        if idx != region_idx {
+                            self.enter_map(
+                                idx.min(
+                                    self.sim
+                                        .as_ref()
+                                        .map(|s| s.world.regions.len())
+                                        .unwrap_or(1)
+                                        - 1,
+                                ),
+                            );
+                        }
                     }
                     _ => {}
                 },

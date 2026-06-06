@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::model::Need;
+use crate::model::{Need, Terrain};
 use crate::sim::relationships::BondCategory;
 use crate::ui::app::{App, Screen};
 use crate::voice::Situation;
@@ -67,6 +67,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         }
         Screen::Journal { scroll } => {
             draw_journal_screen(f, app, scroll);
+        }
+        Screen::Map { region_idx, px, py } => {
+            draw_map_screen(f, app, region_idx, px, py);
         }
     }
 }
@@ -918,7 +921,12 @@ fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
     .split(f.area());
 
     let title = Paragraph::new(Line::from(vec![
-        Span::styled(" Deep World", Style::default().fg(ARCHIVE_RED).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " Deep World",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(" — Need Alerts", Style::default().fg(WARM_BROWN)),
     ]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -929,19 +937,38 @@ fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
 
     if critical.is_empty() {
         lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(" No critical needs. The Archive rests.", Style::default().fg(WARM_BROWN))));
+        lines.push(Line::from(Span::styled(
+            " No critical needs. The Archive rests.",
+            Style::default().fg(WARM_BROWN),
+        )));
     } else {
-        lines.push(Line::from(Span::styled(format!(" {} people in dire need", critical.len()), Style::default().fg(ARCHIVE_RED).add_modifier(Modifier::BOLD))));
+        lines.push(Line::from(Span::styled(
+            format!(" {} people in dire need", critical.len()),
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )));
         lines.push(Line::from(""));
         for (name, settlement, profession, need, val) in &critical {
             let bar = need_bar(*val, 8);
             lines.push(Line::from(vec![
                 Span::styled(format!(" {} ", name), Style::default().fg(INK)),
-                Span::styled(format!("({}) ", settlement), Style::default().fg(DARK_BROWN)),
+                Span::styled(
+                    format!("({}) ", settlement),
+                    Style::default().fg(DARK_BROWN),
+                ),
                 Span::styled(format!("{}, ", profession), Style::default().fg(DARK_BROWN)),
-                Span::styled(format!("{:?} ", need), Style::default().fg(need_color(*val)).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!("{:?} ", need),
+                    Style::default()
+                        .fg(need_color(*val))
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(bar, Style::default().fg(need_color(*val))),
-                Span::styled(format!(" {:.0}%", val * 100.0), Style::default().fg(need_color(*val))),
+                Span::styled(
+                    format!(" {:.0}%", val * 100.0),
+                    Style::default().fg(need_color(*val)),
+                ),
             ]));
         }
     }
@@ -952,10 +979,161 @@ fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
     f.render_widget(para, chunks[1]);
 
     let help = Paragraph::new(Line::from(vec![
-        Span::styled(" [Esc/Q]", Style::default().fg(ARCHIVE_RED).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " [Esc/Q]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(" back  ", Style::default().fg(DARK_BROWN)),
-        Span::styled("[↑↓]", Style::default().fg(ARCHIVE_RED).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[↑↓]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(" scroll", Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn terrain_color(terrain: Terrain) -> Color {
+    match terrain {
+        Terrain::Grass => Color::Rgb(0x6b, 0x8e, 0x4a),
+        Terrain::Forest => Color::Rgb(0x3a, 0x5a, 0x2a),
+        Terrain::Water => Color::Rgb(0x4a, 0x7a, 0x9e),
+        Terrain::Mountain => Color::Rgb(0x8a, 0x7a, 0x6a),
+        Terrain::Road => Color::Rgb(0x9a, 0x8a, 0x6a),
+        Terrain::Settlement => Color::Rgb(0x7a, 0x2e, 0x1d),
+        Terrain::Farmland => Color::Rgb(0x8a, 0x9a, 0x4a),
+        Terrain::Sand => Color::Rgb(0xc2, 0x9a, 0x6b),
+        Terrain::Swamp => Color::Rgb(0x5a, 0x6a, 0x3a),
+    }
+}
+
+fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: usize) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let region_name = app
+        .sim
+        .as_ref()
+        .and_then(|sim| sim.world.regions.get(region_idx).map(|r| r.name.clone()))
+        .unwrap_or_else(|| "Unknown".into());
+
+    let header = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " Map — ",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            &region_name,
+            Style::default().fg(INK).add_modifier(Modifier::BOLD),
+        ),
+    ]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(header, chunks[0]);
+
+    let map_area = chunks[1];
+    let view_w = map_area.width as usize;
+    let view_h = map_area.height as usize;
+
+    let (map_w, map_h, tiles) = if let Some(ref sim) = app.sim {
+        if let Some(region) = sim.world.regions.get(region_idx) {
+            (
+                region.terrain.width,
+                region.terrain.height,
+                region.terrain.tiles.clone(),
+            )
+        } else {
+            (0, 0, Vec::new())
+        }
+    } else {
+        (0, 0, Vec::new())
+    };
+
+    if map_w == 0 || map_h == 0 {
+        let empty = Paragraph::new("No terrain data").style(Style::default().fg(DARK_BROWN));
+        f.render_widget(empty, chunks[1]);
+        return;
+    }
+
+    let half_w = view_w / 2;
+    let half_h = view_h / 2;
+    let cam_x = px.saturating_sub(half_w);
+    let cam_y = py.saturating_sub(half_h);
+
+    let mut lines: Vec<Line> = Vec::new();
+    for vy in 0..view_h {
+        let my = cam_y + vy;
+        let mut spans: Vec<Span> = Vec::new();
+        if my < map_h {
+            for vx in 0..view_w {
+                let mx = cam_x + vx;
+                if mx < map_w {
+                    if mx == px && my == py {
+                        spans.push(Span::styled(
+                            "@",
+                            Style::default()
+                                .fg(Color::White)
+                                .add_modifier(Modifier::BOLD),
+                        ));
+                    } else if let Some(terrain) = tiles.get(my * map_w + mx) {
+                        let c = terrain.glyph();
+                        spans.push(Span::styled(
+                            c.to_string(),
+                            Style::default().fg(terrain_color(*terrain)),
+                        ));
+                    } else {
+                        spans.push(Span::styled(" ", Style::default().fg(DARK_BROWN)));
+                    }
+                }
+            }
+        }
+        lines.push(Line::from(spans));
+    }
+
+    let map_widget = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    f.render_widget(map_widget, map_area);
+
+    let terrain_name = if let Some(t) = tiles.get(py * map_w + px) {
+        format!("{:?}", t)
+    } else {
+        "??".into()
+    };
+
+    let coord = format!(" ({},{}) {}", px, py, terrain_name);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [hjkl/↑↓←→]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" move  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[Enter]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" enter  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[Esc]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" back", Style::default().fg(DARK_BROWN)),
+        Span::styled(coord, Style::default().fg(DARK_BROWN)),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);

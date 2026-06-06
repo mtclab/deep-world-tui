@@ -282,6 +282,7 @@ mod tests {
                 name: "R".into(),
                 region_type: "river_valley".into(),
                 description: String::new(),
+                terrain: crate::model::TerrainMap::default(),
                 settlements: vec![crate::model::Settlement {
                     id: "s1".into(),
                     name: "S1".into(),
@@ -408,6 +409,7 @@ mod tests {
                     name: "R1".into(),
                     region_type: "river_valley".into(),
                     description: String::new(),
+                    terrain: crate::model::TerrainMap::default(),
                     settlements: vec![crate::model::Settlement {
                         id: "s1".into(),
                         name: "S1".into(),
@@ -427,6 +429,7 @@ mod tests {
                     name: "R2".into(),
                     region_type: "forest".into(),
                     description: String::new(),
+                    terrain: crate::model::TerrainMap::default(),
                     settlements: vec![crate::model::Settlement {
                         id: "s2".into(),
                         name: "S2".into(),

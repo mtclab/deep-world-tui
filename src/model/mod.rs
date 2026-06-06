@@ -2,6 +2,58 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Terrain {
+    Grass,
+    Forest,
+    Water,
+    Mountain,
+    Road,
+    Settlement,
+    Farmland,
+    Sand,
+    Swamp,
+}
+
+impl Terrain {
+    pub fn glyph(self) -> char {
+        match self {
+            Terrain::Grass => '░',
+            Terrain::Forest => '▓',
+            Terrain::Water => '≈',
+            Terrain::Mountain => '▲',
+            Terrain::Road => '·',
+            Terrain::Settlement => '█',
+            Terrain::Farmland => '▒',
+            Terrain::Sand => '·',
+            Terrain::Swamp => '~',
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct TerrainMap {
+    pub width: usize,
+    pub height: usize,
+    pub tiles: Vec<Terrain>,
+}
+
+impl TerrainMap {
+    pub fn get(&self, x: usize, y: usize) -> Option<Terrain> {
+        if x < self.width && y < self.height {
+            self.tiles.get(y * self.width + x).copied()
+        } else {
+            None
+        }
+    }
+
+    pub fn set(&mut self, x: usize, y: usize, terrain: Terrain) {
+        if x < self.width && y < self.height {
+            self.tiles[y * self.width + x] = terrain;
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct World {
     pub seed: u64,
@@ -17,6 +69,8 @@ pub struct Region {
     pub region_type: String,
     pub description: String,
     pub settlements: Vec<Settlement>,
+    #[serde(default)]
+    pub terrain: TerrainMap,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -295,6 +349,7 @@ mod tests {
             region_type: "river_valley".into(),
             description: "Fertile lowlands".into(),
             settlements: vec![],
+            terrain: TerrainMap::default(),
         };
         roundtrip(&r);
     }
@@ -325,6 +380,7 @@ mod tests {
             name: "Test".into(),
             region_type: "river_valley".into(),
             description: "desc".into(),
+            terrain: TerrainMap::default(),
             settlements: vec![Settlement {
                 id: "s1".into(),
                 name: "V".into(),

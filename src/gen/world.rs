@@ -1,5 +1,5 @@
 use crate::charts::Charts;
-use crate::model::{Region, Settlement, World};
+use crate::model::{Region, Settlement, Terrain, TerrainMap, World};
 use crate::rng::SeedRng;
 
 pub fn generate_world(seed: u64, charts: &Charts) -> World {
@@ -93,12 +93,163 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
         settlements.push(settlement);
     }
 
+    let terrain = generate_terrain(&mut rng, &region_type, &settlements);
+
     Region {
         id: region_id,
         name: region_name,
         region_type,
         description,
         settlements,
+        terrain,
+    }
+}
+
+fn generate_terrain(
+    rng: &mut SeedRng,
+    region_type: &str,
+    settlements: &[Settlement],
+) -> TerrainMap {
+    let width = 40usize;
+    let height = 20usize;
+    let base = match region_type {
+        "river_valley" => Terrain::Grass,
+        "coast" => Terrain::Sand,
+        "forest" => Terrain::Forest,
+        "upland" => Terrain::Mountain,
+        "steppe" => Terrain::Grass,
+        "delta" => Terrain::Swamp,
+        _ => Terrain::Grass,
+    };
+    let mut tiles = vec![base; width * height];
+    let water_row = match region_type {
+        "river_valley" | "delta" => Some(height / 2),
+        "coast" => Some(height - 3),
+        _ => None,
+    };
+    if let Some(row) = water_row {
+        for x in 0..width {
+            tiles[row * width + x] = Terrain::Water;
+            if row + 1 < height {
+                tiles[(row + 1) * width + x] = Terrain::Water;
+            }
+            if region_type == "river_valley" && row > 0 && x % 4 == 0 {
+                let spread = (rng.next_u64() as usize) % 3;
+                for d in 0..=spread {
+                    if row > d {
+                        tiles[(row - 1 - d) * width + x] = Terrain::Water;
+                    }
+                    if row + 2 + d < height {
+                        tiles[(row + 2 + d) * width + x] = Terrain::Water;
+                    }
+                }
+            }
+        }
+    }
+    if region_type == "upland" {
+        for y in 0..height {
+            for x in 0..width {
+                let v = (rng.next_u64() as usize) % 5;
+                if v == 0 {
+                    tiles[y * width + x] = Terrain::Mountain;
+                } else if v == 1 {
+                    tiles[y * width + x] = Terrain::Grass;
+                }
+            }
+        }
+    }
+    if region_type == "steppe" {
+        for y in 0..height {
+            for x in 0..width {
+                let v = (rng.next_u64() as usize) % 10;
+                if v == 0 {
+                    tiles[y * width + x] = Terrain::Farmland;
+                }
+            }
+        }
+    }
+    if region_type == "forest" {
+        for y in 0..height {
+            for x in 0..width {
+                let v = (rng.next_u64() as usize) % 4;
+                if v == 0 {
+                    tiles[y * width + x] = Terrain::Grass;
+                }
+            }
+        }
+    }
+    if region_type == "coast" {
+        for y in 0..height {
+            for x in 0..width {
+                if y < height - 3 {
+                    let v = (rng.next_u64() as usize) % 3;
+                    tiles[y * width + x] = if v == 0 {
+                        Terrain::Grass
+                    } else {
+                        Terrain::Sand
+                    };
+                }
+            }
+        }
+    }
+    if region_type == "delta" {
+        for y in 0..height {
+            for x in 0..width {
+                let v = (rng.next_u64() as usize) % 3;
+                if v == 0 {
+                    tiles[y * width + x] = Terrain::Water;
+                } else if v == 1 {
+                    tiles[y * width + x] = Terrain::Swamp;
+                }
+            }
+        }
+    }
+    let n_settle = settlements.len().max(1);
+    let spacing = width / n_settle;
+    let mut settle_positions: Vec<(usize, usize)> = Vec::new();
+    for (i, _) in settlements.iter().enumerate() {
+        let sx = (spacing / 2 + i * spacing).min(width - 1);
+        let sy = if let Some(row) = water_row {
+            if row > 3 { row - 2 } else { row + 3 }.min(height - 1)
+        } else {
+            3 + (rng.next_u64() as usize) % (height - 6).max(1)
+        };
+        tiles[sy * width + sx] = Terrain::Settlement;
+        for dy in 0..3 {
+            for dx in 0..3 {
+                let ty = sy + dy;
+                let tx = sx + dx;
+                if ty < height && tx < width && tiles[ty * width + tx] != Terrain::Settlement {
+                    tiles[ty * width + tx] = Terrain::Farmland;
+                }
+            }
+        }
+        settle_positions.push((sx, sy));
+    }
+    for window in settle_positions.windows(2) {
+        let (x1, y1) = window[0];
+        let (x2, y2) = window[1];
+        let mut cx = x1;
+        let mut cy = y1;
+        while cx != x2 || cy != y2 {
+            if cx < width && cy < height && tiles[cy * width + cx] != Terrain::Settlement {
+                tiles[cy * width + cx] = Terrain::Road;
+            }
+            if cx < x2 {
+                cx += 1;
+            } else if cx > x2 {
+                cx -= 1;
+            } else if cy < y2 {
+                cy += 1;
+            } else if cy > y2 {
+                cy -= 1;
+            }
+        }
+    }
+    TerrainMap {
+        width,
+        height,
+        tiles,
     }
 }
 
@@ -529,5 +680,77 @@ mod tests {
             p1.id, p2.id,
             "different seeds should produce different person ids"
         );
+    }
+
+    #[test]
+    fn terrain_map_has_correct_dimensions() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        for region in &w.regions {
+            assert_eq!(region.terrain.width, 40, "terrain width must be 40");
+            assert_eq!(region.terrain.height, 20, "terrain height must be 20");
+            assert_eq!(
+                region.terrain.tiles.len(),
+                800,
+                "terrain must have 800 tiles"
+            );
+        }
+    }
+
+    #[test]
+    fn terrain_has_settlements_and_roads() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        for region in &w.regions {
+            let settle_count = region
+                .terrain
+                .tiles
+                .iter()
+                .filter(|&&t| t == crate::model::Terrain::Settlement)
+                .count();
+            assert!(
+                settle_count >= region.settlements.len(),
+                "terrain must have at least as many settlement tiles as settlements"
+            );
+            if region.settlements.len() > 1 {
+                let road_count = region
+                    .terrain
+                    .tiles
+                    .iter()
+                    .filter(|&&t| t == crate::model::Terrain::Road)
+                    .count();
+                assert!(road_count > 0, "multi-settlement regions must have roads");
+            }
+        }
+    }
+
+    #[test]
+    fn terrain_river_valley_has_water() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        for region in &w.regions {
+            if region.region_type == "river_valley" {
+                let water_count = region
+                    .terrain
+                    .tiles
+                    .iter()
+                    .filter(|&&t| t == crate::model::Terrain::Water)
+                    .count();
+                assert!(water_count > 0, "river_valley must have water tiles");
+            }
+        }
+    }
+
+    #[test]
+    fn terrain_deterministic() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w1 = generate_world(42, &charts);
+        let w2 = generate_world(42, &charts);
+        for (r1, r2) in w1.regions.iter().zip(w2.regions.iter()) {
+            assert_eq!(
+                r1.terrain, r2.terrain,
+                "terrain must be deterministic for same seed"
+            );
+        }
     }
 }
