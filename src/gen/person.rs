@@ -10,7 +10,7 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
     let region = charts.region.sample(&mut person_rng).unwrap_or_default();
     let settlement_size = charts
         .settlement_size
-        .sample(&mut person_rng)
+        .resolve_and_sample(&people, &region, "", "", &mut person_rng)
         .unwrap_or_default();
     let social_class = charts
         .social_class
@@ -84,6 +84,97 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
         needs: Needs::default(),
         region,
         settlement: String::new(),
+        has_spouse,
+        children_count,
+        has_debt,
+    }
+}
+
+pub fn generate_person_from(
+    mut person_rng: SeedRng,
+    region: &str,
+    settlement: &str,
+    charts: &Charts,
+) -> Person {
+    let sub_seed = person_rng.next_u64();
+
+    let people = charts.people.sample(&mut person_rng).unwrap_or_default();
+    let settlement_size = charts
+        .settlement_size
+        .resolve_and_sample(&people, region, "", "", &mut person_rng)
+        .unwrap_or_default();
+    let social_class = charts
+        .social_class
+        .sample(&mut person_rng)
+        .unwrap_or_default();
+
+    let profession = charts
+        .profession
+        .resolve_and_sample(
+            &people,
+            region,
+            &social_class,
+            &settlement_size,
+            &mut person_rng,
+        )
+        .unwrap_or_default();
+
+    let craft_affinity = charts
+        .craft_affinity
+        .resolve_and_sample(
+            &people,
+            region,
+            &social_class,
+            &settlement_size,
+            &mut person_rng,
+        )
+        .unwrap_or_default();
+
+    let mut personality = Vec::new();
+    let n_traits = 2 + (person_rng.gen_range(2) as usize);
+    for _ in 0..n_traits {
+        if let Some(t) = charts.personality_traits.sample(&mut person_rng) {
+            if !personality.contains(&t) {
+                personality.push(t);
+            }
+        }
+    }
+
+    let age_band = charts.age_band.sample(&mut person_rng).unwrap_or_default();
+    let sex = charts.sex.sample(&mut person_rng).unwrap_or_default();
+    let has_spouse = charts
+        .has_spouse
+        .sample(&mut person_rng)
+        .map(|v| v == "yes")
+        .unwrap_or(false);
+    let children_str = charts
+        .children_count
+        .sample(&mut person_rng)
+        .unwrap_or_default();
+    let children_count: u32 = children_str.parse().unwrap_or(0);
+    let has_debt = charts
+        .has_debt
+        .sample(&mut person_rng)
+        .map(|v| v == "yes")
+        .unwrap_or(false);
+
+    let name = crate::gen::name::generate_name(&mut person_rng, &people, &sex, charts)
+        .unwrap_or_else(|_| "Unnamed".into());
+
+    Person {
+        id: format!("person-{:016x}", sub_seed),
+        name,
+        people,
+        sex,
+        age_band,
+        profession,
+        social_class,
+        craft_affinity,
+        personality,
+        bias: String::new(),
+        needs: Needs::default(),
+        region: region.to_string(),
+        settlement: settlement.to_string(),
         has_spouse,
         children_count,
         has_debt,

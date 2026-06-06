@@ -44,8 +44,8 @@ mod tests {
         assert_eq!(original.people.entries, roundtripped.people.entries);
         assert_eq!(original.region.entries, roundtripped.region.entries);
         assert_eq!(
-            original.settlement_size.entries,
-            roundtripped.settlement_size.entries
+            original.settlement_size.base.entries,
+            roundtripped.settlement_size.base.entries
         );
         assert_eq!(
             original.social_class.entries,
@@ -92,9 +92,9 @@ mod tests {
             charts.region.entries.len()
         );
         assert!(
-            charts.settlement_size.entries.len() >= 2,
+            charts.settlement_size.base.entries.len() >= 2,
             "settlement_size has {} entries, need ≥2",
-            charts.settlement_size.entries.len()
+            charts.settlement_size.base.entries.len()
         );
         assert!(
             charts.social_class.entries.len() >= 2,
