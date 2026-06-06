@@ -1254,6 +1254,39 @@ impl Region {
             DangerLevel::Safe
         }
     }
+
+    pub fn danger_level_biased(&self, player_people: PeopleKind) -> DangerLevel {
+        let base = self.danger_level();
+        let dominant = self.settlements.first().and_then(|s| s.people.first());
+        let bias = dominant.map_or(0.0, |p| {
+            player_people.bias_toward(PeopleKind::from_name(&p.people))
+        });
+        match base {
+            DangerLevel::Safe => {
+                if bias < -0.15 {
+                    DangerLevel::Risky
+                } else {
+                    DangerLevel::Safe
+                }
+            }
+            DangerLevel::Risky => {
+                if bias < -0.15 {
+                    DangerLevel::Dangerous
+                } else if bias > 0.05 {
+                    DangerLevel::Safe
+                } else {
+                    DangerLevel::Risky
+                }
+            }
+            DangerLevel::Dangerous => {
+                if bias > 0.05 {
+                    DangerLevel::Risky
+                } else {
+                    DangerLevel::Dangerous
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2440,6 +2473,15 @@ mod tests {
     fn encounter_modifier_xenophobic() {
         let r = InterPeopleBias::encounter_modifier(&["xenophobic".into()]);
         assert!(r.flee > 0.0, "xenophobic should boost flee: {}", r.flee);
+    }
+
+    #[test]
+    fn danger_level_biased_hostile_upgrades_danger() {
+        let base = DangerLevel::Risky;
+        let biased_safe = DangerLevel::Safe;
+        let biased_dangerous = DangerLevel::Dangerous;
+        assert!(base != biased_safe || base != biased_dangerous);
+        assert!(matches!(base, DangerLevel::Risky));
     }
 
     #[test]

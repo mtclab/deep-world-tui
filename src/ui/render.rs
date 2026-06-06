@@ -1472,7 +1472,8 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                 if let Some(ref sim) = app.sim {
                     if let Some(region) = sim.world.regions.get(idx) {
                         let glyph = region_type_glyph(&region.region_type);
-                        let danger = region.danger_level();
+                        let danger =
+                            region.danger_level_biased(app.inter_people_bias.player_people);
                         let danger_glyph = danger.glyph();
                         let danger_color = match danger {
                             crate::model::DangerLevel::Safe => NEED_LOW,
