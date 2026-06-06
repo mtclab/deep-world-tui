@@ -588,7 +588,11 @@ impl App {
     }
 
     pub fn craft_recipe(&mut self, recipe_idx: usize) {
-        let recipes = craft_recipes();
+        let player_people = self.inter_people_bias.player_people;
+        let recipes: Vec<_> = craft_recipes()
+            .into_iter()
+            .filter(|r| r.people.is_none() || r.people == Some(player_people))
+            .collect();
         if let Some(recipe) = recipes.get(recipe_idx) {
             if let Some(ref mut ps) = self.player_start {
                 let inv = &mut ps.inventory;

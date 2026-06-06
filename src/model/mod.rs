@@ -179,6 +179,7 @@ pub struct CraftRecipe {
     pub inputs: Vec<(ItemType, u32)>,
     pub output: ItemType,
     pub output_count: u32,
+    pub people: Option<PeopleKind>,
 }
 
 pub fn craft_recipes() -> Vec<CraftRecipe> {
@@ -188,18 +189,42 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
             inputs: vec![(ItemType::Herb, 3), (ItemType::Cloth, 1)],
             output: ItemType::Food,
             output_count: 2,
+            people: None,
         },
         CraftRecipe {
             name: "Tool".into(),
             inputs: vec![(ItemType::Wood, 2), (ItemType::Iron, 1)],
             output: ItemType::Iron,
             output_count: 2,
+            people: None,
         },
         CraftRecipe {
             name: "Meal".into(),
             inputs: vec![(ItemType::Herb, 2), (ItemType::Food, 1)],
             output: ItemType::Food,
             output_count: 3,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Sepät Forge-Kit".into(),
+            inputs: vec![(ItemType::Iron, 3), (ItemType::Wood, 1)],
+            output: ItemType::Iron,
+            output_count: 5,
+            people: Some(PeopleKind::Sepat),
+        },
+        CraftRecipe {
+            name: "Ahjo Hearth-Meal".into(),
+            inputs: vec![(ItemType::Food, 2), (ItemType::Herb, 1)],
+            output: ItemType::Food,
+            output_count: 6,
+            people: Some(PeopleKind::Ahjo),
+        },
+        CraftRecipe {
+            name: "Metsik Trap".into(),
+            inputs: vec![(ItemType::Wood, 3), (ItemType::Herb, 1)],
+            output: ItemType::Herb,
+            output_count: 4,
+            people: Some(PeopleKind::Metsik),
         },
     ]
 }

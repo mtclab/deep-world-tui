@@ -1782,7 +1782,12 @@ fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
     let inv = app.player_inventory();
     let mut lines: Vec<Line> = Vec::new();
     lines.push(Line::from(""));
-    for (i, recipe) in craft_recipes().iter().enumerate() {
+    let player_people = app.inter_people_bias.player_people;
+    for (i, recipe) in craft_recipes()
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.people.is_none() || r.people == Some(player_people))
+    {
         let key = format!("{}", i + 1);
         let has_all = recipe
             .inputs
@@ -1795,6 +1800,11 @@ fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
             .collect::<Vec<_>>()
             .join("+ ");
         let can_color = if has_all { NEED_LOW } else { DARK_BROWN };
+        let people_tag = if let Some(pk) = recipe.people {
+            format!(" [{}]", pk.label())
+        } else {
+            String::new()
+        };
         lines.push(Line::from(vec![
             Span::styled(
                 format!(" [{}] ", key),
@@ -1803,7 +1813,7 @@ fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
-                format!("{:<10}", recipe.name),
+                format!("{:<10}{}", recipe.name, people_tag),
                 Style::default().fg(can_color).add_modifier(Modifier::BOLD),
             ),
             Span::styled(format!("({})", inputs), Style::default().fg(DARK_BROWN)),
