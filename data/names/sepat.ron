@@ -1,9 +1,17 @@
 // Sepät name grammar — forge/craft-naming tradition
-// Roots: iron, forge, craft, hammer, anvil, spark
-// Patterns emphasize compounds (craft + identity per naming guide)
+// Roots: iron, forge, craft, hammer, anvil, spark, compound names
 NameGrammar(
-    prefixes: ["Rauta", "Malmi", "Takko", "Ahjo", "Hiomo"],
-    roots: ["Tako", "Vaski", "Pääsky", "Kipinä", "Hiili", "Ankkuri", "Kettu", "Kynsi", "Silta", "Tako"],
-    suffixes: ["nen", "lä", "kari", "nen", "kkä", "ja", "kki", "nen"],
+    prefixes: ["Rauta", "Malmi", "Takko", "Ahjo", "Hiomo", "Kova", "Terä", "Kipinä", "Pääsky", "Hämärä"],
+    roots: [
+        "Tako", "Vaski", "Kipinä", "Hiili", "Kynsi", "Silta", "Nokka",
+        "Pääsky", "Kirves", "Vasara", "Takk", "Ahjo", "Kansi",
+        "Puikko", "Silmä", "Tuli", "Säde", "Malmi", "Kaas",
+        "Hohde", "Kide", "Kupari", "Peltti", "Rauta", "Taonta",
+        "Valu", "Kangas", "Koukku", "Saran", "Nivel",
+    ],
+    suffixes: [
+        "nen", "lä", "kari", "kkä", "ja", "kki", "nnen", "lä",
+        "seppä", "takko", "kari", "huone", "paja", "ahjo",
+    ],
     patterns: [Root, RootSuffix, PrefixRoot],
 )

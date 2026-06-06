@@ -1,9 +1,17 @@
 // Arkit name grammar — archive-naming tradition
-// Roots: preservation, knowledge, memory, text, tablet
-// Patterns emphasize compound forms (flowing/compound per naming guide)
+// Roots: preservation, knowledge, memory, text, wisdom
 NameGrammar(
-    prefixes: ["Vanh", "Kirj", "Ark", "Tiet", "Pöly"],
-    roots: ["Sampo", "Muisto", "Taulu", "Käänn", "Luku", "Sana", "Vihko", "Pöytä", "Luett", "Viisas"],
-    suffixes: ["nen", "ri", "la", "nen", "tär", "kkä", "nen", "ius"],
+    prefixes: ["Vanh", "Kirj", "Ark", "Tiet", "Uusi", "Syv", "Pikk", "Kirk", "Pime", "Valo"],
+    roots: [
+        "Sampo", "Muisto", "Taulu", "Käänn", "Luku", "Sana", "Vihko", "Pöytä",
+        "Luett", "Viisas", "Silmä", "Korva", "Kieli", "Mieli", "Aivot",
+        "Kirja", "Vuosi", "Aika", "Päivä", "Ilta", "Aamu", "Yö",
+        "Kuutamo", "Hämärä", "Sarja", "Luku", "Rivi", "Sivu",
+        "Kansi", "Sidottu", "Pii", "Määre", "Koe", "Totuus",
+    ],
+    suffixes: [
+        "nen", "ri", "la", "tär", "kkä", "ius", "inen", "ainen",
+        "mies", "tär", "kko", "la", "nen", "ja", "ari",
+    ],
     patterns: [Root, RootSuffix, PrefixRoot],
 )
