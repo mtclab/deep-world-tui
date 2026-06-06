@@ -498,3 +498,276 @@ mod determinism_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod consequence_leave_household {
+    use super::*;
+    use crate::charts;
+    use crate::sim::effects::{Change, Effect};
+
+    fn make_sim(seed: u64) -> SimState {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        SimState::new(seed, charts)
+    }
+
+    fn first_person_id(sim: &SimState) -> String {
+        sim.world.regions[0].settlements[0].people[0].id.clone()
+    }
+
+    fn second_person_id(sim: &SimState) -> String {
+        sim.world.regions[0].settlements[0].people[1].id.clone()
+    }
+
+    fn third_person_id(sim: &SimState) -> String {
+        sim.world.regions[0].settlements[0].people[2].id.clone()
+    }
+
+    fn first_settlement_id(sim: &SimState) -> String {
+        sim.world.regions[0].settlements[0].id.clone()
+    }
+
+    fn setup_household_scenario(seed: u64) -> SimState {
+        let mut sim = make_sim(seed);
+        let player_id = first_person_id(&sim);
+        let spouse_id = second_person_id(&sim);
+        let child_id = third_person_id(&sim);
+        let settlement_id = first_settlement_id(&sim);
+        sim.relationships
+            .update_relationship(&player_id, &spouse_id, "married", 0, 0.5, 0.3);
+        sim.relationships
+            .update_relationship(&spouse_id, &player_id, "married", 0, 0.5, 0.3);
+        sim.relationships
+            .update_relationship(&child_id, &player_id, "parent-child", 0, 0.5, 0.3);
+        sim.obligations.push(needs_dependent::Obligation {
+            caregiver_id: player_id.clone(),
+            dependent_id: child_id.clone(),
+            need: Need::Care,
+            strength: 0.8,
+        });
+        sim.obligations.push(needs_dependent::Obligation {
+            caregiver_id: player_id.clone(),
+            dependent_id: child_id.clone(),
+            need: Need::Presence,
+            strength: 0.6,
+        });
+        sim.reputation.adjust_local(&player_id, &settlement_id, 0.3);
+        sim
+    }
+
+    fn apply_leave_household(sim: &mut SimState) {
+        let player_id = first_person_id(sim);
+        let spouse_id = second_person_id(sim);
+        let child_id = third_person_id(sim);
+        let settlement_id = first_settlement_id(sim);
+        let immediate = Effect::immediate(
+            "leave household",
+            vec![
+                Change::NeedDelta {
+                    person_id: child_id.clone(),
+                    need: Need::Care,
+                    delta: -0.3,
+                },
+                Change::NeedDelta {
+                    person_id: child_id.clone(),
+                    need: Need::Presence,
+                    delta: -0.2,
+                },
+                Change::RelationshipDelta {
+                    from: spouse_id.clone(),
+                    to: player_id.clone(),
+                    strength_delta: -0.3,
+                    trust_delta: -0.2,
+                },
+                Change::ReputationDelta {
+                    person_id: player_id.clone(),
+                    settlement: settlement_id.clone(),
+                    delta: -0.2,
+                },
+            ],
+        );
+        let current_tick = sim.world.tick;
+        let mut ctx = effects::EffectContext {
+            world: &mut sim.world,
+            relationships: &mut sim.relationships,
+            reputation: &mut sim.reputation,
+            current_tick,
+        };
+        effects::apply_immediate(&mut ctx, &immediate);
+        sim.effect_queue.queue(Effect::deferred(
+            "dependents care drops further",
+            sim.world.tick + 10,
+            vec![Change::NeedDelta {
+                person_id: child_id.clone(),
+                need: Need::Care,
+                delta: -0.15,
+            }],
+        ));
+        sim.effect_queue.queue(Effect::deferred(
+            "reputation spreads",
+            sim.world.tick + 20,
+            vec![Change::ReputationDelta {
+                person_id: player_id.clone(),
+                settlement: settlement_id.clone(),
+                delta: -0.1,
+            }],
+        ));
+        sim.effect_queue.queue(Effect::deferred(
+            "spouse moves on",
+            sim.world.tick + 30,
+            vec![Change::RelationshipDelta {
+                from: spouse_id.clone(),
+                to: player_id.clone(),
+                strength_delta: -0.2,
+                trust_delta: -0.1,
+            }],
+        ));
+    }
+
+    #[test]
+    fn leave_household_dependent_needs_degrade() {
+        let mut sim = setup_household_scenario(42);
+        let child_id = third_person_id(&sim);
+        let care_before = sim.world.regions[0].settlements[0]
+            .people
+            .iter()
+            .find(|p| p.id == child_id)
+            .map(|p| p.needs.get(Need::Care))
+            .unwrap();
+        apply_leave_household(&mut sim);
+        let care_after = sim.world.regions[0].settlements[0]
+            .people
+            .iter()
+            .find(|p| p.id == child_id)
+            .map(|p| p.needs.get(Need::Care))
+            .unwrap();
+        assert!(
+            care_after < care_before,
+            "child care should drop after leaving: before={}, after={}",
+            care_before,
+            care_after
+        );
+    }
+
+    #[test]
+    fn leave_household_spouse_bond_drops() {
+        let mut sim = setup_household_scenario(42);
+        let player_id = first_person_id(&sim);
+        let spouse_id = second_person_id(&sim);
+        apply_leave_household(&mut sim);
+        let rel = sim.relationships.get(&spouse_id, &player_id).unwrap();
+        assert!(
+            rel.strength < 0.8,
+            "spouse bond should drop after leaving: {}",
+            rel.strength
+        );
+        assert!(rel.trust < 0.7, "spouse trust should drop: {}", rel.trust);
+    }
+
+    #[test]
+    fn leave_household_reputation_drops() {
+        let mut sim = setup_household_scenario(42);
+        let player_id = first_person_id(&sim);
+        let settlement_id = first_settlement_id(&sim);
+        let rep_before = sim.reputation.get(&player_id, &settlement_id);
+        apply_leave_household(&mut sim);
+        let rep_after = sim.reputation.get(&player_id, &settlement_id);
+        assert!(
+            rep_after < rep_before,
+            "reputation should drop: before={}, after={}",
+            rep_before,
+            rep_after
+        );
+    }
+
+    #[test]
+    fn leave_household_deferred_effects_fire() {
+        let mut sim = setup_household_scenario(42);
+        apply_leave_household(&mut sim);
+        assert!(!sim.effect_queue.is_empty(), "should have deferred effects");
+        for _ in 0..35 {
+            sim.step();
+        }
+        assert!(
+            sim.effect_queue.is_empty(),
+            "all deferred effects should have fired"
+        );
+    }
+
+    #[test]
+    fn leave_household_spouse_bond_continues_dropping() {
+        let mut sim = setup_household_scenario(42);
+        let player_id = first_person_id(&sim);
+        let spouse_id = second_person_id(&sim);
+        apply_leave_household(&mut sim);
+        let bond_after_leave = sim
+            .relationships
+            .get(&spouse_id, &player_id)
+            .unwrap()
+            .strength;
+        for _ in 0..50 {
+            sim.step();
+        }
+        let bond_final = sim
+            .relationships
+            .get(&spouse_id, &player_id)
+            .map(|r| r.strength)
+            .unwrap_or(0.0);
+        assert!(
+            bond_final < bond_after_leave,
+            "spouse bond should continue dropping via deferred effect: after_leave={}, final={}",
+            bond_after_leave,
+            bond_final
+        );
+    }
+
+    #[test]
+    fn leave_household_deterministic() {
+        let mut a = setup_household_scenario(42);
+        let mut b = setup_household_scenario(42);
+        apply_leave_household(&mut a);
+        apply_leave_household(&mut b);
+        for _ in 0..50 {
+            a.step();
+            b.step();
+        }
+        let child_id = third_person_id(&a);
+        let care_a = a.world.regions[0].settlements[0]
+            .people
+            .iter()
+            .find(|p| p.id == child_id)
+            .map(|p| p.needs.get(Need::Care))
+            .unwrap();
+        let child_id_b = third_person_id(&b);
+        let care_b = b.world.regions[0].settlements[0]
+            .people
+            .iter()
+            .find(|p| p.id == child_id_b)
+            .map(|p| p.needs.get(Need::Care))
+            .unwrap();
+        assert!(
+            (care_a - care_b).abs() < f64::EPSILON,
+            "leave household must be deterministic: a={}, b={}",
+            care_a,
+            care_b
+        );
+    }
+
+    #[test]
+    fn leave_household_reputation_spreads_over_time() {
+        let mut sim = setup_household_scenario(42);
+        let player_id = first_person_id(&sim);
+        apply_leave_household(&mut sim);
+        let settlement_id = first_settlement_id(&sim);
+        let rep_home_before = sim.reputation.get(&player_id, &settlement_id);
+        for _ in 0..50 {
+            sim.step();
+        }
+        let rep_home_after = sim.reputation.get(&player_id, &settlement_id);
+        assert!(
+            rep_home_after <= rep_home_before,
+            "home reputation should not increase: before={}, after={}",
+            rep_home_before,
+            rep_home_after
+        );
+    }
+}
