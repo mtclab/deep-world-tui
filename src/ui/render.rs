@@ -13,6 +13,7 @@ use crate::voice::Situation;
 
 const ARCHIVE_RED: Color = Color::Rgb(0x7a, 0x2e, 0x1d);
 const INK: Color = Color::Rgb(0x3a, 0x2a, 0x1a);
+const DARK_INK: Color = Color::Rgb(0x6a, 0x5a, 0x4a);
 const WARM_BROWN: Color = Color::Rgb(0x8b, 0x73, 0x55);
 const DARK_BROWN: Color = Color::Rgb(0x5a, 0x4a, 0x3a);
 const PAPER: Color = Color::Rgb(0xef, 0xe9, 0xdd);
@@ -1021,6 +1022,22 @@ fn terrain_color(terrain: Terrain) -> Color {
     }
 }
 
+fn dim_color(c: Color) -> Color {
+    match c {
+        Color::Rgb(r, g, b) => Color::Rgb(r / 2, g / 2, b / 2),
+        other => other,
+    }
+}
+
+fn terrain_color_at(terrain: Terrain, dark: bool) -> Color {
+    let c = terrain_color(terrain);
+    if dark {
+        dim_color(c)
+    } else {
+        c
+    }
+}
+
 fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: usize) {
     let chunks = Layout::vertical([
         Constraint::Length(3),
@@ -1045,6 +1062,10 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
         Span::styled(
             &region_name,
             Style::default().fg(INK).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!("  {}", app.clock_str()),
+            Style::default().fg(DARK_INK),
         ),
     ]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -1079,6 +1100,8 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
     let cam_x = px.saturating_sub(half_w);
     let cam_y = py.saturating_sub(half_h);
 
+    let dark = app.clock.time_of_day().is_dark();
+
     let mut lines: Vec<Line> = Vec::new();
     for vy in 0..view_h {
         let my = cam_y + vy;
@@ -1098,7 +1121,7 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                         let c = terrain.glyph();
                         spans.push(Span::styled(
                             c.to_string(),
-                            Style::default().fg(terrain_color(*terrain)),
+                            Style::default().fg(terrain_color_at(*terrain, dark)),
                         ));
                     } else {
                         spans.push(Span::styled(" ", Style::default().fg(DARK_BROWN)));
@@ -1172,6 +1195,34 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" move  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[g]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" gather  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[r]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" rest  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[i]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" inv  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[c]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" craft  ", Style::default().fg(DARK_BROWN)),
         Span::styled(
             "[Enter]",
             Style::default()

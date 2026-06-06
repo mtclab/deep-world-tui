@@ -1,7 +1,8 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{
-    craft_recipes, Inventory, ItemType, Need, PlayerPos, PlayerStart, Settlement, Terrain,
+    craft_recipes, GameClock, Inventory, ItemType, Need, PlayerPos, PlayerStart, Settlement,
+    Terrain,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -57,6 +58,7 @@ pub struct App {
     pub screen: Screen,
     pub status_msg: Option<String>,
     pub player_pos: Option<PlayerPos>,
+    pub clock: GameClock,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -73,6 +75,7 @@ impl App {
             screen: Screen::CharacterCreation,
             status_msg: None,
             player_pos: None,
+            clock: GameClock::default(),
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -315,12 +318,12 @@ impl App {
                 if let Some(ref sim) = self.sim {
                     if let Some(region) = sim.world.regions.get(pos.region_idx) {
                         if let Some(terrain) = region.terrain.get(pos.px, pos.py) {
-                            if let Some(item) = ItemType::gather_from(terrain) {
+                            if self.clock.time_of_day().is_dark() {
+                                self.status_msg = Some("Too dark to gather".into());
+                            } else if let Some(item) = ItemType::gather_from(terrain) {
                                 ps.inventory.add(item, 1);
-                                self.status_msg = Some(format!("Gathered 1 {}", item.name()));
-                            } else if terrain == Terrain::Settlement {
-                                ps.inventory.add(ItemType::Coin, 1);
-                                self.status_msg = Some("Found 1 Coin in town".into());
+                                self.clock.advance_hour();
+                                self.status_msg = Some(format!("Gathered 1 {} (1h)", item.name()));
                             } else {
                                 self.status_msg = Some("Nothing to gather here".into());
                             }
@@ -367,8 +370,9 @@ impl App {
                         inv.remove(*item, *count);
                     }
                     inv.add(recipe.output, recipe.output_count);
+                    self.clock.advance(2);
                     self.status_msg = Some(format!(
-                        "Crafted {} (x{})",
+                        "Crafted {} (x{}) (2h)",
                         recipe.name, recipe.output_count
                     ));
                 } else {
@@ -385,6 +389,21 @@ impl App {
             .unwrap_or_default()
     }
 
+    pub fn rest(&mut self) {
+        self.clock.advance(8);
+        self.status_msg = Some("Rested through the night (8h)".into());
+    }
+
+    pub fn clock_str(&self) -> String {
+        let tod = self.clock.time_of_day();
+        format!(
+            "D{} {:02}:00 {}",
+            self.clock.day,
+            self.clock.hour,
+            tod.glyph()
+        )
+    }
+
     pub fn move_player(&mut self, dx: i32, dy: i32) {
         if let Some(ref mut pos) = self.player_pos {
             if let Some(ref sim) = self.sim {
@@ -397,6 +416,7 @@ impl App {
                         if let Some(west) = region.neighbors.west {
                             pos.region_idx = west;
                             pos.px = map_w - 1;
+                            self.clock.advance_hour();
                             self.screen = Screen::Map {
                                 region_idx: west,
                                 px: map_w - 1,
@@ -407,6 +427,7 @@ impl App {
                         if let Some(east) = region.neighbors.east {
                             pos.region_idx = east;
                             pos.px = 0;
+                            self.clock.advance_hour();
                             self.screen = Screen::Map {
                                 region_idx: east,
                                 px: 0,
@@ -417,6 +438,7 @@ impl App {
                         if let Some(north) = region.neighbors.north {
                             pos.region_idx = north;
                             pos.py = map_h - 1;
+                            self.clock.advance_hour();
                             self.screen = Screen::Map {
                                 region_idx: north,
                                 px: pos.px,
@@ -427,6 +449,7 @@ impl App {
                         if let Some(south) = region.neighbors.south {
                             pos.region_idx = south;
                             pos.py = 0;
+                            self.clock.advance_hour();
                             self.screen = Screen::Map {
                                 region_idx: south,
                                 px: pos.px,
@@ -440,6 +463,7 @@ impl App {
                             if terrain.passable() {
                                 pos.px = ux;
                                 pos.py = uy;
+                                self.clock.advance_hour();
                                 self.screen = Screen::Map {
                                     region_idx: pos.region_idx,
                                     px: ux,
@@ -626,6 +650,9 @@ impl App {
                     }
                     crossterm::event::KeyCode::Char('g') => {
                         self.gather();
+                    }
+                    crossterm::event::KeyCode::Char('r') => {
+                        self.rest();
                     }
                     crossterm::event::KeyCode::Char('c') => {
                         self.enter_craft();

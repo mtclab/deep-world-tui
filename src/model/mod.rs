@@ -159,6 +159,84 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
     ]
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TimeOfDay {
+    Dawn,
+    Day,
+    Dusk,
+    Night,
+}
+
+impl TimeOfDay {
+    pub fn from_hour(hour: u32) -> Self {
+        match hour {
+            5..=7 => TimeOfDay::Dawn,
+            8..=17 => TimeOfDay::Day,
+            18..=20 => TimeOfDay::Dusk,
+            _ => TimeOfDay::Night,
+        }
+    }
+
+    pub fn glyph(self) -> char {
+        match self {
+            TimeOfDay::Dawn => '☼',
+            TimeOfDay::Day => '☀',
+            TimeOfDay::Dusk => '◐',
+            TimeOfDay::Night => '●',
+        }
+    }
+
+    pub fn is_dark(self) -> bool {
+        matches!(self, TimeOfDay::Night)
+    }
+}
+
+impl fmt::Display for TimeOfDay {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TimeOfDay::Dawn => write!(f, "Dawn"),
+            TimeOfDay::Day => write!(f, "Day"),
+            TimeOfDay::Dusk => write!(f, "Dusk"),
+            TimeOfDay::Night => write!(f, "Night"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct GameClock {
+    pub day: u32,
+    pub hour: u32,
+}
+
+impl Default for GameClock {
+    fn default() -> Self {
+        GameClock { day: 1, hour: 8 }
+    }
+}
+
+impl GameClock {
+    pub fn new(day: u32, hour: u32) -> Self {
+        GameClock {
+            day,
+            hour: hour % 24,
+        }
+    }
+
+    pub fn time_of_day(self) -> TimeOfDay {
+        TimeOfDay::from_hour(self.hour)
+    }
+
+    pub fn advance(&mut self, hours: u32) {
+        self.hour += hours;
+        self.day += self.hour / 24;
+        self.hour %= 24;
+    }
+
+    pub fn advance_hour(&mut self) {
+        self.advance(1);
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct World {
     pub seed: u64,
@@ -813,5 +891,51 @@ mod tests {
             assert!(!recipe.inputs.is_empty(), "recipe must have inputs");
             assert!(recipe.output_count > 0, "must produce something");
         }
+    }
+
+    #[test]
+    fn time_of_day_from_hour() {
+        assert_eq!(TimeOfDay::from_hour(0), TimeOfDay::Night);
+        assert_eq!(TimeOfDay::from_hour(4), TimeOfDay::Night);
+        assert_eq!(TimeOfDay::from_hour(5), TimeOfDay::Dawn);
+        assert_eq!(TimeOfDay::from_hour(8), TimeOfDay::Day);
+        assert_eq!(TimeOfDay::from_hour(12), TimeOfDay::Day);
+        assert_eq!(TimeOfDay::from_hour(18), TimeOfDay::Dusk);
+        assert_eq!(TimeOfDay::from_hour(21), TimeOfDay::Night);
+        assert_eq!(TimeOfDay::from_hour(23), TimeOfDay::Night);
+    }
+
+    #[test]
+    fn game_clock_advance() {
+        let mut clock = GameClock::new(1, 22);
+        assert_eq!(clock.time_of_day(), TimeOfDay::Night);
+        clock.advance_hour();
+        assert_eq!(clock.day, 1);
+        assert_eq!(clock.hour, 23);
+        clock.advance_hour();
+        assert_eq!(clock.day, 2);
+        assert_eq!(clock.hour, 0);
+    }
+
+    #[test]
+    fn game_clock_advance_multi() {
+        let mut clock = GameClock::new(1, 20);
+        clock.advance(6);
+        assert_eq!(clock.day, 2);
+        assert_eq!(clock.hour, 2);
+    }
+
+    #[test]
+    fn game_clock_serialization() {
+        let clock = GameClock::new(3, 15);
+        roundtrip(&clock);
+    }
+
+    #[test]
+    fn night_is_dark() {
+        assert!(TimeOfDay::Night.is_dark());
+        assert!(!TimeOfDay::Day.is_dark());
+        assert!(!TimeOfDay::Dawn.is_dark());
+        assert!(!TimeOfDay::Dusk.is_dark());
     }
 }
