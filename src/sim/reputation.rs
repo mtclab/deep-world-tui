@@ -102,6 +102,19 @@ impl ReputationStore {
         entry.reputation.adjust(delta);
     }
 
+    pub fn adjust_local_biased(
+        &mut self,
+        person_id: &str,
+        settlement: &str,
+        delta: f64,
+        player_people: crate::model::PeopleKind,
+        settlement_people: crate::model::PeopleKind,
+    ) {
+        let bias = player_people.bias_toward(settlement_people);
+        let mod_ = (1.0 + bias * 0.5).max(0.3);
+        self.adjust_local(person_id, settlement, delta * mod_);
+    }
+
     pub fn adjust_faction(&mut self, person_id: &str, settlement: &str, faction: &str, delta: f64) {
         let key = reputation_key(person_id, settlement);
         let entry = self.entries.entry(key).or_insert_with(|| ReputationEntry {

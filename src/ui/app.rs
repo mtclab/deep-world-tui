@@ -335,7 +335,13 @@ impl App {
                         self.inter_people_bias.player_people,
                         npc_people,
                     );
-                    sim.reputation.adjust_local(pid, sid, rep_bonus);
+                    sim.reputation.adjust_local_biased(
+                        pid,
+                        sid,
+                        rep_bonus,
+                        self.inter_people_bias.player_people,
+                        npc_people,
+                    );
                 }
                 self.status_msg = Some(format!("Gave food to {}", person.name));
                 self.god_affinity.adjust(GodName::Ahjo, 0.02);
@@ -411,7 +417,13 @@ impl App {
                         self.inter_people_bias.player_people,
                         npc_people,
                     );
-                    sim.reputation.adjust_local(pid, sid, 0.01);
+                    sim.reputation.adjust_local_biased(
+                        pid,
+                        sid,
+                        0.01,
+                        self.inter_people_bias.player_people,
+                        npc_people,
+                    );
                 }
                 self.status_msg = Some(format!("Gave coin to {}", person.name));
                 self.god_affinity.adjust(GodName::Ahjo, 0.02);
