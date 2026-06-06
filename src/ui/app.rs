@@ -1,6 +1,6 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
-use crate::model::{PlayerStart, Settlement};
+use crate::model::{Need, PlayerStart, Settlement};
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
 use crate::sim::SimState;
@@ -22,6 +22,12 @@ pub enum Screen {
         scroll: u16,
     },
     Journal {
+        scroll: u16,
+    },
+    Talk {
+        region_idx: usize,
+        settlement_idx: usize,
+        person_idx: usize,
         scroll: u16,
     },
 }
@@ -174,6 +180,54 @@ impl App {
         }
     }
 
+    pub fn enter_talk(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        self.screen = Screen::Talk {
+            region_idx,
+            settlement_idx,
+            person_idx,
+            scroll: 0,
+        };
+    }
+
+    pub fn exit_talk(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        self.screen = Screen::Npc {
+            region_idx,
+            settlement_idx,
+            person_idx,
+            scroll: 0,
+        };
+    }
+
+    pub fn give_food(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        if let Some(ref mut sim) = self.sim {
+            if let Some(person) = sim
+                .world
+                .regions
+                .get_mut(region_idx)
+                .and_then(|r| r.settlements.get_mut(settlement_idx))
+                .and_then(|s| s.people.get_mut(person_idx))
+            {
+                person.needs.satisfy(Need::Food, 0.2);
+                self.status_msg = Some(format!("Gave food to {}", person.name));
+            }
+        }
+    }
+
+    pub fn give_coin(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        if let Some(ref mut sim) = self.sim {
+            if let Some(person) = sim
+                .world
+                .regions
+                .get_mut(region_idx)
+                .and_then(|r| r.settlements.get_mut(settlement_idx))
+                .and_then(|s| s.people.get_mut(person_idx))
+            {
+                person.needs.satisfy(Need::Money, 0.2);
+                self.status_msg = Some(format!("Gave coin to {}", person.name));
+            }
+        }
+    }
+
     pub fn handle_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Key(key) => match self.screen {
@@ -258,7 +312,7 @@ impl App {
                     ref mut scroll,
                     region_idx,
                     settlement_idx,
-                    ..
+                    person_idx,
                 } => match key.code {
                     crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
                         self.exit_npc(region_idx, settlement_idx);
@@ -267,6 +321,9 @@ impl App {
                         if let Some(ref mut sim) = self.sim {
                             sim.step();
                         }
+                    }
+                    crossterm::event::KeyCode::Char('t') => {
+                        self.enter_talk(region_idx, settlement_idx, person_idx);
                     }
                     crossterm::event::KeyCode::Down => {
                         *scroll = scroll.saturating_add(1);
@@ -279,6 +336,29 @@ impl App {
                 Screen::Journal { ref mut scroll } => match key.code {
                     crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
                         self.exit_journal();
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        *scroll = scroll.saturating_add(1);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        *scroll = scroll.saturating_sub(1);
+                    }
+                    _ => {}
+                },
+                Screen::Talk {
+                    ref mut scroll,
+                    region_idx,
+                    settlement_idx,
+                    person_idx,
+                } => match key.code {
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.exit_talk(region_idx, settlement_idx, person_idx);
+                    }
+                    crossterm::event::KeyCode::Char('f') => {
+                        self.give_food(region_idx, settlement_idx, person_idx);
+                    }
+                    crossterm::event::KeyCode::Char('c') => {
+                        self.give_coin(region_idx, settlement_idx, person_idx);
                     }
                     crossterm::event::KeyCode::Down => {
                         *scroll = scroll.saturating_add(1);
