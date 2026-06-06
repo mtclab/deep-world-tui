@@ -544,15 +544,35 @@ pub enum PeopleKind {
 }
 
 impl PeopleKind {
-    pub fn from_name(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
+    pub fn from_name(name: &str) -> Self {
+        match name.to_lowercase().as_str() {
             "metsik" => PeopleKind::Metsik,
             "arkit" => PeopleKind::Arkit,
-            "vayla" => PeopleKind::Vayla,
+            "vayla" | "väylä" => PeopleKind::Vayla,
             "laakso" => PeopleKind::Laakso,
             "sepat" | "sepät" => PeopleKind::Sepat,
             "ahjo" => PeopleKind::Ahjo,
             _ => PeopleKind::Metsik,
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            PeopleKind::Metsik => "Forest-people",
+            PeopleKind::Arkit => "Hearth-kin",
+            PeopleKind::Vayla => "River-folk",
+            PeopleKind::Laakso => "Vale-dwellers",
+            PeopleKind::Sepat => "Iron-people",
+            PeopleKind::Ahjo => "Settlement-folk",
+        }
+    }
+
+    pub fn patron_god(self) -> Option<GodName> {
+        match self {
+            PeopleKind::Metsik => Some(GodName::Metsik),
+            PeopleKind::Ahjo | PeopleKind::Sepat => Some(GodName::Ahjo),
+            PeopleKind::Vayla | PeopleKind::Arkit => Some(GodName::Vayla),
+            PeopleKind::Laakso => None,
         }
     }
 

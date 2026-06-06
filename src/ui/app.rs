@@ -341,7 +341,7 @@ impl App {
                     if self.god_affinity.get(GodName::Vayla) > 0.3 {
                         trust_bonus += 0.01;
                     }
-                    let npc_people = PeopleKind::from_name(&person.people);
+                    let npc_people_pk = PeopleKind::from_name(&person.people);
                     sim.relationships.update_relationship_biased_full(
                         pid,
                         &person_id,
@@ -350,7 +350,7 @@ impl App {
                         trust_bonus,
                         0.03,
                         self.inter_people_bias.player_people,
-                        npc_people,
+                        npc_people_pk,
                         &person.personality,
                     );
                     sim.reputation.adjust_local_biased(
@@ -358,12 +358,15 @@ impl App {
                         sid,
                         rep_bonus,
                         self.inter_people_bias.player_people,
-                        npc_people,
+                        npc_people_pk,
                     );
                 }
                 self.status_msg = Some(format!("Gave food to {}", person.name));
                 self.god_affinity.adjust(GodName::Ahjo, 0.02);
                 self.god_affinity.adjust(GodName::Vayla, 0.01);
+                if let Some(god) = PeopleKind::from_name(&person.people).patron_god() {
+                    self.god_affinity.adjust(god, 0.01);
+                }
             }
         }
     }
@@ -424,7 +427,7 @@ impl App {
                     if self.god_affinity.get(GodName::Vayla) > 0.3 {
                         trust_bonus += 0.01;
                     }
-                    let npc_people = PeopleKind::from_name(&person.people);
+                    let npc_people_pk = PeopleKind::from_name(&person.people);
                     sim.relationships.update_relationship_biased_full(
                         pid,
                         &person_id,
@@ -433,7 +436,7 @@ impl App {
                         trust_bonus,
                         rep_bonus,
                         self.inter_people_bias.player_people,
-                        npc_people,
+                        npc_people_pk,
                         &person.personality,
                     );
                     sim.reputation.adjust_local_biased(
@@ -441,12 +444,15 @@ impl App {
                         sid,
                         0.01,
                         self.inter_people_bias.player_people,
-                        npc_people,
+                        npc_people_pk,
                     );
                 }
                 self.status_msg = Some(format!("Gave coin to {}", person.name));
                 self.god_affinity.adjust(GodName::Ahjo, 0.02);
                 self.god_affinity.adjust(GodName::Vayla, 0.01);
+                if let Some(god) = PeopleKind::from_name(&person.people).patron_god() {
+                    self.god_affinity.adjust(god, 0.01);
+                }
             }
         }
     }
