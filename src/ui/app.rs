@@ -756,6 +756,12 @@ impl App {
                 })
             })
             .unwrap_or_default();
+        let people_bias_mod = self.current_settlement_people().map_or(0.0, |npc_people| {
+            self.inter_people_bias.player_people.bias_toward(npc_people)
+                + self.clock.season().bias_modifier()
+        });
+        let talk_success = people_bias_mod > -0.20;
+        let trade_bonus = people_bias_mod > 0.05;
         let msg = match action {
             EncounterAction::Flee => {
                 if enc_mod.flee > 0.05 {
@@ -800,7 +806,9 @@ impl App {
                 }
             }
             EncounterAction::Talk => {
-                if enc_mod.talk > 0.03 {
+                if !talk_success {
+                    "They turned away coldly. No wisdom shared.".into()
+                } else if enc_mod.talk > 0.03 {
                     "The traveler warmed to you quickly. Wisdom flows freely.".into()
                 } else if enc_mod.talk < -0.02 {
                     "Words came slow. They barely shared a thing.".into()
@@ -810,10 +818,17 @@ impl App {
             }
             EncounterAction::Trade => {
                 if let Some(ref mut ps) = self.player_start {
-                    let herbs = if enc_mod.trade > 0.02 { 2 } else { 1 };
+                    let base_herbs = if trade_bonus { 2 } else { 1 };
+                    let herbs = if enc_mod.trade > 0.02 {
+                        base_herbs + 1
+                    } else {
+                        base_herbs
+                    };
                     ps.inventory.add(ItemType::Herb, herbs);
-                    if herbs > 1 {
-                        "A shrewd trade — you got extra herbs! (1h)".into()
+                    if herbs >= 3 {
+                        "A generous trade — three herbs for your news! (1h)".into()
+                    } else if herbs == 2 {
+                        "A good trade — two herbs (1h)".into()
                     } else {
                         "Traded news for herbs (1h)".into()
                     }
