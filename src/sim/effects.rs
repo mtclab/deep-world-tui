@@ -114,9 +114,28 @@ pub struct EffectContext<'a> {
 pub fn apply_effect(ctx: &mut EffectContext, effect: &Effect) {
     let changes = match effect {
         Effect::Immediate { changes, .. } => changes,
-        Effect::Deferred { .. } => return,
+        Effect::Deferred { changes, .. } => changes,
     };
     apply_changes(ctx, changes);
+}
+
+pub fn apply_immediate(ctx: &mut EffectContext, effect: &Effect) {
+    if let Effect::Immediate { changes, .. } = effect {
+        apply_changes(ctx, changes);
+    }
+}
+
+pub fn fire_due_effects(
+    queue: &mut EffectQueue,
+    current_tick: u64,
+    ctx: &mut EffectContext,
+) -> usize {
+    let due = queue.due(current_tick);
+    let count = due.len();
+    for effect in &due {
+        apply_effect(ctx, effect);
+    }
+    count
 }
 
 pub fn apply_changes(ctx: &mut EffectContext, changes: &[Change]) {
@@ -492,7 +511,7 @@ mod tests {
         let before = ctx.world.regions[0].settlements[0].people[0]
             .needs
             .get(Need::Food);
-        apply_effect(&mut ctx, &effect);
+        apply_immediate(&mut ctx, &effect);
         let after = ctx.world.regions[0].settlements[0].people[0]
             .needs
             .get(Need::Food);
@@ -744,5 +763,188 @@ mod tests {
             .get(Need::Money);
         assert!(food_after > food_before, "food should increase");
         assert!(money_after < money_before, "money should decrease");
+    }
+
+    #[test]
+    fn fire_due_effects_at_tick_10() {
+        let mut world = make_simple_world();
+        let mut rels = RelationshipTracker::new();
+        let mut rep = ReputationStore::new();
+        let mut queue = EffectQueue::new();
+        queue.queue(Effect::deferred(
+            "a",
+            5,
+            vec![Change::NeedDelta {
+                person_id: "p1".into(),
+                need: Need::Money,
+                delta: -0.1,
+            }],
+        ));
+        queue.queue(Effect::deferred(
+            "b",
+            10,
+            vec![Change::NeedDelta {
+                person_id: "p1".into(),
+                need: Need::Money,
+                delta: -0.15,
+            }],
+        ));
+        queue.queue(Effect::deferred(
+            "c",
+            15,
+            vec![Change::NeedDelta {
+                person_id: "p1".into(),
+                need: Need::Money,
+                delta: -0.2,
+            }],
+        ));
+        let mut ctx = make_context(&mut world, &mut rels, &mut rep);
+        let money_before = ctx.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Money);
+        let fired = fire_due_effects(&mut queue, 10, &mut ctx);
+        assert_eq!(fired, 2, "should fire 2 effects at tick 10");
+        assert_eq!(queue.len(), 1, "1 effect should remain");
+        let money_mid = ctx.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Money);
+        assert!(
+            money_mid < money_before,
+            "money should decrease after firing: before={}, mid={}",
+            money_before,
+            money_mid
+        );
+        let fired2 = fire_due_effects(&mut queue, 20, &mut ctx);
+        assert_eq!(fired2, 1, "should fire last effect at tick 20");
+        assert!(queue.is_empty(), "queue should be empty");
+        let money_final = ctx.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Money);
+        assert!(
+            money_final < money_mid,
+            "money should decrease again: mid={}, final={}",
+            money_mid,
+            money_final
+        );
+    }
+
+    #[test]
+    fn fire_due_effects_no_double_firing() {
+        let mut world = make_simple_world();
+        let mut rels = RelationshipTracker::new();
+        let mut rep = ReputationStore::new();
+        let mut queue = EffectQueue::new();
+        queue.queue(Effect::deferred(
+            "a",
+            5,
+            vec![Change::NeedDelta {
+                person_id: "p1".into(),
+                need: Need::Food,
+                delta: 0.1,
+            }],
+        ));
+        let mut ctx = make_context(&mut world, &mut rels, &mut rep);
+        let fired1 = fire_due_effects(&mut queue, 10, &mut ctx);
+        assert_eq!(fired1, 1);
+        let fired2 = fire_due_effects(&mut queue, 10, &mut ctx);
+        assert_eq!(fired2, 0, "should not double-fire");
+    }
+
+    #[test]
+    fn fire_due_effects_deterministic() {
+        let mut world1 = make_simple_world();
+        let mut world2 = make_simple_world();
+        let mut rels1 = RelationshipTracker::new();
+        let mut rels2 = RelationshipTracker::new();
+        let mut rep1 = ReputationStore::new();
+        let mut rep2 = ReputationStore::new();
+        let mut queue1 = EffectQueue::new();
+        let mut queue2 = EffectQueue::new();
+        for (tick, q) in [(5, &mut queue1), (5, &mut queue2)] {
+            q.queue(Effect::deferred(
+                "a",
+                tick,
+                vec![Change::NeedDelta {
+                    person_id: "p1".into(),
+                    need: Need::Food,
+                    delta: 0.1,
+                }],
+            ));
+        }
+        queue1.queue(Effect::deferred(
+            "b",
+            10,
+            vec![Change::NeedDelta {
+                person_id: "p1".into(),
+                need: Need::Money,
+                delta: -0.05,
+            }],
+        ));
+        queue2.queue(Effect::deferred(
+            "b",
+            10,
+            vec![Change::NeedDelta {
+                person_id: "p1".into(),
+                need: Need::Money,
+                delta: -0.05,
+            }],
+        ));
+        let mut ctx1 = make_context(&mut world1, &mut rels1, &mut rep1);
+        let mut ctx2 = make_context(&mut world2, &mut rels2, &mut rep2);
+        fire_due_effects(&mut queue1, 10, &mut ctx1);
+        fire_due_effects(&mut queue2, 10, &mut ctx2);
+        let food1 = ctx1.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        let food2 = ctx2.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        assert!(
+            (food1 - food2).abs() < f64::EPSILON,
+            "deterministic: food1={}, food2={}",
+            food1,
+            food2
+        );
+    }
+
+    #[test]
+    fn fire_due_effects_empty_queue() {
+        let mut world = make_simple_world();
+        let mut rels = RelationshipTracker::new();
+        let mut rep = ReputationStore::new();
+        let mut queue = EffectQueue::new();
+        let mut ctx = make_context(&mut world, &mut rels, &mut rep);
+        let fired = fire_due_effects(&mut queue, 100, &mut ctx);
+        assert_eq!(fired, 0);
+    }
+
+    #[test]
+    fn fire_due_effects_before_tick_does_not_fire() {
+        let mut world = make_simple_world();
+        let mut rels = RelationshipTracker::new();
+        let mut rep = ReputationStore::new();
+        let mut queue = EffectQueue::new();
+        queue.queue(Effect::deferred(
+            "late",
+            100,
+            vec![Change::NeedDelta {
+                person_id: "p1".into(),
+                need: Need::Food,
+                delta: 0.2,
+            }],
+        ));
+        let mut ctx = make_context(&mut world, &mut rels, &mut rep);
+        let food_before = ctx.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        let fired = fire_due_effects(&mut queue, 50, &mut ctx);
+        assert_eq!(fired, 0, "nothing should fire before due tick");
+        let food_after = ctx.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        assert!(
+            (food_before - food_after).abs() < f64::EPSILON,
+            "food should not change"
+        );
     }
 }
