@@ -534,6 +534,35 @@ impl DangerLevel {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SettlementService {
+    Tavern,
+    Temple,
+}
+
+impl SettlementService {
+    pub fn glyph(self) -> char {
+        match self {
+            SettlementService::Tavern => '🍺',
+            SettlementService::Temple => '⛪',
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            SettlementService::Tavern => "Tavern",
+            SettlementService::Temple => "Temple",
+        }
+    }
+
+    pub fn cost(self) -> u32 {
+        match self {
+            SettlementService::Tavern => 2,
+            SettlementService::Temple => 3,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settlement {
     pub id: String,
@@ -543,6 +572,8 @@ pub struct Settlement {
     pub population: u32,
     pub description: String,
     pub people: Vec<Person>,
+    #[serde(default)]
+    pub services: Vec<SettlementService>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -800,6 +831,7 @@ mod tests {
             population: 120,
             description: "A test village".into(),
             people: vec![],
+            services: vec![],
         };
         roundtrip(&s);
     }
@@ -860,6 +892,7 @@ mod tests {
                         ..Default::default()
                     })
                     .collect(),
+                services: vec![],
             }],
         };
         world.regions.push(region);
@@ -1407,5 +1440,11 @@ mod tests {
         assert_eq!(Terrain::Grass.travel_hours(), 2);
         assert_eq!(Terrain::Forest.travel_hours(), 3);
         assert_eq!(Terrain::Swamp.travel_hours(), 3);
+    }
+
+    #[test]
+    fn settlement_service_costs() {
+        assert_eq!(SettlementService::Tavern.cost(), 2);
+        assert_eq!(SettlementService::Temple.cost(), 3);
     }
 }

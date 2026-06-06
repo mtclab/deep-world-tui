@@ -431,6 +431,18 @@ fn draw_location_screen(
             format!(" Size: {}", s.size),
             Style::default().fg(WARM_BROWN),
         )));
+        if !s.services.is_empty() {
+            let svc_str: String = s
+                .services
+                .iter()
+                .map(|svc| format!("{} {}", svc.glyph(), svc.label()))
+                .collect::<Vec<_>>()
+                .join("  ");
+            lines.push(Line::from(Span::styled(
+                format!(" Services: {}", svc_str),
+                Style::default().fg(WARM_BROWN),
+            )));
+        }
         if !s.description.is_empty() {
             lines.push(Line::from(Span::styled(
                 format!(" {}", s.description),
@@ -507,6 +519,13 @@ fn draw_location_screen(
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" market  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[s]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" service  ", Style::default().fg(DARK_BROWN)),
         Span::styled(
             "[Esc/Q]",
             Style::default()

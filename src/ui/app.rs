@@ -2,7 +2,7 @@ use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{
     craft_recipes, Encounter, GameClock, Inventory, ItemType, Need, PlayerPos, PlayerStart,
-    PlayerVitals, Settlement, Terrain,
+    PlayerVitals, Settlement, SettlementService, Terrain,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -558,6 +558,30 @@ impl App {
         self.screen = Screen::Map { region_idx, px, py };
     }
 
+    pub fn use_service(&mut self, service: SettlementService) {
+        let cost = service.cost();
+        if let Some(ref mut ps) = self.player_start {
+            if !ps.inventory.remove(ItemType::Coin, cost) {
+                self.status_msg = Some(format!("Need {} coins for {}", cost, service.label()));
+                return;
+            }
+        }
+        match service {
+            SettlementService::Tavern => {
+                self.vitals.energy = (self.vitals.energy + 0.4).min(1.0);
+                self.vitals.hunger = (self.vitals.hunger + 0.2).min(1.0);
+                self.advance_clock(2);
+                self.status_msg = Some("Rested at tavern (+energy, +hunger, 2h, 2 coins)".into());
+            }
+            SettlementService::Temple => {
+                self.vitals.hunger = (self.vitals.hunger + 0.5).min(1.0);
+                self.vitals.energy = (self.vitals.energy + 0.3).min(1.0);
+                self.advance_clock(3);
+                self.status_msg = Some("Blessed at temple (+hunger, +energy, 3h, 3 coins)".into());
+            }
+        }
+    }
+
     pub fn advance_clock_hour(&mut self) {
         self.advance_clock(1);
     }
@@ -993,6 +1017,19 @@ impl App {
                     }
                     crossterm::event::KeyCode::Char('m') => {
                         self.enter_market(region_idx, settlement_idx);
+                    }
+                    crossterm::event::KeyCode::Char('s') => {
+                        if let Some(ref sim) = self.sim {
+                            if let Some(region) = sim.world.regions.get(region_idx) {
+                                if let Some(settlement) = region.settlements.get(settlement_idx) {
+                                    if let Some(&service) = settlement.services.first() {
+                                        self.use_service(service);
+                                    } else {
+                                        self.status_msg = Some("No services here".into());
+                                    }
+                                }
+                            }
+                        }
                     }
                     _ => {}
                 },

@@ -305,6 +305,7 @@ mod tests {
                             ..Default::default()
                         },
                     ],
+                    services: vec![],
                 }],
             }],
             charts_version: "0.1.0".into(),
@@ -425,6 +426,7 @@ mod tests {
                             settlement: "s1".into(),
                             ..Default::default()
                         }],
+                        services: vec![],
                     }],
                 },
                 crate::model::Region {
@@ -442,6 +444,7 @@ mod tests {
                         population: 0,
                         description: String::new(),
                         people: vec![],
+                        services: vec![],
                     }],
                 },
             ],

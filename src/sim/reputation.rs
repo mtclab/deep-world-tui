@@ -215,6 +215,7 @@ mod tests {
                             settlement: "s1".into(),
                             ..Default::default()
                         }],
+                        services: vec![],
                     },
                     crate::model::Settlement {
                         id: "s2".into(),
@@ -229,6 +230,7 @@ mod tests {
                             needs: Needs::default(),
                             ..Default::default()
                         }],
+                        services: vec![],
                     },
                 ],
             }],

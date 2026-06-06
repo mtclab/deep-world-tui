@@ -1,5 +1,5 @@
 use crate::charts::Charts;
-use crate::model::{Region, Settlement, Terrain, TerrainMap, World};
+use crate::model::{Region, Settlement, SettlementService, Terrain, TerrainMap, World};
 use crate::rng::SeedRng;
 
 pub fn generate_world(seed: u64, charts: &Charts) -> World {
@@ -385,11 +385,22 @@ fn generate_settlement(
     Settlement {
         id: settlement_id,
         name,
-        size,
+        size: size.clone(),
         region: region_id.to_string(),
         population,
         description: String::new(),
         people,
+        services: settlement_services(&size),
+    }
+}
+
+fn settlement_services(size: &str) -> Vec<SettlementService> {
+    match size {
+        "hamlet" => vec![SettlementService::Tavern],
+        "village" => vec![SettlementService::Tavern, SettlementService::Temple],
+        "town" => vec![SettlementService::Tavern, SettlementService::Temple],
+        "city" => vec![SettlementService::Tavern, SettlementService::Temple],
+        _ => vec![],
     }
 }
 

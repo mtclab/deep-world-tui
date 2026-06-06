@@ -86,6 +86,7 @@ mod tests {
                     population: 2,
                     description: String::new(),
                     people: vec![parent, child],
+                    services: vec![],
                 }],
             }],
             charts_version: "0.1.0".into(),
