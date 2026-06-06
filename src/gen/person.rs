@@ -2,42 +2,21 @@ use crate::charts::Charts;
 use crate::model::{Needs, Person};
 use crate::rng::SeedRng;
 
-pub fn generate_person(seed_rng: &mut SeedRng, charts: &Charts) -> Person {
-    let mut person_rng = seed_rng.fork_for("person");
+pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
+    let mut person_rng = rng.fork();
     let sub_seed = person_rng.next_u64();
-    let people_rng = person_rng.fork_for("people");
-    let region_rng = person_rng.fork_for("region");
-    let settlement_rng = person_rng.fork_for("settlement");
-    let class_rng = person_rng.fork_for("class");
-    let profession_rng = person_rng.fork_for("profession");
-    let craft_rng = person_rng.fork_for("craft");
-    let personality_rng = person_rng.fork_for("personality");
-    let age_rng = person_rng.fork_for("age");
-    let sex_rng = person_rng.fork_for("sex");
-    let spouse_rng = person_rng.fork_for("spouse");
-    let children_rng = person_rng.fork_for("children");
-    let debt_rng = person_rng.fork_for("debt");
-    let mut name_rng = person_rng.fork_for("name");
 
-    let mut people_rng = people_rng;
-    let people = charts.people.sample(&mut people_rng).unwrap_or_default();
-
-    let mut region_rng = region_rng;
-    let region = charts.region.sample(&mut region_rng).unwrap_or_default();
-
-    let mut settlement_rng = settlement_rng;
+    let people = charts.people.sample(&mut person_rng).unwrap_or_default();
+    let region = charts.region.sample(&mut person_rng).unwrap_or_default();
     let settlement_size = charts
         .settlement_size
-        .sample(&mut settlement_rng)
+        .sample(&mut person_rng)
         .unwrap_or_default();
-
-    let mut class_rng = class_rng;
     let social_class = charts
         .social_class
-        .sample(&mut class_rng)
+        .sample(&mut person_rng)
         .unwrap_or_default();
 
-    let mut profession_rng = profession_rng;
     let profession = charts
         .profession
         .resolve_and_sample(
@@ -45,11 +24,10 @@ pub fn generate_person(seed_rng: &mut SeedRng, charts: &Charts) -> Person {
             &region,
             &social_class,
             &settlement_size,
-            &mut profession_rng,
+            &mut person_rng,
         )
         .unwrap_or_default();
 
-    let mut craft_rng = craft_rng;
     let craft_affinity = charts
         .craft_affinity
         .resolve_and_sample(
@@ -57,49 +35,39 @@ pub fn generate_person(seed_rng: &mut SeedRng, charts: &Charts) -> Person {
             &region,
             &social_class,
             &settlement_size,
-            &mut craft_rng,
+            &mut person_rng,
         )
         .unwrap_or_default();
 
-    let mut personality_rng = personality_rng;
     let mut personality = Vec::new();
-    let n_traits = 2 + (personality_rng.gen_range(2) as usize);
+    let n_traits = 2 + (person_rng.gen_range(2) as usize);
     for _ in 0..n_traits {
-        if let Some(t) = charts.personality_traits.sample(&mut personality_rng) {
+        if let Some(t) = charts.personality_traits.sample(&mut person_rng) {
             if !personality.contains(&t) {
                 personality.push(t);
             }
         }
     }
 
-    let mut age_rng = age_rng;
-    let age_band = charts.age_band.sample(&mut age_rng).unwrap_or_default();
-
-    let mut sex_rng = sex_rng;
-    let sex = charts.sex.sample(&mut sex_rng).unwrap_or_default();
-
-    let mut spouse_rng = spouse_rng;
+    let age_band = charts.age_band.sample(&mut person_rng).unwrap_or_default();
+    let sex = charts.sex.sample(&mut person_rng).unwrap_or_default();
     let has_spouse = charts
         .has_spouse
-        .sample(&mut spouse_rng)
+        .sample(&mut person_rng)
         .map(|v| v == "yes")
         .unwrap_or(false);
-
-    let mut children_rng = children_rng;
     let children_str = charts
         .children_count
-        .sample(&mut children_rng)
+        .sample(&mut person_rng)
         .unwrap_or_default();
     let children_count: u32 = children_str.parse().unwrap_or(0);
-
-    let mut debt_rng = debt_rng;
     let has_debt = charts
         .has_debt
-        .sample(&mut debt_rng)
+        .sample(&mut person_rng)
         .map(|v| v == "yes")
         .unwrap_or(false);
 
-    let name = crate::gen::name::generate_name(&mut name_rng, &people, &sex, charts)
+    let name = crate::gen::name::generate_name(&mut person_rng, &people, &sex, charts)
         .unwrap_or_else(|_| "Unnamed".into());
 
     Person {
@@ -114,7 +82,7 @@ pub fn generate_person(seed_rng: &mut SeedRng, charts: &Charts) -> Person {
         personality,
         bias: String::new(),
         needs: Needs::default(),
-        region: region.clone(),
+        region,
         settlement: String::new(),
         has_spouse,
         children_count,
@@ -211,6 +179,98 @@ mod tests {
             let pb = generate_person(&mut b, &charts);
             assert_eq!(pa.id, pb.id, "id mismatch");
             assert_eq!(pa.name, pb.name, "name mismatch");
+        }
+    }
+
+    fn generate_n(n: usize, seed: u64) -> (Vec<Person>, crate::charts::Charts) {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let mut rng = SeedRng::new(seed);
+        let people: Vec<Person> = (0..n).map(|_| generate_person(&mut rng, &charts)).collect();
+        (people, charts)
+    }
+
+    #[test]
+    fn distribution_profession_caps() {
+        let (people, _) = generate_n(10_000, 42);
+        let mut prof_counts = std::collections::HashMap::new();
+        for p in &people {
+            *prof_counts.entry(p.profession.clone()).or_insert(0usize) += 1;
+        }
+        let total = people.len() as f64;
+        for (prof, count) in &prof_counts {
+            let pct = *count as f64 / total * 100.0;
+            assert!(
+                pct < 40.0,
+                "profession '{}' at {:.1}% exceeds 40% cap",
+                prof,
+                pct
+            );
+        }
+        let farmer_labourer =
+            *prof_counts.get("farmer").unwrap_or(&0) + *prof_counts.get("labourer").unwrap_or(&0);
+        assert!(
+            farmer_labourer as f64 / total > 0.30,
+            "farmer+labourer only {:.1}%, expect >30%",
+            farmer_labourer as f64 / total * 100.0
+        );
+        let soldier = *prof_counts.get("soldier").unwrap_or(&0);
+        assert!(
+            soldier as f64 / total < 0.10,
+            "soldier at {:.1}%, expect <10%",
+            soldier as f64 / total * 100.0
+        );
+        let scribe = *prof_counts.get("scribe").unwrap_or(&0);
+        assert!(
+            scribe as f64 / total < 0.05,
+            "scribe at {:.1}%, expect <5%",
+            scribe as f64 / total * 100.0
+        );
+    }
+
+    #[test]
+    fn distribution_per_people_profession_shift() {
+        let (people, _charts) = generate_n(10_000, 77);
+        let mut sepat_prof = std::collections::HashMap::new();
+        let mut other_prof = std::collections::HashMap::new();
+        for p in &people {
+            if p.people == "sepat" {
+                *sepat_prof.entry(p.profession.clone()).or_insert(0usize) += 1;
+            } else {
+                *other_prof.entry(p.profession.clone()).or_insert(0usize) += 1;
+            }
+        }
+        let sepat_total = sepat_prof.values().sum::<usize>() as f64;
+        let other_total = other_prof.values().sum::<usize>() as f64;
+        let sepat_smith = *sepat_prof.get("smith").unwrap_or(&0) as f64 / sepat_total;
+        let other_smith = *other_prof.get("smith").unwrap_or(&0) as f64 / other_total;
+        assert!(
+            sepat_smith > other_smith * 2.0,
+            "sepat smith rate ({:.3}) not 2x other rate ({:.3})",
+            sepat_smith,
+            other_smith
+        );
+        let sepat_miner = *sepat_prof.get("miner").unwrap_or(&0) as f64 / sepat_total;
+        let other_miner = *other_prof.get("miner").unwrap_or(&0) as f64 / other_total;
+        assert!(
+            sepat_miner > other_miner * 2.0,
+            "sepat miner rate ({:.3}) not 2x other rate ({:.3})",
+            sepat_miner,
+            other_miner
+        );
+    }
+
+    #[test]
+    fn distribution_all_fields_populated_no_empty() {
+        let (people, _) = generate_n(1_000, 42);
+        for p in &people {
+            assert!(!p.id.is_empty(), "empty id");
+            assert!(!p.name.is_empty(), "empty name");
+            assert!(!p.people.is_empty(), "empty people");
+            assert!(!p.region.is_empty(), "empty region");
+            assert!(!p.sex.is_empty(), "empty sex");
+            assert!(!p.profession.is_empty(), "empty profession");
+            assert!(!p.social_class.is_empty(), "empty social_class");
+            assert!(!p.craft_affinity.is_empty(), "empty craft_affinity");
         }
     }
 }
