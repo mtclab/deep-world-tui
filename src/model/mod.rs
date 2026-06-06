@@ -44,8 +44,9 @@ pub struct Needs {
     pub esteem: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CraftAffinity {
+    #[default]
     None,
     Word,
     Current,
@@ -101,12 +102,42 @@ pub struct Person {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct Player {
+    pub id: String,
     pub name: String,
     pub people: String,
     pub sex: String,
     pub age_band: String,
     pub profession: String,
-    pub craft_affinity: String,
+    pub social_class: String,
+    pub craft_affinity: CraftAffinity,
+    pub personality: Vec<String>,
+    pub region: String,
+    pub settlement: String,
+    pub perks: Vec<Perk>,
+    pub household_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Perk {
+    pub name: String,
+    pub description: String,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PlayerStart {
+    pub person: Person,
+    pub reroll_count: u32,
+    pub point_buy_adjustments: Vec<Adjustment>,
+    pub accepted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Adjustment {
+    SwapProfession(String),
+    SetCraft(CraftAffinity),
+    AddPerk(Perk),
+    CutHouseholdTie,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -342,5 +373,69 @@ mod tests {
     fn need_enum_roundtrip() {
         roundtrip(&Need::Food);
         roundtrip(&Need::Esteem);
+    }
+
+    #[test]
+    fn roundtrip_player() {
+        let p = Player {
+            id: "player-1".into(),
+            name: "Hero".into(),
+            people: "metsik".into(),
+            sex: "m".into(),
+            age_band: "youth".into(),
+            profession: "forester".into(),
+            social_class: "low".into(),
+            craft_affinity: CraftAffinity::Root,
+            personality: vec!["curious".into()],
+            region: "forest".into(),
+            settlement: "set-1".into(),
+            perks: vec![Perk {
+                name: "Keen Eye".into(),
+                description: "Spot details others miss".into(),
+                source: "personality_traits".into(),
+            }],
+            household_id: Some("hh-1".into()),
+        };
+        roundtrip(&p);
+    }
+
+    #[test]
+    fn player_default_valid() {
+        let p = Player::default();
+        assert!(p.name.is_empty());
+        assert!(p.perks.is_empty());
+        assert!(p.household_id.is_none());
+    }
+
+    #[test]
+    fn roundtrip_player_start() {
+        let ps = PlayerStart {
+            person: Person::default(),
+            reroll_count: 2,
+            point_buy_adjustments: vec![
+                Adjustment::SwapProfession("trader".into()),
+                Adjustment::SetCraft(CraftAffinity::Current),
+                Adjustment::AddPerk(Perk {
+                    name: "Silver Tongue".into(),
+                    description: "Better trade deals".into(),
+                    source: "profession".into(),
+                }),
+                Adjustment::CutHouseholdTie,
+            ],
+            accepted: false,
+        };
+        roundtrip(&ps);
+    }
+
+    #[test]
+    fn adjustment_all_variants_roundtrip() {
+        roundtrip(&Adjustment::SwapProfession("smith".into()));
+        roundtrip(&Adjustment::SetCraft(CraftAffinity::Forge));
+        roundtrip(&Adjustment::AddPerk(Perk {
+            name: "test".into(),
+            description: "test perk".into(),
+            source: "test".into(),
+        }));
+        roundtrip(&Adjustment::CutHouseholdTie);
     }
 }
