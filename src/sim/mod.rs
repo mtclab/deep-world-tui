@@ -332,3 +332,169 @@ mod tests {
         assert!(sim.effect_queue.is_empty());
     }
 }
+
+#[cfg(test)]
+mod determinism_tests {
+    use super::*;
+    use crate::charts;
+    use crate::sim::effects::{Change, Effect};
+
+    fn make_sim(seed: u64) -> SimState {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        SimState::new(seed, charts)
+    }
+
+    #[test]
+    fn same_seed_same_choices_100_ticks_identical() {
+        let mut a = make_sim(42);
+        let mut b = make_sim(42);
+        let person_id = a.world.regions[0].settlements[0].people[0].id.clone();
+        for tick in [10u64, 30, 50, 70] {
+            let effect = Effect::immediate(
+                "fed",
+                vec![Change::NeedDelta {
+                    person_id: person_id.clone(),
+                    need: Need::Food,
+                    delta: 0.1,
+                }],
+            );
+            let mut ctx_a = effects::EffectContext {
+                world: &mut a.world,
+                relationships: &mut a.relationships,
+                reputation: &mut a.reputation,
+                current_tick: tick,
+            };
+            let mut ctx_b = effects::EffectContext {
+                world: &mut b.world,
+                relationships: &mut b.relationships,
+                reputation: &mut b.reputation,
+                current_tick: tick,
+            };
+            effects::apply_immediate(&mut ctx_a, &effect);
+            effects::apply_immediate(&mut ctx_b, &effect);
+            a.step();
+            b.step();
+        }
+        for _ in 0..96 {
+            a.step();
+            b.step();
+        }
+        for (ra, rb) in a.world.regions.iter().zip(b.world.regions.iter()) {
+            assert_eq!(ra.id, rb.id);
+            assert_eq!(ra.settlements.len(), rb.settlements.len());
+            for (sa, sb) in ra.settlements.iter().zip(rb.settlements.iter()) {
+                assert_eq!(sa.people.len(), sb.people.len());
+                for (pa, pb) in sa.people.iter().zip(sb.people.iter()) {
+                    assert_eq!(
+                        pa.needs, pb.needs,
+                        "needs must be identical for person {}",
+                        pa.id
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn same_seed_deferred_effects_identical_order() {
+        let mut a = make_sim(42);
+        let mut b = make_sim(42);
+        let person_id_a = a.world.regions[0].settlements[0].people[0].id.clone();
+        let person_id_b = b.world.regions[0].settlements[0].people[0].id.clone();
+        for (tick, delta) in [(5u64, 0.1), (5, 0.05), (10, 0.08), (15, 0.12)] {
+            a.effect_queue.queue(Effect::deferred(
+                "event",
+                tick,
+                vec![Change::NeedDelta {
+                    person_id: person_id_a.clone(),
+                    need: Need::Food,
+                    delta,
+                }],
+            ));
+            b.effect_queue.queue(Effect::deferred(
+                "event",
+                tick,
+                vec![Change::NeedDelta {
+                    person_id: person_id_b.clone(),
+                    need: Need::Food,
+                    delta,
+                }],
+            ));
+        }
+        for _ in 0..20 {
+            a.step();
+            b.step();
+        }
+        let food_a = a.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        let food_b = b.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        assert!(
+            (food_a - food_b).abs() < f64::EPSILON,
+            "deferred effect order must be deterministic: a={}, b={}",
+            food_a,
+            food_b
+        );
+    }
+
+    #[test]
+    fn different_seed_different_world() {
+        let mut a = make_sim(42);
+        let mut b = make_sim(99);
+        for _ in 0..10 {
+            a.step();
+            b.step();
+        }
+        let names_a: Vec<&str> = a.world.regions.iter().map(|r| r.name.as_str()).collect();
+        let names_b: Vec<&str> = b.world.regions.iter().map(|r| r.name.as_str()).collect();
+        assert_ne!(
+            names_a, names_b,
+            "different seeds should produce different region names"
+        );
+    }
+
+    #[test]
+    fn same_seed_same_choices_full_sim_identical() {
+        let mut a = make_sim(77);
+        let mut b = make_sim(77);
+        let person_id = a.world.regions[0].settlements[0].people[0].id.clone();
+        a.effect_queue.queue(Effect::deferred(
+            "late feast",
+            50,
+            vec![Change::NeedDelta {
+                person_id: person_id.clone(),
+                need: Need::Food,
+                delta: 0.3,
+            }],
+        ));
+        b.effect_queue.queue(Effect::deferred(
+            "late feast",
+            50,
+            vec![Change::NeedDelta {
+                person_id: person_id.clone(),
+                need: Need::Food,
+                delta: 0.3,
+            }],
+        ));
+        for _ in 0..100 {
+            a.step();
+            b.step();
+        }
+        assert_eq!(a.world.tick, b.world.tick);
+        assert_eq!(a.world.regions.len(), b.world.regions.len());
+        let food_a = a.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        let food_b = b.world.regions[0].settlements[0].people[0]
+            .needs
+            .get(Need::Food);
+        assert!(
+            (food_a - food_b).abs() < f64::EPSILON,
+            "full sim determinism: a={}, b={}",
+            food_a,
+            food_b
+        );
+    }
+}
