@@ -395,11 +395,27 @@ impl App {
             })
         });
         if let Some(item) = terrain_item {
+            let season = self.clock.season();
+            let mult = season.gather_multiplier();
+            let count = if mult > 0.5 { 1 } else { 0 };
+            if count == 0 {
+                self.status_msg = Some(format!(
+                    "Too scarce in {} to gather {}",
+                    season,
+                    item.name()
+                ));
+                return;
+            }
             if let Some(ref mut ps) = self.player_start {
-                ps.inventory.add(item, 1);
+                ps.inventory.add(item, count);
             }
             self.advance_clock_hour();
-            self.status_msg = Some(format!("Gathered 1 {} (1h)", item.name()));
+            self.status_msg = Some(format!(
+                "Gathered {} {} (1h, {})",
+                count,
+                item.name(),
+                season
+            ));
         } else {
             self.status_msg = Some("Nothing to gather here".into());
         }
@@ -511,9 +527,10 @@ impl App {
     }
 
     pub fn advance_clock(&mut self, hours: u32) {
+        let season = self.clock.season();
         self.clock.advance(hours);
         if let Some(ref mut ps) = self.player_start {
-            self.vitals.tick(hours, &mut ps.inventory);
+            self.vitals.tick(hours, &mut ps.inventory, season);
         }
         if let Some(ref mut sim) = self.sim {
             for _ in 0..hours {
@@ -553,11 +570,13 @@ impl App {
 
     pub fn clock_str(&self) -> String {
         let tod = self.clock.time_of_day();
+        let season = self.clock.season();
         format!(
-            "D{} {:02}:00 {}",
+            "D{} {:02}:00 {} {}",
             self.clock.day,
             self.clock.hour,
-            tod.glyph()
+            tod.glyph(),
+            season.glyph()
         )
     }
 }

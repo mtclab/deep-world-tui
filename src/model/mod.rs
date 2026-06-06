@@ -229,6 +229,61 @@ impl fmt::Display for TimeOfDay {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Season {
+    Spring,
+    Summer,
+    Autumn,
+    Winter,
+}
+
+impl Season {
+    pub fn from_day(day: u32) -> Self {
+        match day % 360 {
+            0..=89 => Season::Spring,
+            90..=179 => Season::Summer,
+            180..=269 => Season::Autumn,
+            _ => Season::Winter,
+        }
+    }
+
+    pub fn gather_multiplier(self) -> f64 {
+        match self {
+            Season::Spring => 1.0,
+            Season::Summer => 1.2,
+            Season::Autumn => 0.8,
+            Season::Winter => 0.3,
+        }
+    }
+
+    pub fn need_decay_multiplier(self) -> f64 {
+        match self {
+            Season::Winter => 1.3,
+            _ => 1.0,
+        }
+    }
+
+    pub fn glyph(self) -> char {
+        match self {
+            Season::Spring => '❀',
+            Season::Summer => '✿',
+            Season::Autumn => '🍂',
+            Season::Winter => '❄',
+        }
+    }
+}
+
+impl fmt::Display for Season {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Season::Spring => write!(f, "Spring"),
+            Season::Summer => write!(f, "Summer"),
+            Season::Autumn => write!(f, "Autumn"),
+            Season::Winter => write!(f, "Winter"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct GameClock {
     pub day: u32,
@@ -251,6 +306,10 @@ impl GameClock {
 
     pub fn time_of_day(self) -> TimeOfDay {
         TimeOfDay::from_hour(self.hour)
+    }
+
+    pub fn season(self) -> Season {
+        Season::from_day(self.day)
     }
 
     pub fn advance(&mut self, hours: u32) {
@@ -284,10 +343,12 @@ impl PlayerVitals {
         Self::default()
     }
 
-    pub fn tick(&mut self, hours: u32, inventory: &mut Inventory) {
+    pub fn tick(&mut self, hours: u32, inventory: &mut Inventory, season: Season) {
+        let hunger_rate = 0.05 * season.need_decay_multiplier();
+        let energy_rate = 0.02 * season.need_decay_multiplier();
         for _ in 0..hours {
-            self.hunger -= 0.05;
-            self.energy -= 0.02;
+            self.hunger -= hunger_rate;
+            self.energy -= energy_rate;
             if self.hunger <= 0.3 && inventory.remove(ItemType::Food, 1) {
                 self.hunger = (self.hunger + 0.3).min(1.0);
             }
@@ -1095,7 +1156,7 @@ mod tests {
     fn player_vitals_tick_hunger_decay() {
         let mut v = PlayerVitals::new();
         let mut inv = Inventory::default();
-        v.tick(5, &mut inv);
+        v.tick(5, &mut inv, Season::Spring);
         assert!(v.hunger < 1.0, "hunger should decrease");
         assert!(v.energy < 1.0, "energy should decrease");
     }
@@ -1106,7 +1167,7 @@ mod tests {
         v.hunger = 0.2;
         let mut inv = Inventory::default();
         inv.add(ItemType::Food, 3);
-        v.tick(1, &mut inv);
+        v.tick(1, &mut inv, Season::Spring);
         assert!(v.hunger > 0.2, "should auto-eat when hungry");
         assert_eq!(inv.get(ItemType::Food), 2);
     }
@@ -1210,5 +1271,31 @@ mod tests {
         assert!(EncounterKind::Bandit.is_hostile());
         assert!(!EncounterKind::Traveler.is_hostile());
         assert!(!EncounterKind::Storm.is_hostile());
+    }
+
+    #[test]
+    fn season_cycle() {
+        assert_eq!(Season::from_day(1), Season::Spring);
+        assert_eq!(Season::from_day(90), Season::Summer);
+        assert_eq!(Season::from_day(180), Season::Autumn);
+        assert_eq!(Season::from_day(270), Season::Winter);
+        assert_eq!(Season::from_day(360), Season::Spring);
+    }
+
+    #[test]
+    fn season_gather_multiplier() {
+        assert!((Season::Summer.gather_multiplier() - 1.2).abs() < f64::EPSILON);
+        assert!((Season::Winter.gather_multiplier() - 0.3).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn winter_faster_hunger_decay() {
+        assert!((Season::Winter.need_decay_multiplier() - 1.3).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn clock_season() {
+        let clock = GameClock::new(90, 12);
+        assert_eq!(clock.season(), Season::Summer);
     }
 }
