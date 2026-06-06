@@ -197,6 +197,9 @@ impl App {
             let data = SaveData {
                 sim: sim.clone(),
                 player_start: self.player_start.clone(),
+                clock: self.clock,
+                vitals: self.vitals,
+                player_pos: self.player_pos,
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -210,6 +213,9 @@ impl App {
             Ok(data) => {
                 self.sim = Some(data.sim);
                 self.player_start = data.player_start;
+                self.clock = data.clock;
+                self.vitals = data.vitals;
+                self.player_pos = data.player_pos;
                 self.screen = Screen::World;
                 self.status_msg = Some("Loaded from save.ron".into());
             }
