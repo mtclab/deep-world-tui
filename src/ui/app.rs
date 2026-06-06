@@ -10,26 +10,11 @@ use super::event::AppEvent;
 pub enum Screen {
     CharacterCreation,
     World,
-    Location {
-        region_idx: usize,
-        settlement_idx: usize,
-        scroll: u16,
-    },
-    Npc {
-        region_idx: usize,
-        settlement_idx: usize,
-        person_idx: usize,
-        scroll: u16,
-    },
-    Journal {
-        scroll: u16,
-    },
-    Talk {
-        region_idx: usize,
-        settlement_idx: usize,
-        person_idx: usize,
-        scroll: u16,
-    },
+    WorldAlerts { scroll: u16 },
+    Location { region_idx: usize, settlement_idx: usize, scroll: u16 },
+    Npc { region_idx: usize, settlement_idx: usize, person_idx: usize, scroll: u16 },
+    Journal { scroll: u16 },
+    Talk { region_idx: usize, settlement_idx: usize, person_idx: usize, scroll: u16 },
 }
 
 pub struct App {
@@ -215,10 +200,7 @@ impl App {
 
     pub fn give_coin(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
         if let Some(ref mut sim) = self.sim {
-            if let Some(person) = sim
-                .world
-                .regions
-                .get_mut(region_idx)
+            if let Some(person) = sim.world.regions.get_mut(region_idx)
                 .and_then(|r| r.settlements.get_mut(settlement_idx))
                 .and_then(|s| s.people.get_mut(person_idx))
             {
@@ -226,6 +208,35 @@ impl App {
                 self.status_msg = Some(format!("Gave coin to {}", person.name));
             }
         }
+    }
+
+    pub fn enter_alerts(&mut self) {
+        self.screen = Screen::WorldAlerts { scroll: 0 };
+    }
+
+    pub fn exit_alerts(&mut self) {
+        self.screen = Screen::World;
+    }
+
+    pub fn critical_need_people(&self) -> Vec<(String, String, String, Need, f64)> {
+        let mut out = Vec::new();
+        if let Some(ref sim) = self.sim {
+            let needs = [Need::Food, Need::Money, Need::Care, Need::Presence, Need::Safety];
+            for region in &sim.world.regions {
+                for settlement in &region.settlements {
+                    for person in &settlement.people {
+                        for need in &needs {
+                            let val = person.needs.get(*need);
+                            if val < 0.2 {
+                                out.push((person.name.clone(), person.settlement.clone(), person.profession.clone(), *need, val));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        out.sort_by(|a, b| a.4.partial_cmp(&b.4).unwrap_or(std::cmp::Ordering::Equal));
+        out
     }
 
     pub fn handle_event(&mut self, event: AppEvent) {
@@ -278,6 +289,9 @@ impl App {
                     crossterm::event::KeyCode::Char('l') => {
                         self.load_game();
                     }
+                    crossterm::event::KeyCode::Char('!') => {
+                        self.enter_alerts();
+                    }
                     _ => {}
                 },
                 Screen::Location {
@@ -324,6 +338,18 @@ impl App {
                     }
                     crossterm::event::KeyCode::Char('t') => {
                         self.enter_talk(region_idx, settlement_idx, person_idx);
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        *scroll = scroll.saturating_add(1);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        *scroll = scroll.saturating_sub(1);
+                    }
+                    _ => {}
+                },
+                Screen::WorldAlerts { ref mut scroll } => match key.code {
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.exit_alerts();
                     }
                     crossterm::event::KeyCode::Down => {
                         *scroll = scroll.saturating_add(1);

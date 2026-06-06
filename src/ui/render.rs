@@ -41,6 +41,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     match app.screen {
         Screen::CharacterCreation => draw_character_creation(f, app),
         Screen::World => draw_world_screen(f, app),
+        Screen::WorldAlerts { scroll } => draw_alerts_screen(f, app, scroll),
         Screen::Location {
             region_idx,
             settlement_idx,
@@ -903,6 +904,58 @@ fn draw_talk_screen(
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" back", Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let title = Paragraph::new(Line::from(vec![
+        Span::styled(" Deep World", Style::default().fg(ARCHIVE_RED).add_modifier(Modifier::BOLD)),
+        Span::styled(" — Need Alerts", Style::default().fg(WARM_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(title, chunks[0]);
+
+    let critical = app.critical_need_people();
+    let mut lines: Vec<Line> = Vec::new();
+
+    if critical.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(" No critical needs. The Archive rests.", Style::default().fg(WARM_BROWN))));
+    } else {
+        lines.push(Line::from(Span::styled(format!(" {} people in dire need", critical.len()), Style::default().fg(ARCHIVE_RED).add_modifier(Modifier::BOLD))));
+        lines.push(Line::from(""));
+        for (name, settlement, profession, need, val) in &critical {
+            let bar = need_bar(*val, 8);
+            lines.push(Line::from(vec![
+                Span::styled(format!(" {} ", name), Style::default().fg(INK)),
+                Span::styled(format!("({}) ", settlement), Style::default().fg(DARK_BROWN)),
+                Span::styled(format!("{}, ", profession), Style::default().fg(DARK_BROWN)),
+                Span::styled(format!("{:?} ", need), Style::default().fg(need_color(*val)).add_modifier(Modifier::BOLD)),
+                Span::styled(bar, Style::default().fg(need_color(*val))),
+                Span::styled(format!(" {:.0}%", val * 100.0), Style::default().fg(need_color(*val))),
+            ]));
+        }
+    }
+
+    let para = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll, 0));
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(" [Esc/Q]", Style::default().fg(ARCHIVE_RED).add_modifier(Modifier::BOLD)),
+        Span::styled(" back  ", Style::default().fg(DARK_BROWN)),
+        Span::styled("[↑↓]", Style::default().fg(ARCHIVE_RED).add_modifier(Modifier::BOLD)),
+        Span::styled(" scroll", Style::default().fg(DARK_BROWN)),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
