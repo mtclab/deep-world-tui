@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct World {
@@ -28,20 +30,58 @@ pub struct Settlement {
     pub people: Vec<Person>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Need {
     Food,
+    Money,
+    Care,
+    Presence,
     Safety,
-    Belonging,
-    Esteem,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+impl fmt::Display for Need {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Need::Food => write!(f, "Food"),
+            Need::Money => write!(f, "Money"),
+            Need::Care => write!(f, "Care"),
+            Need::Presence => write!(f, "Presence"),
+            Need::Safety => write!(f, "Safety"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Needs {
-    pub food: f64,
-    pub safety: f64,
-    pub belonging: f64,
-    pub esteem: f64,
+    pub values: HashMap<Need, f64>,
+}
+
+impl Default for Needs {
+    fn default() -> Self {
+        let mut values = HashMap::new();
+        values.insert(Need::Food, 0.8);
+        values.insert(Need::Money, 0.8);
+        values.insert(Need::Care, 0.8);
+        values.insert(Need::Presence, 0.8);
+        values.insert(Need::Safety, 0.8);
+        Needs { values }
+    }
+}
+
+impl Needs {
+    pub fn get(&self, need: Need) -> f64 {
+        self.values.get(&need).copied().unwrap_or(0.0)
+    }
+
+    pub fn satisfy(&mut self, need: Need, amount: f64) {
+        let current = self.get(need);
+        self.values.insert(need, (current + amount).clamp(0.0, 1.0));
+    }
+
+    pub fn decay(&mut self, need: Need, rate: f64) {
+        let current = self.get(need);
+        self.values.insert(need, (current - rate).clamp(0.0, 1.0));
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -215,11 +255,14 @@ mod tests {
             craft_affinity: "none".into(),
             personality: vec!["stoic".into(), "curious".into()],
             bias: "metsik".into(),
-            needs: Needs {
-                food: 0.8,
-                safety: 0.5,
-                belonging: 0.6,
-                esteem: 0.3,
+            needs: {
+                let mut v = HashMap::new();
+                v.insert(Need::Food, 0.8);
+                v.insert(Need::Safety, 0.5);
+                v.insert(Need::Care, 0.6);
+                v.insert(Need::Money, 0.3);
+                v.insert(Need::Presence, 0.7);
+                Needs { values: v }
             },
             region: "river_valley".into(),
             settlement: "hamlet-1".into(),
@@ -372,7 +415,7 @@ mod tests {
     #[test]
     fn need_enum_roundtrip() {
         roundtrip(&Need::Food);
-        roundtrip(&Need::Esteem);
+        roundtrip(&Need::Safety);
     }
 
     #[test]
@@ -437,5 +480,89 @@ mod tests {
             source: "test".into(),
         }));
         roundtrip(&Adjustment::CutHouseholdTie);
+    }
+
+    #[test]
+    fn needs_default_satisfied_baseline() {
+        let needs = Needs::default();
+        for need in &[
+            Need::Food,
+            Need::Money,
+            Need::Care,
+            Need::Presence,
+            Need::Safety,
+        ] {
+            assert!(
+                (needs.get(*need) - 0.8).abs() < f64::EPSILON,
+                "default {} should be 0.8, got {}",
+                need,
+                needs.get(*need)
+            );
+        }
+    }
+
+    #[test]
+    fn needs_decay_reduces_value() {
+        let mut needs = Needs::default();
+        needs.decay(Need::Food, 0.1);
+        assert!(
+            (needs.get(Need::Food) - 0.7).abs() < f64::EPSILON,
+            "food after decay should be 0.7, got {}",
+            needs.get(Need::Food)
+        );
+    }
+
+    #[test]
+    fn needs_satisfy_increases_value() {
+        let mut needs = Needs::default();
+        needs.decay(Need::Food, 0.5);
+        needs.satisfy(Need::Food, 0.3);
+        assert!(
+            (needs.get(Need::Food) - 0.6).abs() < f64::EPSILON,
+            "food after satisfy should be 0.6, got {}",
+            needs.get(Need::Food)
+        );
+    }
+
+    #[test]
+    fn needs_satisfy_clamped_at_one() {
+        let mut needs = Needs::default();
+        needs.satisfy(Need::Food, 0.3);
+        assert!(
+            (needs.get(Need::Food) - 1.0).abs() < f64::EPSILON,
+            "food should clamp at 1.0, got {}",
+            needs.get(Need::Food)
+        );
+    }
+
+    #[test]
+    fn needs_decay_clamped_at_zero() {
+        let mut needs = Needs::default();
+        needs.decay(Need::Food, 1.0);
+        assert!(
+            (needs.get(Need::Food)).abs() < f64::EPSILON,
+            "food should clamp at 0.0, got {}",
+            needs.get(Need::Food)
+        );
+        needs.decay(Need::Food, 0.5);
+        assert!(
+            (needs.get(Need::Food)).abs() < f64::EPSILON,
+            "food should still be 0.0 after extra decay, got {}",
+            needs.get(Need::Food)
+        );
+    }
+
+    #[test]
+    fn need_display() {
+        assert_eq!(format!("{}", Need::Food), "Food");
+        assert_eq!(format!("{}", Need::Money), "Money");
+        assert_eq!(format!("{}", Need::Care), "Care");
+        assert_eq!(format!("{}", Need::Presence), "Presence");
+        assert_eq!(format!("{}", Need::Safety), "Safety");
+    }
+
+    #[test]
+    fn needs_roundtrip() {
+        roundtrip(&Needs::default());
     }
 }
