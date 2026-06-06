@@ -342,7 +342,7 @@ impl App {
                         trust_bonus += 0.01;
                     }
                     let npc_people = PeopleKind::from_name(&person.people);
-                    sim.relationships.update_relationship_biased(
+                    sim.relationships.update_relationship_biased_full(
                         pid,
                         &person_id,
                         "gave food",
@@ -351,6 +351,7 @@ impl App {
                         0.03,
                         self.inter_people_bias.player_people,
                         npc_people,
+                        &person.personality,
                     );
                     sim.reputation.adjust_local_biased(
                         pid,
@@ -424,7 +425,7 @@ impl App {
                         trust_bonus += 0.01;
                     }
                     let npc_people = PeopleKind::from_name(&person.people);
-                    sim.relationships.update_relationship_biased(
+                    sim.relationships.update_relationship_biased_full(
                         pid,
                         &person_id,
                         "gave coin",
@@ -433,6 +434,7 @@ impl App {
                         rep_bonus,
                         self.inter_people_bias.player_people,
                         npc_people,
+                        &person.personality,
                     );
                     sim.reputation.adjust_local_biased(
                         pid,
