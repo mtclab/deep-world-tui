@@ -344,6 +344,57 @@ impl Season {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WitnessLevel {
+    Seen,
+    Unseen,
+    Rumored,
+}
+
+impl WitnessLevel {
+    pub fn roll(seed: u64, terrain: Terrain) -> Self {
+        let hash = seed.wrapping_mul(2654435761) ^ (terrain as u64).wrapping_mul(40503);
+        let val = hash % 100;
+        match terrain {
+            Terrain::Settlement => WitnessLevel::Seen,
+            Terrain::Road => {
+                if val < 70 {
+                    WitnessLevel::Seen
+                } else if val < 90 {
+                    WitnessLevel::Rumored
+                } else {
+                    WitnessLevel::Unseen
+                }
+            }
+            _ => {
+                if val < 20 {
+                    WitnessLevel::Seen
+                } else if val < 50 {
+                    WitnessLevel::Rumored
+                } else {
+                    WitnessLevel::Unseen
+                }
+            }
+        }
+    }
+
+    pub fn reputation_multiplier(self) -> f64 {
+        match self {
+            WitnessLevel::Seen => 1.0,
+            WitnessLevel::Rumored => 0.3,
+            WitnessLevel::Unseen => 0.0,
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            WitnessLevel::Seen => "Word of your deed spreads quickly.",
+            WitnessLevel::Rumored => "Whispers follow your footsteps.",
+            WitnessLevel::Unseen => "No one saw. The silence holds.",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TensionEvent {
     BorderDispute,
     TradeSanction,
@@ -1379,6 +1430,7 @@ impl EncounterAction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Encounter {
     pub kind: EncounterKind,
+    pub terrain: Terrain,
 }
 
 impl Encounter {
@@ -1437,7 +1489,7 @@ impl Encounter {
             }
         }
         if (val % 100) < (threshold as u64) {
-            Some(Encounter { kind })
+            Some(Encounter { kind, terrain })
         } else {
             None
         }

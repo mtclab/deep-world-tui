@@ -3,7 +3,7 @@ use crate::gen::player::generate_player_start;
 use crate::model::{
     craft_recipes, Collapse, Encounter, EncounterAction, FestivalKind, GameClock, GodAffinity,
     GodName, InterPeopleBias, Inventory, ItemType, Need, PeopleKind, PlayerPos, PlayerStart,
-    PlayerVitals, Settlement, SettlementService, TensionEvent, Terrain,
+    PlayerVitals, Settlement, SettlementService, TensionEvent, Terrain, WitnessLevel,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -802,6 +802,9 @@ impl App {
     }
 
     pub fn resolve_encounter(&mut self, action: EncounterAction) {
+        let terrain = self.encounter.map(|e| e.terrain).unwrap_or(Terrain::Grass);
+        let witness = WitnessLevel::roll(self.seed.wrapping_mul(7919), terrain);
+        let _rep_mult = witness.reputation_multiplier();
         let coins = action.coin_cost();
         if coins > 0 {
             if let Some(ref mut ps) = self.player_start {
@@ -938,7 +941,12 @@ impl App {
             }
         }
         self.encounter = None;
-        self.status_msg = Some(msg);
+        let msg_with_witness = match witness {
+            WitnessLevel::Unseen => format!("{}. {}", msg, witness.flavor()),
+            WitnessLevel::Rumored => format!("{}. {}", msg, witness.flavor()),
+            WitnessLevel::Seen => msg,
+        };
+        self.status_msg = Some(msg_with_witness);
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
