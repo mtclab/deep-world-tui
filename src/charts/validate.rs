@@ -30,7 +30,7 @@ pub fn validate_charts(charts: &Charts) -> Result<Vec<String>, Vec<String>> {
                 }
             }
             Condition::Settlement(s) => {
-                if !charts.settlement_size.entries.contains_key(s) {
+                if !charts.settlement_size.base.entries.contains_key(s) {
                     errors.push(format!(
                         "profession modifier references unknown settlement '{}'",
                         s
@@ -75,7 +75,7 @@ pub fn validate_charts(charts: &Charts) -> Result<Vec<String>, Vec<String>> {
                 }
             }
             Condition::Settlement(s) => {
-                if !charts.settlement_size.entries.contains_key(s) {
+                if !charts.settlement_size.base.entries.contains_key(s) {
                     errors.push(format!(
                         "craft_affinity modifier references unknown settlement '{}'",
                         s

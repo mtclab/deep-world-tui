@@ -114,7 +114,7 @@ impl ConditionalTable {
 pub struct Charts {
     pub people: WeightedTable,
     pub region: WeightedTable,
-    pub settlement_size: WeightedTable,
+    pub settlement_size: ConditionalTable,
     pub social_class: WeightedTable,
     pub profession: ConditionalTable,
     pub craft_affinity: ConditionalTable,
@@ -125,6 +125,9 @@ pub struct Charts {
     pub age_band: WeightedTable,
     pub sex: WeightedTable,
     pub name_grammars: HashMap<String, String>,
+    pub region_count: WeightedTable,
+    pub settlements_per_region: ConditionalTable,
+    pub population_tier: ConditionalTable,
 }
 
 pub use load::load_charts;
