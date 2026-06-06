@@ -637,6 +637,13 @@ impl App {
 
     pub fn craft_recipe(&mut self, recipe_idx: usize) {
         let player_people = self.inter_people_bias.player_people;
+        let bias_bonus = self.current_settlement_people().map_or(0u32, |npc_people| {
+            if self.inter_people_bias.effective_bias(npc_people) > 0.10 {
+                1
+            } else {
+                0
+            }
+        });
         let recipes: Vec<_> = craft_recipes()
             .into_iter()
             .filter(|r| r.people.is_none() || r.people == Some(player_people))
@@ -652,11 +659,17 @@ impl App {
                     for (item, count) in &recipe.inputs {
                         inv.remove(*item, *count);
                     }
-                    inv.add(recipe.output, recipe.output_count);
+                    let output_count = recipe.output_count + bias_bonus;
+                    let flavor = if bias_bonus > 0 {
+                        " Skilled hands guide yours."
+                    } else {
+                        ""
+                    };
+                    inv.add(recipe.output, output_count);
                     self.advance_clock(2);
                     self.status_msg = Some(format!(
-                        "Crafted {} (x{}) (2h)",
-                        recipe.name, recipe.output_count
+                        "Crafted {} (x{}) (2h){}",
+                        recipe.name, output_count, flavor
                     ));
                 } else {
                     self.status_msg = Some("Not enough materials".into());
