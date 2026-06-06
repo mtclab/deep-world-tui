@@ -142,7 +142,8 @@ impl App {
 
     pub fn enter_settlement(&mut self, region_idx: usize, settlement_idx: usize) {
         if let Some(npc_people) = self.current_settlement_people() {
-            let bias = self.inter_people_bias.player_people.bias_toward(npc_people);
+            let bias = self.inter_people_bias.player_people.bias_toward(npc_people)
+                + self.clock.season().bias_modifier();
             if bias < -0.20 {
                 self.status_msg = Some(format!(
                     "Guards block your path. 'No {} allowed beyond this point.' You turn back.",
@@ -864,7 +865,8 @@ impl App {
 
     pub fn use_service(&mut self, service: SettlementService) {
         if let Some(npc_people) = self.current_settlement_people() {
-            let bias = self.inter_people_bias.player_people.bias_toward(npc_people);
+            let mut bias = self.inter_people_bias.player_people.bias_toward(npc_people);
+            bias += self.clock.season().bias_modifier();
             if bias < -0.15 {
                 self.status_msg = Some(format!(
                     "They refuse to serve {} here. 'We don't serve your kind.'",

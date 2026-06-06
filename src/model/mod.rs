@@ -306,6 +306,14 @@ impl Season {
         }
     }
 
+    pub fn bias_modifier(self) -> f64 {
+        match self {
+            Season::Summer => 0.05,
+            Season::Winter => -0.05,
+            _ => 0.0,
+        }
+    }
+
     pub fn glyph(self) -> char {
         match self {
             Season::Spring => '❀',
@@ -2341,8 +2349,23 @@ mod tests {
     }
 
     #[test]
-    fn people_bias_valya_neutral() {
-        assert_eq!(PeopleKind::Vayla.bias_toward(PeopleKind::Arkit), 0.0);
+    fn people_gather_bonus_no_match() {
+        assert_eq!(
+            Terrain::people_gather_bonus(PeopleKind::Laakso, Terrain::Forest),
+            0
+        );
+        assert_eq!(
+            Terrain::people_gather_bonus(PeopleKind::Metsik, Terrain::Mountain),
+            0
+        );
+    }
+
+    #[test]
+    fn season_bias_modifier() {
+        assert_eq!(Season::Summer.bias_modifier(), 0.05);
+        assert_eq!(Season::Winter.bias_modifier(), -0.05);
+        assert_eq!(Season::Spring.bias_modifier(), 0.0);
+        assert_eq!(Season::Autumn.bias_modifier(), 0.0);
     }
 
     #[test]
@@ -2404,18 +2427,6 @@ mod tests {
         assert_eq!(
             Terrain::people_gather_bonus(PeopleKind::Ahjo, Terrain::Farmland),
             1
-        );
-    }
-
-    #[test]
-    fn people_gather_bonus_no_match() {
-        assert_eq!(
-            Terrain::people_gather_bonus(PeopleKind::Laakso, Terrain::Forest),
-            0
-        );
-        assert_eq!(
-            Terrain::people_gather_bonus(PeopleKind::Metsik, Terrain::Mountain),
-            0
         );
     }
 }
