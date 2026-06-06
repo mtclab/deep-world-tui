@@ -1,14 +1,18 @@
 use crate::charts::Charts;
-use crate::model::{Adjustment, CraftAffinity, Player, PlayerStart};
+use crate::model::{Adjustment, CraftAffinity, Inventory, ItemType, Player, PlayerStart};
 use crate::rng::SeedRng;
 
 pub fn generate_player_start(rng: &mut SeedRng, charts: &Charts) -> PlayerStart {
     let person = crate::gen::person::generate_person(rng, charts);
+    let mut inventory = Inventory::default();
+    inventory.add(ItemType::Food, 3);
+    inventory.add(ItemType::Coin, 5);
     PlayerStart {
         person,
         reroll_count: 0,
         point_buy_adjustments: vec![],
         accepted: false,
+        inventory,
     }
 }
 

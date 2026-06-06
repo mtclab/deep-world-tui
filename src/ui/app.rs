@@ -1,6 +1,8 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
-use crate::model::{Need, PlayerPos, PlayerStart, Settlement, Terrain};
+use crate::model::{
+    craft_recipes, Inventory, ItemType, Need, PlayerPos, PlayerStart, Settlement, Terrain,
+};
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
 use crate::sim::SimState;
@@ -17,6 +19,10 @@ pub enum Screen {
     },
     Overmap {
         region_idx: usize,
+    },
+    Inventory,
+    Craft {
+        scroll: u16,
     },
     WorldAlerts {
         scroll: u16,
@@ -303,6 +309,82 @@ impl App {
         self.screen = Screen::Map { region_idx, px, py };
     }
 
+    pub fn gather(&mut self) {
+        if let Some(ref mut ps) = self.player_start {
+            if let Some(ref pos) = self.player_pos {
+                if let Some(ref sim) = self.sim {
+                    if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                        if let Some(terrain) = region.terrain.get(pos.px, pos.py) {
+                            if let Some(item) = ItemType::gather_from(terrain) {
+                                ps.inventory.add(item, 1);
+                                self.status_msg = Some(format!("Gathered 1 {}", item.name()));
+                            } else if terrain == Terrain::Settlement {
+                                ps.inventory.add(ItemType::Coin, 1);
+                                self.status_msg = Some("Found 1 Coin in town".into());
+                            } else {
+                                self.status_msg = Some("Nothing to gather here".into());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn enter_inventory(&mut self) {
+        self.screen = Screen::Inventory;
+    }
+
+    pub fn exit_inventory(&mut self) {
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
+        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
+        self.screen = Screen::Map { region_idx, px, py };
+    }
+
+    pub fn enter_craft(&mut self) {
+        self.screen = Screen::Craft { scroll: 0 };
+    }
+
+    pub fn exit_craft(&mut self) {
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
+        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
+        self.screen = Screen::Map { region_idx, px, py };
+    }
+
+    pub fn craft_recipe(&mut self, recipe_idx: usize) {
+        let recipes = craft_recipes();
+        if let Some(recipe) = recipes.get(recipe_idx) {
+            if let Some(ref mut ps) = self.player_start {
+                let inv = &mut ps.inventory;
+                let can_craft = recipe
+                    .inputs
+                    .iter()
+                    .all(|(item, count)| inv.get(*item) >= *count);
+                if can_craft {
+                    for (item, count) in &recipe.inputs {
+                        inv.remove(*item, *count);
+                    }
+                    inv.add(recipe.output, recipe.output_count);
+                    self.status_msg = Some(format!(
+                        "Crafted {} (x{})",
+                        recipe.name, recipe.output_count
+                    ));
+                } else {
+                    self.status_msg = Some("Not enough materials".into());
+                }
+            }
+        }
+    }
+
+    pub fn player_inventory(&self) -> Inventory {
+        self.player_start
+            .as_ref()
+            .map(|ps| ps.inventory.clone())
+            .unwrap_or_default()
+    }
+
     pub fn move_player(&mut self, dx: i32, dy: i32) {
         if let Some(ref mut pos) = self.player_pos {
             if let Some(ref sim) = self.sim {
@@ -539,6 +621,15 @@ impl App {
                     crossterm::event::KeyCode::Char('M') => {
                         self.enter_overmap();
                     }
+                    crossterm::event::KeyCode::Char('i') => {
+                        self.enter_inventory();
+                    }
+                    crossterm::event::KeyCode::Char('g') => {
+                        self.gather();
+                    }
+                    crossterm::event::KeyCode::Char('c') => {
+                        self.enter_craft();
+                    }
                     _ => {}
                 },
                 Screen::Overmap { region_idx } => match key.code {
@@ -589,6 +680,30 @@ impl App {
                             px: 20,
                             py: 10,
                         };
+                    }
+                    _ => {}
+                },
+                Screen::Inventory => match key.code {
+                    crossterm::event::KeyCode::Char('q')
+                    | crossterm::event::KeyCode::Esc
+                    | crossterm::event::KeyCode::Char('i') => {
+                        self.exit_inventory();
+                    }
+                    _ => {}
+                },
+                Screen::Craft { ref mut scroll } => match key.code {
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.exit_craft();
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        *scroll = scroll.saturating_add(1);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        *scroll = scroll.saturating_sub(1);
+                    }
+                    crossterm::event::KeyCode::Char(c @ '1'..='9') => {
+                        let idx = (c as usize) - ('1' as usize);
+                        self.craft_recipe(idx);
                     }
                     _ => {}
                 },

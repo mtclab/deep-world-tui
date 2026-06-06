@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::model::{Need, Terrain};
+use crate::model::{craft_recipes, ItemType, Need, Terrain};
 use crate::sim::relationships::BondCategory;
 use crate::ui::app::{App, Screen};
 use crate::voice::Situation;
@@ -73,6 +73,12 @@ pub fn draw(f: &mut Frame, app: &App) {
         }
         Screen::Overmap { region_idx } => {
             draw_overmap_screen(f, app, region_idx);
+        }
+        Screen::Inventory => {
+            draw_inventory_screen(f, app);
+        }
+        Screen::Craft { scroll } => {
+            draw_craft_screen(f, app, scroll);
         }
     }
 }
@@ -1328,6 +1334,151 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
         Span::styled(" enter map  ", Style::default().fg(DARK_BROWN)),
         Span::styled(
             "[Esc/M]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" back", Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_inventory_screen(f: &mut Frame, app: &App) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let header = Paragraph::new(Line::from(vec![Span::styled(
+        " Inventory",
+        Style::default()
+            .fg(ARCHIVE_RED)
+            .add_modifier(Modifier::BOLD),
+    )]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(header, chunks[0]);
+
+    let inv = app.player_inventory();
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(""));
+    let all_items = [
+        ItemType::Food,
+        ItemType::Coin,
+        ItemType::Herb,
+        ItemType::Wood,
+        ItemType::Stone,
+        ItemType::Cloth,
+        ItemType::Iron,
+    ];
+    for item in &all_items {
+        let count = inv.get(*item);
+        let bar = if count > 0 {
+            format!("{:<8}", "█".repeat(count.min(8) as usize))
+        } else {
+            "        ".into()
+        };
+        let color = match item {
+            ItemType::Food => NEED_LOW,
+            ItemType::Coin => Color::Rgb(0xc2, 0x9a, 0x2a),
+            ItemType::Herb => NEED_LOW,
+            ItemType::Wood => WARM_BROWN,
+            ItemType::Stone => Color::Rgb(0x8a, 0x7a, 0x6a),
+            ItemType::Cloth => Color::Rgb(0xc2, 0x9a, 0x6b),
+            ItemType::Iron => Color::Rgb(0x5a, 0x5a, 0x6a),
+        };
+        lines.push(Line::from(vec![
+            Span::styled(format!("  {:6}", item.name()), Style::default().fg(INK)),
+            Span::styled(bar, Style::default().fg(color)),
+            Span::styled(format!(" x{}", count), Style::default().fg(DARK_BROWN)),
+        ]));
+    }
+
+    let para = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [Esc/i]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" back", Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let header = Paragraph::new(Line::from(vec![Span::styled(
+        " Craft",
+        Style::default()
+            .fg(ARCHIVE_RED)
+            .add_modifier(Modifier::BOLD),
+    )]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(header, chunks[0]);
+
+    let inv = app.player_inventory();
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(""));
+    for (i, recipe) in craft_recipes().iter().enumerate() {
+        let key = format!("{}", i + 1);
+        let has_all = recipe
+            .inputs
+            .iter()
+            .all(|&(item, count)| inv.get(item) >= count);
+        let inputs: String = recipe
+            .inputs
+            .iter()
+            .map(|&(item, count)| format!("{}x{} ", count, item.name()))
+            .collect::<Vec<_>>()
+            .join("+ ");
+        let can_color = if has_all { NEED_LOW } else { DARK_BROWN };
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!(" [{}] ", key),
+                Style::default()
+                    .fg(ARCHIVE_RED)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("{:<10}", recipe.name),
+                Style::default().fg(can_color).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(format!("({})", inputs), Style::default().fg(DARK_BROWN)),
+            Span::styled(
+                format!(" -> {}x{}", recipe.output_count, recipe.output.name()),
+                Style::default().fg(can_color),
+            ),
+        ]));
+    }
+
+    let para = Paragraph::new(lines)
+        .style(Style::default().bg(PAPER))
+        .scroll((scroll, 0));
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [1-9]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" craft  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[Esc]",
             Style::default()
                 .fg(ARCHIVE_RED)
                 .add_modifier(Modifier::BOLD),

@@ -65,6 +65,100 @@ impl TerrainMap {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ItemType {
+    Food,
+    Coin,
+    Herb,
+    Wood,
+    Stone,
+    Cloth,
+    Iron,
+}
+
+impl ItemType {
+    pub fn name(self) -> &'static str {
+        match self {
+            ItemType::Food => "Food",
+            ItemType::Coin => "Coin",
+            ItemType::Herb => "Herb",
+            ItemType::Wood => "Wood",
+            ItemType::Stone => "Stone",
+            ItemType::Cloth => "Cloth",
+            ItemType::Iron => "Iron",
+        }
+    }
+
+    pub fn gather_from(terrain: Terrain) -> Option<ItemType> {
+        match terrain {
+            Terrain::Grass | Terrain::Farmland => Some(ItemType::Herb),
+            Terrain::Forest => Some(ItemType::Wood),
+            Terrain::Settlement => Some(ItemType::Coin),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct Inventory {
+    pub items: std::collections::HashMap<ItemType, u32>,
+}
+
+impl Inventory {
+    pub fn get(&self, item: ItemType) -> u32 {
+        self.items.get(&item).copied().unwrap_or(0)
+    }
+
+    pub fn add(&mut self, item: ItemType, count: u32) {
+        *self.items.entry(item).or_insert(0) += count;
+    }
+
+    pub fn remove(&mut self, item: ItemType, count: u32) -> bool {
+        let current = self.get(item);
+        if current >= count {
+            if count == current {
+                self.items.remove(&item);
+            } else {
+                *self.items.get_mut(&item).unwrap() -= count;
+            }
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CraftRecipe {
+    pub name: String,
+    pub inputs: Vec<(ItemType, u32)>,
+    pub output: ItemType,
+    pub output_count: u32,
+}
+
+pub fn craft_recipes() -> Vec<CraftRecipe> {
+    vec![
+        CraftRecipe {
+            name: "Bandage".into(),
+            inputs: vec![(ItemType::Herb, 3), (ItemType::Cloth, 1)],
+            output: ItemType::Food,
+            output_count: 2,
+        },
+        CraftRecipe {
+            name: "Tool".into(),
+            inputs: vec![(ItemType::Wood, 2), (ItemType::Iron, 1)],
+            output: ItemType::Iron,
+            output_count: 2,
+        },
+        CraftRecipe {
+            name: "Meal".into(),
+            inputs: vec![(ItemType::Herb, 2), (ItemType::Food, 1)],
+            output: ItemType::Food,
+            output_count: 3,
+        },
+    ]
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct World {
     pub seed: u64,
@@ -247,6 +341,8 @@ pub struct PlayerStart {
     pub reroll_count: u32,
     pub point_buy_adjustments: Vec<Adjustment>,
     pub accepted: bool,
+    #[serde(default)]
+    pub inventory: Inventory,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -548,6 +644,7 @@ mod tests {
                 Adjustment::CutHouseholdTie,
             ],
             accepted: false,
+            inventory: Inventory::default(),
         };
         roundtrip(&ps);
     }
@@ -672,5 +769,49 @@ mod tests {
             py: 7,
         };
         roundtrip(&pos);
+    }
+
+    #[test]
+    fn inventory_add_remove() {
+        let mut inv = Inventory::default();
+        assert_eq!(inv.get(ItemType::Food), 0);
+        inv.add(ItemType::Food, 5);
+        assert_eq!(inv.get(ItemType::Food), 5);
+        assert!(inv.remove(ItemType::Food, 3));
+        assert_eq!(inv.get(ItemType::Food), 2);
+        assert!(!inv.remove(ItemType::Food, 5));
+        assert_eq!(inv.get(ItemType::Food), 2);
+        assert!(inv.remove(ItemType::Food, 2));
+        assert_eq!(inv.get(ItemType::Food), 0);
+    }
+
+    #[test]
+    fn inventory_roundtrip() {
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Herb, 10);
+        inv.add(ItemType::Coin, 3);
+        roundtrip(&inv);
+    }
+
+    #[test]
+    fn item_type_gather() {
+        assert_eq!(ItemType::gather_from(Terrain::Grass), Some(ItemType::Herb));
+        assert_eq!(ItemType::gather_from(Terrain::Forest), Some(ItemType::Wood));
+        assert_eq!(ItemType::gather_from(Terrain::Mountain), None);
+        assert_eq!(
+            ItemType::gather_from(Terrain::Settlement),
+            Some(ItemType::Coin)
+        );
+        assert_eq!(ItemType::gather_from(Terrain::Water), None);
+    }
+
+    #[test]
+    fn craft_recipes_valid() {
+        let recipes = craft_recipes();
+        assert!(!recipes.is_empty(), "must have at least one recipe");
+        for recipe in &recipes {
+            assert!(!recipe.inputs.is_empty(), "recipe must have inputs");
+            assert!(recipe.output_count > 0, "must produce something");
+        }
     }
 }
