@@ -14,6 +14,12 @@ pub enum Screen {
         settlement_idx: usize,
         scroll: u16,
     },
+    Npc {
+        region_idx: usize,
+        settlement_idx: usize,
+        person_idx: usize,
+        scroll: u16,
+    },
 }
 
 pub struct App {
@@ -92,21 +98,41 @@ impl App {
     }
 
     pub fn current_settlement(&self) -> Option<&Settlement> {
-        if let Screen::Location {
-            region_idx,
-            settlement_idx,
-            ..
-        } = &self.screen
-        {
-            self.sim.as_ref().and_then(|sim| {
+        match &self.screen {
+            Screen::Location {
+                region_idx,
+                settlement_idx,
+                ..
+            }
+            | Screen::Npc {
+                region_idx,
+                settlement_idx,
+                ..
+            } => self.sim.as_ref().and_then(|sim| {
                 sim.world
                     .regions
                     .get(*region_idx)
                     .and_then(|r| r.settlements.get(*settlement_idx))
-            })
-        } else {
-            None
+            }),
+            _ => None,
         }
+    }
+
+    pub fn enter_npc(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        self.screen = Screen::Npc {
+            region_idx,
+            settlement_idx,
+            person_idx,
+            scroll: 0,
+        };
+    }
+
+    pub fn exit_npc(&mut self, region_idx: usize, settlement_idx: usize) {
+        self.screen = Screen::Location {
+            region_idx,
+            settlement_idx,
+            scroll: 0,
+        };
     }
 
     pub fn handle_event(&mut self, event: AppEvent) {
@@ -152,9 +178,42 @@ impl App {
                     }
                     _ => {}
                 },
-                Screen::Location { ref mut scroll, .. } => match key.code {
+                Screen::Location {
+                    ref mut scroll,
+                    region_idx,
+                    settlement_idx,
+                } => match key.code {
                     crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
                         self.exit_settlement();
+                    }
+                    crossterm::event::KeyCode::Char(' ') => {
+                        if let Some(ref mut sim) = self.sim {
+                            sim.step();
+                        }
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        *scroll = scroll.saturating_add(1);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        *scroll = scroll.saturating_sub(1);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        self.enter_npc(region_idx, settlement_idx, 0);
+                    }
+                    crossterm::event::KeyCode::Char(c) if ('1'..='9').contains(&c) => {
+                        let idx = (c as usize) - ('1' as usize);
+                        self.enter_npc(region_idx, settlement_idx, idx);
+                    }
+                    _ => {}
+                },
+                Screen::Npc {
+                    ref mut scroll,
+                    region_idx,
+                    settlement_idx,
+                    ..
+                } => match key.code {
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.exit_npc(region_idx, settlement_idx);
                     }
                     crossterm::event::KeyCode::Char(' ') => {
                         if let Some(ref mut sim) = self.sim {

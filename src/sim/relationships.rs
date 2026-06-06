@@ -45,6 +45,13 @@ impl RelationshipTracker {
         self.relationships.get(&(from.to_string(), to.to_string()))
     }
 
+    pub fn relationships_for(&self, person_id: &str) -> Vec<&Relationship> {
+        self.relationships
+            .values()
+            .filter(|r| r.from_id == person_id || r.to_id == person_id)
+            .collect()
+    }
+
     pub fn get_mut(&mut self, from: &str, to: &str) -> Option<&mut Relationship> {
         self.relationships
             .get_mut(&(from.to_string(), to.to_string()))
