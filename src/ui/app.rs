@@ -207,6 +207,7 @@ impl App {
                 clock: self.clock,
                 vitals: self.vitals,
                 player_pos: self.player_pos,
+                god_affinity: self.god_affinity,
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -223,6 +224,7 @@ impl App {
                 self.clock = data.clock;
                 self.vitals = data.vitals;
                 self.player_pos = data.player_pos;
+                self.god_affinity = data.god_affinity;
                 self.screen = Screen::World;
                 self.status_msg = Some("Loaded from save.ron".into());
             }

@@ -434,7 +434,7 @@ impl GodName {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq)]
 pub struct GodAffinity {
     pub metsik: f64,
     pub ahjo: f64,

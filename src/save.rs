@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-use crate::model::{GameClock, PlayerPos, PlayerStart, PlayerVitals};
+use crate::model::{GameClock, GodAffinity, PlayerPos, PlayerStart, PlayerVitals};
 use crate::sim::SimState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,6 +16,8 @@ pub struct SaveData {
     pub vitals: PlayerVitals,
     #[serde(default)]
     pub player_pos: Option<PlayerPos>,
+    #[serde(default)]
+    pub god_affinity: GodAffinity,
 }
 
 pub fn save_game(data: &SaveData, path: &str) -> Result<()> {
@@ -55,6 +57,7 @@ mod tests {
             clock: GameClock::default(),
             vitals: PlayerVitals::default(),
             player_pos: None,
+            god_affinity: GodAffinity::new(),
         };
         let path = "/tmp/dw_test_save.ron";
         save_game(&data, path).unwrap();
@@ -74,6 +77,7 @@ mod tests {
             clock: GameClock::default(),
             vitals: PlayerVitals::default(),
             player_pos: None,
+            god_affinity: GodAffinity::new(),
         };
         let path = "/tmp/dw_test_nested/sub/dir/save.ron";
         save_game(&data, path).unwrap();
