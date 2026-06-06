@@ -1310,6 +1310,9 @@ impl DangerLevel {
 pub enum SettlementService {
     Tavern,
     Temple,
+    Forge,
+    Hearth,
+    TrapWorkshop,
 }
 
 impl SettlementService {
@@ -1317,6 +1320,9 @@ impl SettlementService {
         match self {
             SettlementService::Tavern => '🍺',
             SettlementService::Temple => '⛪',
+            SettlementService::Forge => '⚒',
+            SettlementService::Hearth => '🏠',
+            SettlementService::TrapWorkshop => '🪤',
         }
     }
 
@@ -1324,6 +1330,9 @@ impl SettlementService {
         match self {
             SettlementService::Tavern => "Tavern",
             SettlementService::Temple => "Temple",
+            SettlementService::Forge => "Forge",
+            SettlementService::Hearth => "Hearth",
+            SettlementService::TrapWorkshop => "Trap Workshop",
         }
     }
 
@@ -1331,6 +1340,18 @@ impl SettlementService {
         match self {
             SettlementService::Tavern => 2,
             SettlementService::Temple => 3,
+            SettlementService::Forge => 3,
+            SettlementService::Hearth => 2,
+            SettlementService::TrapWorkshop => 2,
+        }
+    }
+
+    pub fn people(self) -> Option<PeopleKind> {
+        match self {
+            SettlementService::Forge => Some(PeopleKind::Sepat),
+            SettlementService::Hearth => Some(PeopleKind::Ahjo),
+            SettlementService::TrapWorkshop => Some(PeopleKind::Metsik),
+            _ => None,
         }
     }
 }

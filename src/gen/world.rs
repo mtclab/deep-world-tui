@@ -382,6 +382,8 @@ fn generate_settlement(
         people.push(person);
     }
 
+    let dominant_people = people.first().map(|p| p.people.clone()).unwrap_or_default();
+
     Settlement {
         id: settlement_id,
         name,
@@ -390,18 +392,26 @@ fn generate_settlement(
         population,
         description: String::new(),
         people,
-        services: settlement_services(&size),
+        services: settlement_services(&size, &dominant_people),
     }
 }
 
-fn settlement_services(size: &str) -> Vec<SettlementService> {
-    match size {
+fn settlement_services(size: &str, people: &str) -> Vec<SettlementService> {
+    let mut svcs = match size {
         "hamlet" => vec![SettlementService::Tavern],
         "village" => vec![SettlementService::Tavern, SettlementService::Temple],
         "town" => vec![SettlementService::Tavern, SettlementService::Temple],
         "city" => vec![SettlementService::Tavern, SettlementService::Temple],
         _ => vec![],
+    };
+    let pk = crate::model::PeopleKind::from_name(people);
+    match pk {
+        crate::model::PeopleKind::Sepat => svcs.push(SettlementService::Forge),
+        crate::model::PeopleKind::Ahjo => svcs.push(SettlementService::Hearth),
+        crate::model::PeopleKind::Metsik => svcs.push(SettlementService::TrapWorkshop),
+        _ => {}
     }
+    svcs
 }
 
 fn population_per_settlement(population: u32) -> usize {

@@ -952,6 +952,22 @@ impl App {
     }
 
     pub fn use_service(&mut self, service: SettlementService) {
+        if let Some(service_people) = service.people() {
+            if self.inter_people_bias.player_people != service_people {
+                let bias = self
+                    .inter_people_bias
+                    .player_people
+                    .bias_toward(service_people);
+                if bias < -0.05 {
+                    self.status_msg = Some(format!(
+                        "The {} is for {} hands only. You are not welcome.",
+                        service.label(),
+                        service_people.label()
+                    ));
+                    return;
+                }
+            }
+        }
         if let Some(npc_people) = self.current_settlement_people() {
             let mut bias = self.inter_people_bias.player_people.bias_toward(npc_people);
             bias += self.clock.season().bias_modifier();
@@ -1012,6 +1028,31 @@ impl App {
                 self.vitals.energy = (self.vitals.energy + 0.3).min(1.0);
                 self.advance_clock(3);
                 self.status_msg = Some("Blessed at temple (+hunger, +energy, 3h, 3 coins)".into());
+            }
+            SettlementService::Forge => {
+                self.god_affinity.adjust(GodName::Ahjo, 0.02);
+                if let Some(ref mut ps) = self.player_start {
+                    ps.inventory.add(ItemType::Iron, 2);
+                }
+                self.advance_clock(3);
+                self.status_msg = Some("Worked at the forge (+2 Iron, 3h, 3 coins)".into());
+            }
+            SettlementService::Hearth => {
+                self.vitals.hunger = (self.vitals.hunger + 0.6).min(1.0);
+                self.vitals.energy = (self.vitals.energy + 0.5).min(1.0);
+                self.god_affinity.adjust(GodName::Ahjo, 0.03);
+                self.advance_clock(2);
+                self.status_msg =
+                    Some("Warmed by the hearth (+hunger, +energy, 2h, 2 coins)".into());
+            }
+            SettlementService::TrapWorkshop => {
+                self.god_affinity.adjust(GodName::Metsik, 0.03);
+                if let Some(ref mut ps) = self.player_start {
+                    ps.inventory.add(ItemType::Herb, 2);
+                }
+                self.advance_clock(2);
+                self.status_msg =
+                    Some("Learned trapping at the workshop (+2 Herb, 2h, 2 coins)".into());
             }
         }
     }
