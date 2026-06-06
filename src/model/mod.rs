@@ -595,6 +595,40 @@ impl GodAffinity {
             .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         worst.map(|(g, _)| *g)
     }
+
+    pub fn people_title(self, people: PeopleKind) -> &'static str {
+        let affinity = self.get(people.patron_god().unwrap_or(GodName::Ahjo));
+        if affinity > 0.6 {
+            match people {
+                PeopleKind::Metsik => "Friend of the Forest",
+                PeopleKind::Ahjo => "Hearth-kin",
+                PeopleKind::Sepat => "Iron-Bound",
+                PeopleKind::Vayla => "River-Walker",
+                PeopleKind::Arkit => "Archive-Shadow",
+                PeopleKind::Laakso => "Deep-Patient",
+            }
+        } else if affinity > 0.3 {
+            match people {
+                PeopleKind::Metsik => "Wood-Familiar",
+                PeopleKind::Ahjo => "Settlement-Guest",
+                PeopleKind::Sepat => "Forge-Acquainted",
+                PeopleKind::Vayla => "Trade-Known",
+                PeopleKind::Arkit => "Page-Turner",
+                PeopleKind::Laakso => "Steady-Presence",
+            }
+        } else if affinity < -0.2 {
+            match people {
+                PeopleKind::Metsik => "Tree-Feller",
+                PeopleKind::Ahjo => "Hearth-Stranger",
+                PeopleKind::Sepat => "Ore-Taker",
+                PeopleKind::Vayla => "Current-Breaker",
+                PeopleKind::Arkit => "Page-Burner",
+                PeopleKind::Laakso => "Impatient-One",
+            }
+        } else {
+            ""
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]

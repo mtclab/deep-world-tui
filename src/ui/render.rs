@@ -1690,6 +1690,20 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
         Span::styled("  People: ", Style::default().fg(DARK_BROWN)),
         Span::styled(people_label, Style::default().fg(INK)),
     ]));
+    let title = app
+        .god_affinity
+        .people_title(app.inter_people_bias.player_people);
+    if !title.is_empty() {
+        lines.push(Line::from(vec![
+            Span::styled("  Known as: ", Style::default().fg(DARK_BROWN)),
+            Span::styled(
+                title,
+                Style::default()
+                    .fg(WARM_BROWN)
+                    .add_modifier(Modifier::ITALIC),
+            ),
+        ]));
+    }
     if let Some(ref sim) = app.sim {
         if let Some(pos) = app.player_pos {
             if let Some(region) = sim.world.regions.get(pos.region_idx) {
