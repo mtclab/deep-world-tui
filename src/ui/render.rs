@@ -1566,6 +1566,67 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
         ]));
     }
 
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        " Vitals",
+        Style::default()
+            .fg(ARCHIVE_RED)
+            .add_modifier(Modifier::BOLD),
+    )));
+    lines.push(Line::from(vec![
+        Span::styled("  Hunger: ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            app.vitals.hunger_label(),
+            Style::default().fg(need_color(app.vitals.hunger)),
+        ),
+        Span::styled("  Energy: ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            app.vitals.energy_label(),
+            Style::default().fg(need_color(app.vitals.energy)),
+        ),
+    ]));
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        " Gods",
+        Style::default()
+            .fg(ARCHIVE_RED)
+            .add_modifier(Modifier::BOLD),
+    )));
+    let gods = [
+        (crate::model::GodName::Metsik, app.god_affinity.metsik),
+        (crate::model::GodName::Ahjo, app.god_affinity.ahjo),
+        (crate::model::GodName::Vayla, app.god_affinity.vayla),
+    ];
+    for (god, val) in &gods {
+        let label = if *val > 0.6 {
+            "favored"
+        } else if *val > 0.3 {
+            "pleased"
+        } else if *val > 0.0 {
+            "noticed"
+        } else if *val == 0.0 {
+            "unknown"
+        } else if *val > -0.3 {
+            "wary"
+        } else if *val > -0.6 {
+            "displeased"
+        } else {
+            "angered"
+        };
+        let color = if *val > 0.0 {
+            NEED_LOW
+        } else if *val < 0.0 {
+            NEED_HIGH
+        } else {
+            DARK_BROWN
+        };
+        lines.push(Line::from(vec![
+            Span::styled(format!("  {} ", god.glyph()), Style::default().fg(color)),
+            Span::styled(format!("{:<8}", god.label()), Style::default().fg(INK)),
+            Span::styled(format!(" {}", label), Style::default().fg(color)),
+        ]));
+    }
+
     let para = Paragraph::new(lines).style(Style::default().bg(PAPER));
     f.render_widget(para, chunks[1]);
 
