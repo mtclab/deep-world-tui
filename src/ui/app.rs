@@ -596,6 +596,7 @@ impl App {
         if let Some((god, delta)) = action.god_affinity_effect() {
             self.god_affinity.adjust(god, delta);
         }
+        let enc_kind = self.encounter.map(|e| e.kind);
         let msg = match action {
             EncounterAction::Flee => "You fled! (cost some energy)".into(),
             EncounterAction::Bribe => "You paid the bandit off (2 coins)".into(),
@@ -611,6 +612,12 @@ impl App {
             EncounterAction::Shelter => "You waited out the storm (1h)".into(),
             EncounterAction::PushThrough => "You pushed through regardless!".into(),
         };
+        if let Some(ref mut sim) = self.sim {
+            if let Some(kind) = enc_kind {
+                let journal_text = format!("Encounter ({:?}): {} — {}", kind, action.label(), msg);
+                sim.log_journal(sim.world.tick, journal_text);
+            }
+        }
         self.encounter = None;
         self.status_msg = Some(msg);
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
@@ -666,6 +673,16 @@ impl App {
         }
         self.advance_clock(hours);
         self.collapse = Some(collapse);
+        if let Some(ref mut sim) = self.sim {
+            let journal_text = if died {
+                format!("COLLAPSED — {:?}. You did not wake.", outcome)
+            } else if let Some(god) = collapse.rescued_by {
+                format!("COLLAPSED — {:?}. {} intervened.", outcome, god.label())
+            } else {
+                format!("COLLAPSED — {:?}", outcome)
+            };
+            sim.log_journal(sim.world.tick, journal_text);
+        }
         if died {
             self.screen = Screen::GameOver;
         } else {
