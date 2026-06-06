@@ -1,4 +1,5 @@
 mod load;
+mod validate;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -127,6 +128,7 @@ pub struct Charts {
 }
 
 pub use load::load_charts;
+pub use validate::validate_charts;
 
 #[cfg(test)]
 mod tests {
