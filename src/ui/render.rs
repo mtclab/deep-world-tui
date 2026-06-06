@@ -126,9 +126,31 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
         )));
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
-            format!("   Name          {}", p.name),
+            format!("   Personality    {}", p.personality.join(", ")),
             Style::default().fg(INK),
         )));
+        let npc_pk = crate::model::PeopleKind::from_name(&p.people);
+        let bias = app.inter_people_bias.player_people.bias_toward(npc_pk);
+        let stance = if bias > 0.05 {
+            "ally"
+        } else if bias > -0.05 {
+            "neutral"
+        } else if bias > -0.15 {
+            "wary"
+        } else {
+            "hostile"
+        };
+        let stance_color = if bias > 0.05 {
+            NEED_LOW
+        } else if bias < -0.05 {
+            NEED_HIGH
+        } else {
+            DARK_BROWN
+        };
+        lines.push(Line::from(vec![
+            Span::styled("   Toward you    ", Style::default().fg(INK)),
+            Span::styled(stance, Style::default().fg(stance_color)),
+        ]));
         lines.push(Line::from(Span::styled(
             format!("   People        {}", p.people),
             Style::default().fg(INK),
