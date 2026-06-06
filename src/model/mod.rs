@@ -28,12 +28,55 @@ pub struct Settlement {
     pub people: Vec<Person>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum Need {
+    Food,
+    Safety,
+    Belonging,
+    Esteem,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct Needs {
     pub food: f64,
     pub safety: f64,
     pub belonging: f64,
     pub esteem: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum CraftAffinity {
+    None,
+    Word,
+    Current,
+    Still,
+    Forge,
+    Root,
+}
+
+impl CraftAffinity {
+    pub fn from_chart_key(key: &str) -> Option<Self> {
+        match key {
+            "none" => Some(Self::None),
+            "word" => Some(Self::Word),
+            "current" => Some(Self::Current),
+            "still" => Some(Self::Still),
+            "forge" => Some(Self::Forge),
+            "root" => Some(Self::Root),
+            _ => None,
+        }
+    }
+
+    pub fn to_chart_key(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Word => "word",
+            Self::Current => "current",
+            Self::Still => "still",
+            Self::Forge => "forge",
+            Self::Root => "root",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -67,32 +110,51 @@ pub struct Player {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Debt {
+    pub creditor_id: String,
+    pub amount: f64,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Household {
-    pub head: Person,
-    pub spouse: Option<Person>,
-    pub children: Vec<Person>,
+    pub id: String,
+    pub head_id: String,
+    pub spouse_id: Option<String>,
+    pub children_ids: Vec<String>,
+    pub location_settlement_id: String,
     pub has_debt: bool,
+    pub debts: Vec<Debt>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum RelationshipKind {
+    Spouse,
+    Parent,
+    Child,
+    Sibling,
+    Kin,
+    Friend,
+    Rival,
+    Patron,
+    Apprentice,
+    Guildmate,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RelationshipEvent {
+    pub tick: u64,
+    pub description: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Relationship {
-    pub from: String,
-    pub to: String,
-    pub kind: String,
+    pub from_id: String,
+    pub to_id: String,
+    pub kind: RelationshipKind,
     pub strength: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Profession {
-    pub name: String,
-    pub people: String,
-    pub base_weight: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Craft {
-    pub name: String,
-    pub base_weight: u32,
+    pub trust: f64,
+    pub history: Vec<RelationshipEvent>,
 }
 
 #[cfg(test)]
@@ -212,5 +274,73 @@ mod tests {
             .map(|s| s.people.len())
             .sum();
         assert_eq!(total, 10_000);
+    }
+
+    #[test]
+    fn roundtrip_household() {
+        let h = Household {
+            id: "hh-1".into(),
+            head_id: "p1".into(),
+            spouse_id: Some("p2".into()),
+            children_ids: vec!["p3".into(), "p4".into()],
+            location_settlement_id: "set-1".into(),
+            has_debt: true,
+            debts: vec![Debt {
+                creditor_id: "p5".into(),
+                amount: 50.0,
+                description: "seed loan".into(),
+            }],
+        };
+        roundtrip(&h);
+    }
+
+    #[test]
+    fn roundtrip_relationship() {
+        let r = Relationship {
+            from_id: "p1".into(),
+            to_id: "p2".into(),
+            kind: RelationshipKind::Friend,
+            strength: 0.7,
+            trust: 0.5,
+            history: vec![RelationshipEvent {
+                tick: 10,
+                description: "shared a meal".into(),
+            }],
+        };
+        roundtrip(&r);
+    }
+
+    #[test]
+    fn craft_affinity_roundtrip_chart_keys() {
+        for key in &["none", "word", "current", "still", "forge", "root"] {
+            let affinity = CraftAffinity::from_chart_key(key).unwrap();
+            assert_eq!(affinity.to_chart_key(), *key);
+        }
+        roundtrip(&CraftAffinity::Forge);
+    }
+
+    #[test]
+    fn relationship_kind_all_variants() {
+        let variants = [
+            RelationshipKind::Spouse,
+            RelationshipKind::Parent,
+            RelationshipKind::Child,
+            RelationshipKind::Sibling,
+            RelationshipKind::Kin,
+            RelationshipKind::Friend,
+            RelationshipKind::Rival,
+            RelationshipKind::Patron,
+            RelationshipKind::Apprentice,
+            RelationshipKind::Guildmate,
+        ];
+        for v in &variants {
+            roundtrip(v);
+        }
+    }
+
+    #[test]
+    fn need_enum_roundtrip() {
+        roundtrip(&Need::Food);
+        roundtrip(&Need::Esteem);
     }
 }
