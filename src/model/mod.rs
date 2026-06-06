@@ -1187,6 +1187,14 @@ impl Encounter {
                 (PeopleKind::Sepat, Terrain::Mountain) => {
                     threshold = threshold.saturating_sub(5);
                 }
+                (PeopleKind::Ahjo, Terrain::Grass | Terrain::Farmland) => {
+                    threshold = threshold.saturating_sub(3);
+                    kind = EncounterKind::Traveler;
+                }
+                (PeopleKind::Laakso, Terrain::Swamp) => {
+                    threshold = threshold.saturating_sub(4);
+                    kind = EncounterKind::Wildlife;
+                }
                 _ => {}
             }
         }
