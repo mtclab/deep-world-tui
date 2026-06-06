@@ -27,14 +27,23 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
     }
 }
 
+pub fn region_settlement_count(rng: &mut SeedRng, region_type: &str, charts: &Charts) -> usize {
+    let n_str = charts
+        .settlements_per_region
+        .resolve_and_sample("", region_type, "", "", rng)
+        .unwrap_or_else(|| "2".into());
+    let n: usize = n_str.parse().unwrap_or(2).max(1);
+    n.max(if is_dense_region(region_type) { 2 } else { 1 })
+}
+
+fn is_dense_region(region_type: &str) -> bool {
+    matches!(region_type, "river_valley" | "coast" | "delta")
+}
+
 fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
     let region_type = charts.region.sample(&mut rng).unwrap_or_default();
 
-    let n_settlements_str = charts
-        .settlements_per_region
-        .resolve_and_sample("", &region_type, "", "", &mut rng)
-        .unwrap_or_else(|| "2".into());
-    let n_settlements: usize = n_settlements_str.parse().unwrap_or(2).max(1);
+    let n_settlements = region_settlement_count(&mut rng, &region_type, charts);
 
     let region_id = format!("region-{:04x}", index);
     let region_name = crate::gen::name::generate_name(&mut rng, "laakso", "f", charts)
@@ -100,10 +109,17 @@ fn generate_settlement(
     region_type: &str,
     charts: &Charts,
 ) -> Settlement {
-    let size = charts
-        .settlement_size
-        .resolve_and_sample("", region_type, "", "", &mut rng)
-        .unwrap_or_else(|| "hamlet".into());
+    let dense = is_dense_region(region_type);
+    let size = loop {
+        let s = charts
+            .settlement_size
+            .resolve_and_sample("", region_type, "", "", &mut rng)
+            .unwrap_or_else(|| "hamlet".into());
+        if s == "city" && !dense {
+            continue;
+        }
+        break s;
+    };
 
     let pop_str = charts
         .population_tier
@@ -316,6 +332,147 @@ mod tests {
                     settlement.id
                 );
             }
+        }
+    }
+
+    #[test]
+    fn cities_only_in_dense_regions() {
+        for seed in 0..100u64 {
+            let world = make_world(seed);
+            for region in &world.regions {
+                for settlement in &region.settlements {
+                    if settlement.size == "city" {
+                        assert!(
+                            is_dense_region(&region.region_type),
+                            "city '{}' in sparse region type '{}'",
+                            settlement.id,
+                            region.region_type
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn dense_regions_have_more_settlements() {
+        let mut dense_counts: Vec<usize> = Vec::new();
+        let mut sparse_counts: Vec<usize> = Vec::new();
+        for seed in 0..100u64 {
+            let world = make_world(seed);
+            for region in &world.regions {
+                let n = region.settlements.len();
+                if is_dense_region(&region.region_type) {
+                    dense_counts.push(n);
+                } else {
+                    sparse_counts.push(n);
+                }
+            }
+        }
+        if dense_counts.is_empty() || sparse_counts.is_empty() {
+            return;
+        }
+        let dense_avg = dense_counts.iter().sum::<usize>() as f64 / dense_counts.len() as f64;
+        let sparse_avg = sparse_counts.iter().sum::<usize>() as f64 / sparse_counts.len() as f64;
+        assert!(
+            dense_avg > sparse_avg,
+            "dense avg settlements ({:.1}) not > sparse ({:.1})",
+            dense_avg,
+            sparse_avg
+        );
+    }
+
+    #[test]
+    fn coast_regions_always_at_least_two_settlements() {
+        for seed in 0..100u64 {
+            let world = make_world(seed);
+            for region in &world.regions {
+                if region.region_type == "coast" {
+                    assert!(
+                        region.settlements.len() >= 2,
+                        "coast region '{}' has only {} settlements",
+                        region.id,
+                        region.settlements.len()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn steppe_regions_often_just_one_settlement() {
+        let mut single_count = 0usize;
+        let mut total = 0usize;
+        for seed in 0..100u64 {
+            let world = make_world(seed);
+            for region in &world.regions {
+                if region.region_type == "steppe" {
+                    total += 1;
+                    if region.settlements.len() == 1 {
+                        single_count += 1;
+                    }
+                }
+            }
+        }
+        if total == 0 {
+            return;
+        }
+        let ratio = single_count as f64 / total as f64;
+        assert!(
+            ratio > 0.1,
+            "only {:.0}% of steppe regions have 1 settlement (expect >10%)",
+            ratio * 100.0
+        );
+    }
+
+    #[test]
+    fn population_city_gt_town_gt_village_gt_hamlet() {
+        let mut size_pop: std::collections::HashMap<String, Vec<u32>> =
+            std::collections::HashMap::new();
+        for seed in 0..50u64 {
+            let world = make_world(seed);
+            for region in &world.regions {
+                for settlement in &region.settlements {
+                    size_pop
+                        .entry(settlement.size.clone())
+                        .or_default()
+                        .push(settlement.population);
+                }
+            }
+        }
+        let avg = |v: &Vec<u32>| -> f64 {
+            if v.is_empty() {
+                return 0.0;
+            }
+            v.iter().sum::<u32>() as f64 / v.len() as f64
+        };
+        let city_avg = avg(size_pop.get("city").unwrap_or(&vec![]));
+        let town_avg = avg(size_pop.get("town").unwrap_or(&vec![]));
+        let village_avg = avg(size_pop.get("village").unwrap_or(&vec![]));
+        let hamlet_avg = avg(size_pop.get("hamlet").unwrap_or(&vec![]));
+        if city_avg > 0.0 {
+            assert!(
+                city_avg > town_avg,
+                "city avg ({:.0}) <= town ({:.0})",
+                city_avg,
+                town_avg
+            );
+        }
+        if town_avg > 0.0 {
+            assert!(
+                town_avg > village_avg,
+                "town avg ({:.0}) <= village ({:.0})",
+                town_avg,
+                village_avg
+            );
+        }
+        if village_avg > 0.0 {
+            assert!(
+                village_avg > hamlet_avg,
+                "village avg ({:.0}) <= hamlet ({:.0})",
+                village_avg,
+                hamlet_avg
+            );
         }
     }
 }
