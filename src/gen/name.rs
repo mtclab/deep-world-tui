@@ -28,7 +28,7 @@ impl NameGrammar {
         }
         let pattern_idx = rng.gen_range(self.patterns.len() as u32) as usize;
         let pattern = &self.patterns[pattern_idx];
-        match pattern {
+        let raw = match pattern {
             NamePattern::Root => {
                 let ri = rng.gen_range(self.roots.len() as u32) as usize;
                 self.roots[ri].clone()
@@ -43,6 +43,11 @@ impl NameGrammar {
                 let ri = rng.gen_range(self.roots.len() as u32) as usize;
                 format!("{}{}", self.prefixes[pi], self.roots[ri])
             }
+        };
+        let mut chars = raw.chars();
+        match chars.next() {
+            Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+            None => raw,
         }
     }
 }
@@ -148,5 +153,59 @@ mod tests {
         assert_eq!(grammar.roots, de.roots);
         assert_eq!(grammar.suffixes, de.suffixes);
         assert_eq!(grammar.prefixes, de.prefixes);
+    }
+
+    #[test]
+    fn generated_names_are_capitalized() {
+        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let mut rng = SeedRng::new(42);
+        for _ in 0..50 {
+            let name = generate_name(&mut rng, "metsik", "f", &charts).unwrap();
+            let first = name.chars().next().unwrap();
+            assert!(
+                first.is_uppercase(),
+                "name '{}' starts with lowercase",
+                name
+            );
+        }
+    }
+
+    #[test]
+    fn within_people_uniqueness() {
+        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        for people in &["metsik", "arkit", "vayla", "laakso", "sepat", "ahjo"] {
+            let mut rng = SeedRng::new(42);
+            let mut seen = std::collections::HashSet::new();
+            for _ in 0..1000 {
+                seen.insert(generate_name(&mut rng, people, "f", &charts).unwrap());
+            }
+            assert!(
+                seen.len() > 300,
+                "{} only produced {} unique names in 1000 draws",
+                people,
+                seen.len()
+            );
+        }
+    }
+
+    #[test]
+    fn different_peoples_produce_distinct_name_sets() {
+        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let mut metsik_names = std::collections::HashSet::new();
+        let mut rng = SeedRng::new(42);
+        for _ in 0..200 {
+            metsik_names.insert(generate_name(&mut rng, "metsik", "f", &charts).unwrap());
+        }
+        let mut sepat_names = std::collections::HashSet::new();
+        let mut rng2 = SeedRng::new(42);
+        for _ in 0..200 {
+            sepat_names.insert(generate_name(&mut rng2, "sepat", "m", &charts).unwrap());
+        }
+        let overlap: usize = metsik_names.intersection(&sepat_names).count();
+        assert!(
+            overlap < 20,
+            "metsik/sepat name overlap {} too high (expect distinct grammars)",
+            overlap
+        );
     }
 }

@@ -1,9 +1,17 @@
 // Ahjo name grammar — eastern forge-naming tradition
-// Roots: forge-oven, mountain, ore, fire, discipline
-// Zero-derivation from place (ahjo = forge-oven)
+// Roots: forge-oven, mountain, ore, fire, discipline, eastern
 NameGrammar(
-    prefixes: ["Vuori", "Syvä", "Kova", "Itä", "Rauta"],
-    roots: ["Ahjo", "Hiili", "Malmi", "Kipinä", "Valo", "Kymi", "Kuura", "Tuli", "Rauta", "Pääsky"],
-    suffixes: ["nen", "la", "kanta", "nen", "kkä", "vahdi", "alkar", "inen"],
+    prefixes: ["Vuori", "Syvä", "Kova", "Itä", "Rauta", "Pimeä", "Tuli", "Harmaa", "Kuura", "Jää"],
+    roots: [
+        "Ahjo", "Hiili", "Malmi", "Kipinä", "Valo", "Kymi", "Kuura",
+        "Tuli", "Pääsky", "Nuoli", "Peits", "Kilpi", "Miekka",
+        "Kypärä", "Rauta", "Teräs", "Kivi", "Kallio", "Huippu",
+        "Solmu", "Ketju", "Piippu", "Savu", "Hehku", "Hohde",
+        "Liekki", "Kajo", "Säde", "Pii", "Kaas",
+    ],
+    suffixes: [
+        "nen", "la", "kanta", "kkä", "vahdi", "alkar", "inen", "nen",
+        "vuori", "kallio", "ahjo", "tuli", "kivi", "seppä",
+    ],
     patterns: [Root, RootSuffix, PrefixRoot],
 )

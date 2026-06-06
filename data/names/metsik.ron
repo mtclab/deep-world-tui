@@ -1,10 +1,18 @@
 // Metsik name grammar — forest-naming tradition
-// Roots: ecological (growth, green, deep, clearing, moss, bark)
-// Suffixes: feminine -a/-ä, masculine -o/-ö, patronymic -nen
-// Patterns: Root (simple), Root+Suffix, Prefix+Root
+// Roots: ecological (growth, green, deep, clearing, moss, bark, animals, plants)
 NameGrammar(
-    prefixes: ["Ala", "Yli", "Piha", "Syvä", "Raja"],
-    roots: ["Honka", "Kuusi", "Sammal", "Lehti", "Orava", "Korpi", "Vihta", "Petäjä", "Rääkkä", "Kuusikko"],
-    suffixes: ["nen", "lä", "nen", "kkä", "ja", "kki", "niemi", "ranta"],
+    prefixes: ["Ala", "Yli", "Piha", "Syvä", "Raja", "Kuus", "Lehti", "Paju", "Havu", "Koivu"],
+    roots: [
+        "Honka", "Kuusi", "Sammal", "Lehti", "Orava", "Korpi", "Vihta", "Petäjä",
+        "Rääkkä", "Kuusikko", "Metsä", "Pähkinä", "Marja", "Sieni", "Purto",
+        "Liesi", "Jänis", "Karhu", "Näätä", "Ilves", "Peura", "Hirvi",
+        "Teeri", "Peltopyy", "Varis", "Käki", "Pöllö", "Piha",
+        "Manty", "Kataja", "Pihlaja", "Leppä", "Haapa", "Raita", "Sahal",
+        "Vesa", "Oksa", "Juuri", "Latva", "Puro", "Notko", "Mäki",
+    ],
+    suffixes: [
+        "nen", "lä", "kkä", "ja", "kki", "niemi", "ranta", "salmi",
+        "mäki", "koski", "pelto", "nummi", "harju", "lahti", "saari",
+    ],
     patterns: [Root, RootSuffix, PrefixRoot],
 )
