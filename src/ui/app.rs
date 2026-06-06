@@ -1,8 +1,8 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{
-    craft_recipes, GameClock, Inventory, ItemType, Need, PlayerPos, PlayerStart, Settlement,
-    Terrain,
+    craft_recipes, GameClock, Inventory, ItemType, Need, PlayerPos, PlayerStart, PlayerVitals,
+    Settlement, Terrain,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -59,6 +59,7 @@ pub struct App {
     pub status_msg: Option<String>,
     pub player_pos: Option<PlayerPos>,
     pub clock: GameClock,
+    pub vitals: PlayerVitals,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -76,6 +77,7 @@ impl App {
             status_msg: None,
             player_pos: None,
             clock: GameClock::default(),
+            vitals: PlayerVitals::default(),
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -365,24 +367,27 @@ impl App {
     }
 
     pub fn gather(&mut self) {
-        if let Some(ref mut ps) = self.player_start {
-            if let Some(ref pos) = self.player_pos {
-                if let Some(ref sim) = self.sim {
-                    if let Some(region) = sim.world.regions.get(pos.region_idx) {
-                        if let Some(terrain) = region.terrain.get(pos.px, pos.py) {
-                            if self.clock.time_of_day().is_dark() {
-                                self.status_msg = Some("Too dark to gather".into());
-                            } else if let Some(item) = ItemType::gather_from(terrain) {
-                                ps.inventory.add(item, 1);
-                                self.clock.advance_hour();
-                                self.status_msg = Some(format!("Gathered 1 {} (1h)", item.name()));
-                            } else {
-                                self.status_msg = Some("Nothing to gather here".into());
-                            }
-                        }
-                    }
-                }
+        if self.clock.time_of_day().is_dark() {
+            self.status_msg = Some("Too dark to gather".into());
+            return;
+        }
+        let terrain_item = self.player_pos.and_then(|pos| {
+            self.sim.as_ref().and_then(|sim| {
+                sim.world
+                    .regions
+                    .get(pos.region_idx)
+                    .and_then(|r| r.terrain.get(pos.px, pos.py))
+                    .and_then(ItemType::gather_from)
+            })
+        });
+        if let Some(item) = terrain_item {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(item, 1);
             }
+            self.advance_clock_hour();
+            self.status_msg = Some(format!("Gathered 1 {} (1h)", item.name()));
+        } else {
+            self.status_msg = Some("Nothing to gather here".into());
         }
     }
 
@@ -422,7 +427,7 @@ impl App {
                         inv.remove(*item, *count);
                     }
                     inv.add(recipe.output, recipe.output_count);
-                    self.clock.advance(2);
+                    self.advance_clock(2);
                     self.status_msg = Some(format!(
                         "Crafted {} (x{}) (2h)",
                         recipe.name, recipe.output_count
@@ -441,9 +446,21 @@ impl App {
             .unwrap_or_default()
     }
 
+    pub fn advance_clock(&mut self, hours: u32) {
+        self.clock.advance(hours);
+        if let Some(ref mut ps) = self.player_start {
+            self.vitals.tick(hours, &mut ps.inventory);
+        }
+    }
+
+    pub fn advance_clock_hour(&mut self) {
+        self.advance_clock(1);
+    }
+
     pub fn rest(&mut self) {
-        self.clock.advance(8);
-        self.status_msg = Some("Rested through the night (8h)".into());
+        self.advance_clock(8);
+        self.vitals.rest();
+        self.status_msg = Some("Rested (8h)".into());
     }
 
     pub fn clock_str(&self) -> String {
@@ -455,78 +472,115 @@ impl App {
             tod.glyph()
         )
     }
+}
 
+enum MoveResult {
+    EdgeTransition {
+        region_idx: usize,
+        px: usize,
+        py: usize,
+    },
+    Step {
+        region_idx: usize,
+        px: usize,
+        py: usize,
+    },
+    Blocked {
+        msg: String,
+    },
+}
+
+impl App {
     pub fn move_player(&mut self, dx: i32, dy: i32) {
-        if let Some(ref mut pos) = self.player_pos {
-            if let Some(ref sim) = self.sim {
-                if let Some(region) = sim.world.regions.get(pos.region_idx) {
-                    let map_w = region.terrain.width;
-                    let map_h = region.terrain.height;
-                    let nx = pos.px as i32 + dx;
-                    let ny = pos.py as i32 + dy;
-                    if nx < 0 {
-                        if let Some(west) = region.neighbors.west {
-                            pos.region_idx = west;
-                            pos.px = map_w - 1;
-                            self.clock.advance_hour();
-                            self.screen = Screen::Map {
-                                region_idx: west,
-                                px: map_w - 1,
-                                py: pos.py,
-                            };
-                        }
-                    } else if nx >= map_w as i32 {
-                        if let Some(east) = region.neighbors.east {
-                            pos.region_idx = east;
-                            pos.px = 0;
-                            self.clock.advance_hour();
-                            self.screen = Screen::Map {
-                                region_idx: east,
-                                px: 0,
-                                py: pos.py,
-                            };
-                        }
-                    } else if ny < 0 {
-                        if let Some(north) = region.neighbors.north {
-                            pos.region_idx = north;
-                            pos.py = map_h - 1;
-                            self.clock.advance_hour();
-                            self.screen = Screen::Map {
-                                region_idx: north,
-                                px: pos.px,
-                                py: map_h - 1,
-                            };
-                        }
-                    } else if ny >= map_h as i32 {
-                        if let Some(south) = region.neighbors.south {
-                            pos.region_idx = south;
-                            pos.py = 0;
-                            self.clock.advance_hour();
-                            self.screen = Screen::Map {
-                                region_idx: south,
-                                px: pos.px,
-                                py: 0,
-                            };
-                        }
-                    } else {
-                        let ux = nx as usize;
-                        let uy = ny as usize;
-                        if let Some(terrain) = region.terrain.get(ux, uy) {
-                            if terrain.passable() {
-                                pos.px = ux;
-                                pos.py = uy;
-                                self.clock.advance_hour();
-                                self.screen = Screen::Map {
-                                    region_idx: pos.region_idx,
-                                    px: ux,
-                                    py: uy,
-                                };
-                            } else {
-                                self.status_msg = Some(format!("Blocked: {:?}", terrain));
-                            }
-                        }
-                    }
+        let result = self.compute_move(dx, dy);
+        match result {
+            Some(MoveResult::EdgeTransition { region_idx, px, py }) => {
+                if let Some(ref mut p) = self.player_pos {
+                    p.region_idx = region_idx;
+                    p.px = px;
+                    p.py = py;
                 }
+                self.advance_clock_hour();
+                self.screen = Screen::Map { region_idx, px, py };
+            }
+            Some(MoveResult::Step { region_idx, px, py }) => {
+                if let Some(ref mut p) = self.player_pos {
+                    p.px = px;
+                    p.py = py;
+                }
+                self.advance_clock_hour();
+                self.screen = Screen::Map { region_idx, px, py };
+            }
+            Some(MoveResult::Blocked { msg }) => {
+                self.status_msg = Some(msg);
+            }
+            None => {}
+        }
+    }
+
+    fn compute_move(&self, dx: i32, dy: i32) -> Option<MoveResult> {
+        let pos = self.player_pos?;
+        let sim = self.sim.as_ref()?;
+        let region = sim.world.regions.get(pos.region_idx)?;
+        let map_w = region.terrain.width;
+        let map_h = region.terrain.height;
+        let nx = pos.px as i32 + dx;
+        let ny = pos.py as i32 + dy;
+
+        if nx < 0 {
+            region
+                .neighbors
+                .west
+                .map(|west| MoveResult::EdgeTransition {
+                    region_idx: west,
+                    px: map_w - 1,
+                    py: pos.py,
+                })
+        } else if nx >= map_w as i32 {
+            region
+                .neighbors
+                .east
+                .map(|east| MoveResult::EdgeTransition {
+                    region_idx: east,
+                    px: 0,
+                    py: pos.py,
+                })
+        } else if ny < 0 {
+            region
+                .neighbors
+                .north
+                .map(|north| MoveResult::EdgeTransition {
+                    region_idx: north,
+                    px: pos.px,
+                    py: map_h - 1,
+                })
+        } else if ny >= map_h as i32 {
+            region
+                .neighbors
+                .south
+                .map(|south| MoveResult::EdgeTransition {
+                    region_idx: south,
+                    px: pos.px,
+                    py: 0,
+                })
+        } else {
+            let ux = nx as usize;
+            let uy = ny as usize;
+            let terrain = region.terrain.get(ux, uy);
+            if let Some(t) = terrain {
+                if t.passable() {
+                    Some(MoveResult::Step {
+                        region_idx: pos.region_idx,
+                        px: ux,
+                        py: uy,
+                    })
+                } else {
+                    Some(MoveResult::Blocked {
+                        msg: format!("Blocked: {:?}", t),
+                    })
+                }
+            } else {
+                None
             }
         }
     }

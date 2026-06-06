@@ -237,6 +237,73 @@ impl GameClock {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct PlayerVitals {
+    pub hunger: f64,
+    pub energy: f64,
+}
+
+impl Default for PlayerVitals {
+    fn default() -> Self {
+        PlayerVitals {
+            hunger: 1.0,
+            energy: 1.0,
+        }
+    }
+}
+
+impl PlayerVitals {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn tick(&mut self, hours: u32, inventory: &mut Inventory) {
+        for _ in 0..hours {
+            self.hunger -= 0.05;
+            self.energy -= 0.02;
+            if self.hunger <= 0.3 && inventory.remove(ItemType::Food, 1) {
+                self.hunger = (self.hunger + 0.3).min(1.0);
+            }
+        }
+        self.hunger = self.hunger.max(0.0);
+        self.energy = self.energy.max(0.0);
+    }
+
+    pub fn rest(&mut self) {
+        self.energy = (self.energy + 0.6).min(1.0);
+    }
+
+    pub fn is_starving(self) -> bool {
+        self.hunger <= 0.0
+    }
+
+    pub fn is_exhausted(self) -> bool {
+        self.energy <= 0.1
+    }
+
+    pub fn hunger_label(self) -> &'static str {
+        if self.hunger >= 0.7 {
+            "full"
+        } else if self.hunger >= 0.4 {
+            "hungry"
+        } else if self.hunger > 0.0 {
+            "starving"
+        } else {
+            "famished"
+        }
+    }
+
+    pub fn energy_label(self) -> &'static str {
+        if self.energy >= 0.7 {
+            "energized"
+        } else if self.energy >= 0.4 {
+            "tired"
+        } else {
+            "exhausted"
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct World {
     pub seed: u64,
@@ -937,5 +1004,55 @@ mod tests {
         assert!(!TimeOfDay::Day.is_dark());
         assert!(!TimeOfDay::Dawn.is_dark());
         assert!(!TimeOfDay::Dusk.is_dark());
+    }
+
+    #[test]
+    fn player_vitals_tick_hunger_decay() {
+        let mut v = PlayerVitals::new();
+        let mut inv = Inventory::default();
+        v.tick(5, &mut inv);
+        assert!(v.hunger < 1.0, "hunger should decrease");
+        assert!(v.energy < 1.0, "energy should decrease");
+    }
+
+    #[test]
+    fn player_vitals_auto_eat() {
+        let mut v = PlayerVitals::new();
+        v.hunger = 0.2;
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Food, 3);
+        v.tick(1, &mut inv);
+        assert!(v.hunger > 0.2, "should auto-eat when hungry");
+        assert_eq!(inv.get(ItemType::Food), 2);
+    }
+
+    #[test]
+    fn player_vitals_rest_restores_energy() {
+        let mut v = PlayerVitals::new();
+        v.energy = 0.1;
+        v.rest();
+        assert!(v.energy > 0.5, "rest should restore energy");
+    }
+
+    #[test]
+    fn player_vitals_labels() {
+        let full = PlayerVitals {
+            hunger: 0.8,
+            energy: 0.8,
+        };
+        assert_eq!(full.hunger_label(), "full");
+        assert_eq!(full.energy_label(), "energized");
+        let hungry = PlayerVitals {
+            hunger: 0.5,
+            energy: 0.5,
+        };
+        assert_eq!(hungry.hunger_label(), "hungry");
+        assert_eq!(hungry.energy_label(), "tired");
+    }
+
+    #[test]
+    fn player_vitals_serialization() {
+        let v = PlayerVitals::new();
+        roundtrip(&v);
     }
 }

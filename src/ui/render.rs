@@ -1116,7 +1116,12 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
             Style::default().fg(INK).add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            format!("  {}", app.clock_str()),
+            format!(
+                "  {}  {} {}",
+                app.clock_str(),
+                app.vitals.hunger_label(),
+                app.vitals.energy_label()
+            ),
             Style::default().fg(DARK_INK),
         ),
     ]))
