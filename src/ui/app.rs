@@ -1,8 +1,8 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{
-    craft_recipes, Encounter, GameClock, Inventory, ItemType, Need, PlayerPos, PlayerStart,
-    PlayerVitals, Settlement, SettlementService, Terrain,
+    craft_recipes, Collapse, Encounter, GameClock, GodAffinity, GodName, Inventory, ItemType, Need,
+    PlayerPos, PlayerStart, PlayerVitals, Settlement, SettlementService, Terrain,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -54,6 +54,8 @@ pub enum Screen {
         scroll: u16,
     },
     Encounter,
+    Collapse,
+    GameOver,
 }
 
 pub struct App {
@@ -67,6 +69,8 @@ pub struct App {
     pub clock: GameClock,
     pub vitals: PlayerVitals,
     pub encounter: Option<Encounter>,
+    pub collapse: Option<Collapse>,
+    pub god_affinity: GodAffinity,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -86,6 +90,8 @@ impl App {
             clock: GameClock::default(),
             vitals: PlayerVitals::default(),
             encounter: None,
+            collapse: None,
+            god_affinity: GodAffinity::new(),
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -278,6 +284,8 @@ impl App {
                     sim.reputation.adjust_local(pid, sid, 0.02);
                 }
                 self.status_msg = Some(format!("Gave food to {}", person.name));
+                self.god_affinity.adjust(GodName::Ahjo, 0.02);
+                self.god_affinity.adjust(GodName::Vayla, 0.01);
             }
         }
     }
@@ -319,6 +327,8 @@ impl App {
                     sim.reputation.adjust_local(pid, sid, 0.01);
                 }
                 self.status_msg = Some(format!("Gave coin to {}", person.name));
+                self.god_affinity.adjust(GodName::Ahjo, 0.02);
+                self.god_affinity.adjust(GodName::Vayla, 0.01);
             }
         }
     }
@@ -385,16 +395,29 @@ impl App {
             self.status_msg = Some("Too dark to gather".into());
             return;
         }
-        let terrain_item = self.player_pos.and_then(|pos| {
-            self.sim.as_ref().and_then(|sim| {
-                sim.world
-                    .regions
-                    .get(pos.region_idx)
-                    .and_then(|r| r.terrain.get(pos.px, pos.py))
-                    .and_then(ItemType::gather_from)
+        let (terrain_item, terrain) = self
+            .player_pos
+            .and_then(|pos| {
+                self.sim.as_ref().map(|sim| {
+                    let region = sim.world.regions.get(pos.region_idx);
+                    let t = region.and_then(|r| r.terrain.get(pos.px, pos.py));
+                    let item = t.and_then(ItemType::gather_from);
+                    (item, t)
+                })
             })
-        });
-        if let Some(item) = terrain_item {
+            .unwrap_or((None, None));
+        if let (Some(item), Some(terrain)) = (terrain_item, terrain) {
+            match terrain {
+                Terrain::Forest => {
+                    self.god_affinity.adjust(GodName::Metsik, 0.03);
+                    self.god_affinity.adjust(GodName::Ahjo, -0.01);
+                }
+                Terrain::Grass | Terrain::Farmland => {
+                    self.god_affinity.adjust(GodName::Ahjo, 0.03);
+                    self.god_affinity.adjust(GodName::Metsik, -0.01);
+                }
+                _ => {}
+            }
             let season = self.clock.season();
             let mult = season.gather_multiplier();
             let count = if mult > 0.5 { 1 } else { 0 };
@@ -496,6 +519,7 @@ impl App {
                 self.advance_clock_hour();
                 self.status_msg =
                     Some(format!("Bought 1 {} for {} coins (1h)", item.name(), price));
+                self.god_affinity.adjust(GodName::Ahjo, 0.02);
             } else {
                 self.status_msg = Some(format!("Need {} coins", price));
             }
@@ -513,6 +537,7 @@ impl App {
                 ps.inventory.add(ItemType::Coin, price);
                 self.advance_clock_hour();
                 self.status_msg = Some(format!("Sold 1 {} for {} coins (1h)", item.name(), price));
+                self.god_affinity.adjust(GodName::Ahjo, 0.01);
             } else {
                 self.status_msg = Some(format!("No {} to sell", item.name()));
             }
@@ -537,6 +562,7 @@ impl App {
                 sim.step();
             }
         }
+        self.check_collapse();
     }
 
     pub fn check_encounter(&mut self, terrain: Terrain) {
@@ -556,6 +582,81 @@ impl App {
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
         self.screen = Screen::Map { region_idx, px, py };
+    }
+
+    pub fn check_collapse(&mut self) {
+        if self.vitals.hunger > 0.0 && self.vitals.energy > 0.0 {
+            return;
+        }
+        let local_rep = self
+            .player_start
+            .as_ref()
+            .and_then(|ps| {
+                let pid = &ps.person.id;
+                self.sim.as_ref().and_then(|sim| {
+                    let pos = self.player_pos?;
+                    let region = sim.world.regions.get(pos.region_idx)?;
+                    let settlement = region.settlements.first()?;
+                    Some(sim.reputation.get(pid, &settlement.id))
+                })
+            })
+            .unwrap_or(0.0);
+        let collapse = Collapse::roll(self.seed, &self.god_affinity, local_rep);
+        let outcome = collapse.outcome;
+        let hours = outcome.hours_passed();
+        let died = collapse.died;
+        self.vitals.hunger = (self.vitals.hunger + outcome.hunger_restore()).min(1.0);
+        self.vitals.energy = (self.vitals.energy + outcome.energy_restore()).min(1.0);
+        if let Some(ref mut ps) = self.player_start {
+            let loss = outcome.coin_loss();
+            ps.inventory.remove(ItemType::Coin, loss);
+            if let Some(item) = outcome.item_loss() {
+                ps.inventory.remove(item, 1);
+            }
+        }
+        if outcome.is_divine() {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(ItemType::Herb, 3);
+                ps.inventory.add(ItemType::Food, 2);
+            }
+        }
+        if outcome.is_beast_aided() {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(ItemType::Herb, 1);
+            }
+        }
+        if outcome.is_hostile() {
+            self.vitals.hunger = 0.15;
+            self.vitals.energy = 0.1;
+        }
+        self.advance_clock(hours);
+        self.collapse = Some(collapse);
+        if died {
+            self.screen = Screen::GameOver;
+        } else {
+            self.screen = Screen::Collapse;
+        }
+    }
+
+    pub fn dismiss_collapse(&mut self) {
+        self.collapse = None;
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
+        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
+        self.screen = Screen::Map { region_idx, px, py };
+    }
+
+    pub fn restart_game(&mut self) {
+        self.sim = None;
+        self.player_start = None;
+        self.collapse = None;
+        self.encounter = None;
+        self.clock = GameClock::default();
+        self.vitals = PlayerVitals::default();
+        self.player_pos = None;
+        self.screen = Screen::CharacterCreation;
+        self.status_msg = None;
+        self.running = true;
     }
 
     pub fn use_service(&mut self, service: SettlementService) {
@@ -589,6 +690,7 @@ impl App {
     pub fn rest(&mut self) {
         self.advance_clock(8);
         self.vitals.rest();
+        self.god_affinity.adjust(GodName::Vayla, 0.02);
         self.status_msg = Some("Rested (8h)".into());
     }
 
@@ -1136,6 +1238,23 @@ impl App {
                     | crossterm::event::KeyCode::Esc
                     | crossterm::event::KeyCode::Enter => {
                         self.dismiss_encounter();
+                    }
+                    _ => {}
+                },
+                Screen::Collapse => match key.code {
+                    crossterm::event::KeyCode::Char('q')
+                    | crossterm::event::KeyCode::Esc
+                    | crossterm::event::KeyCode::Enter => {
+                        self.dismiss_collapse();
+                    }
+                    _ => {}
+                },
+                Screen::GameOver => match key.code {
+                    crossterm::event::KeyCode::Char('r') => {
+                        self.restart_game();
+                    }
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.running = false;
                     }
                     _ => {}
                 },

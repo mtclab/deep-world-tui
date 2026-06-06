@@ -87,6 +87,12 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::Encounter => {
             draw_encounter_screen(f, app);
         }
+        Screen::Collapse => {
+            draw_collapse_screen(f, app);
+        }
+        Screen::GameOver => {
+            draw_game_over_screen(f, app);
+        }
     }
 }
 
@@ -1830,6 +1836,192 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" continue", Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_collapse_screen(f: &mut Frame, app: &App) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let header = Paragraph::new(Line::from(vec![Span::styled(
+        " You collapsed!",
+        Style::default()
+            .fg(ARCHIVE_RED)
+            .add_modifier(Modifier::BOLD),
+    )]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(header, chunks[0]);
+
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(""));
+    if let Some(collapse) = app.collapse {
+        lines.push(Line::from(Span::styled(
+            collapse.outcome.description(),
+            Style::default().fg(INK).add_modifier(Modifier::BOLD),
+        )));
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            format!("  {}", collapse.outcome.glyph()),
+            Style::default().fg(ARCHIVE_RED),
+        )));
+        if let Some(god) = collapse.rescued_by {
+            lines.push(Line::from(Span::styled(
+                format!("  {} watches over you.", god.label()),
+                Style::default().fg(WARM_BROWN),
+            )));
+        }
+        if collapse.outcome.is_hostile() {
+            lines.push(Line::from(Span::styled(
+                "  You are wounded and shaken.",
+                Style::default().fg(NEED_HIGH),
+            )));
+        }
+        if collapse.outcome.is_beast_aided() {
+            lines.push(Line::from(Span::styled(
+                "  The forest creatures remember your kindness.",
+                Style::default().fg(NEED_LOW),
+            )));
+        }
+        if collapse.outcome.is_divine() {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  The fire's warmth lingers. Something impossible happened here.",
+                Style::default().fg(WARM_BROWN),
+            )));
+        }
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            format!("  {} hours passed", collapse.outcome.hours_passed()),
+            Style::default().fg(DARK_BROWN),
+        )));
+        if collapse.outcome.coin_loss() > 0 {
+            lines.push(Line::from(Span::styled(
+                format!("  Lost {} coins", collapse.outcome.coin_loss()),
+                Style::default().fg(NEED_HIGH),
+            )));
+        }
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        format!(
+            "  Hunger: {}  Energy: {}",
+            app.vitals.hunger_label(),
+            app.vitals.energy_label()
+        ),
+        Style::default().fg(DARK_BROWN),
+    )));
+    if app.god_affinity.metsik != 0.0
+        || app.god_affinity.ahjo != 0.0
+        || app.god_affinity.vayla != 0.0
+    {
+        lines.push(Line::from(Span::styled(
+            format!(
+                "  Gods: Metsik {:.0}%  Ahjo {:.0}%  Väylä {:.0}%",
+                app.god_affinity.metsik * 100.0,
+                app.god_affinity.ahjo * 100.0,
+                app.god_affinity.vayla * 100.0,
+            ),
+            Style::default().fg(DARK_BROWN),
+        )));
+    }
+
+    let para = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [Enter/Esc]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" continue", Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_game_over_screen(f: &mut Frame, app: &App) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let header = Paragraph::new(Line::from(vec![Span::styled(
+        " You have perished",
+        Style::default()
+            .fg(ARCHIVE_RED)
+            .add_modifier(Modifier::BOLD),
+    )]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(header, chunks[0]);
+
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(""));
+    if let Some(collapse) = app.collapse {
+        lines.push(Line::from(Span::styled(
+            collapse.outcome.description(),
+            Style::default().fg(INK).add_modifier(Modifier::BOLD),
+        )));
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  But this time, you did not wake.",
+            Style::default().fg(NEED_HIGH),
+        )));
+        if let Some(god) = collapse.rescued_by {
+            lines.push(Line::from(Span::styled(
+                format!("  Even {} could not reach you this time.", god.label()),
+                Style::default().fg(WARM_BROWN),
+            )));
+        }
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "  The world continues without you.",
+        Style::default().fg(DARK_BROWN),
+    )));
+    if app.god_affinity.metsik != 0.0
+        || app.god_affinity.ahjo != 0.0
+        || app.god_affinity.vayla != 0.0
+    {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            format!(
+                "  Final standing: Metsik {:.0}%  Ahjo {:.0}%  Väylä {:.0}%",
+                app.god_affinity.metsik * 100.0,
+                app.god_affinity.ahjo * 100.0,
+                app.god_affinity.vayla * 100.0,
+            ),
+            Style::default().fg(DARK_BROWN),
+        )));
+    }
+
+    let para = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [r]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" restart  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[Esc/Q]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" quit", Style::default().fg(DARK_BROWN)),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
