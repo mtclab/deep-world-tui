@@ -328,7 +328,12 @@ impl App {
                 .map(|p| PeopleKind::from_name(&p.people))
         });
         if let Some(npc_pk) = npc_people {
-            let bias = self.inter_people_bias.player_people.bias_toward(npc_pk);
+            let mut bias = self.inter_people_bias.player_people.bias_toward(npc_pk);
+            if let Some(god) = npc_pk.patron_god() {
+                if self.god_affinity.get(god) > 0.4 {
+                    bias += 0.05;
+                }
+            }
             if bias < -0.20 {
                 if let Some(ref mut ps) = self.player_start {
                     ps.inventory.add(ItemType::Food, 1);
@@ -414,7 +419,12 @@ impl App {
                 .map(|p| PeopleKind::from_name(&p.people))
         });
         if let Some(npc_pk) = npc_people {
-            let bias = self.inter_people_bias.player_people.bias_toward(npc_pk);
+            let mut bias = self.inter_people_bias.player_people.bias_toward(npc_pk);
+            if let Some(god) = npc_pk.patron_god() {
+                if self.god_affinity.get(god) > 0.4 {
+                    bias += 0.05;
+                }
+            }
             if bias < -0.20 {
                 if let Some(ref mut ps) = self.player_start {
                     ps.inventory.add(ItemType::Coin, 1);
