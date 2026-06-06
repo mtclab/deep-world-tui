@@ -6,4 +6,5 @@ pub mod model;
 pub mod rng;
 pub mod save;
 pub mod sim;
+pub mod ui;
 pub mod voice;
