@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 
+use crate::model::Need;
 use crate::ui::app::{App, Screen};
 
 const ARCHIVE_RED: Color = Color::Rgb(0x7a, 0x2e, 0x1d);
@@ -13,12 +14,38 @@ const INK: Color = Color::Rgb(0x3a, 0x2a, 0x1a);
 const WARM_BROWN: Color = Color::Rgb(0x8b, 0x73, 0x55);
 const DARK_BROWN: Color = Color::Rgb(0x5a, 0x4a, 0x3a);
 const PAPER: Color = Color::Rgb(0xef, 0xe9, 0xdd);
+const NEED_LOW: Color = Color::Rgb(0x6b, 0x8e, 0x4a);
+const NEED_MID: Color = Color::Rgb(0xc2, 0x9a, 0x6b);
+const NEED_HIGH: Color = Color::Rgb(0x7a, 0x2e, 0x1d);
+
+fn need_color(val: f64) -> Color {
+    if val >= 0.7 {
+        NEED_LOW
+    } else if val >= 0.3 {
+        NEED_MID
+    } else {
+        NEED_HIGH
+    }
+}
+
+fn need_bar(val: f64, width: usize) -> String {
+    let filled = (val * width as f64).round() as usize;
+    let empty = width.saturating_sub(filled);
+    format!("{}{}", "█".repeat(filled), "░".repeat(empty))
+}
 
 pub fn draw(f: &mut Frame, app: &App) {
     f.render_widget(Block::default().style(Style::default().bg(PAPER)), f.area());
     match app.screen {
         Screen::CharacterCreation => draw_character_creation(f, app),
         Screen::World => draw_world_screen(f, app),
+        Screen::Location {
+            region_idx,
+            settlement_idx,
+            scroll,
+        } => {
+            draw_location_screen(f, app, region_idx, settlement_idx, scroll);
+        }
     }
 }
 
@@ -43,7 +70,6 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
     f.render_widget(title, chunks[0]);
 
     let mut lines: Vec<Line> = Vec::new();
-
     if let Some(ref ps) = app.player_start {
         let p = &ps.person;
         lines.push(Line::from(""));
@@ -60,10 +86,10 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
             format!("   People        {}", p.people),
             Style::default().fg(INK),
         )));
-        lines.push(Line::styled(
-            format!("   Social Class  {}", p.social_class),
+        lines.push(Line::from(Span::styled(
+            format!("   Profession    {}", p.profession),
             Style::default().fg(INK),
-        ));
+        )));
         lines.push(Line::from(Span::styled(
             format!("   Craft         {}", p.craft_affinity),
             Style::default().fg(INK),
@@ -167,7 +193,6 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
     f.render_widget(title, chunks[0]);
 
     let mut lines: Vec<Line> = Vec::new();
-
     if let Some(ref sim) = app.sim {
         let world = &sim.world;
         lines.push(Line::from(Span::styled(
@@ -178,40 +203,47 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
         )));
         lines.push(Line::from(""));
 
+        let settlements = app.settlement_list();
         for (ri, region) in world.regions.iter().enumerate() {
             lines.push(Line::from(Span::styled(
                 format!(" {} [{}]", region.name, region.region_type),
                 Style::default().fg(WARM_BROWN).add_modifier(Modifier::BOLD),
             )));
-            for settlement in &region.settlements {
+            for (si, settlement) in region.settlements.iter().enumerate() {
+                let idx = settlements
+                    .iter()
+                    .position(|(r, s, _)| *r == ri && *s == si);
+                let key_label = idx.map(|i| format!("{}", i + 1)).unwrap_or_default();
                 let size_label = match settlement.population {
                     p if p >= 1000 => "city",
                     p if p >= 400 => "town",
                     p if p >= 100 => "village",
                     _ => "hamlet",
                 };
-                lines.push(Line::from(Span::styled(
-                    format!(
-                        "   {} ({}, pop {})",
-                        settlement.name, size_label, settlement.population
-                    ),
-                    Style::default().fg(DARK_BROWN),
-                )));
-                let people_shown = settlement.people.len().min(5);
-                for person in settlement.people.iter().take(people_shown) {
+                if key_label.is_empty() {
                     lines.push(Line::from(Span::styled(
                         format!(
-                            "     {} — {} ({})",
-                            person.name, person.profession, person.people
+                            "   {} ({}, pop {})",
+                            settlement.name, size_label, settlement.population
                         ),
-                        Style::default().fg(INK),
+                        Style::default().fg(DARK_BROWN),
                     )));
-                }
-                if settlement.people.len() > 5 {
-                    lines.push(Line::from(Span::styled(
-                        format!("     … +{} more", settlement.people.len() - 5),
-                        Style::default().fg(INK),
-                    )));
+                } else {
+                    lines.push(Line::from(vec![
+                        Span::styled(
+                            format!("  [{}]", key_label),
+                            Style::default()
+                                .fg(ARCHIVE_RED)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            format!(
+                                " {} ({}, pop {})",
+                                settlement.name, size_label, settlement.population
+                            ),
+                            Style::default().fg(DARK_BROWN),
+                        ),
+                    ]));
                 }
             }
             if ri < world.regions.len() - 1 {
@@ -225,7 +257,14 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
 
     let help = Paragraph::new(Line::from(vec![
         Span::styled(
-            " [Space]",
+            " [1-9]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" enter settlement  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[Space]",
             Style::default()
                 .fg(ARCHIVE_RED)
                 .add_modifier(Modifier::BOLD),
@@ -239,12 +278,141 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
         ),
         Span::styled(" x10  ", Style::default().fg(DARK_BROWN)),
         Span::styled(
-            "[Q/Esc]",
+            "[Q]",
             Style::default()
                 .fg(ARCHIVE_RED)
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" quit", Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_location_screen(
+    f: &mut Frame,
+    app: &App,
+    region_idx: usize,
+    settlement_idx: usize,
+    scroll: u16,
+) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let settlement = app.sim.as_ref().and_then(|sim| {
+        sim.world
+            .regions
+            .get(region_idx)
+            .and_then(|r| r.settlements.get(settlement_idx))
+    });
+
+    let header_text = if let Some(s) = &settlement {
+        format!(" Deep World — {} ({})", s.name, s.region)
+    } else {
+        " Deep World — Location".to_string()
+    };
+
+    let title = Paragraph::new(Line::from(Span::styled(
+        header_text,
+        Style::default()
+            .fg(ARCHIVE_RED)
+            .add_modifier(Modifier::BOLD),
+    )))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(title, chunks[0]);
+
+    let mut lines: Vec<Line> = Vec::new();
+    if let Some(s) = &settlement {
+        if let Some(ref sim) = app.sim {
+            lines.push(Line::from(Span::styled(
+                format!(" Tick {}", sim.world.tick),
+                Style::default()
+                    .fg(ARCHIVE_RED)
+                    .add_modifier(Modifier::BOLD),
+            )));
+        }
+        lines.push(Line::from(Span::styled(
+            format!(" Population: {}", s.population),
+            Style::default().fg(WARM_BROWN),
+        )));
+        lines.push(Line::from(Span::styled(
+            format!(" Size: {}", s.size),
+            Style::default().fg(WARM_BROWN),
+        )));
+        if !s.description.is_empty() {
+            lines.push(Line::from(Span::styled(
+                format!(" {}", s.description),
+                Style::default().fg(DARK_BROWN),
+            )));
+        }
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            " People",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )));
+        lines.push(Line::from(""));
+
+        for person in &s.people {
+            lines.push(Line::from(Span::styled(
+                format!(
+                    " {} — {} ({})",
+                    person.name, person.profession, person.people
+                ),
+                Style::default().fg(INK),
+            )));
+            let needs = &person.needs;
+            let need_pairs: [(Need, &str); 5] = [
+                (Need::Food, "Food"),
+                (Need::Money, "Money"),
+                (Need::Care, "Care"),
+                (Need::Presence, "Pres"),
+                (Need::Safety, "Safe"),
+            ];
+            for (need, label) in &need_pairs {
+                let val = needs.get(*need);
+                let bar = need_bar(val, 10);
+                lines.push(Line::from(Span::styled(
+                    format!("   {:4} {} {:.0}%", label, bar, val * 100.0),
+                    Style::default().fg(need_color(val)),
+                )));
+            }
+            lines.push(Line::from(""));
+        }
+    }
+
+    let para = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll, 0));
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [Esc/Q]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" back  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[↑↓]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" scroll  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[Space]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" step", Style::default().fg(DARK_BROWN)),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);

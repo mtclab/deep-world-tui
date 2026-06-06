@@ -1,6 +1,6 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
-use crate::model::PlayerStart;
+use crate::model::{PlayerStart, Settlement};
 use crate::rng::SeedRng;
 use crate::sim::SimState;
 
@@ -9,6 +9,11 @@ use super::event::AppEvent;
 pub enum Screen {
     CharacterCreation,
     World,
+    Location {
+        region_idx: usize,
+        settlement_idx: usize,
+        scroll: u16,
+    },
 }
 
 pub struct App {
@@ -62,6 +67,48 @@ impl App {
         }
     }
 
+    pub fn settlement_list(&self) -> Vec<(usize, usize, String)> {
+        let mut out = Vec::new();
+        if let Some(ref sim) = self.sim {
+            for (ri, region) in sim.world.regions.iter().enumerate() {
+                for (si, sett) in region.settlements.iter().enumerate() {
+                    out.push((ri, si, format!("{} — {}", sett.name, region.name)));
+                }
+            }
+        }
+        out
+    }
+
+    pub fn enter_settlement(&mut self, region_idx: usize, settlement_idx: usize) {
+        self.screen = Screen::Location {
+            region_idx,
+            settlement_idx,
+            scroll: 0,
+        };
+    }
+
+    pub fn exit_settlement(&mut self) {
+        self.screen = Screen::World;
+    }
+
+    pub fn current_settlement(&self) -> Option<&Settlement> {
+        if let Screen::Location {
+            region_idx,
+            settlement_idx,
+            ..
+        } = &self.screen
+        {
+            self.sim.as_ref().and_then(|sim| {
+                sim.world
+                    .regions
+                    .get(*region_idx)
+                    .and_then(|r| r.settlements.get(*settlement_idx))
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn handle_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Key(key) => match self.screen {
@@ -95,6 +142,30 @@ impl App {
                                 sim.step();
                             }
                         }
+                    }
+                    crossterm::event::KeyCode::Char(c) if ('1'..='9').contains(&c) => {
+                        let idx = (c as usize) - ('1' as usize);
+                        let list = self.settlement_list();
+                        if let Some((ri, si, _)) = list.get(idx) {
+                            self.enter_settlement(*ri, *si);
+                        }
+                    }
+                    _ => {}
+                },
+                Screen::Location { ref mut scroll, .. } => match key.code {
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.exit_settlement();
+                    }
+                    crossterm::event::KeyCode::Char(' ') => {
+                        if let Some(ref mut sim) = self.sim {
+                            sim.step();
+                        }
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        *scroll = scroll.saturating_add(1);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        *scroll = scroll.saturating_sub(1);
                     }
                     _ => {}
                 },
