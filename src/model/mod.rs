@@ -29,6 +29,17 @@ impl Terrain {
             Terrain::Swamp => '~',
         }
     }
+
+    pub fn passable(self) -> bool {
+        !matches!(self, Terrain::Water | Terrain::Mountain)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct PlayerPos {
+    pub region_idx: usize,
+    pub px: usize,
+    pub py: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -635,5 +646,31 @@ mod tests {
     #[test]
     fn needs_roundtrip() {
         roundtrip(&Needs::default());
+    }
+
+    #[test]
+    fn terrain_passability() {
+        assert!(!Terrain::Water.passable(), "water must be impassable");
+        assert!(!Terrain::Mountain.passable(), "mountain must be impassable");
+        assert!(Terrain::Grass.passable(), "grass must be passable");
+        assert!(Terrain::Forest.passable(), "forest must be passable");
+        assert!(Terrain::Road.passable(), "road must be passable");
+        assert!(
+            Terrain::Settlement.passable(),
+            "settlement must be passable"
+        );
+        assert!(Terrain::Farmland.passable(), "farmland must be passable");
+        assert!(Terrain::Sand.passable(), "sand must be passable");
+        assert!(Terrain::Swamp.passable(), "swamp must be passable");
+    }
+
+    #[test]
+    fn player_pos_serialization() {
+        let pos = PlayerPos {
+            region_idx: 2,
+            px: 15,
+            py: 7,
+        };
+        roundtrip(&pos);
     }
 }

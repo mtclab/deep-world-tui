@@ -1,6 +1,6 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
-use crate::model::{Need, PlayerStart, Settlement, Terrain};
+use crate::model::{Need, PlayerPos, PlayerStart, Settlement, Terrain};
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
 use crate::sim::SimState;
@@ -50,6 +50,7 @@ pub struct App {
     pub tick_interval: u64,
     pub screen: Screen,
     pub status_msg: Option<String>,
+    pub player_pos: Option<PlayerPos>,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -65,6 +66,7 @@ impl App {
             tick_interval: 100,
             screen: Screen::CharacterCreation,
             status_msg: None,
+            player_pos: None,
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -253,23 +255,33 @@ impl App {
     }
 
     pub fn enter_map(&mut self, region_idx: usize) {
-        let (px, py) = if let Some(ref sim) = self.sim {
-            let map = &sim.world.regions.get(region_idx).map(|r| &r.terrain);
-            if let Some(Some(t)) = map
-                .as_ref()
-                .map(|m| m.tiles.iter().position(|&t| t == Terrain::Settlement))
-            {
-                let pos = t;
-                let x = pos % 40;
-                let y = pos / 40;
-                (x, y)
+        let (px, py) = if let Some(ref pos) = self.player_pos {
+            if pos.region_idx == region_idx {
+                (pos.px, pos.py)
             } else {
-                (20, 10)
+                self.find_settlement_pos(region_idx)
             }
         } else {
-            (20, 10)
+            self.find_settlement_pos(region_idx)
         };
+        self.player_pos = Some(PlayerPos { region_idx, px, py });
         self.screen = Screen::Map { region_idx, px, py };
+    }
+
+    fn find_settlement_pos(&self, region_idx: usize) -> (usize, usize) {
+        if let Some(ref sim) = self.sim {
+            if let Some(region) = sim.world.regions.get(region_idx) {
+                if let Some(pos) = region
+                    .terrain
+                    .tiles
+                    .iter()
+                    .position(|&t| t == Terrain::Settlement)
+                {
+                    return (pos % region.terrain.width, pos / region.terrain.width);
+                }
+            }
+        }
+        (20, 10)
     }
 
     pub fn exit_map(&mut self) {
@@ -285,65 +297,76 @@ impl App {
     }
 
     pub fn exit_overmap(&mut self) {
-        let region_idx = match &self.screen {
-            Screen::Overmap { region_idx } => *region_idx,
-            _ => 0,
-        };
-        self.screen = Screen::Map {
-            region_idx,
-            px: 20,
-            py: 10,
-        };
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
+        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
+        self.screen = Screen::Map { region_idx, px, py };
     }
 
     pub fn move_player(&mut self, dx: i32, dy: i32) {
-        if let Screen::Map {
-            region_idx,
-            ref mut px,
-            ref mut py,
-        } = self.screen
-        {
+        if let Some(ref mut pos) = self.player_pos {
             if let Some(ref sim) = self.sim {
-                if let Some(region) = sim.world.regions.get(region_idx) {
+                if let Some(region) = sim.world.regions.get(pos.region_idx) {
                     let map_w = region.terrain.width;
                     let map_h = region.terrain.height;
-                    let nx = *px as i32 + dx;
-                    let ny = *py as i32 + dy;
+                    let nx = pos.px as i32 + dx;
+                    let ny = pos.py as i32 + dy;
                     if nx < 0 {
                         if let Some(west) = region.neighbors.west {
+                            pos.region_idx = west;
+                            pos.px = map_w - 1;
                             self.screen = Screen::Map {
                                 region_idx: west,
                                 px: map_w - 1,
-                                py: *py,
+                                py: pos.py,
                             };
                         }
                     } else if nx >= map_w as i32 {
                         if let Some(east) = region.neighbors.east {
+                            pos.region_idx = east;
+                            pos.px = 0;
                             self.screen = Screen::Map {
                                 region_idx: east,
                                 px: 0,
-                                py: *py,
+                                py: pos.py,
                             };
                         }
                     } else if ny < 0 {
                         if let Some(north) = region.neighbors.north {
+                            pos.region_idx = north;
+                            pos.py = map_h - 1;
                             self.screen = Screen::Map {
                                 region_idx: north,
-                                px: *px,
+                                px: pos.px,
                                 py: map_h - 1,
                             };
                         }
                     } else if ny >= map_h as i32 {
                         if let Some(south) = region.neighbors.south {
+                            pos.region_idx = south;
+                            pos.py = 0;
                             self.screen = Screen::Map {
                                 region_idx: south,
-                                px: *px,
+                                px: pos.px,
                                 py: 0,
                             };
                         }
                     } else {
-                        *px = nx as usize;
-                        *py = ny as usize;
+                        let ux = nx as usize;
+                        let uy = ny as usize;
+                        if let Some(terrain) = region.terrain.get(ux, uy) {
+                            if terrain.passable() {
+                                pos.px = ux;
+                                pos.py = uy;
+                                self.screen = Screen::Map {
+                                    region_idx: pos.region_idx,
+                                    px: ux,
+                                    py: uy,
+                                };
+                            } else {
+                                self.status_msg = Some(format!("Blocked: {:?}", terrain));
+                            }
+                        }
                     }
                 }
             }
@@ -351,20 +374,20 @@ impl App {
     }
 
     pub fn player_on_settlement(&self) -> Option<(usize, usize)> {
-        if let Screen::Map { region_idx, px, py } = &self.screen {
+        if let Some(ref pos) = self.player_pos {
             if let Some(ref sim) = self.sim {
-                if let Some(region) = sim.world.regions.get(*region_idx) {
-                    if region.terrain.get(*px, *py) == Some(Terrain::Settlement) {
+                if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                    if region.terrain.get(pos.px, pos.py) == Some(Terrain::Settlement) {
                         let mut idx = 0;
                         for (si, _sett) in region.settlements.iter().enumerate() {
                             let spacing = 40 / region.settlements.len().max(1);
                             let sx = (spacing / 2 + si * spacing).min(39);
-                            if sx == *px {
+                            if sx == pos.px {
                                 idx = si;
                                 break;
                             }
                         }
-                        return Some((*region_idx, idx));
+                        return Some((pos.region_idx, idx));
                     }
                 }
             }

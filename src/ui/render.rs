@@ -1106,6 +1106,50 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
     let map_widget = Paragraph::new(lines).style(Style::default().bg(PAPER));
     f.render_widget(map_widget, map_area);
 
+    let legend_lines = vec![
+        Line::from(vec![
+            Span::styled("░", Style::default().fg(terrain_color(Terrain::Grass))),
+            Span::styled("Grass ", Style::default().fg(DARK_BROWN)),
+            Span::styled("▓", Style::default().fg(terrain_color(Terrain::Forest))),
+            Span::styled("Forest ", Style::default().fg(DARK_BROWN)),
+            Span::styled("≈", Style::default().fg(terrain_color(Terrain::Water))),
+            Span::styled("Water ", Style::default().fg(DARK_BROWN)),
+        ]),
+        Line::from(vec![
+            Span::styled("▲", Style::default().fg(terrain_color(Terrain::Mountain))),
+            Span::styled("Mtn ", Style::default().fg(DARK_BROWN)),
+            Span::styled("·", Style::default().fg(terrain_color(Terrain::Road))),
+            Span::styled("Road ", Style::default().fg(DARK_BROWN)),
+            Span::styled("█", Style::default().fg(terrain_color(Terrain::Settlement))),
+            Span::styled("Town ", Style::default().fg(DARK_BROWN)),
+        ]),
+        Line::from(vec![
+            Span::styled("▒", Style::default().fg(terrain_color(Terrain::Farmland))),
+            Span::styled("Farm ", Style::default().fg(DARK_BROWN)),
+            Span::styled("~", Style::default().fg(terrain_color(Terrain::Swamp))),
+            Span::styled("Swmp ", Style::default().fg(DARK_BROWN)),
+            Span::styled(
+                "@",
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("You", Style::default().fg(DARK_BROWN)),
+        ]),
+    ];
+    let legend = Paragraph::new(legend_lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .style(Style::default().bg(PAPER)),
+    );
+    let legend_rect = ratatui::layout::Rect {
+        x: map_area.x + map_area.width.saturating_sub(22),
+        y: map_area.y,
+        width: 22,
+        height: 5,
+    };
+    f.render_widget(legend, legend_rect);
+
     let terrain_name = if let Some(t) = tiles.get(py * map_w + px) {
         format!("{:?}", t)
     } else {
