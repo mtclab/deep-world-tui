@@ -1,8 +1,9 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{
-    craft_recipes, Collapse, Encounter, GameClock, GodAffinity, GodName, Inventory, ItemType, Need,
-    PlayerPos, PlayerStart, PlayerVitals, Settlement, SettlementService, Terrain,
+    craft_recipes, Collapse, Encounter, EncounterAction, GameClock, GodAffinity, GodName,
+    Inventory, ItemType, Need, PlayerPos, PlayerStart, PlayerVitals, Settlement, SettlementService,
+    Terrain,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -569,15 +570,49 @@ impl App {
         if let Some(enc) = Encounter::roll(terrain, self.clock.hour, self.seed) {
             self.encounter = Some(enc);
             self.screen = Screen::Encounter;
-            if enc.kind.is_hostile() {
-                self.vitals.hunger -= 0.1;
-                self.vitals.hunger = self.vitals.hunger.max(0.0);
-            }
         }
     }
 
     pub fn dismiss_encounter(&mut self) {
+        self.resolve_encounter(EncounterAction::Flee);
+    }
+
+    pub fn resolve_encounter(&mut self, action: EncounterAction) {
+        let coins = action.coin_cost();
+        if coins > 0 {
+            if let Some(ref mut ps) = self.player_start {
+                if !ps.inventory.remove(ItemType::Coin, coins) {
+                    self.status_msg = Some("Not enough coins".into());
+                    return;
+                }
+            }
+        }
+        self.vitals.energy = (self.vitals.energy - action.energy_cost()).max(0.0);
+        self.vitals.hunger = (self.vitals.hunger - action.hunger_cost()).max(0.0);
+        let hours = action.hours();
+        if hours > 0 {
+            self.advance_clock(hours);
+        }
+        if let Some((god, delta)) = action.god_affinity_effect() {
+            self.god_affinity.adjust(god, delta);
+        }
+        let msg = match action {
+            EncounterAction::Flee => "You fled! (cost some energy)".into(),
+            EncounterAction::Bribe => "You paid the bandit off (2 coins)".into(),
+            EncounterAction::Calm => "The beast settled. It watches you leave.".into(),
+            EncounterAction::Intimidate => "You stared them down. They backed off.".into(),
+            EncounterAction::Talk => "The traveler shared road wisdom (1h)".into(),
+            EncounterAction::Trade => {
+                if let Some(ref mut ps) = self.player_start {
+                    ps.inventory.add(ItemType::Herb, 1);
+                }
+                "Traded news for herbs (1h)".into()
+            }
+            EncounterAction::Shelter => "You waited out the storm (1h)".into(),
+            EncounterAction::PushThrough => "You pushed through regardless!".into(),
+        };
         self.encounter = None;
+        self.status_msg = Some(msg);
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
@@ -1234,10 +1269,21 @@ impl App {
                     _ => {}
                 },
                 Screen::Encounter => match key.code {
-                    crossterm::event::KeyCode::Char('q')
-                    | crossterm::event::KeyCode::Esc
-                    | crossterm::event::KeyCode::Enter => {
-                        self.dismiss_encounter();
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.resolve_encounter(EncounterAction::Flee);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        self.resolve_encounter(EncounterAction::Flee);
+                    }
+                    crossterm::event::KeyCode::Char(c) => {
+                        if let Some(enc) = self.encounter {
+                            for action in enc.kind.available_actions() {
+                                if action.key() == c {
+                                    self.resolve_encounter(action);
+                                    break;
+                                }
+                            }
+                        }
                     }
                     _ => {}
                 },

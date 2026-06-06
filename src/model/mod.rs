@@ -774,6 +774,104 @@ impl EncounterKind {
     pub fn is_hostile(self) -> bool {
         matches!(self, EncounterKind::Wildlife | EncounterKind::Bandit)
     }
+
+    pub fn available_actions(self) -> Vec<EncounterAction> {
+        match self {
+            EncounterKind::Wildlife => vec![EncounterAction::Flee, EncounterAction::Calm],
+            EncounterKind::Bandit => vec![
+                EncounterAction::Flee,
+                EncounterAction::Bribe,
+                EncounterAction::Intimidate,
+            ],
+            EncounterKind::Traveler => vec![EncounterAction::Talk, EncounterAction::Trade],
+            EncounterKind::Storm => vec![EncounterAction::Shelter, EncounterAction::PushThrough],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EncounterAction {
+    Flee,
+    Bribe,
+    Calm,
+    Intimidate,
+    Talk,
+    Trade,
+    Shelter,
+    PushThrough,
+}
+
+impl EncounterAction {
+    pub fn label(self) -> &'static str {
+        match self {
+            EncounterAction::Flee => "Flee",
+            EncounterAction::Bribe => "Bribe (2 coins)",
+            EncounterAction::Calm => "Calm the beast",
+            EncounterAction::Intimidate => "Intimidate",
+            EncounterAction::Talk => "Talk",
+            EncounterAction::Trade => "Trade info",
+            EncounterAction::Shelter => "Take shelter (1h)",
+            EncounterAction::PushThrough => "Push through",
+        }
+    }
+
+    pub fn key(self) -> char {
+        match self {
+            EncounterAction::Flee => 'f',
+            EncounterAction::Bribe => 'b',
+            EncounterAction::Calm => 'c',
+            EncounterAction::Intimidate => 'i',
+            EncounterAction::Talk => 't',
+            EncounterAction::Trade => 'r',
+            EncounterAction::Shelter => 's',
+            EncounterAction::PushThrough => 'p',
+        }
+    }
+
+    pub fn coin_cost(self) -> u32 {
+        match self {
+            EncounterAction::Bribe => 2,
+            _ => 0,
+        }
+    }
+
+    pub fn energy_cost(self) -> f64 {
+        match self {
+            EncounterAction::Flee => 0.15,
+            EncounterAction::PushThrough => 0.2,
+            EncounterAction::Intimidate => 0.1,
+            _ => 0.0,
+        }
+    }
+
+    pub fn hunger_cost(self) -> f64 {
+        match self {
+            EncounterAction::PushThrough => 0.1,
+            EncounterAction::Flee => 0.05,
+            _ => 0.0,
+        }
+    }
+
+    pub fn hours(self) -> u32 {
+        match self {
+            EncounterAction::Shelter => 1,
+            EncounterAction::Talk => 1,
+            EncounterAction::Trade => 1,
+            EncounterAction::Calm => 1,
+            _ => 0,
+        }
+    }
+
+    pub fn god_affinity_effect(self) -> Option<(GodName, f64)> {
+        match self {
+            EncounterAction::Calm => Some((GodName::Metsik, 0.05)),
+            EncounterAction::Intimidate => Some((GodName::Metsik, -0.02)),
+            EncounterAction::Talk => Some((GodName::Vayla, 0.03)),
+            EncounterAction::Trade => Some((GodName::Vayla, 0.04)),
+            EncounterAction::Bribe => Some((GodName::Ahjo, -0.01)),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1899,5 +1997,45 @@ mod tests {
         assert!(CollapseOutcome::SettlementBed.is_safe());
         assert!(CollapseOutcome::GodCampsite.is_divine());
         assert_eq!(CollapseOutcome::GodCampsite.glyph(), '✦');
+    }
+
+    #[test]
+    fn encounter_actions_per_kind() {
+        let wildlife = EncounterKind::Wildlife.available_actions();
+        assert!(wildlife.contains(&EncounterAction::Flee));
+        assert!(wildlife.contains(&EncounterAction::Calm));
+
+        let bandit = EncounterKind::Bandit.available_actions();
+        assert!(bandit.contains(&EncounterAction::Bribe));
+        assert!(bandit.contains(&EncounterAction::Intimidate));
+
+        let traveler = EncounterKind::Traveler.available_actions();
+        assert!(traveler.contains(&EncounterAction::Talk));
+        assert!(traveler.contains(&EncounterAction::Trade));
+
+        let storm = EncounterKind::Storm.available_actions();
+        assert!(storm.contains(&EncounterAction::Shelter));
+        assert!(storm.contains(&EncounterAction::PushThrough));
+    }
+
+    #[test]
+    fn encounter_action_costs() {
+        assert_eq!(EncounterAction::Bribe.coin_cost(), 2);
+        assert_eq!(EncounterAction::Flee.coin_cost(), 0);
+        assert!((EncounterAction::Flee.energy_cost() - 0.15).abs() < f64::EPSILON);
+        assert!((EncounterAction::PushThrough.energy_cost() - 0.2).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn encounter_action_god_effects() {
+        assert_eq!(
+            EncounterAction::Calm.god_affinity_effect(),
+            Some((GodName::Metsik, 0.05))
+        );
+        assert_eq!(
+            EncounterAction::Talk.god_affinity_effect(),
+            Some((GodName::Vayla, 0.03))
+        );
+        assert_eq!(EncounterAction::Flee.god_affinity_effect(), None);
     }
 }
