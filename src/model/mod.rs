@@ -907,6 +907,31 @@ impl Collapse {
             rescued_by,
         }
     }
+
+    pub fn roll_biased(
+        seed: u64,
+        affinity: &GodAffinity,
+        local_rep: f64,
+        player_people: PeopleKind,
+        local_people: PeopleKind,
+    ) -> Self {
+        let mut result = Self::roll(seed, affinity, local_rep);
+        let bias = player_people.bias_toward(local_people);
+        if bias < -0.15 {
+            result.outcome = match result.outcome {
+                CollapseOutcome::StrangerHut => CollapseOutcome::Ditch,
+                CollapseOutcome::SettlementBed => CollapseOutcome::Ditch,
+                CollapseOutcome::FestivalBench => CollapseOutcome::Ditch,
+                other => other,
+            };
+        } else if bias > 0.05 {
+            result.outcome = match result.outcome {
+                CollapseOutcome::Ditch => CollapseOutcome::StrangerHut,
+                other => other,
+            };
+        }
+        result
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2174,6 +2199,45 @@ mod tests {
         assert!(
             hostile > 40,
             "Metsik grudge should cause more hostile outcomes"
+        );
+    }
+
+    #[test]
+    fn collapse_biased_hostile_downgrades_safe() {
+        let ga = GodAffinity::new();
+        let mut ditch_from_safe = 0u32;
+        for seed in 0..200u64 {
+            let c = Collapse::roll_biased(seed, &ga, 0.5, PeopleKind::Metsik, PeopleKind::Sepat);
+            if matches!(c.outcome, CollapseOutcome::Ditch) {
+                ditch_from_safe += 1;
+            }
+        }
+        let mut ditch_neutral = 0u32;
+        for seed in 0..200u64 {
+            let c = Collapse::roll_biased(seed, &ga, 0.5, PeopleKind::Arkit, PeopleKind::Arkit);
+            if matches!(c.outcome, CollapseOutcome::Ditch) {
+                ditch_neutral += 1;
+            }
+        }
+        assert!(
+            ditch_from_safe >= ditch_neutral,
+            "hostile bias should produce more ditches: {ditch_from_safe} vs {ditch_neutral}"
+        );
+    }
+
+    #[test]
+    fn collapse_biased_ally_upgrades_ditch() {
+        let ga = GodAffinity::new();
+        let mut hut_from_ditch = 0u32;
+        for seed in 0..200u64 {
+            let c = Collapse::roll_biased(seed, &ga, 0.3, PeopleKind::Metsik, PeopleKind::Metsik);
+            if matches!(c.outcome, CollapseOutcome::StrangerHut) {
+                hut_from_ditch += 1;
+            }
+        }
+        assert!(
+            hut_from_ditch > 0,
+            "ally bias should upgrade some ditches to StrangerHut"
         );
     }
 

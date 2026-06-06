@@ -767,7 +767,14 @@ impl App {
                 })
             })
             .unwrap_or(0.0);
-        let collapse = Collapse::roll(self.seed, &self.god_affinity, local_rep);
+        let local_people = self.current_settlement_people();
+        let collapse = Collapse::roll_biased(
+            self.seed,
+            &self.god_affinity,
+            local_rep,
+            self.inter_people_bias.player_people,
+            local_people.unwrap_or(self.inter_people_bias.player_people),
+        );
         let outcome = collapse.outcome;
         let hours = outcome.hours_passed();
         let died = collapse.died;
