@@ -231,6 +231,18 @@ impl App {
     }
 
     pub fn enter_talk(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        if let Some(ref sim) = self.sim {
+            if let Some(region) = sim.world.regions.get(region_idx) {
+                if region.region_type == "forest" && self.god_affinity.get(GodName::Metsik) > 0.2 {
+                    self.god_affinity.adjust(GodName::Metsik, 0.01);
+                }
+                if region.region_type == "river_valley"
+                    && self.god_affinity.get(GodName::Vayla) > 0.2
+                {
+                    self.god_affinity.adjust(GodName::Vayla, 0.01);
+                }
+            }
+        }
         self.screen = Screen::Talk {
             region_idx,
             settlement_idx,
@@ -274,15 +286,24 @@ impl App {
                 let person_id = person.id.clone();
                 person.needs.satisfy(Need::Food, 0.2);
                 if let (Some(pid), Some(sid)) = (&player_id, &settlement_id) {
+                    let mut trust_bonus = 0.05;
+                    let mut rep_bonus = 0.02;
+                    if self.god_affinity.get(GodName::Ahjo) > 0.3 {
+                        trust_bonus += 0.02;
+                        rep_bonus += 0.01;
+                    }
+                    if self.god_affinity.get(GodName::Vayla) > 0.3 {
+                        trust_bonus += 0.01;
+                    }
                     sim.relationships.update_relationship(
                         pid,
                         &person_id,
                         "gave food",
                         sim.world.tick,
-                        0.05,
+                        trust_bonus,
                         0.03,
                     );
-                    sim.reputation.adjust_local(pid, sid, 0.02);
+                    sim.reputation.adjust_local(pid, sid, rep_bonus);
                 }
                 self.status_msg = Some(format!("Gave food to {}", person.name));
                 self.god_affinity.adjust(GodName::Ahjo, 0.02);
@@ -317,13 +338,22 @@ impl App {
                 let person_id = person.id.clone();
                 person.needs.satisfy(Need::Money, 0.2);
                 if let (Some(pid), Some(sid)) = (&player_id, &settlement_id) {
+                    let mut trust_bonus = 0.03;
+                    let mut rep_bonus = 0.01;
+                    if self.god_affinity.get(GodName::Ahjo) > 0.3 {
+                        trust_bonus += 0.01;
+                        rep_bonus += 0.01;
+                    }
+                    if self.god_affinity.get(GodName::Vayla) > 0.3 {
+                        trust_bonus += 0.01;
+                    }
                     sim.relationships.update_relationship(
                         pid,
                         &person_id,
                         "gave coin",
                         sim.world.tick,
-                        0.03,
-                        0.02,
+                        trust_bonus,
+                        rep_bonus,
                     );
                     sim.reputation.adjust_local(pid, sid, 0.01);
                 }
