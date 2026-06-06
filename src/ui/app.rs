@@ -212,6 +212,7 @@ impl App {
                 vitals: self.vitals,
                 player_pos: self.player_pos,
                 god_affinity: self.god_affinity,
+                inter_people_bias: self.inter_people_bias,
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -229,6 +230,7 @@ impl App {
                 self.vitals = data.vitals;
                 self.player_pos = data.player_pos;
                 self.god_affinity = data.god_affinity;
+                self.inter_people_bias = data.inter_people_bias;
                 self.screen = Screen::World;
                 self.status_msg = Some("Loaded from save.ron".into());
             }
