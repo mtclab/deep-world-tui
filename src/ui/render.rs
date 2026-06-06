@@ -1577,6 +1577,58 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
 
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
+        " Identity",
+        Style::default()
+            .fg(ARCHIVE_RED)
+            .add_modifier(Modifier::BOLD),
+    )));
+    let people_label = app.inter_people_bias.player_people.label();
+    lines.push(Line::from(vec![
+        Span::styled("  People: ", Style::default().fg(DARK_BROWN)),
+        Span::styled(people_label, Style::default().fg(INK)),
+    ]));
+    if let Some(ref sim) = app.sim {
+        if let Some(pos) = app.player_pos {
+            if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                if let Some(settlement) = region.settlements.first() {
+                    if let Some(dominant) = settlement.people.first() {
+                        let npc_people = crate::model::PeopleKind::from_name(&dominant.people);
+                        let bias = app.inter_people_bias.player_people.bias_toward(npc_people);
+                        let stance = if bias > 0.05 {
+                            "welcomed"
+                        } else if bias > -0.05 {
+                            "tolerated"
+                        } else if bias > -0.15 {
+                            "distrusted"
+                        } else {
+                            "unwelcome"
+                        };
+                        let stance_color = if bias > 0.05 {
+                            NEED_LOW
+                        } else if bias < -0.05 {
+                            NEED_HIGH
+                        } else {
+                            DARK_BROWN
+                        };
+                        lines.push(Line::from(vec![
+                            Span::styled("  Here:   ", Style::default().fg(DARK_BROWN)),
+                            Span::styled(
+                                format!("{} settlement", npc_people.label()),
+                                Style::default().fg(INK),
+                            ),
+                            Span::styled(
+                                format!(" — {}", stance),
+                                Style::default().fg(stance_color),
+                            ),
+                        ]));
+                    }
+                }
+            }
+        }
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
         " Vitals",
         Style::default()
             .fg(ARCHIVE_RED)
