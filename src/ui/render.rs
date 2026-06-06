@@ -9,6 +9,7 @@ use ratatui::{
 use crate::model::Need;
 use crate::sim::relationships::BondCategory;
 use crate::ui::app::{App, Screen};
+use crate::voice::Situation;
 
 const ARCHIVE_RED: Color = Color::Rgb(0x7a, 0x2e, 0x1d);
 const INK: Color = Color::Rgb(0x3a, 0x2a, 0x1a);
@@ -264,6 +265,14 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
         }
     }
 
+    if let Some(ref msg) = app.status_msg {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            format!(" {}", msg),
+            Style::default().fg(WARM_BROWN),
+        )));
+    }
+
     let para = Paragraph::new(lines).wrap(Wrap { trim: false });
     f.render_widget(para, chunks[1]);
 
@@ -296,6 +305,20 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" journal  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[S]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" save  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            "[L]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" load  ", Style::default().fg(DARK_BROWN)),
         Span::styled(
             "[Q]",
             Style::default()
@@ -616,6 +639,19 @@ fn draw_npc_screen(
                     Style::default().fg(INK),
                 )));
             }
+
+            let vline = crate::voice::voice_line_situation(p, Situation::Greeting);
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                " Voice",
+                Style::default()
+                    .fg(ARCHIVE_RED)
+                    .add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(Span::styled(
+                vline,
+                Style::default().fg(DARK_BROWN),
+            )));
         }
     }
 

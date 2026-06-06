@@ -2,6 +2,7 @@ use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{PlayerStart, Settlement};
 use crate::rng::SeedRng;
+use crate::save::{self, SaveData};
 use crate::sim::SimState;
 
 use super::event::AppEvent;
@@ -31,6 +32,7 @@ pub struct App {
     pub running: bool,
     pub tick_interval: u64,
     pub screen: Screen,
+    pub status_msg: Option<String>,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -45,6 +47,7 @@ impl App {
             running: true,
             tick_interval: 100,
             screen: Screen::CharacterCreation,
+            status_msg: None,
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -146,6 +149,31 @@ impl App {
         self.screen = Screen::World;
     }
 
+    pub fn save_game(&mut self) {
+        if let Some(ref sim) = self.sim {
+            let data = SaveData {
+                sim: sim.clone(),
+                player_start: self.player_start.clone(),
+            };
+            match save::save_game(&data, "save.ron") {
+                Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
+                Err(e) => self.status_msg = Some(format!("Save failed: {}", e)),
+            }
+        }
+    }
+
+    pub fn load_game(&mut self) {
+        match save::load_game("save.ron") {
+            Ok(data) => {
+                self.sim = Some(data.sim);
+                self.player_start = data.player_start;
+                self.screen = Screen::World;
+                self.status_msg = Some("Loaded from save.ron".into());
+            }
+            Err(e) => self.status_msg = Some(format!("Load failed: {}", e)),
+        }
+    }
+
     pub fn handle_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Key(key) => match self.screen {
@@ -189,6 +217,12 @@ impl App {
                     }
                     crossterm::event::KeyCode::Char('j') => {
                         self.enter_journal();
+                    }
+                    crossterm::event::KeyCode::Char('s') => {
+                        self.save_game();
+                    }
+                    crossterm::event::KeyCode::Char('l') => {
+                        self.load_game();
                     }
                     _ => {}
                 },
