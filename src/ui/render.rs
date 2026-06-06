@@ -84,6 +84,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::Market { scroll, .. } => {
             draw_market_screen(f, app, scroll);
         }
+        Screen::Encounter => {
+            draw_encounter_screen(f, app);
+        }
     }
 }
 
@@ -1709,6 +1712,81 @@ fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" back", Style::default().fg(DARK_BROWN)),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_encounter_screen(f: &mut Frame, app: &App) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let header = Paragraph::new(Line::from(vec![Span::styled(
+        " Encounter!",
+        Style::default()
+            .fg(ARCHIVE_RED)
+            .add_modifier(Modifier::BOLD),
+    )]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(header, chunks[0]);
+
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(""));
+    if let Some(enc) = app.encounter {
+        lines.push(Line::from(Span::styled(
+            enc.kind.description(),
+            Style::default().fg(INK).add_modifier(Modifier::BOLD),
+        )));
+        lines.push(Line::from(""));
+        let kind_str = match enc.kind {
+            crate::model::EncounterKind::Wildlife => "Wildlife",
+            crate::model::EncounterKind::Bandit => "Bandit",
+            crate::model::EncounterKind::Traveler => "Traveler",
+            crate::model::EncounterKind::Storm => "Storm",
+        };
+        lines.push(Line::from(Span::styled(
+            format!("  Kind: {}", kind_str),
+            Style::default().fg(WARM_BROWN),
+        )));
+        if enc.kind.is_hostile() {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  You lost some energy fleeing!",
+                Style::default().fg(NEED_HIGH),
+            )));
+        } else if matches!(enc.kind, crate::model::EncounterKind::Traveler) {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  They share news of the road ahead.",
+                Style::default().fg(NEED_LOW),
+            )));
+        }
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        format!(
+            "  Hunger: {}  Energy: {}",
+            app.vitals.hunger_label(),
+            app.vitals.energy_label()
+        ),
+        Style::default().fg(DARK_BROWN),
+    )));
+
+    let para = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [Enter/Esc]",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" continue", Style::default().fg(DARK_BROWN)),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);

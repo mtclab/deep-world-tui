@@ -331,6 +331,64 @@ impl PlayerVitals {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EncounterKind {
+    Wildlife,
+    Bandit,
+    Traveler,
+    Storm,
+}
+
+impl EncounterKind {
+    pub fn description(self) -> &'static str {
+        match self {
+            EncounterKind::Wildlife => "A wild creature blocks your path!",
+            EncounterKind::Bandit => "A bandit demands your coin!",
+            EncounterKind::Traveler => "A friendly traveler shares news.",
+            EncounterKind::Storm => "A sudden storm forces you to take shelter!",
+        }
+    }
+
+    pub fn is_hostile(self) -> bool {
+        matches!(self, EncounterKind::Wildlife | EncounterKind::Bandit)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Encounter {
+    pub kind: EncounterKind,
+}
+
+impl Encounter {
+    pub fn roll(terrain: Terrain, hour: u32, seed: u64) -> Option<Self> {
+        let hash = seed.wrapping_mul(2654435761)
+            ^ (terrain as u64).wrapping_mul(40503)
+            ^ (hour as u64).wrapping_mul(92000);
+        let val = hash % 100;
+        let (threshold, kind) = match terrain {
+            Terrain::Forest => (
+                25,
+                if val.is_multiple_of(2) {
+                    EncounterKind::Wildlife
+                } else {
+                    EncounterKind::Bandit
+                },
+            ),
+            Terrain::Mountain => (15, EncounterKind::Storm),
+            Terrain::Swamp => (20, EncounterKind::Wildlife),
+            Terrain::Sand => (10, EncounterKind::Storm),
+            Terrain::Road => (5, EncounterKind::Traveler),
+            Terrain::Settlement => (0, EncounterKind::Traveler),
+            _ => (8, EncounterKind::Wildlife),
+        };
+        if (val % 100) < threshold {
+            Some(Encounter { kind })
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct World {
     pub seed: u64,
@@ -1109,5 +1167,48 @@ mod tests {
         assert!(inv.remove(ItemType::Herb, 1));
         inv.add(ItemType::Coin, price);
         assert_eq!(inv.get(ItemType::Coin), 10);
+    }
+
+    #[test]
+    fn encounter_forest_higher_chance() {
+        let mut encounters = 0;
+        for seed in 0..100u64 {
+            if Encounter::roll(Terrain::Forest, 10, seed).is_some() {
+                encounters += 1;
+            }
+        }
+        assert!(
+            encounters > 10,
+            "forest should have ~25% encounter rate, got {}/100",
+            encounters
+        );
+    }
+
+    #[test]
+    fn encounter_settlement_none() {
+        let mut encounters = 0;
+        for seed in 0..100u64 {
+            if Encounter::roll(Terrain::Settlement, 10, seed).is_some() {
+                encounters += 1;
+            }
+        }
+        assert_eq!(encounters, 0, "settlements should never have encounters");
+    }
+
+    #[test]
+    fn encounter_deterministic() {
+        for seed in 0..50u64 {
+            let a = Encounter::roll(Terrain::Forest, 10, seed);
+            let b = Encounter::roll(Terrain::Forest, 10, seed);
+            assert_eq!(a, b, "encounter roll must be deterministic");
+        }
+    }
+
+    #[test]
+    fn encounter_hostile_kinds() {
+        assert!(EncounterKind::Wildlife.is_hostile());
+        assert!(EncounterKind::Bandit.is_hostile());
+        assert!(!EncounterKind::Traveler.is_hostile());
+        assert!(!EncounterKind::Storm.is_hostile());
     }
 }

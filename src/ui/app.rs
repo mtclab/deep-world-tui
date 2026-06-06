@@ -1,8 +1,8 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{
-    craft_recipes, GameClock, Inventory, ItemType, Need, PlayerPos, PlayerStart, PlayerVitals,
-    Settlement, Terrain,
+    craft_recipes, Encounter, GameClock, Inventory, ItemType, Need, PlayerPos, PlayerStart,
+    PlayerVitals, Settlement, Terrain,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -53,6 +53,7 @@ pub enum Screen {
         settlement_idx: usize,
         scroll: u16,
     },
+    Encounter,
 }
 
 pub struct App {
@@ -65,6 +66,7 @@ pub struct App {
     pub player_pos: Option<PlayerPos>,
     pub clock: GameClock,
     pub vitals: PlayerVitals,
+    pub encounter: Option<Encounter>,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -83,6 +85,7 @@ impl App {
             player_pos: None,
             clock: GameClock::default(),
             vitals: PlayerVitals::default(),
+            encounter: None,
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -513,6 +516,25 @@ impl App {
         }
     }
 
+    pub fn check_encounter(&mut self, terrain: Terrain) {
+        if let Some(enc) = Encounter::roll(terrain, self.clock.hour, self.seed) {
+            self.encounter = Some(enc);
+            self.screen = Screen::Encounter;
+            if enc.kind.is_hostile() {
+                self.vitals.hunger -= 0.1;
+                self.vitals.hunger = self.vitals.hunger.max(0.0);
+            }
+        }
+    }
+
+    pub fn dismiss_encounter(&mut self) {
+        self.encounter = None;
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
+        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
+        self.screen = Screen::Map { region_idx, px, py };
+    }
+
     pub fn advance_clock_hour(&mut self) {
         self.advance_clock(1);
     }
@@ -561,7 +583,16 @@ impl App {
                     p.py = py;
                 }
                 self.advance_clock_hour();
-                self.screen = Screen::Map { region_idx, px, py };
+                let terrain = self
+                    .sim
+                    .as_ref()
+                    .and_then(|sim| sim.world.regions.get(region_idx))
+                    .and_then(|r| r.terrain.get(px, py))
+                    .unwrap_or(Terrain::Grass);
+                self.check_encounter(terrain);
+                if self.encounter.is_none() {
+                    self.screen = Screen::Map { region_idx, px, py };
+                }
             }
             Some(MoveResult::Step { region_idx, px, py }) => {
                 if let Some(ref mut p) = self.player_pos {
@@ -569,7 +600,16 @@ impl App {
                     p.py = py;
                 }
                 self.advance_clock_hour();
-                self.screen = Screen::Map { region_idx, px, py };
+                let terrain = self
+                    .sim
+                    .as_ref()
+                    .and_then(|sim| sim.world.regions.get(region_idx))
+                    .and_then(|r| r.terrain.get(px, py))
+                    .unwrap_or(Terrain::Grass);
+                self.check_encounter(terrain);
+                if self.encounter.is_none() {
+                    self.screen = Screen::Map { region_idx, px, py };
+                }
             }
             Some(MoveResult::Blocked { msg }) => {
                 self.status_msg = Some(msg);
@@ -1026,6 +1066,14 @@ impl App {
                         if let Some(&item) = items.get(idx) {
                             self.sell_item(item);
                         }
+                    }
+                    _ => {}
+                },
+                Screen::Encounter => match key.code {
+                    crossterm::event::KeyCode::Char('q')
+                    | crossterm::event::KeyCode::Esc
+                    | crossterm::event::KeyCode::Enter => {
+                        self.dismiss_encounter();
                     }
                     _ => {}
                 },
