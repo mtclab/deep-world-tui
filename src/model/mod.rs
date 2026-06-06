@@ -322,6 +322,71 @@ impl Season {
             Season::Winter => '❄',
         }
     }
+
+    pub fn festival_chance(self) -> u32 {
+        match self {
+            Season::Summer => 30,
+            Season::Autumn => 15,
+            Season::Spring => 10,
+            Season::Winter => 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FestivalKind {
+    HarvestFeast,
+    ForgeDay,
+    ForestRite,
+    RiverGathering,
+    MidsummerBonfire,
+    AncestorVigil,
+}
+
+impl FestivalKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            FestivalKind::HarvestFeast => "Harvest Feast",
+            FestivalKind::ForgeDay => "Forge-Day",
+            FestivalKind::ForestRite => "Forest Rite",
+            FestivalKind::RiverGathering => "River Gathering",
+            FestivalKind::MidsummerBonfire => "Midsummer Bonfire",
+            FestivalKind::AncestorVigil => "Ancestor Vigil",
+        }
+    }
+
+    pub fn for_people(people: PeopleKind) -> Self {
+        match people {
+            PeopleKind::Ahjo => FestivalKind::HarvestFeast,
+            PeopleKind::Sepat => FestivalKind::ForgeDay,
+            PeopleKind::Metsik => FestivalKind::ForestRite,
+            PeopleKind::Vayla => FestivalKind::RiverGathering,
+            PeopleKind::Arkit => FestivalKind::AncestorVigil,
+            PeopleKind::Laakso => FestivalKind::MidsummerBonfire,
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            FestivalKind::HarvestFeast => "Long tables line the square. Kettles steam. Someone presses a bowl into your hands.",
+            FestivalKind::ForgeDay => "The ring of hammers fills the air. Sparks cascade like fallen stars. Iron songs echo off the walls.",
+            FestivalKind::ForestRite => "Drumbeats pulse from the treeline. Firelight flickers between the boles. The forest speaks tonight.",
+            FestivalKind::RiverGathering => "Boats crowd the dock. Lanterns float on the water. Voices carry across the current.",
+            FestivalKind::MidsummerBonfire => "The bonfire roars taller than the rooftops. Shadows dance wild. The night is brief and ancient.",
+            FestivalKind::AncestorVigil => "Candles burn in every window. Voices murmur old names. The past walks among the living tonight.",
+        }
+    }
+
+    pub fn patron_god(self) -> GodName {
+        match self {
+            FestivalKind::HarvestFeast => GodName::Ahjo,
+            FestivalKind::ForgeDay => GodName::Ahjo,
+            FestivalKind::ForestRite => GodName::Metsik,
+            FestivalKind::RiverGathering => GodName::Vayla,
+            FestivalKind::MidsummerBonfire => GodName::Metsik,
+            FestivalKind::AncestorVigil => GodName::Vayla,
+        }
+    }
 }
 
 impl fmt::Display for Season {

@@ -1,9 +1,9 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{
-    craft_recipes, Collapse, Encounter, EncounterAction, GameClock, GodAffinity, GodName,
-    InterPeopleBias, Inventory, ItemType, Need, PeopleKind, PlayerPos, PlayerStart, PlayerVitals,
-    Settlement, SettlementService, Terrain,
+    craft_recipes, Collapse, Encounter, EncounterAction, FestivalKind, GameClock, GodAffinity,
+    GodName, InterPeopleBias, Inventory, ItemType, Need, PeopleKind, PlayerPos, PlayerStart,
+    PlayerVitals, Settlement, SettlementService, Terrain,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -156,6 +156,33 @@ impl App {
                     "A guard eyes you suspiciously but lets you pass. 'Keep your head down.'"
                         .into(),
                 );
+            }
+        }
+        let season = self.clock.season();
+        if season.festival_chance() > 0 {
+            let hash = self.seed.wrapping_mul(2654435761)
+                ^ (region_idx as u64).wrapping_mul(40503)
+                ^ (settlement_idx as u64).wrapping_mul(92000)
+                ^ (self.clock.day as u64);
+            let val = hash % 100;
+            if val < season.festival_chance() as u64 {
+                let people = self
+                    .current_settlement_people()
+                    .unwrap_or(self.inter_people_bias.player_people);
+                let festival = FestivalKind::for_people(people);
+                self.god_affinity.adjust(festival.patron_god(), 0.03);
+                let bias = self.current_settlement_people().map_or(0.0, |p| {
+                    self.inter_people_bias.player_people.bias_toward(p) + season.bias_modifier()
+                });
+                if bias > -0.10 {
+                    self.vitals.hunger = (self.vitals.hunger + 0.2).min(1.0);
+                    self.vitals.energy = (self.vitals.energy + 0.1).min(1.0);
+                }
+                self.status_msg = Some(format!(
+                    "A {} is underway! {}",
+                    festival.label(),
+                    festival.flavor()
+                ));
             }
         }
         self.screen = Screen::Location {
