@@ -141,6 +141,22 @@ impl App {
     }
 
     pub fn enter_settlement(&mut self, region_idx: usize, settlement_idx: usize) {
+        if let Some(npc_people) = self.current_settlement_people() {
+            let bias = self.inter_people_bias.player_people.bias_toward(npc_people);
+            if bias < -0.20 {
+                self.status_msg = Some(format!(
+                    "Guards block your path. 'No {} allowed beyond this point.' You turn back.",
+                    self.inter_people_bias.player_people.label()
+                ));
+                return;
+            }
+            if bias < -0.10 {
+                self.status_msg = Some(
+                    "A guard eyes you suspiciously but lets you pass. 'Keep your head down.'"
+                        .into(),
+                );
+            }
+        }
         self.screen = Screen::Location {
             region_idx,
             settlement_idx,
