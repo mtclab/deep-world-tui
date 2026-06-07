@@ -874,9 +874,11 @@ impl App {
         }
         let base_price = item.base_price();
         let seller_people = self.current_settlement_people();
-        let modifier = seller_people
+        let inter_mod = seller_people
             .map(|sp| self.inter_people_bias.price_modifier(sp))
             .unwrap_or(1.0);
+        let rep_mod = self.reputation_in_current_settlement();
+        let modifier = inter_mod * rep_mod;
         let price = ((base_price as f64 * modifier).ceil() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(ItemType::Coin, price) {
@@ -898,9 +900,11 @@ impl App {
         }
         let base_price = item.base_price();
         let buyer_people = self.current_settlement_people();
-        let modifier = buyer_people
+        let inter_mod = buyer_people
             .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
             .unwrap_or(1.0);
+        let rep_mod = self.reputation_in_current_settlement();
+        let modifier = inter_mod * rep_mod;
         let price = ((base_price as f64 * modifier).floor() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(item, 1) {
@@ -912,6 +916,55 @@ impl App {
                 self.status_msg = Some(format!("No {} to sell", item.name()));
             }
         }
+    }
+
+    pub fn reputation_in_current_settlement(&self) -> f64 {
+        let mut rep = 0.5;
+        if let (Some(ref ps), Some(ref sim), Some(pos)) =
+            (&self.player_start, &self.sim, self.player_pos)
+        {
+            if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                if let Some(settlement) = region.settlements.first() {
+                    rep = sim.reputation.get(&ps.person.id, &settlement.id);
+                }
+            }
+        }
+        rep
+    }
+
+    pub fn quote_buy_price(&self, item: ItemType) -> u32 {
+        let base = item.base_price();
+        let inter_mod = self
+            .current_settlement_people()
+            .map(|sp| self.inter_people_bias.price_modifier(sp))
+            .unwrap_or(1.0);
+        let rep_mod = self.reputation_in_current_settlement();
+        let m = inter_mod * rep_mod;
+        ((base as f64 * m).ceil() as u32).max(1)
+    }
+
+    pub fn quote_sell_price(&self, item: ItemType) -> u32 {
+        let base = item.base_price();
+        let inter_mod = self
+            .current_settlement_people()
+            .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
+            .unwrap_or(1.0);
+        let rep_mod = self.reputation_in_current_settlement();
+        let m = inter_mod * rep_mod;
+        ((base as f64 * m).floor() as u32).max(1)
+    }
+
+    pub fn npc_will_engage(
+        &self,
+        npc_people_name: &str,
+        npc_id: &str,
+    ) -> crate::sim::signals::EngagementLevel {
+        let bias = crate::model::PeopleKind::from_name(npc_people_name);
+        let inter_bias = self.inter_people_bias.effective_bias(bias);
+        let rep_drag = (inter_bias * -0.5).clamp(-0.2, 0.2);
+        let effective_rep = (self.reputation_in_current_settlement() + rep_drag).clamp(0.0, 1.0);
+        let _ = npc_id;
+        crate::sim::signals::engagement_for(effective_rep)
     }
 
     pub fn player_inventory(&self) -> Inventory {
@@ -1099,10 +1152,56 @@ impl App {
             .unwrap_or(PeopleKind::Metsik);
         let player_people = self.inter_people_bias.player_people;
         let pid = self.player_start.as_ref().map(|ps| ps.person.id.clone());
+        let world_tick = self.sim.as_ref().map(|s| s.world.tick);
+        let outside_intervention: Option<String> = match (encounter_data, pos_opt, &pid, world_tick)
+        {
+            (Some(kind), Some(pos), Some(pid), Some(tick)) if kind.can_have_outside_help() => {
+                if let Some(sim) = self.sim.as_ref() {
+                    if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                        if let Some(settlement) = region.settlements.first() {
+                            let rep = sim.reputation.get(pid, &settlement.id);
+                            let help_threshold = 0.70_f64;
+                            let avoid_threshold = 0.25_f64;
+                            if rep >= help_threshold || rep <= avoid_threshold {
+                                let mut hasher = self.seed.wrapping_mul(2_654_435_761);
+                                hasher ^= tick;
+                                hasher ^= match kind {
+                                    crate::model::EncounterKind::Wildlife => 0xA1,
+                                    crate::model::EncounterKind::Bandit => 0xB2,
+                                    _ => 0x00,
+                                };
+                                let roll = (hasher.rotate_left(13) as f64) / (u32::MAX as f64);
+                                if roll < 0.02 {
+                                    Some(if rep >= help_threshold {
+                                        "A passing trader steps from the road, recognizing you. The bandit recoils.".to_string()
+                                    } else {
+                                        "The bandit glances at you, then at the road behind. He waves you on, not bothering to clean the act.".to_string()
+                                    })
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
         if let Some(ref mut sim) = self.sim {
             if let Some(kind) = encounter_data {
                 let journal_text = format!("Encounter ({:?}): {} — {}", kind, action.label(), msg);
                 sim.log_journal(sim.world.tick, journal_text);
+                if let Some(ref note) = outside_intervention {
+                    sim.log_journal(sim.world.tick, format!("  * {}", note));
+                }
             }
             if rep_mult > 0.0 {
                 let rep_delta = match action {
@@ -1133,6 +1232,11 @@ impl App {
                 }
             }
         }
+        let msg = if let Some(note) = outside_intervention {
+            format!("{} {}", msg, note)
+        } else {
+            msg
+        };
         if let Some(ref mut ps) = self.player_start {
             let combat_decay = match action {
                 EncounterAction::Flee | EncounterAction::Calm | EncounterAction::Talk => 0.0,
@@ -1369,7 +1473,11 @@ impl App {
         });
         if let Some(ref personality) = npc_personality {
             let price_mod = InterPeopleBias::trade_price_modifier(personality);
-            let extra = (service.cost() as f64 * price_mod).ceil() as u32;
+            let rep_mod = crate::sim::signals::reputation_price_modifier(
+                self.reputation_in_current_settlement(),
+            );
+            let combined = price_mod * rep_mod;
+            let extra = (service.cost() as f64 * combined).ceil() as u32;
             cost = cost.saturating_add(extra);
         }
         if let Some(ref mut ps) = self.player_start {

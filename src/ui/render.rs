@@ -556,26 +556,36 @@ fn draw_location_screen(
             )));
             if let Some(ref ps) = app.player_start {
                 let rep = sim.reputation.get(&ps.person.id, &s.id);
-                let rep_label = if rep >= 0.8 {
-                    "trusted"
-                } else if rep >= 0.6 {
-                    "liked"
-                } else if rep >= 0.4 {
-                    "neutral"
-                } else if rep >= 0.2 {
-                    "suspect"
-                } else {
-                    "shunned"
-                };
+                let hash = crate::sim::signals::hash_str(&ps.person.id);
+                let gesture = crate::sim::signals::body_language(rep, hash);
                 lines.push(Line::from(Span::styled(
-                    format!(" Your reputation: {:.0}% ({})", rep * 100.0, rep_label),
-                    Style::default().fg(theme.warm_brown()),
+                    format!(" At the gate, a face in the crowd {gesture}."),
+                    Style::default().fg(theme.dark_ink()),
                 )));
+                let welcome = crate::sim::signals::settlement_welcome_note(rep);
+                if !welcome.is_empty() {
+                    lines.push(Line::from(Span::styled(
+                        format!(" {welcome}"),
+                        Style::default()
+                            .fg(theme.archive_red())
+                            .add_modifier(Modifier::ITALIC),
+                    )));
+                }
             }
         }
         if let Some(dominant) = s.people.first() {
             let npc_people = crate::model::PeopleKind::from_name(&dominant.people);
             let player_people = app.inter_people_bias.player_people;
+            let rep_in_settle = app
+                .sim
+                .as_ref()
+                .and_then(|sim| {
+                    app.player_start
+                        .as_ref()
+                        .map(|ps| sim.reputation.get(&ps.person.id, &s.id))
+                })
+                .unwrap_or(0.5);
+            let adverb = crate::sim::signals::settlement_welcome_adverb(rep_in_settle);
             let atmosphere = if player_people == npc_people {
                 "Your people's settlement. Familiar faces, familiar ways."
             } else {
@@ -600,8 +610,13 @@ fn draw_location_screen(
                     theme.dark_brown()
                 }
             };
+            let atm_with_adverb = if adverb.is_empty() || player_people == npc_people {
+                atmosphere.to_string()
+            } else {
+                format!("{atmosphere} They greet you {adverb}.")
+            };
             lines.push(Line::from(Span::styled(
-                format!(" {}", atmosphere),
+                format!(" {atm_with_adverb}"),
                 Style::default().fg(atm_color),
             )));
         }
@@ -782,6 +797,29 @@ fn draw_npc_screen(
                 .fg(theme.ink())
                 .add_modifier(Modifier::BOLD),
         )));
+        if let (Some(ref sim), Some(ref ps)) = (&app.sim, &app.player_start) {
+            if let Some(region) = sim.world.regions.get(region_idx) {
+                if let Some(settlement) = region.settlements.get(settlement_idx) {
+                    let rep = sim.reputation.get(&ps.person.id, &settlement.id);
+                    let hash = crate::sim::signals::hash_str(&p.id);
+                    let gesture = crate::sim::signals::body_language(rep, hash);
+                    let engagement = app.npc_will_engage(&p.people, &p.id);
+                    let narration = crate::sim::signals::engagement_narration(engagement, &p.name);
+                    lines.push(Line::from(Span::styled(
+                        format!(" {narration}"),
+                        Style::default()
+                            .fg(theme.archive_red())
+                            .add_modifier(Modifier::ITALIC),
+                    )));
+                    lines.push(Line::from(Span::styled(
+                        format!(" They {gesture}."),
+                        Style::default()
+                            .fg(theme.dark_ink())
+                            .add_modifier(Modifier::ITALIC),
+                    )));
+                }
+            }
+        }
         lines.push(Line::from(""));
 
         lines.push(Line::from(Span::styled(
@@ -2002,15 +2040,11 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
                     if let Some(dominant) = settlement.people.first() {
                         let npc_people = crate::model::PeopleKind::from_name(&dominant.people);
                         let bias = app.inter_people_bias.player_people.bias_toward(npc_people);
-                        let stance = if bias > 0.05 {
-                            "welcomed"
-                        } else if bias > -0.05 {
-                            "tolerated"
-                        } else if bias > -0.15 {
-                            "distrusted"
-                        } else {
-                            "unwelcome"
-                        };
+                        let rep_in_settle = app
+                            .player_start
+                            .as_ref()
+                            .map(|ps| sim.reputation.get(&ps.person.id, &settlement.id))
+                            .unwrap_or(0.5);
                         let stance_color = if bias > 0.05 {
                             theme.need_color(1.0)
                         } else if bias < -0.05 {
@@ -2018,17 +2052,27 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
                         } else {
                             theme.dark_brown()
                         };
-                        lines.push(Line::from(vec![
-                            Span::styled("  Here:   ", Style::default().fg(theme.dark_brown())),
-                            Span::styled(
-                                format!("{} settlement", npc_people.label()),
-                                Style::default().fg(theme.ink()),
-                            ),
-                            Span::styled(
-                                format!(" — {}", stance),
-                                Style::default().fg(stance_color),
-                            ),
-                        ]));
+                        let here_line = if app.inter_people_bias.player_people == npc_people {
+                            format!("  Here:   {} settlement — home", npc_people.label())
+                        } else {
+                            let adverb =
+                                crate::sim::signals::settlement_welcome_adverb(rep_in_settle);
+                            if adverb.is_empty() {
+                                format!(
+                                    "  Here:   {} settlement — strangers move {adverb}",
+                                    npc_people.label()
+                                )
+                            } else {
+                                format!(
+                                    "  Here:   {} settlement — they greet you {adverb}",
+                                    npc_people.label()
+                                )
+                            }
+                        };
+                        lines.push(Line::from(Span::styled(
+                            here_line,
+                            Style::default().fg(stance_color),
+                        )));
                     }
                 }
             }
@@ -2252,7 +2296,7 @@ fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
             .add_modifier(Modifier::BOLD),
     )));
     for (i, &item) in items.iter().enumerate() {
-        let price = item.base_price();
+        let price = app.quote_buy_price(item);
         let can = coins >= price;
         let color = if can {
             theme.need_color(1.0)
@@ -2281,7 +2325,7 @@ fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
             .add_modifier(Modifier::BOLD),
     )));
     for (i, &item) in items.iter().enumerate() {
-        let price = item.base_price();
+        let price = app.quote_sell_price(item);
         let have = inv.get(item);
         let color = if have > 0 {
             theme.need_color(1.0)
