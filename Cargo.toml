@@ -21,11 +21,16 @@ clap = { version = "4", features = ["derive"] }
 [features]
 default = []
 llm = ["reqwest"]
+audio = ["hound"]
 
 [dependencies.reqwest]
 version = "0.12"
 optional = true
 features = ["blocking"]
+
+[dependencies.hound]
+version = "3.5"
+optional = true
 
 [[bin]]
 name = "deep-world-tui"

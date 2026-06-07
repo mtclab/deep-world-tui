@@ -81,6 +81,8 @@ pub struct App {
     pub llm_model: String,
     pub monochrome: bool,
     pub language: String,
+    pub audio_enabled: bool,
+    pub audio_volume: f32,
     pub previous_screen: Option<Screen>,
     pub encounters_had: u32,
     pub collapses_had: u32,
@@ -112,6 +114,8 @@ impl App {
             llm_model: settings.llm_model,
             monochrome: settings.monochrome,
             language: settings.language,
+            audio_enabled: settings.audio_enabled,
+            audio_volume: settings.audio_volume,
             previous_screen: None,
             encounters_had: 0,
             collapses_had: 0,
@@ -128,6 +132,8 @@ impl App {
             llm_model: self.llm_model.clone(),
             monochrome: self.monochrome,
             language: self.language.clone(),
+            audio_enabled: self.audio_enabled,
+            audio_volume: self.audio_volume,
         };
         settings.save();
     }
@@ -695,6 +701,7 @@ impl App {
                 }
             }
             self.advance_clock_hour();
+            self.play_sound(crate::audio::SoundEvent::Gather);
             let msg = format!("Gathered {} {} (1h, {})", count, item.name(), season);
             self.status_msg = Some(if let Some(b) = boon_msg {
                 format!("{}. {}", msg, b)
@@ -1022,6 +1029,7 @@ impl App {
                 }
             }
             EncounterAction::Intimidate => {
+                self.play_sound(crate::audio::SoundEvent::Combat);
                 if enc_mod.intimidate + god_intimidate_bonus > 0.03 {
                     "You loomed large. They scattered before you.".into()
                 } else {
@@ -1048,6 +1056,7 @@ impl App {
                         base_herbs
                     };
                     ps.inventory.add(ItemType::Herb, herbs);
+                    self.play_sound(crate::audio::SoundEvent::Trade);
                     if herbs >= 3 {
                         "A generous trade — three herbs for your news! (1h)".into()
                     } else if herbs == 2 {
@@ -1688,6 +1697,14 @@ impl App {
         out
     }
 
+    /// Best-effort sound playback; no-op if audio disabled.
+    pub fn play_sound(&self, event: crate::audio::SoundEvent) {
+        let cfg = crate::audio::AudioConfig {
+            enabled: self.audio_enabled,
+            volume: self.audio_volume,
+        };
+        crate::audio::play(event, cfg);
+    }
     pub fn handle_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Key(key) => match self.screen {
@@ -2117,6 +2134,27 @@ impl App {
                             "en".into()
                         };
                         self.status_msg = Some(format!("Language: {}", self.language));
+                        self.save_settings();
+                    }
+                    crossterm::event::KeyCode::Char('a') => {
+                        self.audio_enabled = !self.audio_enabled;
+                        self.status_msg = Some(if self.audio_enabled {
+                            "Audio enabled".into()
+                        } else {
+                            "Audio disabled".into()
+                        });
+                        self.save_settings();
+                    }
+                    crossterm::event::KeyCode::Char('+') | crossterm::event::KeyCode::Char('=') => {
+                        self.audio_volume = (self.audio_volume + 0.1).clamp(0.0, 1.0);
+                        self.status_msg =
+                            Some(format!("Volume: {:.0}%", self.audio_volume * 100.0));
+                        self.save_settings();
+                    }
+                    crossterm::event::KeyCode::Char('-') => {
+                        self.audio_volume = (self.audio_volume - 0.1).clamp(0.0, 1.0);
+                        self.status_msg =
+                            Some(format!("Volume: {:.0}%", self.audio_volume * 100.0));
                         self.save_settings();
                     }
                     crossterm::event::KeyCode::Char('e') => {

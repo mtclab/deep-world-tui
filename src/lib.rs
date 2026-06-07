@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod charts;
 pub mod gen;
 pub mod i18n;
