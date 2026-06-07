@@ -2245,6 +2245,49 @@ impl Encounter {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EncounterLogEntry {
+    pub day: u32,
+    pub hour: u32,
+    pub kind: EncounterKind,
+    pub terrain: Terrain,
+    pub action: EncounterAction,
+    pub hostile: bool,
+}
+
+const ENCOUNTER_LOG_CAP: usize = 20;
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct EncounterLog {
+    entries: Vec<EncounterLogEntry>,
+}
+
+impl EncounterLog {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    pub fn push(&mut self, entry: EncounterLogEntry) {
+        self.entries.push(entry);
+        if self.entries.len() > ENCOUNTER_LOG_CAP {
+            let drop = self.entries.len() - ENCOUNTER_LOG_CAP;
+            self.entries.drain(0..drop);
+        }
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, EncounterLogEntry> {
+        self.entries.iter()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct World {
     pub seed: u64,
@@ -5075,5 +5118,50 @@ mod tests {
         let mut companion = Companion::new(Animal::Dog, "Rex".into(), 100);
         companion.food_need = 100.0;
         assert!(!companion.is_alive());
+    }
+
+    #[test]
+    fn encounter_log_starts_empty() {
+        let log = EncounterLog::new();
+        assert_eq!(log.len(), 0);
+        assert!(log.is_empty());
+    }
+
+    #[test]
+    fn encounter_log_pushes_in_order() {
+        let mut log = EncounterLog::new();
+        for i in 0..5 {
+            log.push(EncounterLogEntry {
+                day: i,
+                hour: 0,
+                kind: EncounterKind::Wildlife,
+                terrain: Terrain::Forest,
+                action: EncounterAction::Flee,
+                hostile: true,
+            });
+        }
+        assert_eq!(log.len(), 5);
+        let days: Vec<u32> = log.iter().map(|e| e.day).collect();
+        assert_eq!(days, vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn encounter_log_caps_at_twenty() {
+        let mut log = EncounterLog::new();
+        for i in 0..35 {
+            log.push(EncounterLogEntry {
+                day: i,
+                hour: 0,
+                kind: EncounterKind::Wildlife,
+                terrain: Terrain::Forest,
+                action: EncounterAction::Flee,
+                hostile: true,
+            });
+        }
+        assert_eq!(log.len(), 20);
+        let first = log.iter().next().map(|e| e.day);
+        let last = log.iter().next_back().map(|e| e.day);
+        assert_eq!(first, Some(15));
+        assert_eq!(last, Some(34));
     }
 }
