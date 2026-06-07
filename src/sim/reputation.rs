@@ -132,6 +132,7 @@ fn reputation_key(person_id: &str, settlement: &str) -> String {
 
 pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
     let mut updates: Vec<(String, f64, HashMap<String, f64>)> = Vec::new();
+    let mut spread_acc: HashMap<String, f64> = HashMap::new();
     for (key, entry) in &store.entries {
         let local_decayed = decay_toward(entry.reputation.local, BASELINE, LOCAL_DECAY_RATE * dt);
         let mut faction_decayed = HashMap::new();
@@ -141,7 +142,6 @@ pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
                 decay_toward(*val, BASELINE, FACTION_DECAY_RATE * dt),
             );
         }
-        let mut spread_from_neighbors: HashMap<String, f64> = HashMap::new();
         let person_settlement = &entry.settlement;
         for region in &world.regions {
             for settlement in &region.settlements {
@@ -156,7 +156,7 @@ pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
                     let diff = neighbor.reputation.local - entry.reputation.local;
                     if diff.abs() > f64::EPSILON {
                         let spread = diff * SPREAD_RATE * dt;
-                        *spread_from_neighbors.entry(key.clone()).or_insert(0.0) += spread;
+                        *spread_acc.entry(key.clone()).or_insert(0.0) += spread;
                     }
                 }
             }
@@ -165,7 +165,8 @@ pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
     }
     for (key, local, factions) in updates {
         if let Some(entry) = store.entries.get_mut(&key) {
-            entry.reputation.local = local;
+            let spread_delta = spread_acc.get(&key).copied().unwrap_or(0.0);
+            entry.reputation.local = (local + spread_delta).clamp(0.0, 1.0);
             entry.reputation.by_faction = factions;
         }
     }

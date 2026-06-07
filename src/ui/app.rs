@@ -172,7 +172,7 @@ impl App {
                 let festival = FestivalKind::for_people(people);
                 self.god_affinity.adjust(festival.patron_god(), 0.03);
                 let bias = self.current_settlement_people().map_or(0.0, |p| {
-                    self.inter_people_bias.player_people.bias_toward(p) + season.bias_modifier()
+                    self.inter_people_bias.effective_bias(p) + season.bias_modifier()
                 });
                 if bias > -0.10 {
                     self.vitals.hunger = (self.vitals.hunger + 0.2).min(1.0);
@@ -328,7 +328,7 @@ impl App {
                 .map(|p| PeopleKind::from_name(&p.people))
         });
         if let Some(npc_pk) = npc_people {
-            let mut bias = self.inter_people_bias.player_people.bias_toward(npc_pk);
+            let mut bias = self.inter_people_bias.effective_bias(npc_pk);
             if let Some(god) = npc_pk.patron_god() {
                 if self.god_affinity.get(god) > 0.4 {
                     bias += 0.05;
@@ -419,7 +419,7 @@ impl App {
                 .map(|p| PeopleKind::from_name(&p.people))
         });
         if let Some(npc_pk) = npc_people {
-            let mut bias = self.inter_people_bias.player_people.bias_toward(npc_pk);
+            let mut bias = self.inter_people_bias.effective_bias(npc_pk);
             if let Some(god) = npc_pk.patron_god() {
                 if self.god_affinity.get(god) > 0.4 {
                     bias += 0.05;
@@ -583,11 +583,8 @@ impl App {
             let mult = season.gather_multiplier();
             let pp = self.inter_people_bias.player_people;
             let people_bonus = Terrain::people_gather_bonus(pp, terrain);
-            let count = if mult > 0.5 {
-                1 + people_bonus
-            } else {
-                people_bonus
-            };
+            let base = 1 + people_bonus;
+            let count = (base as f64 * mult).floor() as u32;
             let mut boon_msg = None;
             let patron = terrain.patron_god();
             let count = if let Some(god) = patron {
@@ -805,37 +802,20 @@ impl App {
         let terrain = self.encounter.map(|e| e.terrain).unwrap_or(Terrain::Grass);
         let witness = WitnessLevel::roll(self.seed.wrapping_mul(7919), terrain);
         let _rep_mult = witness.reputation_multiplier();
-        let coins = action.coin_cost();
-        if coins > 0 {
-            if let Some(ref mut ps) = self.player_start {
-                if !ps.inventory.remove(ItemType::Coin, coins) {
-                    self.status_msg = Some("Not enough coins".into());
-                    return;
-                }
-            }
-        }
-        self.vitals.energy = (self.vitals.energy - action.energy_cost()).max(0.0);
-        self.vitals.hunger = (self.vitals.hunger - action.hunger_cost()).max(0.0);
-        let hours = action.hours();
-        if hours > 0 {
-            self.advance_clock(hours);
-        }
-        if let Some((god, delta)) = action.god_affinity_effect() {
-            self.god_affinity.adjust(god, delta);
-        }
-        let enc_kind = self.encounter.map(|e| e.kind);
-        let enc_mod = self
-            .encounter
-            .and_then(|_| {
-                self.sim.as_ref().and_then(|sim| {
+        let enc_mod = match terrain {
+            Terrain::Settlement | Terrain::Road => self
+                .sim
+                .as_ref()
+                .and_then(|sim| {
                     let pos = self.player_pos?;
                     let region = sim.world.regions.get(pos.region_idx)?;
                     let settlement = region.settlements.first()?;
                     let person = settlement.people.first()?;
                     Some(InterPeopleBias::encounter_modifier(&person.personality))
                 })
-            })
-            .unwrap_or_default();
+                .unwrap_or_default(),
+            _ => InterPeopleBias::encounter_modifier(&[]),
+        };
         let people_bias_mod = self.current_settlement_people().map_or(0.0, |npc_people| {
             self.inter_people_bias.effective_bias(npc_people) + self.clock.season().bias_modifier()
         });
@@ -860,24 +840,20 @@ impl App {
                 }
             }
             EncounterAction::Bribe => {
-                let effective_cost = ((coins as f64) * (1.0 + enc_mod.bribe_cost)).max(1.0) as u32;
-                if effective_cost > coins {
-                    if let Some(ref mut ps) = self.player_start {
-                        let extra = effective_cost - coins;
-                        if ps.inventory.get(ItemType::Coin) >= extra {
-                            ps.inventory.remove(ItemType::Coin, extra);
-                            format!(
-                                "You paid {} coins total — they drove a hard bargain.",
-                                effective_cost
-                            )
-                        } else {
-                            "You paid the bandit off (2 coins).".into()
-                        }
+                let base_cost: u32 = 2;
+                let effective_cost =
+                    ((base_cost as f64) * (1.0 + enc_mod.bribe_cost.abs())).max(1.0) as u32;
+                if let Some(ref mut ps) = self.player_start {
+                    if ps.inventory.get(ItemType::Coin) >= effective_cost {
+                        ps.inventory.remove(ItemType::Coin, effective_cost);
+                        format!("You paid {} coins to be left alone.", effective_cost)
                     } else {
-                        "You paid the bandit off.".into()
+                        ps.inventory
+                            .remove(ItemType::Coin, ps.inventory.get(ItemType::Coin));
+                        "You gave what you had. They seemed satisfied.".into()
                     }
                 } else {
-                    "You paid them off (2 coins).".into()
+                    "You gestured peacefully. They let you pass.".into()
                 }
             }
             EncounterAction::Calm => {
@@ -935,7 +911,7 @@ impl App {
             }
         };
         if let Some(ref mut sim) = self.sim {
-            if let Some(kind) = enc_kind {
+            if let Some(kind) = self.encounter.map(|e| e.kind) {
                 let journal_text = format!("Encounter ({:?}): {} — {}", kind, action.label(), msg);
                 sim.log_journal(sim.world.tick, journal_text);
             }
@@ -970,14 +946,11 @@ impl App {
                 })
             })
             .unwrap_or(0.0);
-        let local_people = self.current_settlement_people();
-        let collapse = Collapse::roll_biased(
-            self.seed,
-            &self.god_affinity,
-            local_rep,
-            self.inter_people_bias.player_people,
-            local_people.unwrap_or(self.inter_people_bias.player_people),
-        );
+        let _local_people = self.current_settlement_people();
+        let eff_bias = self
+            .current_settlement_people()
+            .map_or(0.0, |p| self.inter_people_bias.effective_bias(p));
+        let collapse = Collapse::roll_biased(self.seed, &self.god_affinity, local_rep, eff_bias);
         let outcome = collapse.outcome;
         let hours = outcome.hours_passed();
         let died = collapse.died;
@@ -1063,7 +1036,7 @@ impl App {
             }
         }
         if let Some(npc_people) = self.current_settlement_people() {
-            let mut bias = self.inter_people_bias.player_people.bias_toward(npc_people);
+            let mut bias = self.inter_people_bias.effective_bias(npc_people);
             bias += self.clock.season().bias_modifier();
             if bias < -0.15 {
                 self.status_msg = Some(format!(
@@ -1088,7 +1061,7 @@ impl App {
         }
         let mut cost = service.cost();
         if let Some(npc_people) = self.current_settlement_people() {
-            let bias = self.inter_people_bias.player_people.bias_toward(npc_people);
+            let bias = self.inter_people_bias.effective_bias(npc_people);
             if bias < -0.05 {
                 cost += 1;
             }
@@ -1115,13 +1088,19 @@ impl App {
                 self.vitals.energy = (self.vitals.energy + 0.4).min(1.0);
                 self.vitals.hunger = (self.vitals.hunger + 0.2).min(1.0);
                 self.advance_clock(2);
-                self.status_msg = Some("Rested at tavern (+energy, +hunger, 2h, 2 coins)".into());
+                self.status_msg = Some(format!(
+                    "Rested at tavern (+energy, +hunger, 2h, {} coins)",
+                    cost
+                ));
             }
             SettlementService::Temple => {
                 self.vitals.hunger = (self.vitals.hunger + 0.5).min(1.0);
                 self.vitals.energy = (self.vitals.energy + 0.3).min(1.0);
                 self.advance_clock(3);
-                self.status_msg = Some("Blessed at temple (+hunger, +energy, 3h, 3 coins)".into());
+                self.status_msg = Some(format!(
+                    "Blessed at temple (+hunger, +energy, 3h, {} coins)",
+                    cost
+                ));
             }
             SettlementService::Forge => {
                 self.god_affinity.adjust(GodName::Ahjo, 0.02);
@@ -1129,15 +1108,18 @@ impl App {
                     ps.inventory.add(ItemType::Iron, 2);
                 }
                 self.advance_clock(3);
-                self.status_msg = Some("Worked at the forge (+2 Iron, 3h, 3 coins)".into());
+                self.status_msg =
+                    Some(format!("Worked at the forge (+2 Iron, 3h, {} coins)", cost));
             }
             SettlementService::Hearth => {
                 self.vitals.hunger = (self.vitals.hunger + 0.6).min(1.0);
                 self.vitals.energy = (self.vitals.energy + 0.5).min(1.0);
                 self.god_affinity.adjust(GodName::Ahjo, 0.03);
                 self.advance_clock(2);
-                self.status_msg =
-                    Some("Warmed by the hearth (+hunger, +energy, 2h, 2 coins)".into());
+                self.status_msg = Some(format!(
+                    "Warmed by the hearth (+hunger, +energy, 2h, {} coins)",
+                    cost
+                ));
             }
             SettlementService::TrapWorkshop => {
                 self.god_affinity.adjust(GodName::Metsik, 0.03);
@@ -1145,8 +1127,10 @@ impl App {
                     ps.inventory.add(ItemType::Herb, 2);
                 }
                 self.advance_clock(2);
-                self.status_msg =
-                    Some("Learned trapping at the workshop (+2 Herb, 2h, 2 coins)".into());
+                self.status_msg = Some(format!(
+                    "Learned trapping at the workshop (+2 Herb, 2h, {} coins)",
+                    cost
+                ));
             }
         }
     }

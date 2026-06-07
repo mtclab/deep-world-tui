@@ -535,7 +535,7 @@ impl FestivalKind {
             FestivalKind::ForgeDay => GodName::Ahjo,
             FestivalKind::ForestRite => GodName::Metsik,
             FestivalKind::RiverGathering => GodName::Vayla,
-            FestivalKind::MidsummerBonfire => GodName::Metsik,
+            FestivalKind::MidsummerBonfire => GodName::Ahjo,
             FestivalKind::AncestorVigil => GodName::Vayla,
         }
     }
@@ -810,7 +810,7 @@ impl PeopleKind {
     pub fn description(self) -> &'static str {
         match self {
             PeopleKind::Metsik => "Forest-people",
-            PeopleKind::Arkit => "Hearth-kin",
+            PeopleKind::Arkit => "Archive-keepers",
             PeopleKind::Vayla => "River-folk",
             PeopleKind::Laakso => "Vale-dwellers",
             PeopleKind::Sepat => "Iron-people",
@@ -822,7 +822,7 @@ impl PeopleKind {
         match self {
             PeopleKind::Metsik => Some(GodName::Metsik),
             PeopleKind::Ahjo | PeopleKind::Sepat => Some(GodName::Ahjo),
-            PeopleKind::Vayla | PeopleKind::Arkit => Some(GodName::Vayla),
+            PeopleKind::Vayla | PeopleKind::Arkit => Some(GodName::Ahjo),
             PeopleKind::Laakso => None,
         }
     }
@@ -1284,19 +1284,17 @@ impl Collapse {
         seed: u64,
         affinity: &GodAffinity,
         local_rep: f64,
-        player_people: PeopleKind,
-        local_people: PeopleKind,
+        effective_bias: f64,
     ) -> Self {
         let mut result = Self::roll(seed, affinity, local_rep);
-        let bias = player_people.bias_toward(local_people);
-        if bias < -0.15 {
+        if effective_bias < -0.15 {
             result.outcome = match result.outcome {
                 CollapseOutcome::StrangerHut => CollapseOutcome::Ditch,
                 CollapseOutcome::SettlementBed => CollapseOutcome::Ditch,
                 CollapseOutcome::FestivalBench => CollapseOutcome::Ditch,
                 other => other,
             };
-        } else if bias > 0.05 {
+        } else if effective_bias > 0.05 {
             result.outcome = match result.outcome {
                 CollapseOutcome::Ditch => CollapseOutcome::StrangerHut,
                 other => other,
@@ -2642,14 +2640,24 @@ mod tests {
         let ga = GodAffinity::new();
         let mut ditch_from_safe = 0u32;
         for seed in 0..200u64 {
-            let c = Collapse::roll_biased(seed, &ga, 0.5, PeopleKind::Metsik, PeopleKind::Sepat);
+            let c = Collapse::roll_biased(
+                seed,
+                &ga,
+                0.5,
+                PeopleKind::Metsik.bias_toward(PeopleKind::Sepat),
+            );
             if matches!(c.outcome, CollapseOutcome::Ditch) {
                 ditch_from_safe += 1;
             }
         }
         let mut ditch_neutral = 0u32;
         for seed in 0..200u64 {
-            let c = Collapse::roll_biased(seed, &ga, 0.5, PeopleKind::Arkit, PeopleKind::Arkit);
+            let c = Collapse::roll_biased(
+                seed,
+                &ga,
+                0.5,
+                PeopleKind::Arkit.bias_toward(PeopleKind::Arkit),
+            );
             if matches!(c.outcome, CollapseOutcome::Ditch) {
                 ditch_neutral += 1;
             }
@@ -2665,7 +2673,12 @@ mod tests {
         let ga = GodAffinity::new();
         let mut hut_from_ditch = 0u32;
         for seed in 0..200u64 {
-            let c = Collapse::roll_biased(seed, &ga, 0.3, PeopleKind::Metsik, PeopleKind::Metsik);
+            let c = Collapse::roll_biased(
+                seed,
+                &ga,
+                0.3,
+                PeopleKind::Metsik.bias_toward(PeopleKind::Metsik),
+            );
             if matches!(c.outcome, CollapseOutcome::StrangerHut) {
                 hut_from_ditch += 1;
             }
