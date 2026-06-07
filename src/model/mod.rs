@@ -2878,6 +2878,141 @@ impl QuestType {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum CropType {
+    Grain,
+    RootVegetable,
+    Herb,
+}
+
+impl CropType {
+    pub fn name(self) -> &'static str {
+        match self {
+            CropType::Grain => "grain",
+            CropType::RootVegetable => "root vegetables",
+            CropType::Herb => "herbs",
+        }
+    }
+
+    pub fn growth_ticks(self) -> u64 {
+        match self {
+            CropType::Grain => 72,         // 3 days
+            CropType::RootVegetable => 96, // 4 days
+            CropType::Herb => 48,          // 2 days
+        }
+    }
+
+    pub fn base_yield(self) -> u32 {
+        match self {
+            CropType::Grain => 4,
+            CropType::RootVegetable => 3,
+            CropType::Herb => 5,
+        }
+    }
+
+    pub fn regional_suitability(self, terrain: Terrain) -> f64 {
+        match (self, terrain) {
+            (CropType::Grain, Terrain::Farmland | Terrain::Grass) => 1.2,
+            (CropType::RootVegetable, Terrain::Forest | Terrain::Farmland) => 1.1,
+            (CropType::Herb, Terrain::Forest | Terrain::Swamp) => 1.3,
+            (_, Terrain::Farmland) => 1.0,
+            _ => 0.7,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum GrowthStage {
+    Planted,
+    Sprouting,
+    Growing,
+    Mature,
+    Ready,
+}
+
+impl GrowthStage {
+    pub fn name(self) -> &'static str {
+        match self {
+            GrowthStage::Planted => "planted",
+            GrowthStage::Sprouting => "sprouting",
+            GrowthStage::Growing => "growing",
+            GrowthStage::Mature => "mature",
+            GrowthStage::Ready => "ready to harvest",
+        }
+    }
+
+    pub fn progress_threshold(self) -> f64 {
+        match self {
+            GrowthStage::Planted => 0.0,
+            GrowthStage::Sprouting => 0.2,
+            GrowthStage::Growing => 0.5,
+            GrowthStage::Mature => 0.8,
+            GrowthStage::Ready => 1.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Farm {
+    pub id: String,
+    pub crop: CropType,
+    pub planted_tick: u64,
+    pub growth_progress: f64,
+    pub stage: GrowthStage,
+    pub terrain: Terrain,
+    pub weather_bonus: f64,
+}
+
+impl Farm {
+    pub fn new(seed: u64, crop: CropType, planted_tick: u64, terrain: Terrain) -> Self {
+        Farm {
+            id: format!("farm-{:016x}", seed),
+            crop,
+            planted_tick,
+            growth_progress: 0.0,
+            stage: GrowthStage::Planted,
+            terrain,
+            weather_bonus: 0.0,
+        }
+    }
+
+    pub fn update_growth(&mut self, current_tick: u64, weather: Weather) {
+        let ticks_elapsed = current_tick.saturating_sub(self.planted_tick);
+        let base_growth_rate = 1.0 / self.crop.growth_ticks() as f64;
+        let suitability = self.crop.regional_suitability(self.terrain);
+        let weather_mod = weather.gather_modifier();
+
+        self.weather_bonus = (weather_mod - 1.0) * 0.5;
+        let effective_rate = base_growth_rate * suitability * (1.0 + self.weather_bonus);
+        self.growth_progress = (ticks_elapsed as f64 * effective_rate).min(1.0);
+
+        self.stage = if self.growth_progress >= 1.0 {
+            GrowthStage::Ready
+        } else if self.growth_progress >= 0.8 {
+            GrowthStage::Mature
+        } else if self.growth_progress >= 0.5 {
+            GrowthStage::Growing
+        } else if self.growth_progress >= 0.2 {
+            GrowthStage::Sprouting
+        } else {
+            GrowthStage::Planted
+        };
+    }
+
+    pub fn is_ready(&self) -> bool {
+        self.stage == GrowthStage::Ready
+    }
+
+    pub fn harvest_yield(&self) -> u32 {
+        if !self.is_ready() {
+            return 0;
+        }
+        let base = self.crop.base_yield();
+        let suitability = self.crop.regional_suitability(self.terrain);
+        (base as f64 * suitability * (1.0 + self.weather_bonus)).ceil() as u32
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Quest {
     pub id: String,
@@ -4315,5 +4450,58 @@ mod tests {
             assert!(q.reward_coins >= 3);
             assert!(q.reward_reputation > 0.0);
         }
+    }
+
+    #[test]
+    fn crop_type_properties() {
+        assert_eq!(CropType::Grain.name(), "grain");
+        assert_eq!(CropType::Grain.growth_ticks(), 72);
+        assert_eq!(CropType::Grain.base_yield(), 4);
+        assert!(CropType::Grain.regional_suitability(Terrain::Farmland) > 1.0);
+    }
+
+    #[test]
+    fn farm_growth_stages() {
+        let mut farm = Farm::new(42, CropType::Grain, 100, Terrain::Farmland);
+        assert_eq!(farm.stage, GrowthStage::Planted);
+        assert!(!farm.is_ready());
+
+        farm.update_growth(110, Weather::Clear);
+        assert!(farm.growth_progress > 0.0);
+
+        farm.update_growth(200, Weather::Clear);
+        assert!(farm.is_ready());
+        assert_eq!(farm.stage, GrowthStage::Ready);
+    }
+
+    #[test]
+    fn farm_harvest_yield() {
+        let mut farm = Farm::new(42, CropType::Herb, 100, Terrain::Forest);
+        farm.update_growth(200, Weather::Clear);
+        assert!(farm.is_ready());
+        let yield_amount = farm.harvest_yield();
+        assert!(yield_amount >= 5); // herb base yield is 5
+    }
+
+    #[test]
+    fn farm_regional_suitability() {
+        let grain_farmland = CropType::Grain.regional_suitability(Terrain::Farmland);
+        let grain_desert = CropType::Grain.regional_suitability(Terrain::DeepDesert);
+        assert!(grain_farmland > grain_desert);
+
+        let herb_forest = CropType::Herb.regional_suitability(Terrain::Forest);
+        let herb_grass = CropType::Herb.regional_suitability(Terrain::Grass);
+        assert!(herb_forest > herb_grass);
+    }
+
+    #[test]
+    fn farm_weather_effect() {
+        let mut farm_clear = Farm::new(42, CropType::Grain, 100, Terrain::Farmland);
+        let mut farm_storm = Farm::new(42, CropType::Grain, 100, Terrain::Farmland);
+
+        farm_clear.update_growth(150, Weather::Clear);
+        farm_storm.update_growth(150, Weather::Storm);
+
+        assert!(farm_clear.growth_progress > farm_storm.growth_progress);
     }
 }
