@@ -77,6 +77,7 @@ pub struct App {
     pub god_affinity: GodAffinity,
     pub inter_people_bias: InterPeopleBias,
     pub llm_enabled: bool,
+    pub monochrome: bool,
     pub previous_screen: Option<Screen>,
     seed: u64,
     charts: Charts,
@@ -101,6 +102,7 @@ impl App {
             god_affinity: GodAffinity::new(),
             inter_people_bias: InterPeopleBias::default(),
             llm_enabled: false,
+            monochrome: false,
             previous_screen: None,
             seed,
             charts,
@@ -1880,6 +1882,14 @@ impl App {
                             "LLM narrator enabled".into()
                         } else {
                             "LLM narrator disabled (using voice.rs templates)".into()
+                        });
+                    }
+                    crossterm::event::KeyCode::Char('m') => {
+                        self.monochrome = !self.monochrome;
+                        self.status_msg = Some(if self.monochrome {
+                            "Monochrome mode on".into()
+                        } else {
+                            "Full color mode on".into()
                         });
                     }
                     _ => {}
