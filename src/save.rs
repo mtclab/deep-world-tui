@@ -81,6 +81,25 @@ pub fn load_compact(filename: &str) -> Result<CompactSave, String> {
     ron::from_str(&contents).map_err(|e| format!("Failed to deserialize compact: {}", e))
 }
 
+pub fn restore_from_compact(
+    compact: &CompactSave,
+    charts: &crate::charts::Charts,
+) -> Result<SaveData, String> {
+    let mut sim = SimState::new(compact.seed, charts.clone());
+    for _ in 0..compact.tick {
+        sim.step();
+    }
+    Ok(SaveData {
+        sim,
+        player_start: None,
+        clock: GameClock::default(),
+        vitals: PlayerVitals::default(),
+        player_pos: None,
+        god_affinity: GodAffinity::new(),
+        inter_people_bias: InterPeopleBias::new(crate::model::PeopleKind::Metsik),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,5 +225,42 @@ mod tests {
             compact_size,
             full_size
         );
+    }
+
+    #[test]
+    fn restore_from_compact_regenerates_world() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let compact = CompactSave {
+            seed: 99,
+            player_choices: vec![],
+            tick: 5,
+        };
+        let restored = restore_from_compact(&compact, &charts).expect("restore should succeed");
+        assert_eq!(restored.sim.world.tick, 5, "tick should advance to 5");
+        let fresh = SimState::new(99, charts);
+        assert_eq!(
+            restored.sim.world.regions.len(),
+            fresh.world.regions.len(),
+            "same seed should produce same number of regions"
+        );
+        assert_eq!(
+            restored.sim.world.regions[0].name, fresh.world.regions[0].name,
+            "same seed should produce same region names"
+        );
+    }
+
+    #[test]
+    fn restore_deterministic_from_same_seed() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let compact = CompactSave {
+            seed: 77,
+            player_choices: vec![],
+            tick: 10,
+        };
+        let r1 = restore_from_compact(&compact, &charts).expect("restore 1");
+        let r2 = restore_from_compact(&compact, &charts).expect("restore 2");
+        assert_eq!(r1.sim.world.tick, r2.sim.world.tick);
+        assert_eq!(r1.sim.world.regions.len(), r2.sim.world.regions.len());
+        assert_eq!(r1.sim.world.regions[0].name, r2.sim.world.regions[0].name);
     }
 }
