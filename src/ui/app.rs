@@ -912,7 +912,9 @@ impl App {
         };
         let encounter_data = self.encounter.map(|e| e.kind);
         let pos_opt = self.player_pos;
-        let npc_people = self.current_settlement_people().unwrap_or(PeopleKind::Metsik);
+        let npc_people = self
+            .current_settlement_people()
+            .unwrap_or(PeopleKind::Metsik);
         let player_people = self.inter_people_bias.player_people;
         let pid = self.player_start.as_ref().map(|ps| ps.person.id.clone());
         if let Some(ref mut sim) = self.sim {

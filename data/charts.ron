@@ -4,6 +4,14 @@
 // Weights are STARTERS — tune against deep-world-history (see GENERATION.md §5).
 // Demographics note: river-corridor density; most people farm/labour; soldiers +
 // merchants are minorities. Numbers are relative weights (need not sum to 1).
+//
+// Citations (issue #53 lore-tune pass):
+// - people: deep-world-history/docs/peoples/the_peoples_who_stayed_deep_cultural_profiles.md
+//   + deep-world-history/docs/peoples/population_scale_and_settlement_hierarchy.md
+//   + deep-world-history/docs/peoples/race_naming_reconciliation.md
+// - profession: deep-world-history/docs/culture/professions_and_trades_catalogue.md
+// - craft: deep-world-history/docs/culture/craft_production_chains_from_raw_material_to_finished_good.md
+// - region/settlement: deep-world-history/docs/peoples/population_scale_and_settlement_hierarchy.md
 Charts(
     // ---- people (lore demographics: SAST ~15-20%, stayed ~70-80%, non-human ~5-10%) ----
     // Ref: deep-world-history docs on population_scale_and_settlement_hierarchy
@@ -33,6 +41,7 @@ Charts(
     }),
 
     // ---- region / settlement (river-corridor principle) ----
+    // Ref: population_scale_and_settlement_hierarchy.md — river valleys densest
     region: WeightedTable(entries: {
         "river_valley": 38, "coast": 22, "forest": 18, "upland": 12, "steppe": 6, "delta": 4,
     }),
@@ -51,9 +60,11 @@ Charts(
     ),
 
     // ---- social class ----
+    // Ref: social_class_mobility_and_stratification.md — low >90%, middling <10%, high <2%
     social_class: WeightedTable(entries: { "low": 70, "middling": 25, "high": 5 }),
 
     // ---- profession: broad base, then conditioned (the "not 99% soldiers" core) ----
+    // Ref: professions_and_trades_catalogue.md — farmers/labourers plurality, soldiers <5% globally
     profession: ConditionalTable(
         base: WeightedTable(entries: {
             "farmer": 100, "labourer": 70, "herder": 30, "fisher": 22, "forester": 18,
@@ -98,6 +109,7 @@ Charts(
     ),
 
     // ---- craft affinity (rare; "none" dominates) ----
+    // Ref: craft_production_chains — Arkit→word, Väylä→current, Laakso→still, Sepät/Ahjo→forge, Metsik→root
     craft_affinity: ConditionalTable(
         base: WeightedTable(entries: { "none": 100, "word": 2, "current": 2, "still": 2, "forge": 2, "root": 2 }),
         modifiers: [
