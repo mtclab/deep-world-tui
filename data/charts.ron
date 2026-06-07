@@ -19,25 +19,28 @@ Charts(
     // Stayed peoples: the majority common folk, per canon
     // Non-human: biome-dependent, rare in mixed settlements
     people: WeightedTable(entries: {
-        // SAST god-peoples (~16% total)
-        "metsik": 16, "ahjo": 22, "sepat": 10, "arkit": 6, "vayla": 8, "laakso": 6,
-        // Peoples who stayed (~76% total) — weight by canon lore on population/status
-        "varhaiset": 2,      // Extinct — only in old stories, not encountered
-        "metsareunat": 8,    // Keurish forest-edge, moderate
-        "porokansa": 6,      // Keurish tundra-reindeer, low
-        "koskimetsa": 4,     // Keurish river-rapids, endangered
-        "muistikansa": 6,    // Sampsaran memory-keepers, moderate
-        "taulukansa": 4,     // Sampsaran tablet-scribes, low
-        "kirjakansa": 5,     // Sampsaran book-people, moderate
-        "takovaki": 5,       // Oltkar surface-forge, moderate
-        "rantavaki": 7,      // Masaran shore-folk, moderate
-        "saarivaki": 9,      // Masaran island-traders, thriving
-        "hiekkakavelijat": 5, // Masaran sand-walkers, moderate
-        "haramaki": 3,       // Kukresh steep-valley, small
-        "jamavaki": 2,       // Kukresh hidden-valley, very small
-        "pohjavaki": 4,      // Kukresh deep-bottom, small
-        // Non-human peoples (~8% total) — biome-dependent, very rare in settlements
-        "tzakhar": 3, "merak": 3, "shear": 1, "hal": 2, "khor": 1,
+        // SAST god-peoples (~22% total)
+        // Ref: population_scale_and_settlement_hierarchy.md §III.2 — Väylä largest, others roughly equal
+        "vayla": 7, "ahjo": 6, "sepat": 5, "metsik": 5, "arkit": 5, "laakso": 4,
+        // Peoples who stayed (~31% total) — weight by canon population/status
+        // Ref: population_scale_and_settlement_hierarchy.md §III.3
+        "varhaiset": 1,      // Extinct — only in old stories; weight 1 for schema, filtered in code
+        "metsareunat": 6,    // Keurish forest-edge, moderate
+        "porokansa": 3,      // Keurish tundra-reindeer, low (~35K)
+        "koskimetsa": 2,     // Keurish river-rapids, endangered
+        "muistikansa": 4,    // Sampsaran memory-keepers, moderate
+        "taulukansa": 3,     // Sampsaran tablet-scribes, low
+        "kirjakansa": 3,     // Sampsaran book-people, moderate
+        "takovaki": 4,       // Oltkar surface-forge, moderate (~120K)
+        "rantavaki": 5,      // Masaran shore-folk, moderate (~180K)
+        "saarivaki": 3,      // Masaran island-traders, small (~55K)
+        "hiekkakavelijat": 3, // Masaran sand-walkers, moderate
+        "haramaki": 5,       // Kukresh steep-valley, large (~200K)
+        "jamavaki": 2,       // Kukresh hidden-valley, very small (~40K)
+        "pohjavaki": 2,      // Kukresh deep-bottom, small (~30K)
+        // Non-human peoples (~9% total) — biome-dependent, rare in settlements
+        // Ref: population_scale_and_settlement_hierarchy.md §V.2–V.6
+        "tzakhar": 2, "merak": 4, "shear": 1, "hal": 1, "khor": 5,
     }),
 
     // ---- region / settlement (river-corridor principle) ----
@@ -133,7 +136,6 @@ Charts(
             (when: People("hiekkakavelijat"), mult: { "current": 3.0 }),
             (when: People("haramaki"),   mult: { "still": 3.0, "forge": 2.0 }),
             (when: People("jamavaki"),   mult: { "still": 5.0 }),
-            (when: People("pohjavaki"),  mult: { "still": 4.0, "root": 2.0 }),
             (when: People("pohjavaki"),  mult: { "still": 4.0, "root": 2.0 }),
             // Non-human craft affinities
             (when: People("tzakhar"),  mult: { "still": 4.0, "forge": 3.0 }),
