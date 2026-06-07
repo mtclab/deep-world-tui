@@ -1,0 +1,73 @@
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::Path;
+
+const SETTINGS_FILE: &str = "data/settings.ron";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppSettings {
+    pub llm_enabled: bool,
+    pub llm_endpoint: String,
+    pub llm_model: String,
+    pub monochrome: bool,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        AppSettings {
+            llm_enabled: false,
+            llm_endpoint: "http://localhost:11434/v1".into(),
+            llm_model: "llama3".into(),
+            monochrome: false,
+        }
+    }
+}
+
+impl AppSettings {
+    pub fn load() -> Self {
+        if Path::new(SETTINGS_FILE).exists() {
+            if let Ok(data) = fs::read_to_string(SETTINGS_FILE) {
+                if let Ok(settings) = ron::from_str(&data) {
+                    return settings;
+                }
+            }
+        }
+        Self::default()
+    }
+
+    pub fn save(&self) {
+        if let Ok(data) = ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default()) {
+            let _ = fs::write(SETTINGS_FILE, data);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_settings() {
+        let s = AppSettings::default();
+        assert!(!s.llm_enabled);
+        assert!(!s.monochrome);
+        assert!(!s.llm_endpoint.is_empty());
+        assert!(!s.llm_model.is_empty());
+    }
+
+    #[test]
+    fn roundtrip_serde() {
+        let s = AppSettings {
+            llm_enabled: true,
+            llm_endpoint: "http://test:8080/v1".into(),
+            llm_model: "test-model".into(),
+            monochrome: true,
+        };
+        let data = ron::ser::to_string_pretty(&s, ron::ser::PrettyConfig::default()).unwrap();
+        let s2: AppSettings = ron::from_str(&data).unwrap();
+        assert_eq!(s.llm_enabled, s2.llm_enabled);
+        assert_eq!(s.llm_endpoint, s2.llm_endpoint);
+        assert_eq!(s.llm_model, s2.llm_model);
+        assert_eq!(s.monochrome, s2.monochrome);
+    }
+}

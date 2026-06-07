@@ -2631,7 +2631,10 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(format!("   Status: {}", llm_status)),
+        Line::from(format!("   Endpoint: {}", app.llm_endpoint)),
+        Line::from(format!("   Model: {}", app.llm_model)),
         Line::from("   [l] Toggle LLM narrator on/off"),
+        Line::from("   [e] Edit endpoint  [o] Edit model"),
         Line::from(""),
         Line::from(Span::styled(
             " Monochrome Mode",
@@ -2641,11 +2644,6 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
         )),
         Line::from(format!("   Status: {}", mono_status)),
         Line::from("   [m] Toggle monochrome mode"),
-        Line::from(""),
-        Line::from(Span::styled(
-            " (More settings coming in future versions)",
-            Style::default().fg(theme.dark_brown()),
-        )),
         Line::from(""),
         Line::from(" [Esc/Q/,]  Back to game"),
     ];

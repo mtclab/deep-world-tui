@@ -7,6 +7,20 @@ pub fn narrate(_person: &Person, _prompt: &str) -> Option<String> {
     None
 }
 
+pub fn narrate_with_fallback(
+    llm_enabled: bool,
+    person: &Person,
+    situation: Situation,
+    voice_text: &str,
+) -> String {
+    if llm_enabled {
+        let prompt = build_persona_prompt(person, situation);
+        narrate(person, &prompt).unwrap_or_else(|| voice_text.to_string())
+    } else {
+        voice_text.to_string()
+    }
+}
+
 pub fn build_persona_prompt(person: &Person, situation: Situation) -> String {
     let people_ctx = format!(
         "You are {}, a {} {} of {} class.",
@@ -149,5 +163,19 @@ mod tests {
         let prompt = build_persona_prompt(&person, Situation::Greeting);
         assert!(!prompt.is_empty());
         assert!(!prompt.contains("Your personality traits"));
+    }
+
+    #[test]
+    fn narrate_with_fallback_returns_voice_when_disabled() {
+        let person = test_person();
+        let result = narrate_with_fallback(false, &person, Situation::Greeting, "Hello, traveler.");
+        assert_eq!(result, "Hello, traveler.");
+    }
+
+    #[test]
+    fn narrate_with_fallback_returns_voice_when_enabled_but_narrate_is_stub() {
+        let person = test_person();
+        let result = narrate_with_fallback(true, &person, Situation::Greeting, "Fallback text.");
+        assert_eq!(result, "Fallback text.");
     }
 }
