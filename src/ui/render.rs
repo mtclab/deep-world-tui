@@ -2704,6 +2704,23 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
         Line::from(format!("   Current: {}  (en / fi)", app.language)),
         Line::from("   [g] Cycle language"),
         Line::from(""),
+        Line::from(Span::styled(
+            " Audio",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(format!(
+            "   Status: {}",
+            if app.audio_enabled {
+                "ON  (sound effects enabled)"
+            } else {
+                "OFF (silent)"
+            }
+        )),
+        Line::from(format!("   Volume: {:.0}%", app.audio_volume * 100.0)),
+        Line::from("   [a] Toggle audio   [+/-] Volume"),
+        Line::from(""),
         Line::from(" [Esc/Q/,]  Back to game"),
     ];
     let paragraph = Paragraph::new(text).block(
