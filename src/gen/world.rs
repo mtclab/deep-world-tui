@@ -138,41 +138,19 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
     let region_name = crate::gen::name::generate_name(&mut rng, "laakso", "f", charts)
         .unwrap_or_else(|_| format!("Region {}", index));
 
-    let descriptions: &[&str] = match region_type.as_str() {
-        "river_valley" => &[
-            "Fertile lowlands hugging a broad river",
-            "Rich alluvial plains with winding waterways",
-            "A well-watered corridor between hills",
-        ],
-        "coast" => &[
-            "A windswept coastline with rocky harbours",
-            "Sheltered bays and tidal flats",
-            "Salt-washed shores where fisher-folk dwell",
-        ],
-        "forest" => &[
-            "Dense old-growth forest with scattered clearings",
-            "Shadowed woods where ancient roots run deep",
-            "A vast woodland broken by narrow trails",
-        ],
-        "upland" => &[
-            "Rocky highlands with thin soil and hardy folk",
-            "Wind-swept ridges above the treeline",
-            "Crags and meadows alternating under grey skies",
-        ],
-        "steppe" => &[
-            "Grass ocean stretching to a pale horizon",
-            "Endless plains where herders follow the seasons",
-            "Open grassland with scattered watering holes",
-        ],
-        "delta" => &[
-            "Labyrinthine waterways and reed-bound islets",
-            "A shifting mosaic of silt and tide",
-            "Marshy lowlands where river meets sea",
-        ],
-        _ => &["An uncharted tract of land"],
-    };
-    let desc_idx = rng.gen_range(descriptions.len() as u32) as usize;
-    let description = descriptions[desc_idx].to_string();
+    let region_subtype = charts
+        .region_subtypes
+        .resolve_and_sample("", &region_type, "", "", &mut rng)
+        .unwrap_or_else(|| "generic".into());
+
+    let description = charts
+        .region_descriptions
+        .get(&region_type)
+        .and_then(|descs| {
+            let idx = rng.gen_range(descs.len() as u32) as usize;
+            descs.get(idx).cloned()
+        })
+        .unwrap_or_else(|| "An uncharted tract of land".into());
 
     let mut settlements = Vec::with_capacity(n_settlements);
     for si in 0..n_settlements {
@@ -188,6 +166,7 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
         id: region_id,
         name: region_name,
         region_type,
+        region_subtype,
         description,
         settlements,
         terrain,
@@ -370,8 +349,19 @@ fn generate_settlement(
     let population: u32 = pop_str.parse().unwrap_or(40).max(1);
 
     let settlement_id = format!("{}-set-{:04x}", region_id, index);
-    let name = crate::gen::name::generate_name(&mut rng, "arkit", "f", charts)
+    let base_name = crate::gen::name::generate_name(&mut rng, "arkit", "f", charts)
         .unwrap_or_else(|_| format!("Settlement {}", index));
+    let suffix = charts
+        .settlement_suffixes
+        .get(region_type)
+        .and_then(|suffixes| {
+            let idx = rng.gen_range(suffixes.len() as u32) as usize;
+            suffixes.get(idx).cloned()
+        });
+    let name = match suffix {
+        Some(s) => format!("{}{}", base_name, s),
+        None => base_name,
+    };
 
     let n_persons = population_per_settlement(population);
     let mut people = Vec::with_capacity(n_persons);

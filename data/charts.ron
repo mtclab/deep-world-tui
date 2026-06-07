@@ -215,4 +215,70 @@ Charts(
             (when: Region("upland"),       mult: { "20": 2.0, "40": 2.0, "500": 0.1, "800": 0.01 }),
         ],
     ),
+    // ---- region subtypes: conditional on region type ----
+    region_subtypes: ConditionalTable(
+        base: WeightedTable(entries: { "generic": 10 }),
+        modifiers: [
+            (when: Region("river_valley"), mult: { "flood_plain": 30, "gorge": 15, "estuary": 20, "broad_valley": 25, "rapids_valley": 10 }),
+            (when: Region("coast"),        mult: { "cliff_coast": 20, "bay": 25, "harbor_coast": 30, "tidal_flat": 15, "archipelago": 10 }),
+            (when: Region("forest"),       mult: { "deep_wood": 30, "pine_forest": 25, "swamp_forest": 15, "ancient_growth": 20, "cleared_woodland": 10 }),
+            (when: Region("upland"),       mult: { "highland": 30, "mountain": 20, "plateau": 25, "craggy_ridge": 15, "alpine_meadow": 10 }),
+            (when: Region("steppe"),       mult: { "grassland": 35, "scrubland": 25, "dry_plains": 20, "wind_swept_flat": 15, "steppe_lake": 5 }),
+            (when: Region("delta"),        mult: { "marsh": 30, "islands": 25, "reed_maze": 20, "tidal_delta": 15, "silt_flat": 10 }),
+        ],
+    ),
+    // ---- settlement name suffixes per region type ----
+    settlement_suffixes: {
+        "river_valley": ["ford", "bridge", "haven", "water", "brook", "mill", "landing", "ferry"],
+        "coast":        ["port", "bay", "haven", "shore", "anchor", "tide", "cove", "dock"],
+        "forest":       ["wood", "glade", "thicket", "grove", "hollow", "shade", "brush", "copse"],
+        "upland":       ["crag", "ridge", "peak", "mount", "stone", "watch", "height", "ledge"],
+        "steppe":       ["field", "plain", "horizon", "grass", "wind", "trail", "wander", "stead"],
+        "delta":        ["marsh", "reed", "isle", "mire", "bog", "fen", "wash", "flow"],
+    },
+    // ---- region description templates per region type ----
+    region_descriptions: {
+        "river_valley": [
+            "Fertile lowlands hugging a broad river",
+            "Rich alluvial plains with winding waterways",
+            "A well-watered corridor between hills",
+            "Muddy banks and verdant fields stretch along the river",
+            "Fish-houses line the slow bend of deep water",
+        ],
+        "coast": [
+            "A windswept coastline with rocky harbours",
+            "Sheltered bays and tidal flats",
+            "Salt-washed shores where fisher-folk dwell",
+            "White cliffs rise above a narrow strand of sand",
+            "Nets dry in the salt breeze along the boardwalk",
+        ],
+        "forest": [
+            "Dense old-growth forest with scattered clearings",
+            "Shadowed woods where ancient roots run deep",
+            "A vast woodland broken by narrow trails",
+            "Canopy so thick the sky is only memory",
+            "Moss and fern claim every fallen trunk",
+        ],
+        "upland": [
+            "Rocky highlands with thin soil and hardy folk",
+            "Wind-swept ridges above the treeline",
+            "Crags and meadows alternating under grey skies",
+            "Sheep paths wind between granite shoulders",
+            "Thin air and long shadows define the high places",
+        ],
+        "steppe": [
+            "Grass ocean stretching to a pale horizon",
+            "Endless plains where herders follow the seasons",
+            "Open grassland with scattered watering holes",
+            "Wind hums through tall grass, world without end",
+            "A solitary tree marks the only shade for a day's walk",
+        ],
+        "delta": [
+            "Labyrinthine waterways and reed-bound islets",
+            "A shifting mosaic of silt and tide",
+            "Marshy lowlands where river meets sea",
+            "Boats weave between silt islands under grey sky",
+            "Reed walls and drifting fog hide the channels",
+        ],
+    },
 )

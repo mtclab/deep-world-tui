@@ -213,6 +213,7 @@ mod tests {
                 id: "r1".into(),
                 name: "R".into(),
                 region_type: "river_valley".into(),
+                region_subtype: "flood_plain".into(),
                 description: String::new(),
                 terrain: crate::model::TerrainMap::default(),
                 neighbors: crate::model::RegionNeighbors::default(),

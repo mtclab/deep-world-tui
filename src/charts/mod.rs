@@ -128,6 +128,9 @@ pub struct Charts {
     pub region_count: WeightedTable,
     pub settlements_per_region: ConditionalTable,
     pub population_tier: ConditionalTable,
+    pub region_subtypes: ConditionalTable,
+    pub settlement_suffixes: HashMap<String, Vec<String>>,
+    pub region_descriptions: HashMap<String, Vec<String>>,
 }
 
 pub use load::load_charts;
