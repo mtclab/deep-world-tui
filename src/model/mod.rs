@@ -485,6 +485,126 @@ impl Season {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Weather {
+    Clear,
+    Cloudy,
+    Rain,
+    Storm,
+    Snow,
+    Fog,
+    Heatwave,
+}
+
+impl Weather {
+    pub fn generate(seed: u64, tick: u64, terrain: Terrain) -> Self {
+        let mut rng = crate::rng::SeedRng::new(seed.wrapping_add(tick));
+        let roll = rng.gen_range(1000);
+
+        // Regional bias
+        let (clear_w, cloudy_w, rain_w, storm_w, snow_w, fog_w, heat_w) = match terrain {
+            Terrain::Coast => (150, 250, 200, 100, 50, 200, 50),
+            Terrain::Mountain => (200, 200, 150, 150, 150, 100, 50),
+            Terrain::Forest => (150, 300, 250, 100, 50, 100, 50),
+            Terrain::Swamp => (100, 200, 250, 100, 50, 250, 50),
+            Terrain::DeepDesert | Terrain::Sand => (300, 200, 50, 50, 0, 50, 350),
+            Terrain::Tundra => (150, 200, 100, 100, 350, 50, 50),
+            _ => (200, 250, 200, 100, 100, 100, 50),
+        };
+
+        let total = clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w;
+        let roll = roll % total;
+
+        if roll < clear_w {
+            Weather::Clear
+        } else if roll < clear_w + cloudy_w {
+            Weather::Cloudy
+        } else if roll < clear_w + cloudy_w + rain_w {
+            Weather::Rain
+        } else if roll < clear_w + cloudy_w + rain_w + storm_w {
+            Weather::Storm
+        } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w {
+            Weather::Snow
+        } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w {
+            Weather::Fog
+        } else {
+            Weather::Heatwave
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Weather::Clear => "clear",
+            Weather::Cloudy => "cloudy",
+            Weather::Rain => "rain",
+            Weather::Storm => "storm",
+            Weather::Snow => "snow",
+            Weather::Fog => "fog",
+            Weather::Heatwave => "heatwave",
+        }
+    }
+
+    pub fn glyph(self) -> char {
+        match self {
+            Weather::Clear => '☀',
+            Weather::Cloudy => '☁',
+            Weather::Rain => '🌧',
+            Weather::Storm => '⛈',
+            Weather::Snow => '❄',
+            Weather::Fog => '🌫',
+            Weather::Heatwave => '🔥',
+        }
+    }
+
+    pub fn gather_modifier(self) -> f64 {
+        match self {
+            Weather::Clear => 1.0,
+            Weather::Cloudy => 0.95,
+            Weather::Rain => 0.8,
+            Weather::Storm => 0.5,
+            Weather::Snow => 0.6,
+            Weather::Fog => 0.85,
+            Weather::Heatwave => 0.7,
+        }
+    }
+
+    pub fn travel_speed_modifier(self) -> f64 {
+        match self {
+            Weather::Clear => 1.0,
+            Weather::Cloudy => 0.95,
+            Weather::Rain => 0.85,
+            Weather::Storm => 0.6,
+            Weather::Snow => 0.7,
+            Weather::Fog => 0.75,
+            Weather::Heatwave => 0.8,
+        }
+    }
+
+    pub fn need_decay_modifier(self) -> f64 {
+        match self {
+            Weather::Clear => 1.0,
+            Weather::Cloudy => 1.0,
+            Weather::Rain => 1.05,
+            Weather::Storm => 1.15,
+            Weather::Snow => 1.2,
+            Weather::Fog => 1.05,
+            Weather::Heatwave => 1.25,
+        }
+    }
+
+    pub fn npc_mood_modifier(self) -> f64 {
+        match self {
+            Weather::Clear => 0.02,
+            Weather::Cloudy => 0.0,
+            Weather::Rain => -0.02,
+            Weather::Storm => -0.05,
+            Weather::Snow => -0.03,
+            Weather::Fog => -0.01,
+            Weather::Heatwave => -0.04,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WitnessLevel {
     Seen,
     Unseen,
@@ -3928,5 +4048,84 @@ mod tests {
             assert!(outcome.npc_injury >= 0.0 && outcome.npc_injury <= 0.5);
             assert!(outcome.reputation_delta >= -0.1 && outcome.reputation_delta <= 0.1);
         }
+    }
+
+    #[test]
+    fn weather_deterministic() {
+        let w1 = Weather::generate(42, 100, Terrain::Forest);
+        let w2 = Weather::generate(42, 100, Terrain::Forest);
+        assert_eq!(w1, w2);
+    }
+
+    #[test]
+    fn weather_varies_by_tick() {
+        let w1 = Weather::generate(42, 100, Terrain::Forest);
+        let _w2 = Weather::generate(42, 200, Terrain::Forest);
+        // Different ticks should usually produce different weather
+        // (not guaranteed, but highly likely)
+        let mut different = false;
+        for tick in 0..20 {
+            if Weather::generate(42, tick, Terrain::Forest) != w1 {
+                different = true;
+                break;
+            }
+        }
+        assert!(different, "weather should vary by tick");
+    }
+
+    #[test]
+    fn weather_names_and_glyphs() {
+        assert_eq!(Weather::Clear.name(), "clear");
+        assert_eq!(Weather::Clear.glyph(), '☀');
+        assert_eq!(Weather::Rain.name(), "rain");
+        assert_eq!(Weather::Rain.glyph(), '🌧');
+    }
+
+    #[test]
+    fn weather_modifiers_in_range() {
+        let weathers = [
+            Weather::Clear,
+            Weather::Cloudy,
+            Weather::Rain,
+            Weather::Storm,
+            Weather::Snow,
+            Weather::Fog,
+            Weather::Heatwave,
+        ];
+        for w in weathers {
+            assert!(w.gather_modifier() > 0.0 && w.gather_modifier() <= 1.0);
+            assert!(w.travel_speed_modifier() > 0.0 && w.travel_speed_modifier() <= 1.0);
+            assert!(w.need_decay_modifier() >= 1.0 && w.need_decay_modifier() <= 1.5);
+            assert!(w.npc_mood_modifier() >= -0.1 && w.npc_mood_modifier() <= 0.1);
+        }
+    }
+
+    #[test]
+    fn weather_regional_bias() {
+        // Coast should have more fog
+        let mut fog_count = 0;
+        for tick in 0..100 {
+            if Weather::generate(42, tick, Terrain::Coast) == Weather::Fog {
+                fog_count += 1;
+            }
+        }
+        assert!(
+            fog_count > 10,
+            "coast should have significant fog: {}",
+            fog_count
+        );
+
+        // Desert should have more heatwave
+        let mut heat_count = 0;
+        for tick in 0..100 {
+            if Weather::generate(42, tick, Terrain::DeepDesert) == Weather::Heatwave {
+                heat_count += 1;
+            }
+        }
+        assert!(
+            heat_count > 20,
+            "desert should have significant heatwave: {}",
+            heat_count
+        );
     }
 }
