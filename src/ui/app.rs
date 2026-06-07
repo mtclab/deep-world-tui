@@ -77,6 +77,8 @@ pub struct App {
     pub god_affinity: GodAffinity,
     pub inter_people_bias: InterPeopleBias,
     pub llm_enabled: bool,
+    pub llm_endpoint: String,
+    pub llm_model: String,
     pub monochrome: bool,
     pub previous_screen: Option<Screen>,
     seed: u64,
@@ -86,6 +88,7 @@ pub struct App {
 
 impl App {
     pub fn new(seed: u64, charts: Charts) -> Self {
+        let settings = crate::ui::AppSettings::load();
         let player_rng = SeedRng::new(seed);
         App {
             sim: None,
@@ -101,13 +104,25 @@ impl App {
             collapse: None,
             god_affinity: GodAffinity::new(),
             inter_people_bias: InterPeopleBias::default(),
-            llm_enabled: false,
-            monochrome: false,
+            llm_enabled: settings.llm_enabled,
+            llm_endpoint: settings.llm_endpoint,
+            llm_model: settings.llm_model,
+            monochrome: settings.monochrome,
             previous_screen: None,
             seed,
             charts,
             player_rng: Some(player_rng),
         }
+    }
+
+    pub fn save_settings(&self) {
+        let settings = crate::ui::AppSettings {
+            llm_enabled: self.llm_enabled,
+            llm_endpoint: self.llm_endpoint.clone(),
+            llm_model: self.llm_model.clone(),
+            monochrome: self.monochrome,
+        };
+        settings.save();
     }
 
     pub fn generate_player(&mut self) {
@@ -1883,6 +1898,7 @@ impl App {
                         } else {
                             "LLM narrator disabled (using voice.rs templates)".into()
                         });
+                        self.save_settings();
                     }
                     crossterm::event::KeyCode::Char('m') => {
                         self.monochrome = !self.monochrome;
@@ -1891,6 +1907,31 @@ impl App {
                         } else {
                             "Full color mode on".into()
                         });
+                        self.save_settings();
+                    }
+                    crossterm::event::KeyCode::Char('e') => {
+                        let endpoints = [
+                            "http://localhost:11434/v1",
+                            "http://localhost:8080/v1",
+                            "https://api.openai.com/v1",
+                        ];
+                        let idx = endpoints
+                            .iter()
+                            .position(|e| *e == self.llm_endpoint)
+                            .unwrap_or(0);
+                        self.llm_endpoint = endpoints[(idx + 1) % endpoints.len()].to_string();
+                        self.status_msg = Some(format!("Endpoint: {}", self.llm_endpoint));
+                        self.save_settings();
+                    }
+                    crossterm::event::KeyCode::Char('o') => {
+                        let models = ["llama3", "mistral", "gemma2", "phi3", "qwen2"];
+                        let idx = models
+                            .iter()
+                            .position(|m| *m == self.llm_model)
+                            .unwrap_or(0);
+                        self.llm_model = models[(idx + 1) % models.len()].to_string();
+                        self.status_msg = Some(format!("Model: {}", self.llm_model));
+                        self.save_settings();
                     }
                     _ => {}
                 },
