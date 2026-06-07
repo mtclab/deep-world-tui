@@ -35,3 +35,6 @@ path = "src/bin/playtest.rs"
 [lib]
 name = "deep_world_tui"
 path = "src/lib.rs"
+
+[dev-dependencies]
+tempfile = "3"

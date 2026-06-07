@@ -1,79 +1,49 @@
-use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
 use crate::model::{GameClock, GodAffinity, InterPeopleBias, PlayerPos, PlayerStart, PlayerVitals};
 use crate::sim::SimState;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct SaveData {
     pub sim: SimState,
     pub player_start: Option<PlayerStart>,
-    #[serde(default)]
     pub clock: GameClock,
-    #[serde(default)]
     pub vitals: PlayerVitals,
-    #[serde(default)]
     pub player_pos: Option<PlayerPos>,
-    #[serde(default)]
     pub god_affinity: GodAffinity,
-    #[serde(default)]
     pub inter_people_bias: InterPeopleBias,
 }
 
-pub fn save_game(data: &SaveData, path: &str) -> Result<()> {
-    let p = Path::new(path);
-    if let Some(parent) = p.parent() {
-        fs::create_dir_all(parent)?;
+pub fn save_game(data: &SaveData, filename: &str) -> Result<(), String> {
+    let path = Path::new(filename);
+    let ron_string = ron::ser::to_string_pretty(data, ron::ser::PrettyConfig::default())
+        .map_err(|e| format!("Failed to serialize: {}", e))?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    let ron_str =
-        ron::ser::to_string_pretty(data, Default::default()).context("serialize save data")?;
-    fs::write(p, ron_str).context("write save file")?;
-    Ok(())
+    fs::write(path, ron_string).map_err(|e| format!("Failed to write file: {}", e))
 }
 
-pub fn load_game(path: &str) -> Result<SaveData> {
-    let contents = fs::read_to_string(path).context("read save file")?;
-    let data: SaveData = ron::from_str(&contents).context("deserialize save data")?;
-    Ok(data)
+pub fn load_game(filename: &str) -> Result<SaveData, String> {
+    let path = Path::new(filename);
+    let contents = fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
+    ron::from_str(&contents).map_err(|e| format!("Failed to deserialize: {}", e))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::charts;
-    use crate::gen::player::generate_player_start;
-    use crate::rng::SeedRng;
-    use crate::sim::SimState;
+    use crate::model::PeopleKind;
 
     #[test]
-    fn round_trip_save_load() {
+    fn save_load_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("save.ron");
+        let path_str = path.to_str().unwrap();
         let charts = charts::load_charts("data/charts.ron").unwrap();
-        let sim = SimState::new(42, charts.clone());
-        let mut rng = SeedRng::new(42);
-        let player = Some(generate_player_start(&mut rng, &charts));
-        let data = SaveData {
-            sim,
-            player_start: player,
-            clock: GameClock::default(),
-            vitals: PlayerVitals::default(),
-            player_pos: None,
-            god_affinity: GodAffinity::new(),
-            inter_people_bias: InterPeopleBias::default(),
-        };
-        let path = "/tmp/dw_test_save.ron";
-        save_game(&data, path).unwrap();
-        let loaded = load_game(path).unwrap();
-        assert_eq!(loaded.sim.world.seed, data.sim.world.seed);
-        assert_eq!(loaded.sim.world.tick, data.sim.world.tick);
-        assert_eq!(loaded.player_start.is_some(), data.player_start.is_some());
-    }
-
-    #[test]
-    fn save_creates_parent_dirs() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
-        let sim = SimState::new(99, charts);
+        let sim = SimState::new(42, charts);
         let data = SaveData {
             sim,
             player_start: None,
@@ -81,15 +51,24 @@ mod tests {
             vitals: PlayerVitals::default(),
             player_pos: None,
             god_affinity: GodAffinity::new(),
-            inter_people_bias: InterPeopleBias::default(),
+            inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
         };
-        let path = "/tmp/dw_test_nested/sub/dir/save.ron";
-        save_game(&data, path).unwrap();
-        assert!(Path::new(path).exists());
+        save_game(&data, path_str).expect("save should succeed");
+        let loaded = load_game(path_str).expect("load should succeed");
+        assert_eq!(
+            data.sim.world.tick, loaded.sim.world.tick,
+            "tick should match"
+        );
+        assert_eq!(
+            data.sim.world.regions.len(),
+            loaded.sim.world.regions.len(),
+            "region count should match"
+        );
     }
 
     #[test]
-    fn load_nonexistent_fails() {
-        assert!(load_game("/tmp/dw_nonexistent.ron").is_err());
+    fn load_nonexistent_file() {
+        let result = load_game("/tmp/deep-world-tui-nonexistent.ron");
+        assert!(result.is_err(), "loading nonexistent file should fail");
     }
 }

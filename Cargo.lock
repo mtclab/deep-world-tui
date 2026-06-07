@@ -286,6 +286,7 @@ dependencies = [
  "reqwest",
  "ron",
  "serde",
+ "tempfile",
 ]
 
 [[package]]
