@@ -9,11 +9,12 @@ fn main() -> anyhow::Result<()> {
         .nth(1)
         .and_then(|s| s.parse().ok())
         .unwrap_or(42);
-
     let charts = load_charts("data/charts.ron").expect("Failed to load data/charts.ron");
     let mut app = App::new(seed, charts);
     app.generate_player();
     app.accept_player();
+    app.running = true;
+    app.enter_map(0);
 
     println!("=== Deep World Playtest (seed={}) ===", seed);
     println!("Commands: status, move <dir>, map, gather, rest,");
@@ -180,6 +181,40 @@ fn main() -> anyhow::Result<()> {
                 app.advance_clock(1);
                 println!("  1 hour passed.");
             }
+            "god" => {
+                println!("  God Affinity:");
+                for g in [
+                    deep_world_tui::model::GodName::Metsik,
+                    deep_world_tui::model::GodName::Ahjo,
+                    deep_world_tui::model::GodName::Vayla,
+                ] {
+                    let v = app.god_affinity.get(g);
+                    if v.abs() > f64::EPSILON {
+                        println!("    {:?}: {:.3}", g, v);
+                    }
+                }
+                println!("  People Bias:");
+                let pp = app.inter_people_bias.player_people;
+                for p in [
+                    deep_world_tui::model::PeopleKind::Metsik,
+                    deep_world_tui::model::PeopleKind::Ahjo,
+                    deep_world_tui::model::PeopleKind::Sepat,
+                    deep_world_tui::model::PeopleKind::Arkit,
+                    deep_world_tui::model::PeopleKind::Vayla,
+                    deep_world_tui::model::PeopleKind::Laakso,
+                ] {
+                    let raw = pp.bias_toward(p);
+                    let eff = app.inter_people_bias.effective_bias(p);
+                    if raw.abs() > f64::EPSILON || eff.abs() > f64::EPSILON {
+                        println!("    {:?}: raw={:.3} eff={:.3}", p, raw, eff);
+                    }
+                }
+                let title = app.god_affinity.people_title(pp);
+                if !title.is_empty() {
+                    println!("  Known as: {}", title);
+                }
+                continue;
+            }
             cmd => {
                 println!("  Unknown: {}. Type 'help'.", cmd);
                 continue;
@@ -226,6 +261,7 @@ fn print_help() {
     println!("  use <svc>    - Use service (tavern/temple/forge/hearth/trap)");
     println!("  encounter <a> - Resolve encounter");
     println!("  collapse-dismiss - Dismiss collapse");
+    println!("  god          - Show god affinity and people bias");
     println!("  save/load    - Save/load game");
     println!("  quit         - Exit");
 }
