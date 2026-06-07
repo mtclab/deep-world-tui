@@ -2878,6 +2878,75 @@ impl QuestType {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Caravan {
+    pub id: String,
+    pub origin: String,
+    pub destination: String,
+    pub goods: Vec<(ItemType, u32)>,
+    pub departure_tick: u64,
+    pub arrival_tick: u64,
+    pub travel_cost: u32,
+}
+
+impl Caravan {
+    pub fn generate(seed: u64, origin: String, destination: String, departure_tick: u64) -> Self {
+        let mut rng = crate::rng::SeedRng::new(seed);
+        let num_goods = 1 + rng.gen_range(4) as usize;
+        let mut goods = Vec::new();
+        let tradeable = ItemType::tradeable_items();
+
+        for _ in 0..num_goods {
+            let item = tradeable[rng.gen_range(tradeable.len() as u32) as usize];
+            let quantity = 2 + rng.gen_range(6);
+            goods.push((item, quantity));
+        }
+
+        let base_travel_time = 24 + rng.gen_range(48); // 1-3 days
+        let arrival_tick = departure_tick + base_travel_time as u64;
+        let travel_cost = 3 + rng.gen_range(5);
+
+        Caravan {
+            id: format!("caravan-{:016x}", seed),
+            origin,
+            destination,
+            goods,
+            departure_tick,
+            arrival_tick,
+            travel_cost,
+        }
+    }
+
+    pub fn is_in_transit(&self, current_tick: u64) -> bool {
+        current_tick >= self.departure_tick && current_tick < self.arrival_tick
+    }
+
+    pub fn has_arrived(&self, current_tick: u64) -> bool {
+        current_tick >= self.arrival_tick
+    }
+
+    pub fn price_modifier(&self, item: ItemType, current_tick: u64) -> f64 {
+        if !self.is_in_transit(current_tick) && !self.has_arrived(current_tick) {
+            return 1.0;
+        }
+
+        let quantity: u32 = self
+            .goods
+            .iter()
+            .filter(|(i, _)| *i == item)
+            .map(|(_, q)| q)
+            .sum();
+
+        if quantity == 0 {
+            return 1.0;
+        }
+
+        // More goods = lower price (supply increase)
+        let modifier = 1.0 - (quantity as f64 * 0.05);
+        modifier.clamp(0.7, 1.3)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Disease {
     Fever,
@@ -4765,5 +4834,52 @@ mod tests {
         let swamp_prob = Disease::Fever.contraction_probability(Terrain::Swamp);
         let desert_prob = Disease::Fever.contraction_probability(Terrain::DeepDesert);
         assert!(swamp_prob > desert_prob);
+    }
+
+    #[test]
+    fn caravan_generation_creates_valid_goods() {
+        let caravan = Caravan::generate(42, "Origin".into(), "Destination".into(), 100);
+        assert_eq!(caravan.goods.len(), 1);
+        assert!(!caravan.goods.is_empty());
+        assert_eq!(caravan.origin, "Origin");
+        assert_eq!(caravan.destination, "Destination");
+    }
+
+    #[test]
+    fn caravan_generation_deterministic() {
+        let c1 = Caravan::generate(42, "A".into(), "B".into(), 100);
+        let c2 = Caravan::generate(42, "A".into(), "B".into(), 100);
+        assert_eq!(c1.goods.len(), c2.goods.len());
+        assert_eq!(c1.arrival_tick, c2.arrival_tick);
+        assert_eq!(c1.travel_cost, c2.travel_cost);
+    }
+
+    #[test]
+    fn caravan_transit_timing() {
+        let caravan = Caravan::generate(42, "A".into(), "B".into(), 100);
+        assert!(!caravan.is_in_transit(99));
+        assert!(caravan.is_in_transit(100));
+        assert!(caravan.is_in_transit(120));
+        assert!(!caravan.is_in_transit(caravan.arrival_tick));
+        assert!(caravan.has_arrived(caravan.arrival_tick));
+    }
+
+    #[test]
+    fn caravan_price_modifier() {
+        let mut caravan = Caravan::generate(42, "A".into(), "B".into(), 100);
+        let item = ItemType::Wood;
+        caravan.goods.clear();
+        caravan.goods.push((item, 10));
+
+        let no_caravan_mod = 1.0;
+        let transit_mod = caravan.price_modifier(item, 110);
+        assert!(transit_mod < no_caravan_mod);
+    }
+
+    #[test]
+    fn caravan_price_no_effect_for_missing_items() {
+        let caravan = Caravan::generate(42, "A".into(), "B".into(), 100);
+        let mod_no_effect = caravan.price_modifier(ItemType::Herb, 110);
+        assert!((0.9..=1.1).contains(&mod_no_effect));
     }
 }
