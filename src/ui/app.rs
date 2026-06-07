@@ -165,6 +165,32 @@ impl App {
                 );
             }
         }
+
+        // Create obligations for NPCs with dependents
+        if let Some(ref mut sim) = self.sim {
+            if let Some(pos) = self.player_pos {
+                if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                    if let Some(settlement) = region.settlements.get(settlement_idx) {
+                        for person in &settlement.people {
+                            if person.has_spouse || person.children_count > 0 {
+                                let obl = crate::sim::needs_dependent::Obligation {
+                                    caregiver_id: person.id.clone(),
+                                    dependent_id: person.id.clone(),
+                                    need: crate::model::Need::Care,
+                                    strength: if person.children_count > 0 {
+                                        0.15
+                                    } else {
+                                        0.10
+                                    },
+                                };
+                                sim.obligations.push(obl);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         let season = self.clock.season();
         if season.festival_chance() > 0 {
             let hash = self.seed.wrapping_mul(2654435761)
