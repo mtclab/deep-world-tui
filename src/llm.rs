@@ -61,6 +61,7 @@ pub fn build_persona_prompt(person: &Person, situation: Situation) -> String {
 mod tests {
     use super::*;
     use crate::model::Needs;
+    use crate::model::NpcSchedule;
 
     fn test_person() -> Person {
         Person {
@@ -80,6 +81,7 @@ mod tests {
             has_spouse: false,
             children_count: 0,
             has_debt: false,
+            schedule: NpcSchedule::default(),
         }
     }
 

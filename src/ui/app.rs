@@ -1257,6 +1257,26 @@ impl App {
     }
 
     pub fn use_service(&mut self, service: SettlementService) {
+        // Check if service provider is available at current hour
+        if let Some(ref sim) = self.sim {
+            if let Some(pos) = self.player_pos {
+                if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                    if let Some(settlement) = region.settlements.first() {
+                        if let Some(person) = settlement.people.first() {
+                            if !person.schedule.is_available_at_hour(self.clock.hour) {
+                                self.status_msg = Some(format!(
+                                    "The {} is closed. {} is {}.",
+                                    service.label(),
+                                    person.name,
+                                    person.schedule.activity_at_hour(self.clock.hour).name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if let Some(service_people) = service.people() {
             if self.inter_people_bias.player_people != service_people {
                 let bias = self

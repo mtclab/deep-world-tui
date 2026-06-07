@@ -1,6 +1,53 @@
 use crate::charts::Charts;
-use crate::model::{Needs, Person};
+use crate::model::{Needs, NpcActivity, NpcSchedule, Person};
 use crate::rng::SeedRng;
+
+pub fn generate_schedule(profession: &str) -> NpcSchedule {
+    let blocks = match profession.to_lowercase().as_str() {
+        "priest" | "acolyte" | "monk" => [
+            NpcActivity::Sleep,
+            NpcActivity::Worship,
+            NpcActivity::Work,
+            NpcActivity::Socialize,
+            NpcActivity::Worship,
+            NpcActivity::Sleep,
+        ],
+        "smith" | "blacksmith" | "weaponsmith" | "armorsmith" => [
+            NpcActivity::Sleep,
+            NpcActivity::Craft,
+            NpcActivity::Craft,
+            NpcActivity::Socialize,
+            NpcActivity::Idle,
+            NpcActivity::Sleep,
+        ],
+        "merchant" | "trader" | "shopkeeper" => [
+            NpcActivity::Sleep,
+            NpcActivity::Work,
+            NpcActivity::Work,
+            NpcActivity::Travel,
+            NpcActivity::Socialize,
+            NpcActivity::Sleep,
+        ],
+        "farmer" | "herder" | "shepherd" => [
+            NpcActivity::Sleep,
+            NpcActivity::Work,
+            NpcActivity::Work,
+            NpcActivity::Idle,
+            NpcActivity::Socialize,
+            NpcActivity::Sleep,
+        ],
+        "scholar" | "scribe" | "librarian" => [
+            NpcActivity::Sleep,
+            NpcActivity::Work,
+            NpcActivity::Work,
+            NpcActivity::Socialize,
+            NpcActivity::Work,
+            NpcActivity::Sleep,
+        ],
+        _ => NpcSchedule::default().blocks,
+    };
+    NpcSchedule { blocks }
+}
 
 pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
     let mut person_rng = rng.fork();
@@ -70,6 +117,8 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
     let name = crate::gen::name::generate_name(&mut person_rng, &people, &sex, charts)
         .unwrap_or_else(|_| "Unnamed".into());
 
+    let schedule = generate_schedule(&profession);
+
     Person {
         id: format!("person-{:016x}", sub_seed),
         name,
@@ -87,6 +136,7 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
         has_spouse,
         children_count,
         has_debt,
+        schedule,
     }
 }
 
@@ -161,6 +211,8 @@ pub fn generate_person_from(
     let name = crate::gen::name::generate_name(&mut person_rng, &people, &sex, charts)
         .unwrap_or_else(|_| "Unnamed".into());
 
+    let schedule = generate_schedule(&profession);
+
     Person {
         id: format!("person-{:016x}", sub_seed),
         name,
@@ -178,6 +230,7 @@ pub fn generate_person_from(
         has_spouse,
         children_count,
         has_debt,
+        schedule,
     }
 }
 

@@ -643,6 +643,8 @@ fn draw_location_screen(
             } else {
                 " ".to_string()
             };
+            let current_activity = person.schedule.activity_at_hour(app.clock.hour);
+            let activity_text = format!(" — {} ({})", person.profession, current_activity.name());
             lines.push(Line::from(vec![
                 Span::styled(
                     format!("  [{}]", key),
@@ -651,10 +653,7 @@ fn draw_location_screen(
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
-                    format!(
-                        " {} — {} ({})",
-                        person.name, person.profession, person.people
-                    ),
+                    format!(" {}{}", person.name, activity_text),
                     Style::default().fg(theme.ink()),
                 ),
             ]));

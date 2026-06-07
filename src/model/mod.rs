@@ -2387,6 +2387,66 @@ impl CraftAffinity {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum NpcActivity {
+    Sleep,
+    Work,
+    Socialize,
+    Travel,
+    Worship,
+    Craft,
+    Idle,
+}
+
+impl NpcActivity {
+    pub fn name(self) -> &'static str {
+        match self {
+            NpcActivity::Sleep => "sleeping",
+            NpcActivity::Work => "working",
+            NpcActivity::Socialize => "socializing",
+            NpcActivity::Travel => "traveling",
+            NpcActivity::Worship => "worshipping",
+            NpcActivity::Craft => "crafting",
+            NpcActivity::Idle => "idle",
+        }
+    }
+
+    pub fn is_available(self) -> bool {
+        !matches!(self, NpcActivity::Sleep | NpcActivity::Travel)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NpcSchedule {
+    pub blocks: [NpcActivity; 6],
+}
+
+impl Default for NpcSchedule {
+    fn default() -> Self {
+        NpcSchedule {
+            blocks: [
+                NpcActivity::Sleep,
+                NpcActivity::Work,
+                NpcActivity::Work,
+                NpcActivity::Socialize,
+                NpcActivity::Idle,
+                NpcActivity::Sleep,
+            ],
+        }
+    }
+}
+
+impl NpcSchedule {
+    pub fn activity_at_hour(&self, hour: u32) -> NpcActivity {
+        let block_idx = (hour / 4) as usize;
+        self.blocks[block_idx.min(5)]
+    }
+
+    pub fn is_available_at_hour(&self, hour: u32) -> bool {
+        self.activity_at_hour(hour).is_available()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct Person {
     pub id: String,
@@ -2405,6 +2465,8 @@ pub struct Person {
     pub has_spouse: bool,
     pub children_count: u32,
     pub has_debt: bool,
+    #[serde(default)]
+    pub schedule: NpcSchedule,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -2544,6 +2606,7 @@ mod tests {
             has_spouse: true,
             children_count: 2,
             has_debt: false,
+            schedule: NpcSchedule::default(),
         };
         roundtrip(&person);
     }
@@ -3612,5 +3675,39 @@ mod tests {
             mem.add(EncounterAction::Talk, i * 10, "TestSettlement".into(), 0.01);
         }
         assert_eq!(mem.count(), 10);
+    }
+
+    #[test]
+    fn npc_schedule_default_blocks() {
+        let schedule = NpcSchedule::default();
+        assert_eq!(schedule.blocks.len(), 6);
+        assert_eq!(schedule.activity_at_hour(0), NpcActivity::Sleep);
+        assert_eq!(schedule.activity_at_hour(4), NpcActivity::Work);
+        assert_eq!(schedule.activity_at_hour(8), NpcActivity::Work);
+        assert_eq!(schedule.activity_at_hour(12), NpcActivity::Socialize);
+        assert_eq!(schedule.activity_at_hour(16), NpcActivity::Idle);
+        assert_eq!(schedule.activity_at_hour(20), NpcActivity::Sleep);
+    }
+
+    #[test]
+    fn npc_schedule_availability() {
+        let schedule = NpcSchedule::default();
+        assert!(!schedule.is_available_at_hour(0)); // Sleep
+        assert!(schedule.is_available_at_hour(4)); // Work
+        assert!(schedule.is_available_at_hour(8)); // Work
+        assert!(schedule.is_available_at_hour(12)); // Socialize
+        assert!(schedule.is_available_at_hour(16)); // Idle
+        assert!(!schedule.is_available_at_hour(20)); // Sleep
+    }
+
+    #[test]
+    fn npc_activity_availability() {
+        assert!(!NpcActivity::Sleep.is_available());
+        assert!(NpcActivity::Work.is_available());
+        assert!(NpcActivity::Socialize.is_available());
+        assert!(!NpcActivity::Travel.is_available());
+        assert!(NpcActivity::Worship.is_available());
+        assert!(NpcActivity::Craft.is_available());
+        assert!(NpcActivity::Idle.is_available());
     }
 }

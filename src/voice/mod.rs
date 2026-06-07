@@ -372,6 +372,7 @@ pub fn voice_line_situation_biased(
 mod tests {
     use super::*;
     use crate::model::Needs;
+    use crate::model::NpcSchedule;
 
     fn test_person() -> Person {
         Person {
@@ -391,6 +392,7 @@ mod tests {
             needs: Needs::default(),
             has_debt: false,
             bias: "0.0".into(),
+            schedule: NpcSchedule::default(),
         }
     }
 
