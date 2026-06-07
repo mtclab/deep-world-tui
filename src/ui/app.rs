@@ -1,9 +1,10 @@
 use crate::charts::Charts;
 use crate::gen::player::generate_player_start;
 use crate::model::{
-    craft_recipes, Collapse, Encounter, EncounterAction, FestivalKind, GameClock, GodAffinity,
-    GodName, InterPeopleBias, Inventory, ItemType, Need, PeopleKind, PlayerPos, PlayerStart,
-    PlayerVitals, Settlement, SettlementService, TensionEvent, Terrain, WitnessLevel,
+    craft_recipes, Collapse, Encounter, EncounterAction, EncounterLog, EncounterLogEntry,
+    FestivalKind, GameClock, GodAffinity, GodName, InterPeopleBias, Inventory, ItemType, Need,
+    PeopleKind, PlayerPos, PlayerStart, PlayerVitals, Settlement, SettlementService, TensionEvent,
+    Terrain, WitnessLevel,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -60,6 +61,9 @@ pub enum Screen {
     GameOver,
     Help,
     Settings,
+    EncounterLog {
+        scroll: u16,
+    },
 }
 
 pub struct App {
@@ -73,6 +77,7 @@ pub struct App {
     pub clock: GameClock,
     pub vitals: PlayerVitals,
     pub encounter: Option<Encounter>,
+    pub encounter_log: EncounterLog,
     pub collapse: Option<Collapse>,
     pub god_affinity: GodAffinity,
     pub inter_people_bias: InterPeopleBias,
@@ -118,6 +123,7 @@ impl App {
             audio_volume: settings.audio_volume,
             previous_screen: None,
             encounters_had: 0,
+            encounter_log: EncounterLog::new(),
             collapses_had: 0,
             seed,
             charts,
@@ -735,6 +741,15 @@ impl App {
         self.screen = Screen::Map { region_idx, px, py };
     }
 
+    pub fn open_encounter_log(&mut self) {
+        self.previous_screen = Some(self.screen.clone());
+        self.screen = Screen::EncounterLog { scroll: 0 };
+    }
+
+    pub fn exit_encounter_log(&mut self) {
+        self.screen = self.previous_screen.clone().unwrap_or(Screen::World);
+    }
+
     pub fn craft_recipe(&mut self, recipe_idx: usize) {
         let player_people = self.inter_people_bias.player_people;
         let bias_bonus = self.current_settlement_people().map_or(0u32, |npc_people| {
@@ -1164,6 +1179,16 @@ impl App {
                     }
                 }
             }
+        }
+        if let Some(kind) = encounter_data {
+            self.encounter_log.push(EncounterLogEntry {
+                day: self.clock.day,
+                hour: self.clock.hour,
+                kind,
+                terrain,
+                action,
+                hostile: kind.is_hostile(),
+            });
         }
         self.encounter = None;
         let msg_with_witness = match witness {
@@ -1828,6 +1853,9 @@ impl App {
                     crossterm::event::KeyCode::Char('c') => {
                         self.enter_craft();
                     }
+                    crossterm::event::KeyCode::Char('H') => {
+                        self.open_encounter_log();
+                    }
                     crossterm::event::KeyCode::Char('?') => {
                         self.previous_screen = Some(self.screen.clone());
                         self.screen = Screen::Help;
@@ -1997,6 +2025,21 @@ impl App {
                 Screen::Journal { ref mut scroll } => match key.code {
                     crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
                         self.exit_journal();
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        *scroll = scroll.saturating_add(1);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        *scroll = scroll.saturating_sub(1);
+                    }
+                    _ => {}
+                },
+                Screen::EncounterLog { ref mut scroll } => match key.code {
+                    crossterm::event::KeyCode::Char('q')
+                    | crossterm::event::KeyCode::Esc
+                    | crossterm::event::KeyCode::Char('H')
+                    | crossterm::event::KeyCode::Left => {
+                        self.exit_encounter_log();
                     }
                     crossterm::event::KeyCode::Down => {
                         *scroll = scroll.saturating_add(1);
