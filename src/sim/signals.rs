@@ -227,6 +227,36 @@ pub fn hash_str(s: &str) -> u32 {
     (h as u32) ^ ((h >> 32) as u32)
 }
 
+const BOND_DESCRIPTORS: &[(&str, &[&str])] = &[
+    ("stranger", &["They keep their distance."]),
+    ("acquaintance", &["They remember your name."]),
+    ("friend", &["A nod of recognition."]),
+    ("kin", &["A familiar face."]),
+    ("bonded", &["Old friends."]),
+];
+
+fn bond_band_index(strength: f64) -> usize {
+    let s = strength.clamp(0.0, 1.0);
+    if s < 0.20 {
+        0
+    } else if s < 0.40 {
+        1
+    } else if s < 0.60 {
+        2
+    } else if s < 0.80 {
+        3
+    } else {
+        4
+    }
+}
+
+pub fn bond_descriptor(strength: f64, person_id: &str) -> &'static str {
+    let band_idx = bond_band_index(strength);
+    let h = hash_str(person_id);
+    let (_, lines) = BOND_DESCRIPTORS[band_idx];
+    lines[h as usize % lines.len()]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -459,6 +489,65 @@ mod tests {
                     "%",
                 ] {
                     assert!(!s.contains(leak), "body language leaked '{leak}': {s}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bond_descriptor_boundaries() {
+        let ids = ["npc-1", "npc-2", "npc-3"];
+        assert_eq!(bond_descriptor(0.0, ids[0]), "They keep their distance.");
+        assert_eq!(bond_descriptor(0.199, ids[1]), "They keep their distance.");
+        assert_eq!(bond_descriptor(0.20, ids[2]), "They remember your name.");
+        assert_eq!(bond_descriptor(0.399, ids[0]), "They remember your name.");
+        assert_eq!(bond_descriptor(0.40, ids[1]), "A nod of recognition.");
+        assert_eq!(bond_descriptor(0.599, ids[2]), "A nod of recognition.");
+        assert_eq!(bond_descriptor(0.60, ids[0]), "A familiar face.");
+        assert_eq!(bond_descriptor(0.799, ids[1]), "A familiar face.");
+        assert_eq!(bond_descriptor(0.80, ids[2]), "Old friends.");
+        assert_eq!(bond_descriptor(1.0, ids[0]), "Old friends.");
+    }
+
+    #[test]
+    fn bond_descriptor_deterministic_per_id() {
+        let id = "stable-id-42";
+        let a = bond_descriptor(0.55, id);
+        let b = bond_descriptor(0.55, id);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn bond_descriptor_clamped_outside_range() {
+        let id = "clamp-test";
+        assert_eq!(bond_descriptor(-0.5, id), "They keep their distance.");
+        assert_eq!(bond_descriptor(2.0, id), "Old friends.");
+    }
+
+    #[test]
+    fn bond_descriptor_never_prints_numeric_tokens() {
+        let ids = [
+            "npc-1", "npc-2", "npc-3", "npc-4", "npc-5", "npc-6", "npc-7", "npc-8", "npc-9",
+            "npc-10",
+        ];
+        for s in 0..=10 {
+            let strength = s as f64 / 10.0;
+            for id in &ids {
+                let line = bond_descriptor(strength, id);
+                for leak in [
+                    "bond=",
+                    "Bond",
+                    "%",
+                    "0.",
+                    "1.",
+                    "strength",
+                    "trust",
+                    "relationship",
+                ] {
+                    assert!(
+                        !line.contains(leak),
+                        "bond descriptor leaked '{leak}' at strength {strength} (id={id}): {line}"
+                    );
                 }
             }
         }

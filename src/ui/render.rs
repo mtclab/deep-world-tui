@@ -8,7 +8,6 @@ use ratatui::{
 };
 
 use crate::model::{craft_recipes, ItemType, Need, Season, Terrain};
-use crate::sim::relationships::BondCategory;
 use crate::ui::app::{App, Screen};
 use crate::ui::theme::Theme;
 use crate::voice::Situation;
@@ -870,20 +869,13 @@ fn draw_npc_screen(
             if let Some(ref ps) = app.player_start {
                 let bond = sim.relationships.get(&ps.person.id, &p.id);
                 let (bond_str, bond_color) = if let Some(rel) = bond {
-                    let cat = crate::sim::relationships::BondCategory::from_strength(rel.strength);
-                    let label = match cat {
-                        crate::sim::relationships::BondCategory::Bonded => "bonded",
-                        crate::sim::relationships::BondCategory::Kin => "kin",
-                        crate::sim::relationships::BondCategory::Friend => "friend",
-                        crate::sim::relationships::BondCategory::Acquaintance => "acquaintance",
-                        crate::sim::relationships::BondCategory::Stranger => "stranger",
-                    };
-                    (
-                        format!("   Bond     {:.0}% {}", rel.strength * 100.0, label),
-                        theme.need_color(rel.strength),
-                    )
+                    let descriptor = crate::sim::signals::bond_descriptor(rel.strength, &p.id);
+                    (descriptor.to_string(), theme.need_color(rel.strength))
                 } else {
-                    ("   Bond     stranger".into(), theme.dark_brown())
+                    (
+                        crate::sim::signals::bond_descriptor(0.0, &p.id).to_string(),
+                        theme.dark_brown(),
+                    )
                 };
                 lines.push(Line::from(Span::styled(
                     " Relationship",
@@ -940,16 +932,10 @@ fn draw_npc_screen(
                         &rel.from_id
                     };
                     let dir = if rel.from_id == p.id { "→" } else { "←" };
-                    let bond = BondCategory::from_strength(rel.strength);
+                    let descriptor = crate::sim::signals::bond_descriptor(rel.strength, other);
+                    let regard = crate::sim::signals::bond_descriptor(rel.trust, other);
                     lines.push(Line::from(Span::styled(
-                        format!(
-                            "   {} {} {:?} str={:.0}% trust={:.0}%",
-                            dir,
-                            other,
-                            bond,
-                            rel.strength * 100.0,
-                            rel.trust * 100.0
-                        ),
+                        format!("   {} {} — {}. {}", dir, other, descriptor, regard),
                         Style::default().fg(theme.dark_brown()),
                     )));
                 }

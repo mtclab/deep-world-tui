@@ -6,6 +6,13 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
+### Phase 2 — Indirect bond signals (#137)
+
+- **#137** NPC bond % no longer leaks to the player. The `Bond XX% <label>` line in the NPC screen is replaced with a deterministic flavor descriptor (`"They keep their distance."` / `"They remember your name."` / `"A nod of recognition."` / `"A familiar face."` / `"Old friends."`) keyed off the bond float and a FNV-1a hash of the person id for stable per-NPC selection. The inter-NPC relationship lines (`→/← other — bond. regard.`) no longer print strength or trust percentages.
+  - `sim::signals::bond_descriptor(strength, person_id) -> &'static str` added; `bond_band_index` (5 bands: 0.20 / 0.40 / 0.60 / 0.80) lives in the same module.
+  - 4 new unit tests assert the 5 boundaries, deterministic per id, clamp outside `[0.0, 1.0]`, and a leak-guard that the descriptor never contains `bond=`, `Bond`, `%`, `0.`, `1.`, `strength`, `trust`, or `relationship` tokens across the full range.
+  - 387 tests pass (383 → 387).
+
 ### Phase 2 — Indirect reputation signals (#135)
 
 - **#135** Player deduces reputation from world's reactions; game never prints a number, label, or bar.
