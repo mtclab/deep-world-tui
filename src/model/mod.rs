@@ -13,6 +13,10 @@ pub enum Terrain {
     Farmland,
     Sand,
     Swamp,
+    Coast,
+    Cave,
+    Tundra,
+    DeepDesert,
 }
 
 impl Terrain {
@@ -27,6 +31,10 @@ impl Terrain {
             Terrain::Farmland => '▒',
             Terrain::Sand => '·',
             Terrain::Swamp => '~',
+            Terrain::Coast => '≋',
+            Terrain::Cave => '◉',
+            Terrain::Tundra => '▒',
+            Terrain::DeepDesert => '░',
         }
     }
 
@@ -37,8 +45,9 @@ impl Terrain {
     pub fn travel_hours(self) -> u32 {
         match self {
             Terrain::Road | Terrain::Settlement => 1,
-            Terrain::Grass | Terrain::Farmland | Terrain::Sand => 2,
-            Terrain::Forest | Terrain::Swamp => 3,
+            Terrain::Grass | Terrain::Farmland | Terrain::Sand | Terrain::Coast => 2,
+            Terrain::Forest | Terrain::Swamp | Terrain::Cave | Terrain::Tundra => 3,
+            Terrain::DeepDesert => 4,
             Terrain::Water | Terrain::Mountain => 2,
         }
     }
@@ -48,17 +57,25 @@ impl Terrain {
             (PeopleKind::Metsik, Terrain::Forest) => 1,
             (PeopleKind::Sepat, Terrain::Mountain) => 1,
             (PeopleKind::Ahjo, Terrain::Grass | Terrain::Farmland) => 1,
+            (PeopleKind::Hal, Terrain::Forest) => 1,
+            (PeopleKind::Tzakhar, Terrain::Cave) => 1,
+            (PeopleKind::Merak, Terrain::Coast) => 1,
+            (PeopleKind::Khor, Terrain::Tundra) => 1,
             _ => 0,
         }
     }
 
     pub fn patron_god(self) -> Option<GodName> {
         match self {
-            Terrain::Forest => Some(GodName::Metsik),
-            Terrain::Grass | Terrain::Farmland | Terrain::Settlement => Some(GodName::Ahjo),
-            Terrain::Mountain => Some(GodName::Ahjo),
-            Terrain::Road | Terrain::Water => Some(GodName::Vayla),
-            _ => None,
+            Terrain::Forest => Some(GodName::Keuru),
+            Terrain::Grass | Terrain::Farmland | Terrain::Settlement => Some(GodName::Oltzed),
+            Terrain::Mountain => Some(GodName::Oltzed),
+            Terrain::Road | Terrain::Water => Some(GodName::Masa),
+            Terrain::Swamp => Some(GodName::Kukri),
+            Terrain::Coast => Some(GodName::Masa),
+            Terrain::Cave => Some(GodName::Kukri),
+            Terrain::Tundra => Some(GodName::Kukri),
+            Terrain::Sand | Terrain::DeepDesert => None,
         }
     }
 }
@@ -146,10 +163,17 @@ impl ItemType {
 
     pub fn gather_from(terrain: Terrain) -> Option<ItemType> {
         match terrain {
-            Terrain::Grass | Terrain::Farmland => Some(ItemType::Herb),
+            Terrain::Grass | Terrain::Farmland | Terrain::Tundra => Some(ItemType::Herb),
             Terrain::Forest => Some(ItemType::Wood),
             Terrain::Settlement => Some(ItemType::Coin),
-            _ => None,
+            Terrain::Coast => Some(ItemType::Food),
+            Terrain::Sand
+            | Terrain::DeepDesert
+            | Terrain::Cave
+            | Terrain::Swamp
+            | Terrain::Water
+            | Terrain::Mountain
+            | Terrain::Road => None,
         }
     }
 }
@@ -468,6 +492,11 @@ impl TensionEvent {
             PeopleKind::Vayla,
             PeopleKind::Arkit,
             PeopleKind::Laakso,
+            PeopleKind::Tzakhar,
+            PeopleKind::Merak,
+            PeopleKind::Shear,
+            PeopleKind::Hal,
+            PeopleKind::Khor,
         ];
         let a = all[(hash / 7) as usize % all.len()];
         let b = all[(hash / 13) as usize % all.len()];
@@ -515,6 +544,11 @@ impl FestivalKind {
             PeopleKind::Vayla => FestivalKind::RiverGathering,
             PeopleKind::Arkit => FestivalKind::AncestorVigil,
             PeopleKind::Laakso => FestivalKind::MidsummerBonfire,
+            PeopleKind::Tzakhar => FestivalKind::AncestorVigil,
+            PeopleKind::Merak => FestivalKind::RiverGathering,
+            PeopleKind::Shear => FestivalKind::MidsummerBonfire,
+            PeopleKind::Hal => FestivalKind::ForestRite,
+            PeopleKind::Khor => FestivalKind::AncestorVigil,
         }
     }
 
@@ -531,12 +565,12 @@ impl FestivalKind {
 
     pub fn patron_god(self) -> GodName {
         match self {
-            FestivalKind::HarvestFeast => GodName::Ahjo,
-            FestivalKind::ForgeDay => GodName::Ahjo,
-            FestivalKind::ForestRite => GodName::Metsik,
-            FestivalKind::RiverGathering => GodName::Vayla,
-            FestivalKind::MidsummerBonfire => GodName::Ahjo,
-            FestivalKind::AncestorVigil => GodName::Vayla,
+            FestivalKind::HarvestFeast => GodName::Oltzed,
+            FestivalKind::ForgeDay => GodName::Oltzed,
+            FestivalKind::ForestRite => GodName::Keuru,
+            FestivalKind::RiverGathering => GodName::Masa,
+            FestivalKind::MidsummerBonfire => GodName::Keuru,
+            FestivalKind::AncestorVigil => GodName::Kukri,
         }
     }
 }
@@ -662,42 +696,69 @@ impl PlayerVitals {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum GodName {
-    Metsik,
-    Ahjo,
-    Vayla,
+    Oltzed,
+    Keuru,
+    Sampsa,
+    Masa,
+    Kukri,
 }
 
 impl GodName {
     pub fn label(self) -> &'static str {
         match self {
-            GodName::Metsik => "Metsik",
-            GodName::Ahjo => "Ahjo",
-            GodName::Vayla => "Väylä",
+            GodName::Oltzed => "Oltzed",
+            GodName::Keuru => "Keuru",
+            GodName::Sampsa => "Sampsa",
+            GodName::Masa => "Masa",
+            GodName::Kukri => "Kukri",
         }
     }
 
     pub fn domains(self) -> &'static str {
         match self {
-            GodName::Metsik => "forests, beasts, wild places",
-            GodName::Ahjo => "hearth, craft, settlement",
-            GodName::Vayla => "rivers, paths, travelers",
+            GodName::Oltzed => "labor, invention, engineering",
+            GodName::Keuru => "forests, hospitality, celebration",
+            GodName::Sampsa => "knowledge, memory, archives",
+            GodName::Masa => "trade, perseverance, common people",
+            GodName::Kukri => "solitude, old wisdom, nostalgia",
         }
     }
 
     pub fn glyph(self) -> char {
         match self {
-            GodName::Metsik => '🌲',
-            GodName::Ahjo => '🔥',
-            GodName::Vayla => '🌊',
+            GodName::Oltzed => '⚒',
+            GodName::Keuru => '🌲',
+            GodName::Sampsa => '📖',
+            GodName::Masa => '⚖',
+            GodName::Kukri => '🕯',
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct GodAffinity {
-    pub metsik: f64,
-    pub ahjo: f64,
-    pub vayla: f64,
+    #[serde(default)]
+    pub oltzed: f64,
+    #[serde(default)]
+    pub keuru: f64,
+    #[serde(default)]
+    pub sampsa: f64,
+    #[serde(default)]
+    pub masa: f64,
+    #[serde(default)]
+    pub kukri: f64,
+}
+
+impl Default for GodAffinity {
+    fn default() -> Self {
+        GodAffinity {
+            oltzed: 0.0,
+            keuru: 0.0,
+            sampsa: 0.0,
+            masa: 0.0,
+            kukri: 0.0,
+        }
+    }
 }
 
 impl GodAffinity {
@@ -707,26 +768,32 @@ impl GodAffinity {
 
     pub fn get(&self, god: GodName) -> f64 {
         match god {
-            GodName::Metsik => self.metsik,
-            GodName::Ahjo => self.ahjo,
-            GodName::Vayla => self.vayla,
+            GodName::Oltzed => self.oltzed,
+            GodName::Keuru => self.keuru,
+            GodName::Sampsa => self.sampsa,
+            GodName::Masa => self.masa,
+            GodName::Kukri => self.kukri,
         }
     }
 
     pub fn adjust(&mut self, god: GodName, delta: f64) {
         let val = match god {
-            GodName::Metsik => &mut self.metsik,
-            GodName::Ahjo => &mut self.ahjo,
-            GodName::Vayla => &mut self.vayla,
+            GodName::Oltzed => &mut self.oltzed,
+            GodName::Keuru => &mut self.keuru,
+            GodName::Sampsa => &mut self.sampsa,
+            GodName::Masa => &mut self.masa,
+            GodName::Kukri => &mut self.kukri,
         };
         *val = (*val + delta).clamp(-1.0, 1.0);
     }
 
     pub fn strongest_ally(&self) -> Option<GodName> {
         let gods = [
-            (GodName::Metsik, self.metsik),
-            (GodName::Ahjo, self.ahjo),
-            (GodName::Vayla, self.vayla),
+            (GodName::Oltzed, self.oltzed),
+            (GodName::Keuru, self.keuru),
+            (GodName::Sampsa, self.sampsa),
+            (GodName::Masa, self.masa),
+            (GodName::Kukri, self.kukri),
         ];
         let best = gods
             .iter()
@@ -737,9 +804,11 @@ impl GodAffinity {
 
     pub fn strongest_grudge(&self) -> Option<GodName> {
         let gods = [
-            (GodName::Metsik, self.metsik),
-            (GodName::Ahjo, self.ahjo),
-            (GodName::Vayla, self.vayla),
+            (GodName::Oltzed, self.oltzed),
+            (GodName::Keuru, self.keuru),
+            (GodName::Sampsa, self.sampsa),
+            (GodName::Masa, self.masa),
+            (GodName::Kukri, self.kukri),
         ];
         let worst = gods
             .iter()
@@ -749,7 +818,7 @@ impl GodAffinity {
     }
 
     pub fn people_title(self, people: PeopleKind) -> &'static str {
-        let affinity = self.get(people.patron_god().unwrap_or(GodName::Ahjo));
+        let affinity = self.get(people.patron_god().unwrap_or(GodName::Oltzed));
         if affinity > 0.6 {
             match people {
                 PeopleKind::Metsik => "Friend of the Forest",
@@ -758,6 +827,11 @@ impl GodAffinity {
                 PeopleKind::Vayla => "River-Walker",
                 PeopleKind::Arkit => "Archive-Shadow",
                 PeopleKind::Laakso => "Deep-Patient",
+                PeopleKind::Tzakhar => "Cave-Dweller",
+                PeopleKind::Merak => "Wave-Rider",
+                PeopleKind::Shear => "Sand-Walker",
+                PeopleKind::Hal => "Canopy-Friend",
+                PeopleKind::Khor => "Frost-Enduring",
             }
         } else if affinity > 0.3 {
             match people {
@@ -767,6 +841,11 @@ impl GodAffinity {
                 PeopleKind::Vayla => "Trade-Known",
                 PeopleKind::Arkit => "Page-Turner",
                 PeopleKind::Laakso => "Steady-Presence",
+                PeopleKind::Tzakhar => "Depth-Curious",
+                PeopleKind::Merak => "Shore-Acquainted",
+                PeopleKind::Shear => "Heat-Tolerant",
+                PeopleKind::Hal => "Branch-Greeter",
+                PeopleKind::Khor => "Cold-Respected",
             }
         } else if affinity < -0.2 {
             match people {
@@ -776,6 +855,11 @@ impl GodAffinity {
                 PeopleKind::Vayla => "Current-Breaker",
                 PeopleKind::Arkit => "Page-Burner",
                 PeopleKind::Laakso => "Impatient-One",
+                PeopleKind::Tzakhar => "Surface-Clasher",
+                PeopleKind::Merak => "Land-Anchor",
+                PeopleKind::Shear => "Oasis-Hoarder",
+                PeopleKind::Hal => "Canopy-Skimmer",
+                PeopleKind::Khor => "Warmth-Seeker",
             }
         } else {
             ""
@@ -792,6 +876,11 @@ pub enum PeopleKind {
     Laakso,
     Sepat,
     Ahjo,
+    Tzakhar,
+    Merak,
+    Shear,
+    Hal,
+    Khor,
 }
 
 impl PeopleKind {
@@ -803,6 +892,11 @@ impl PeopleKind {
             "laakso" => PeopleKind::Laakso,
             "sepat" | "sepät" => PeopleKind::Sepat,
             "ahjo" => PeopleKind::Ahjo,
+            "tzakhar" | "tzäkhar" => PeopleKind::Tzakhar,
+            "merak" | "mëräk" => PeopleKind::Merak,
+            "shear" | "she'ar" => PeopleKind::Shear,
+            "hal" | "häl" => PeopleKind::Hal,
+            "khor" | "khör" => PeopleKind::Khor,
             _ => PeopleKind::Metsik,
         }
     }
@@ -815,15 +909,26 @@ impl PeopleKind {
             PeopleKind::Laakso => "Vale-dwellers",
             PeopleKind::Sepat => "Iron-people",
             PeopleKind::Ahjo => "Settlement-folk",
+            PeopleKind::Tzakhar => "Deep-cave people",
+            PeopleKind::Merak => "Sea-people",
+            PeopleKind::Shear => "Desert people",
+            PeopleKind::Hal => "Canopy people",
+            PeopleKind::Khor => "Tundra people",
         }
     }
 
     pub fn patron_god(self) -> Option<GodName> {
         match self {
-            PeopleKind::Metsik => Some(GodName::Metsik),
-            PeopleKind::Ahjo | PeopleKind::Sepat => Some(GodName::Ahjo),
-            PeopleKind::Vayla | PeopleKind::Arkit => Some(GodName::Ahjo),
-            PeopleKind::Laakso => None,
+            PeopleKind::Metsik => Some(GodName::Keuru),
+            PeopleKind::Ahjo | PeopleKind::Sepat => Some(GodName::Oltzed),
+            PeopleKind::Vayla => Some(GodName::Masa),
+            PeopleKind::Arkit => Some(GodName::Sampsa),
+            PeopleKind::Laakso => Some(GodName::Kukri),
+            PeopleKind::Tzakhar => Some(GodName::Kukri),
+            PeopleKind::Merak => Some(GodName::Masa),
+            PeopleKind::Shear => None,
+            PeopleKind::Hal => Some(GodName::Keuru),
+            PeopleKind::Khor => Some(GodName::Sampsa),
         }
     }
 
@@ -835,6 +940,11 @@ impl PeopleKind {
             PeopleKind::Laakso => "Laakso",
             PeopleKind::Sepat => "Sepät",
             PeopleKind::Ahjo => "Ahjo",
+            PeopleKind::Tzakhar => "Tzäkhar",
+            PeopleKind::Merak => "Mëräk",
+            PeopleKind::Shear => "She'ar",
+            PeopleKind::Hal => "Häl",
+            PeopleKind::Khor => "Khör",
         }
     }
 
@@ -843,6 +953,7 @@ impl PeopleKind {
             return 0.15;
         }
         match (self, other) {
+            // Human-human biases (preserved from original)
             (PeopleKind::Metsik, PeopleKind::Sepat) => -0.20,
             (PeopleKind::Metsik, PeopleKind::Ahjo) => -0.15,
             (PeopleKind::Sepat, PeopleKind::Metsik) => -0.15,
@@ -859,6 +970,25 @@ impl PeopleKind {
             (PeopleKind::Metsik, PeopleKind::Laakso) => 0.05,
             (PeopleKind::Laakso, PeopleKind::Vayla) => -0.08,
             (PeopleKind::Vayla, PeopleKind::Laakso) => -0.05,
+            // Non-human to human: generally neutral-wary
+            (PeopleKind::Tzakhar, PeopleKind::Metsik) => 0.02,
+            (PeopleKind::Tzakhar, PeopleKind::Laakso) => 0.05,
+            (PeopleKind::Tzakhar, _) => -0.03,
+            (PeopleKind::Merak, PeopleKind::Vayla) => 0.08,
+            (PeopleKind::Merak, PeopleKind::Ahjo) => 0.03,
+            (PeopleKind::Merak, _) => -0.02,
+            (PeopleKind::Shear, _) => -0.05,
+            (PeopleKind::Hal, PeopleKind::Metsik) => 0.08,
+            (PeopleKind::Hal, _) => -0.02,
+            (PeopleKind::Khor, PeopleKind::Arkit) => 0.03,
+            (PeopleKind::Khor, _) => -0.04,
+            // Human to non-human: generally curious but distant
+            (PeopleKind::Metsik, PeopleKind::Hal) => 0.05,
+            (PeopleKind::Vayla, PeopleKind::Merak) => 0.06,
+            (PeopleKind::Laakso, PeopleKind::Tzakhar) => 0.04,
+            (PeopleKind::Arkit, PeopleKind::Khor) => 0.02,
+            (PeopleKind::Sepat, PeopleKind::Tzakhar) => -0.03,
+            // Default
             (PeopleKind::Laakso, _) => -0.05,
             (PeopleKind::Arkit, _) => 0.0,
             (PeopleKind::Vayla, _) => 0.0,
@@ -898,6 +1028,15 @@ impl PeopleKind {
             (PeopleKind::Laakso, _) => "They watch you in silence. You must prove patience to earn their warmth.",
             (PeopleKind::Vayla, _) => "Open face, calculating eyes. 'Welcome, stranger. What do you trade?'",
             (PeopleKind::Arkit, _) => "Polite, measured. The archivist's neutral welcome.",
+            (PeopleKind::Tzakhar, PeopleKind::Laakso) => "A faint nod from the shadows. 'Cave-kin. We know your ways.'",
+            (PeopleKind::Tzakhar, _) => "Eyes that have seen too much dark. 'You are not of the deep. Walk carefully.'",
+            (PeopleKind::Merak, PeopleKind::Vayla) => "A salty grin. 'River-folk! We share a love of water, at least.'",
+            (PeopleKind::Merak, _) => "Sea-salt in the air. 'Land-walker. What brings you shoreward?'",
+            (PeopleKind::Shear, _) => "Distant eyes. 'The sun is harsh. But we endure. As must you.'",
+            (PeopleKind::Hal, PeopleKind::Metsik) => "A sway and a smile from above. 'Cousins of the canopy! Welcome.'",
+            (PeopleKind::Hal, _) => "Bright eyes from the branches. 'Ground-walker. Interesting.'",
+            (PeopleKind::Khor, PeopleKind::Arkit) => "A slow nod. 'You keep memory. We keep survival. Same work, different tool.'",
+            (PeopleKind::Khor, _) => "A breath in the cold. 'The wind tests all equally. You are being tested now.'",
             _ => "Cautious eyes. A stranger from another people.",
         }
     }
@@ -1179,25 +1318,37 @@ impl Collapse {
         if let Some(ally) = affinity.strongest_ally() {
             let bonus = (affinity.get(ally) * 80.0) as u32;
             match ally {
-                GodName::Metsik => {
-                    weights[0].1 += bonus / 3;
-                    weights[1].1 += bonus;
-                    weights[2].1 = weights[2].1.saturating_sub(bonus);
-                    weights[3].1 = weights[3].1.saturating_sub(bonus / 2);
-                    weights[6].1 += bonus / 4;
-                }
-                GodName::Ahjo => {
+                GodName::Oltzed => {
                     weights[0].1 += bonus / 3;
                     weights[4].1 += bonus / 2;
                     weights[5].1 += bonus;
                     weights[8].1 += bonus / 2;
                     weights[9].1 = weights[9].1.saturating_sub(bonus / 2);
                 }
-                GodName::Vayla => {
+                GodName::Keuru => {
+                    weights[0].1 += bonus / 3;
+                    weights[1].1 += bonus;
+                    weights[2].1 = weights[2].1.saturating_sub(bonus);
+                    weights[3].1 = weights[3].1.saturating_sub(bonus / 2);
+                    weights[6].1 += bonus / 4;
+                }
+                GodName::Sampsa => {
+                    weights[0].1 += bonus / 3;
+                    weights[4].1 += bonus / 2;
+                    weights[6].1 += bonus;
+                    weights[2].1 = weights[2].1.saturating_sub(bonus / 3);
+                }
+                GodName::Masa => {
+                    weights[0].1 += bonus / 3;
+                    weights[7].1 += bonus;
+                    weights[5].1 += bonus / 4;
+                    weights[4].1 += bonus / 4;
+                }
+                GodName::Kukri => {
                     weights[0].1 += bonus / 3;
                     weights[6].1 += bonus / 2;
                     weights[7].1 += bonus;
-                    weights[4].1 += bonus / 4;
+                    weights[9].1 = weights[9].1.saturating_sub(bonus);
                 }
             }
         }
@@ -1205,22 +1356,34 @@ impl Collapse {
         if let Some(grudge) = affinity.strongest_grudge() {
             let penalty = (affinity.get(grudge).abs() * 60.0) as u32;
             match grudge {
-                GodName::Metsik => {
+                GodName::Oltzed => {
+                    weights[9].1 += penalty;
+                    weights[5].1 = weights[5].1.saturating_sub(penalty / 2);
+                    weights[8].1 = weights[8].1.saturating_sub(penalty / 3);
+                    weights[0].1 = weights[0].1.saturating_sub(2);
+                }
+                GodName::Keuru => {
                     weights[2].1 += penalty;
                     weights[3].1 += penalty / 2;
                     weights[9].1 += penalty / 3;
                     weights[1].1 = weights[1].1.saturating_sub(penalty);
                     weights[0].1 = weights[0].1.saturating_sub(2);
                 }
-                GodName::Ahjo => {
-                    weights[9].1 += penalty;
+                GodName::Sampsa => {
+                    weights[9].1 += penalty / 2;
                     weights[4].1 = weights[4].1.saturating_sub(penalty / 2);
-                    weights[5].1 = weights[5].1.saturating_sub(penalty / 3);
+                    weights[6].1 = weights[6].1.saturating_sub(penalty / 3);
                     weights[0].1 = weights[0].1.saturating_sub(2);
                 }
-                GodName::Vayla => {
+                GodName::Masa => {
                     weights[9].1 += penalty / 2;
                     weights[7].1 = weights[7].1.saturating_sub(penalty / 2);
+                    weights[0].1 = weights[0].1.saturating_sub(2);
+                }
+                GodName::Kukri => {
+                    weights[2].1 += penalty;
+                    weights[9].1 += penalty / 2;
+                    weights[6].1 = weights[6].1.saturating_sub(penalty / 2);
                     weights[0].1 = weights[0].1.saturating_sub(2);
                 }
             }
@@ -1238,12 +1401,12 @@ impl Collapse {
             weights[4].1 = weights[4].1.saturating_sub(20);
         }
 
-        if affinity.get(GodName::Metsik) > 0.5 {
+        if affinity.get(GodName::Keuru) > 0.5 {
             weights[1].1 += 60;
             weights[2].1 = weights[2].1.saturating_sub(30);
         }
 
-        if affinity.get(GodName::Vayla) > 0.4 {
+        if affinity.get(GodName::Masa) > 0.4 {
             weights[7].1 += 40;
         }
 
@@ -1262,13 +1425,15 @@ impl Collapse {
         let rescued_by = if chosen == CollapseOutcome::GodCampsite {
             affinity.strongest_ally()
         } else if chosen == CollapseOutcome::BeastGuarded {
-            Some(GodName::Metsik)
+            Some(GodName::Keuru)
         } else if chosen == CollapseOutcome::Riverbank {
-            Some(GodName::Vayla)
+            Some(GodName::Masa)
         } else if chosen == CollapseOutcome::FestivalBench
             || chosen == CollapseOutcome::SettlementBed
         {
-            Some(GodName::Ahjo)
+            Some(GodName::Oltzed)
+        } else if chosen == CollapseOutcome::WaysideShrine {
+            Some(GodName::Kukri)
         } else {
             None
         };
@@ -1415,11 +1580,11 @@ impl EncounterAction {
 
     pub fn god_affinity_effect(self) -> Option<(GodName, f64)> {
         match self {
-            EncounterAction::Calm => Some((GodName::Metsik, 0.05)),
-            EncounterAction::Intimidate => Some((GodName::Metsik, -0.02)),
-            EncounterAction::Talk => Some((GodName::Vayla, 0.03)),
-            EncounterAction::Trade => Some((GodName::Vayla, 0.04)),
-            EncounterAction::Bribe => Some((GodName::Ahjo, -0.01)),
+            EncounterAction::Calm => Some((GodName::Keuru, 0.05)),
+            EncounterAction::Intimidate => Some((GodName::Oltzed, -0.02)),
+            EncounterAction::Talk => Some((GodName::Masa, 0.03)),
+            EncounterAction::Trade => Some((GodName::Masa, 0.04)),
+            EncounterAction::Bribe => Some((GodName::Masa, -0.01)),
             _ => None,
         }
     }
@@ -1458,8 +1623,12 @@ impl Encounter {
             Terrain::Mountain => (15, EncounterKind::Storm),
             Terrain::Swamp => (20, EncounterKind::Wildlife),
             Terrain::Sand => (10, EncounterKind::Storm),
+            Terrain::DeepDesert => (12, EncounterKind::Storm),
             Terrain::Road => (5, EncounterKind::Traveler),
             Terrain::Settlement => (0, EncounterKind::Traveler),
+            Terrain::Cave => (18, EncounterKind::Wildlife),
+            Terrain::Tundra => (15, EncounterKind::Storm),
+            Terrain::Coast => (8, EncounterKind::Traveler),
             _ => (8, EncounterKind::Wildlife),
         };
         if let Some(pp) = player_people {
@@ -1480,6 +1649,24 @@ impl Encounter {
                     kind = EncounterKind::Traveler;
                 }
                 (PeopleKind::Laakso, Terrain::Swamp) => {
+                    threshold = threshold.saturating_sub(4);
+                    kind = EncounterKind::Wildlife;
+                }
+                (PeopleKind::Tzakhar, Terrain::Cave) => {
+                    threshold = threshold.saturating_sub(6);
+                    kind = EncounterKind::Wildlife;
+                }
+                (PeopleKind::Merak, Terrain::Coast) => {
+                    threshold = threshold.saturating_sub(4);
+                    kind = EncounterKind::Traveler;
+                }
+                (PeopleKind::Khor, Terrain::Tundra) => {
+                    threshold = threshold.saturating_sub(5);
+                }
+                (PeopleKind::Shear, Terrain::Sand | Terrain::DeepDesert) => {
+                    threshold = threshold.saturating_sub(4);
+                }
+                (PeopleKind::Hal, Terrain::Forest) => {
                     threshold = threshold.saturating_sub(4);
                     kind = EncounterKind::Wildlife;
                 }
@@ -1534,8 +1721,13 @@ impl Region {
         let mut hostile = 0u32;
         for y in 0..self.terrain.height {
             for x in 0..self.terrain.width {
-                if let Some(Terrain::Forest | Terrain::Mountain | Terrain::Swamp) =
-                    self.terrain.get(x, y)
+                if let Some(
+                    Terrain::Forest
+                    | Terrain::Mountain
+                    | Terrain::Swamp
+                    | Terrain::Cave
+                    | Terrain::DeepDesert,
+                ) = self.terrain.get(x, y)
                 {
                     hostile += 1;
                 }
@@ -1609,6 +1801,9 @@ pub enum SettlementService {
     Forge,
     Hearth,
     TrapWorkshop,
+    Archive,
+    TradePost,
+    Shrine,
 }
 
 impl SettlementService {
@@ -1619,6 +1814,9 @@ impl SettlementService {
             SettlementService::Forge => '⚒',
             SettlementService::Hearth => '🏠',
             SettlementService::TrapWorkshop => '🪤',
+            SettlementService::Archive => '📜',
+            SettlementService::TradePost => '🏪',
+            SettlementService::Shrine => '🕯',
         }
     }
 
@@ -1629,6 +1827,9 @@ impl SettlementService {
             SettlementService::Forge => "Forge",
             SettlementService::Hearth => "Hearth",
             SettlementService::TrapWorkshop => "Trap Workshop",
+            SettlementService::Archive => "Archive",
+            SettlementService::TradePost => "Trade Post",
+            SettlementService::Shrine => "Shrine",
         }
     }
 
@@ -1639,6 +1840,9 @@ impl SettlementService {
             SettlementService::Forge => 3,
             SettlementService::Hearth => 2,
             SettlementService::TrapWorkshop => 2,
+            SettlementService::Archive => 3,
+            SettlementService::TradePost => 2,
+            SettlementService::Shrine => 2,
         }
     }
 
@@ -1647,6 +1851,9 @@ impl SettlementService {
             SettlementService::Forge => Some(PeopleKind::Sepat),
             SettlementService::Hearth => Some(PeopleKind::Ahjo),
             SettlementService::TrapWorkshop => Some(PeopleKind::Metsik),
+            SettlementService::Archive => Some(PeopleKind::Arkit),
+            SettlementService::TradePost => Some(PeopleKind::Vayla),
+            SettlementService::Shrine => Some(PeopleKind::Laakso),
             _ => None,
         }
     }
@@ -2232,6 +2439,13 @@ mod tests {
         assert!(Terrain::Farmland.passable(), "farmland must be passable");
         assert!(Terrain::Sand.passable(), "sand must be passable");
         assert!(Terrain::Swamp.passable(), "swamp must be passable");
+        assert!(Terrain::Coast.passable(), "coast must be passable");
+        assert!(Terrain::Cave.passable(), "cave must be passable");
+        assert!(Terrain::Tundra.passable(), "tundra must be passable");
+        assert!(
+            Terrain::DeepDesert.passable(),
+            "deep desert must be passable"
+        );
     }
 
     #[test]
@@ -2547,10 +2761,10 @@ mod tests {
     #[test]
     fn god_affinity_adjust_clamps() {
         let mut ga = GodAffinity::new();
-        ga.adjust(GodName::Metsik, 2.0);
-        assert!((ga.get(GodName::Metsik) - 1.0).abs() < f64::EPSILON);
-        ga.adjust(GodName::Metsik, -3.0);
-        assert!((ga.get(GodName::Metsik) + 1.0).abs() < f64::EPSILON);
+        ga.adjust(GodName::Keuru, 2.0);
+        assert!((ga.get(GodName::Keuru) - 1.0).abs() < f64::EPSILON);
+        ga.adjust(GodName::Keuru, -3.0);
+        assert!((ga.get(GodName::Keuru) + 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -2558,10 +2772,10 @@ mod tests {
         let mut ga = GodAffinity::new();
         assert_eq!(ga.strongest_ally(), None);
         assert_eq!(ga.strongest_grudge(), None);
-        ga.adjust(GodName::Metsik, 0.5);
-        ga.adjust(GodName::Ahjo, -0.3);
-        assert_eq!(ga.strongest_ally(), Some(GodName::Metsik));
-        assert_eq!(ga.strongest_grudge(), Some(GodName::Ahjo));
+        ga.adjust(GodName::Keuru, 0.5);
+        ga.adjust(GodName::Oltzed, -0.3);
+        assert_eq!(ga.strongest_ally(), Some(GodName::Keuru));
+        assert_eq!(ga.strongest_grudge(), Some(GodName::Oltzed));
     }
 
     #[test]
@@ -2599,7 +2813,7 @@ mod tests {
     #[test]
     fn collapse_metsik_ally_beast_guarded() {
         let mut ga = GodAffinity::new();
-        ga.adjust(GodName::Metsik, 0.8);
+        ga.adjust(GodName::Keuru, 0.8);
         let mut guarded = 0u32;
         let mut hostile = 0u32;
         for seed in 0..200u64 {
@@ -2611,14 +2825,14 @@ mod tests {
                 hostile += 1;
             }
         }
-        assert!(guarded > 5, "Metsik ally should get beast-guarded more");
-        assert!(hostile < 30, "Metsik ally should avoid hostile beasts");
+        assert!(guarded > 5, "Keuru ally should get beast-guarded more");
+        assert!(hostile < 30, "Keuru ally should avoid hostile beasts");
     }
 
     #[test]
     fn collapse_grudge_more_hostile() {
         let mut ga = GodAffinity::new();
-        ga.adjust(GodName::Metsik, -0.8);
+        ga.adjust(GodName::Keuru, -0.8);
         let mut hostile = 0u32;
         for seed in 0..200u64 {
             let c = Collapse::roll(seed, &ga, 0.0);
@@ -2631,7 +2845,7 @@ mod tests {
         }
         assert!(
             hostile > 40,
-            "Metsik grudge should cause more hostile outcomes"
+            "Keuru grudge should cause more hostile outcomes"
         );
     }
 
@@ -2730,11 +2944,11 @@ mod tests {
     fn encounter_action_god_effects() {
         assert_eq!(
             EncounterAction::Calm.god_affinity_effect(),
-            Some((GodName::Metsik, 0.05))
+            Some((GodName::Keuru, 0.05))
         );
         assert_eq!(
             EncounterAction::Talk.god_affinity_effect(),
-            Some((GodName::Vayla, 0.03))
+            Some((GodName::Masa, 0.03))
         );
         assert_eq!(EncounterAction::Flee.god_affinity_effect(), None);
     }

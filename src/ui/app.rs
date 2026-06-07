@@ -285,13 +285,13 @@ impl App {
     pub fn enter_talk(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
         if let Some(ref sim) = self.sim {
             if let Some(region) = sim.world.regions.get(region_idx) {
-                if region.region_type == "forest" && self.god_affinity.get(GodName::Metsik) > 0.2 {
-                    self.god_affinity.adjust(GodName::Metsik, 0.01);
+                if region.region_type == "forest" && self.god_affinity.get(GodName::Keuru) > 0.2 {
+                    self.god_affinity.adjust(GodName::Keuru, 0.01);
                 }
                 if region.region_type == "river_valley"
-                    && self.god_affinity.get(GodName::Vayla) > 0.2
+                    && self.god_affinity.get(GodName::Masa) > 0.2
                 {
-                    self.god_affinity.adjust(GodName::Vayla, 0.01);
+                    self.god_affinity.adjust(GodName::Masa, 0.01);
                 }
             }
         }
@@ -366,11 +366,11 @@ impl App {
                 if let (Some(pid), Some(sid)) = (&player_id, &settlement_id) {
                     let mut trust_bonus = 0.05;
                     let mut rep_bonus = 0.02;
-                    if self.god_affinity.get(GodName::Ahjo) > 0.3 {
+                    if self.god_affinity.get(GodName::Oltzed) > 0.3 {
                         trust_bonus += 0.02;
                         rep_bonus += 0.01;
                     }
-                    if self.god_affinity.get(GodName::Vayla) > 0.3 {
+                    if self.god_affinity.get(GodName::Masa) > 0.3 {
                         trust_bonus += 0.01;
                     }
                     let npc_people_pk = PeopleKind::from_name(&person.people);
@@ -394,8 +394,8 @@ impl App {
                     );
                 }
                 self.status_msg = Some(format!("Gave food to {}", person.name));
-                self.god_affinity.adjust(GodName::Ahjo, 0.02);
-                self.god_affinity.adjust(GodName::Vayla, 0.01);
+                self.god_affinity.adjust(GodName::Oltzed, 0.02);
+                self.god_affinity.adjust(GodName::Masa, 0.01);
                 if let Some(god) = PeopleKind::from_name(&person.people).patron_god() {
                     self.god_affinity.adjust(god, 0.01);
                 }
@@ -457,11 +457,11 @@ impl App {
                 if let (Some(pid), Some(sid)) = (&player_id, &settlement_id) {
                     let mut trust_bonus = 0.03;
                     let mut rep_bonus = 0.01;
-                    if self.god_affinity.get(GodName::Ahjo) > 0.3 {
+                    if self.god_affinity.get(GodName::Oltzed) > 0.3 {
                         trust_bonus += 0.01;
                         rep_bonus += 0.01;
                     }
-                    if self.god_affinity.get(GodName::Vayla) > 0.3 {
+                    if self.god_affinity.get(GodName::Masa) > 0.3 {
                         trust_bonus += 0.01;
                     }
                     let npc_people_pk = PeopleKind::from_name(&person.people);
@@ -485,8 +485,8 @@ impl App {
                     );
                 }
                 self.status_msg = Some(format!("Gave coin to {}", person.name));
-                self.god_affinity.adjust(GodName::Ahjo, 0.02);
-                self.god_affinity.adjust(GodName::Vayla, 0.01);
+                self.god_affinity.adjust(GodName::Oltzed, 0.02);
+                self.god_affinity.adjust(GodName::Masa, 0.01);
                 if let Some(god) = PeopleKind::from_name(&person.people).patron_god() {
                     self.god_affinity.adjust(god, 0.01);
                 }
@@ -570,12 +570,12 @@ impl App {
         if let (Some(item), Some(terrain)) = (terrain_item, terrain) {
             match terrain {
                 Terrain::Forest => {
-                    self.god_affinity.adjust(GodName::Metsik, 0.03);
-                    self.god_affinity.adjust(GodName::Ahjo, -0.01);
+                    self.god_affinity.adjust(GodName::Keuru, 0.03);
+                    self.god_affinity.adjust(GodName::Oltzed, -0.01);
                 }
                 Terrain::Grass | Terrain::Farmland => {
-                    self.god_affinity.adjust(GodName::Ahjo, 0.03);
-                    self.god_affinity.adjust(GodName::Metsik, -0.01);
+                    self.god_affinity.adjust(GodName::Oltzed, 0.03);
+                    self.god_affinity.adjust(GodName::Keuru, -0.01);
                 }
                 _ => {}
             }
@@ -726,7 +726,7 @@ impl App {
                 self.advance_clock_hour();
                 self.status_msg =
                     Some(format!("Bought 1 {} for {} coins (1h)", item.name(), price));
-                self.god_affinity.adjust(GodName::Ahjo, 0.02);
+                self.god_affinity.adjust(GodName::Masa, 0.02);
             } else {
                 self.status_msg = Some(format!("Need {} coins", price));
             }
@@ -749,7 +749,7 @@ impl App {
                 ps.inventory.add(ItemType::Coin, price);
                 self.advance_clock_hour();
                 self.status_msg = Some(format!("Sold 1 {} for {} coins (1h)", item.name(), price));
-                self.god_affinity.adjust(GodName::Ahjo, 0.01);
+                self.god_affinity.adjust(GodName::Masa, 0.01);
             } else {
                 self.status_msg = Some(format!("No {} to sell", item.name()));
             }
@@ -819,12 +819,12 @@ impl App {
         let people_bias_mod = self.current_settlement_people().map_or(0.0, |npc_people| {
             self.inter_people_bias.effective_bias(npc_people) + self.clock.season().bias_modifier()
         });
-        let god_calm_bonus = if self.god_affinity.get(GodName::Metsik) > 0.4 {
+        let god_calm_bonus = if self.god_affinity.get(GodName::Keuru) > 0.4 {
             0.03
         } else {
             0.0
         };
-        let god_intimidate_bonus = if self.god_affinity.get(GodName::Ahjo) > 0.4 {
+        let god_intimidate_bonus = if self.god_affinity.get(GodName::Oltzed) > 0.4 {
             0.03
         } else {
             0.0
@@ -1103,7 +1103,7 @@ impl App {
                 ));
             }
             SettlementService::Forge => {
-                self.god_affinity.adjust(GodName::Ahjo, 0.02);
+                self.god_affinity.adjust(GodName::Oltzed, 0.02);
                 if let Some(ref mut ps) = self.player_start {
                     ps.inventory.add(ItemType::Iron, 2);
                 }
@@ -1114,7 +1114,7 @@ impl App {
             SettlementService::Hearth => {
                 self.vitals.hunger = (self.vitals.hunger + 0.6).min(1.0);
                 self.vitals.energy = (self.vitals.energy + 0.5).min(1.0);
-                self.god_affinity.adjust(GodName::Ahjo, 0.03);
+                self.god_affinity.adjust(GodName::Oltzed, 0.03);
                 self.advance_clock(2);
                 self.status_msg = Some(format!(
                     "Warmed by the hearth (+hunger, +energy, 2h, {} coins)",
@@ -1122,13 +1122,43 @@ impl App {
                 ));
             }
             SettlementService::TrapWorkshop => {
-                self.god_affinity.adjust(GodName::Metsik, 0.03);
+                self.god_affinity.adjust(GodName::Keuru, 0.03);
                 if let Some(ref mut ps) = self.player_start {
                     ps.inventory.add(ItemType::Herb, 2);
                 }
                 self.advance_clock(2);
                 self.status_msg = Some(format!(
                     "Learned trapping at the workshop (+2 Herb, 2h, {} coins)",
+                    cost
+                ));
+            }
+            SettlementService::Archive => {
+                self.vitals.energy = (self.vitals.energy + 0.4).min(1.0);
+                self.god_affinity.adjust(GodName::Sampsa, 0.02);
+                self.advance_clock(3);
+                self.status_msg = Some(format!(
+                    "Studied in the archive (+energy, Sampsa +0.02, 3h, {} coins)",
+                    cost
+                ));
+            }
+            SettlementService::TradePost => {
+                if let Some(ref mut ps) = self.player_start {
+                    ps.inventory.add(ItemType::Coin, 2);
+                }
+                self.god_affinity.adjust(GodName::Masa, 0.02);
+                self.advance_clock(2);
+                self.status_msg = Some(format!(
+                    "Traded at the post (+2 Coin, Masa +0.02, 2h, {} coins)",
+                    cost
+                ));
+            }
+            SettlementService::Shrine => {
+                self.vitals.hunger = (self.vitals.hunger + 0.3).min(1.0);
+                self.vitals.energy = (self.vitals.energy + 0.3).min(1.0);
+                self.god_affinity.adjust(GodName::Kukri, 0.03);
+                self.advance_clock(2);
+                self.status_msg = Some(format!(
+                    "Prayed at the shrine (+hunger, +energy, Kukri +0.03, 2h, {} coins)",
                     cost
                 ));
             }
@@ -1142,8 +1172,8 @@ impl App {
     pub fn rest(&mut self) {
         self.advance_clock(8);
         self.vitals.rest();
-        self.god_affinity.adjust(GodName::Vayla, 0.02);
-        if self.god_affinity.get(GodName::Vayla) > 0.5 {
+        self.god_affinity.adjust(GodName::Kukri, 0.02);
+        if self.god_affinity.get(GodName::Kukri) > 0.5 {
             self.vitals.energy = (self.vitals.energy + 0.05).min(1.0);
             self.status_msg = Some("Rested deeply. Dreams of clear water. (8h)".into());
         } else {

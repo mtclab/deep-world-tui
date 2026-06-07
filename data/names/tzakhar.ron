@@ -1,0 +1,11 @@
+// Tzakhar name grammar — deep-cave naming tradition
+// Roots: stone, echo, depth, shadow, mineral
+NameGrammar(
+    prefixes: ["Tol", "Zek", "Khr", "Vash", "Dul", "Nar", "Zal", "Grim"],
+    roots: [
+        "Khar", "Zek", "Dra", "Tol", "Vash", "Nar", "Khol", "Zul",
+        "Sha", "Grun", "Thal", "Bor", "Dvek", "Morn", "Stal",
+    ],
+    suffixes: ["ak", "oth", "ul", "ar", "esh", "im", "on"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)

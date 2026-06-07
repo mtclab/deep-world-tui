@@ -184,9 +184,11 @@ fn main() -> anyhow::Result<()> {
             "god" => {
                 println!("  God Affinity:");
                 for g in [
-                    deep_world_tui::model::GodName::Metsik,
-                    deep_world_tui::model::GodName::Ahjo,
-                    deep_world_tui::model::GodName::Vayla,
+                    deep_world_tui::model::GodName::Oltzed,
+                    deep_world_tui::model::GodName::Keuru,
+                    deep_world_tui::model::GodName::Sampsa,
+                    deep_world_tui::model::GodName::Masa,
+                    deep_world_tui::model::GodName::Kukri,
                 ] {
                     let v = app.god_affinity.get(g);
                     if v.abs() > f64::EPSILON {
@@ -202,6 +204,11 @@ fn main() -> anyhow::Result<()> {
                     deep_world_tui::model::PeopleKind::Arkit,
                     deep_world_tui::model::PeopleKind::Vayla,
                     deep_world_tui::model::PeopleKind::Laakso,
+                    deep_world_tui::model::PeopleKind::Tzakhar,
+                    deep_world_tui::model::PeopleKind::Merak,
+                    deep_world_tui::model::PeopleKind::Shear,
+                    deep_world_tui::model::PeopleKind::Hal,
+                    deep_world_tui::model::PeopleKind::Khor,
                 ] {
                     let raw = pp.bias_toward(p);
                     let eff = app.inter_people_bias.effective_bias(p);

@@ -8,7 +8,7 @@ Charts(
     // ---- people (≈ lore demographics; SAST names) ----
     people: WeightedTable(entries: {
         "metsik": 22, "arkit": 14, "vayla": 16, "laakso": 10, "sepat": 12, "ahjo": 20,
-        // non-humans rare/edge — add later: "vaskarii", "merak", "shear", "hal", "khor"
+        "tzakhar": 3, "merak": 4, "shear": 2, "hal": 3, "khor": 2,
     }),
 
     // ---- region / settlement (river-corridor principle) ----
@@ -89,6 +89,9 @@ Charts(
         "metsik": "names/metsik.ron", "arkit": "names/arkit.ron",
         "vayla": "names/vayla.ron", "laakso": "names/laakso.ron",
         "sepat": "names/sepat.ron", "ahjo": "names/ahjo.ron",
+        "tzakhar": "names/tzakhar.ron", "merak": "names/merak.ron",
+        "shear": "names/shear.ron", "hal": "names/hal.ron",
+        "khor": "names/khor.ron",
     },
 
     // ---- world structure (issue #24) ----

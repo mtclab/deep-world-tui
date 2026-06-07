@@ -1176,6 +1176,10 @@ fn terrain_color(terrain: Terrain) -> Color {
         Terrain::Farmland => Color::Rgb(0x8a, 0x9a, 0x4a),
         Terrain::Sand => Color::Rgb(0xc2, 0x9a, 0x6b),
         Terrain::Swamp => Color::Rgb(0x5a, 0x6a, 0x3a),
+        Terrain::Coast => Color::Rgb(0x6a, 0x9a, 0xba),
+        Terrain::Cave => Color::Rgb(0x4a, 0x4a, 0x5a),
+        Terrain::Tundra => Color::Rgb(0xaa, 0xc0, 0xcc),
+        Terrain::DeepDesert => Color::Rgb(0xd2, 0xba, 0x8a),
     }
 }
 
@@ -1187,6 +1191,11 @@ fn people_color(people: crate::model::PeopleKind) -> Color {
         crate::model::PeopleKind::Laakso => Color::Rgb(0x5a, 0x6a, 0x3a),
         crate::model::PeopleKind::Sepat => Color::Rgb(0x8a, 0x7a, 0x6a),
         crate::model::PeopleKind::Ahjo => Color::Rgb(0x7a, 0x2e, 0x1d),
+        crate::model::PeopleKind::Tzakhar => Color::Rgb(0x4a, 0x4a, 0x5a),
+        crate::model::PeopleKind::Merak => Color::Rgb(0x3a, 0x6a, 0x8a),
+        crate::model::PeopleKind::Shear => Color::Rgb(0x9a, 0x8a, 0x6a),
+        crate::model::PeopleKind::Hal => Color::Rgb(0x2a, 0x7a, 0x3a),
+        crate::model::PeopleKind::Khor => Color::Rgb(0x6a, 0x7a, 0x9a),
     }
 }
 
@@ -1771,9 +1780,11 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
             .add_modifier(Modifier::BOLD),
     )));
     let gods = [
-        (crate::model::GodName::Metsik, app.god_affinity.metsik),
-        (crate::model::GodName::Ahjo, app.god_affinity.ahjo),
-        (crate::model::GodName::Vayla, app.god_affinity.vayla),
+        (crate::model::GodName::Oltzed, app.god_affinity.oltzed),
+        (crate::model::GodName::Keuru, app.god_affinity.keuru),
+        (crate::model::GodName::Sampsa, app.god_affinity.sampsa),
+        (crate::model::GodName::Masa, app.god_affinity.masa),
+        (crate::model::GodName::Kukri, app.god_affinity.kukri),
     ];
     for (god, val) in &gods {
         let label = if *val > 0.6 {
@@ -2201,16 +2212,20 @@ fn draw_collapse_screen(f: &mut Frame, app: &App) {
         ),
         Style::default().fg(DARK_BROWN),
     )));
-    if app.god_affinity.metsik != 0.0
-        || app.god_affinity.ahjo != 0.0
-        || app.god_affinity.vayla != 0.0
+    if app.god_affinity.oltzed != 0.0
+        || app.god_affinity.keuru != 0.0
+        || app.god_affinity.sampsa != 0.0
+        || app.god_affinity.masa != 0.0
+        || app.god_affinity.kukri != 0.0
     {
         lines.push(Line::from(Span::styled(
             format!(
-                "  Gods: Metsik {:.0}%  Ahjo {:.0}%  Väylä {:.0}%",
-                app.god_affinity.metsik * 100.0,
-                app.god_affinity.ahjo * 100.0,
-                app.god_affinity.vayla * 100.0,
+                "  Gods: Oltzed {:.0}%  Keuru {:.0}%  Sampsa {:.0}%  Masa {:.0}%  Kukri {:.0}%",
+                app.god_affinity.oltzed * 100.0,
+                app.god_affinity.keuru * 100.0,
+                app.god_affinity.sampsa * 100.0,
+                app.god_affinity.masa * 100.0,
+                app.god_affinity.kukri * 100.0,
             ),
             Style::default().fg(DARK_BROWN),
         )));
@@ -2273,17 +2288,21 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
         "  The world continues without you.",
         Style::default().fg(DARK_BROWN),
     )));
-    if app.god_affinity.metsik != 0.0
-        || app.god_affinity.ahjo != 0.0
-        || app.god_affinity.vayla != 0.0
+    if app.god_affinity.oltzed != 0.0
+        || app.god_affinity.keuru != 0.0
+        || app.god_affinity.sampsa != 0.0
+        || app.god_affinity.masa != 0.0
+        || app.god_affinity.kukri != 0.0
     {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             format!(
-                "  Final standing: Metsik {:.0}%  Ahjo {:.0}%  Väylä {:.0}%",
-                app.god_affinity.metsik * 100.0,
-                app.god_affinity.ahjo * 100.0,
-                app.god_affinity.vayla * 100.0,
+                "  Final standing: Oltzed {:.0}%  Keuru {:.0}%  Sampsa {:.0}%  Masa {:.0}%  Kukri {:.0}%",
+                app.god_affinity.oltzed * 100.0,
+                app.god_affinity.keuru * 100.0,
+                app.god_affinity.sampsa * 100.0,
+                app.god_affinity.masa * 100.0,
+                app.god_affinity.kukri * 100.0,
             ),
             Style::default().fg(DARK_BROWN),
         )));

@@ -1,0 +1,12 @@
+// Mëräk name grammar — sea-people naming tradition
+// Roots: water, wave, salt, voyage, trade
+NameGrammar(
+    prefixes: ["Mer", "Ves", "Kal", "Stran", "Hor", "Sál", "Tid", "Ost"],
+    roots: [
+        "Mer", "Ves", "Kor", "Tide", "Stran", "Hor", "Sál", "Vag",
+        "Båt", "Fisk", "Sjö", "Hav", "Vind", "Ank", "Rod",
+        "Segl", "Nät", "Ström", "Kust",
+    ],
+    suffixes: ["son", "ek", "en", "strö", "vik", "hamn", "ö"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)
