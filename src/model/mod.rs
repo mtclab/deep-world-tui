@@ -359,6 +359,27 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
     ]
 }
 
+pub fn npc_combat_action(trust: f64, aggression: f64, seed: u64) -> CombatAction {
+    let mut rng = crate::rng::SeedRng::new(seed);
+    let roll = rng.gen_range(1000) as f64 / 1000.0;
+
+    // High trust = more defensive, low trust = more aggressive
+    // High aggression = more likely to attack
+    let attack_threshold = 0.3 + aggression * 0.4 - trust * 0.2;
+    let parry_threshold = attack_threshold + 0.3;
+    let feint_threshold = parry_threshold + 0.2;
+
+    if roll < attack_threshold {
+        CombatAction::Attack
+    } else if roll < parry_threshold {
+        CombatAction::Parry
+    } else if roll < feint_threshold {
+        CombatAction::Feint
+    } else {
+        CombatAction::Yield
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TimeOfDay {
     Dawn,
@@ -2447,6 +2468,157 @@ impl NpcSchedule {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CombatAction {
+    Attack,
+    Parry,
+    Feint,
+    Yield,
+}
+
+impl CombatAction {
+    pub fn name(self) -> &'static str {
+        match self {
+            CombatAction::Attack => "attack",
+            CombatAction::Parry => "parry",
+            CombatAction::Feint => "feint",
+            CombatAction::Yield => "yield",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CombatOutcome {
+    pub player_injury: f64,
+    pub npc_injury: f64,
+    pub reputation_delta: f64,
+    pub player_died: bool,
+    pub npc_yielded: bool,
+    pub flavor: String,
+}
+
+impl CombatOutcome {
+    pub fn resolve(
+        player_action: CombatAction,
+        npc_action: CombatAction,
+        player_trust: f64,
+        npc_aggression: f64,
+        seed: u64,
+    ) -> Self {
+        let mut rng = crate::rng::SeedRng::new(seed);
+        let roll = rng.gen_range(1000) as f64 / 1000.0;
+
+        // Death is rare (~1.2%)
+        let player_died = roll < 0.012;
+
+        let (player_injury, npc_injury, reputation_delta, npc_yielded, flavor) =
+            match (player_action, npc_action) {
+                (CombatAction::Yield, _) => (
+                    0.1,
+                    0.0,
+                    -0.05,
+                    false,
+                    "You yield gracefully. They let you go with a warning.",
+                ),
+                (_, CombatAction::Yield) => (
+                    0.0,
+                    0.05,
+                    0.02,
+                    true,
+                    "They yield. The duel ends with respect.",
+                ),
+                (CombatAction::Attack, CombatAction::Attack) => {
+                    if player_trust > 0.5 {
+                        (
+                            0.15,
+                            0.25,
+                            0.01,
+                            false,
+                            "Your strike lands true. They stagger back, wounded.",
+                        )
+                    } else {
+                        (
+                            0.25,
+                            0.15,
+                            -0.01,
+                            false,
+                            "They meet your blow. You both bleed, but they seem stronger.",
+                        )
+                    }
+                }
+                (CombatAction::Attack, CombatAction::Parry) => (
+                    0.2,
+                    0.05,
+                    -0.02,
+                    false,
+                    "They parry your attack. You overextend and take a hit.",
+                ),
+                (CombatAction::Attack, CombatAction::Feint) => (
+                    0.05,
+                    0.3,
+                    0.03,
+                    false,
+                    "You see through their feint. Your attack catches them off-guard.",
+                ),
+                (CombatAction::Parry, CombatAction::Attack) => (
+                    0.05,
+                    0.2,
+                    0.02,
+                    false,
+                    "You parry their attack. They stumble, exposed.",
+                ),
+                (CombatAction::Parry, CombatAction::Parry) => (
+                    0.0,
+                    0.0,
+                    0.0,
+                    false,
+                    "You circle each other, blades raised. Neither commits.",
+                ),
+                (CombatAction::Parry, CombatAction::Feint) => (
+                    0.1,
+                    0.0,
+                    -0.01,
+                    false,
+                    "Their feint draws your parry. They strike, but you deflect most of it.",
+                ),
+                (CombatAction::Feint, CombatAction::Attack) => (
+                    0.3,
+                    0.05,
+                    -0.03,
+                    false,
+                    "Your feint fails. They punish your opening.",
+                ),
+                (CombatAction::Feint, CombatAction::Parry) => (
+                    0.0,
+                    0.1,
+                    0.01,
+                    false,
+                    "Your feint draws their parry. You find an opening.",
+                ),
+                (CombatAction::Feint, CombatAction::Feint) => (
+                    0.0,
+                    0.0,
+                    0.0,
+                    false,
+                    "Both feint. Neither commits. The dance continues.",
+                ),
+            };
+
+        // Apply aggression modifier to injuries
+        let player_injury = (player_injury * (1.0 + npc_aggression * 0.3)).min(0.5);
+        let npc_injury = (npc_injury * (1.0 - npc_aggression * 0.2)).min(0.5);
+
+        CombatOutcome {
+            player_injury,
+            npc_injury,
+            reputation_delta,
+            player_died,
+            npc_yielded,
+            flavor: flavor.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct Person {
     pub id: String,
@@ -3709,5 +3881,52 @@ mod tests {
         assert!(NpcActivity::Worship.is_available());
         assert!(NpcActivity::Craft.is_available());
         assert!(NpcActivity::Idle.is_available());
+    }
+
+    #[test]
+    fn combat_action_names() {
+        assert_eq!(CombatAction::Attack.name(), "attack");
+        assert_eq!(CombatAction::Parry.name(), "parry");
+        assert_eq!(CombatAction::Feint.name(), "feint");
+        assert_eq!(CombatAction::Yield.name(), "yield");
+    }
+
+    #[test]
+    fn combat_outcome_deterministic() {
+        let outcome1 =
+            CombatOutcome::resolve(CombatAction::Attack, CombatAction::Attack, 0.5, 0.5, 42);
+        let outcome2 =
+            CombatOutcome::resolve(CombatAction::Attack, CombatAction::Attack, 0.5, 0.5, 42);
+        assert_eq!(outcome1.player_injury, outcome2.player_injury);
+        assert_eq!(outcome1.npc_injury, outcome2.npc_injury);
+        assert_eq!(outcome1.reputation_delta, outcome2.reputation_delta);
+        assert_eq!(outcome1.player_died, outcome2.player_died);
+    }
+
+    #[test]
+    fn combat_yield_no_death() {
+        let outcome =
+            CombatOutcome::resolve(CombatAction::Yield, CombatAction::Attack, 0.0, 0.5, 12345);
+        assert!(!outcome.player_died);
+        assert!(outcome.player_injury > 0.0);
+    }
+
+    #[test]
+    fn npc_combat_action_varies_by_trust() {
+        let aggressive = npc_combat_action(0.0, 0.8, 42);
+        let defensive = npc_combat_action(0.9, 0.2, 42);
+        // Different trust levels should produce different actions (with same seed)
+        assert_ne!(aggressive, defensive);
+    }
+
+    #[test]
+    fn combat_outcome_ranges_valid() {
+        for seed in 0..100 {
+            let outcome =
+                CombatOutcome::resolve(CombatAction::Attack, CombatAction::Attack, 0.5, 0.5, seed);
+            assert!(outcome.player_injury >= 0.0 && outcome.player_injury <= 0.5);
+            assert!(outcome.npc_injury >= 0.0 && outcome.npc_injury <= 0.5);
+            assert!(outcome.reputation_delta >= -0.1 && outcome.reputation_delta <= 0.1);
+        }
     }
 }
