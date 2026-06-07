@@ -1,6 +1,5 @@
 pub mod charts;
 pub mod gen;
-#[cfg(feature = "llm")]
 pub mod llm;
 pub mod model;
 pub mod rng;

@@ -15,7 +15,7 @@ pub enum Situation {
 }
 
 impl Situation {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Situation::Greeting => "greeting",
             Situation::Trade => "trade",
