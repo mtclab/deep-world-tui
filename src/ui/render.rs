@@ -1,12 +1,13 @@
+use ratatui::prelude::Stylize;
 use ratatui::{
-    layout::{Constraint, Layout},
+    layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
 
-use crate::model::{craft_recipes, ItemType, Need, Terrain};
+use crate::model::{craft_recipes, ItemType, Need, Season, Terrain};
 use crate::sim::relationships::BondCategory;
 use crate::ui::app::{App, Screen};
 use crate::voice::Situation;
@@ -37,8 +38,11 @@ fn need_bar(val: f64, width: usize) -> String {
     format!("{}{}", "█".repeat(filled), "░".repeat(empty))
 }
 
+const STATUS_HEIGHT: u16 = 3;
+
 pub fn draw(f: &mut Frame, app: &App) {
-    f.render_widget(Block::default().style(Style::default().bg(PAPER)), f.area());
+    let area = f.area();
+    f.render_widget(Block::default().style(Style::default().bg(PAPER)), area);
     match app.screen {
         Screen::CharacterCreation => draw_character_creation(f, app),
         Screen::World => draw_world_screen(f, app),
@@ -93,6 +97,99 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::GameOver => {
             draw_game_over_screen(f, app);
         }
+    }
+    draw_status_bar(f, app);
+}
+
+fn draw_status_bar(f: &mut Frame, app: &App) {
+    let area = f.area();
+    let status_top = area.height.saturating_sub(STATUS_HEIGHT);
+    let status_area = Rect {
+        x: 0,
+        y: status_top,
+        width: area.width,
+        height: STATUS_HEIGHT.min(area.height),
+    };
+    let season = Season::from_day(app.clock.day);
+    let season_name = match season {
+        Season::Spring => "Spring",
+        Season::Summer => "Summer",
+        Season::Autumn => "Autumn",
+        Season::Winter => "Winter",
+    };
+    let day = app.clock.day;
+
+    if let Some(ref ps) = app.player_start {
+        let people_kind = crate::model::PeopleKind::from_name(&ps.person.people);
+        let people = people_kind.label();
+        let profession = ps.person.profession.as_str();
+        let location = app
+            .player_pos
+            .and_then(|pos| {
+                let region = app.sim.as_ref()?.world.regions.get(pos.region_idx)?;
+                let settlement = region.settlements.first()?;
+                Some(settlement.name.as_str())
+            })
+            .unwrap_or("unknown");
+        let food = ps.person.needs.get(Need::Food);
+        let energy = app.vitals.energy;
+        let hunger = app.vitals.hunger;
+        let safety = ps.person.needs.get(Need::Safety);
+        let money = ps.person.needs.get(Need::Money);
+        let line1 = Line::from(vec![
+            Span::styled(
+                format!(" {} ", ps.person.name),
+                Style::default().fg(INK).bold(),
+            ),
+            Span::styled(format!("{} ", people), Style::default().fg(INK)),
+            Span::styled(format!("{} ", profession), Style::default().fg(DARK_INK)),
+            Span::styled(format!("| {} ", location), Style::default().fg(WARM_BROWN)),
+            Span::styled(
+                format!("| {} d{}", season_name, day),
+                Style::default().fg(DARK_INK),
+            ),
+        ]);
+        let line2 = Line::from(vec![
+            Span::styled(" F:", Style::default().fg(need_color(food))),
+            Span::styled(
+                format!("{:.0}% ", food * 100.0),
+                Style::default().fg(need_color(food)),
+            ),
+            Span::styled("E:", Style::default().fg(need_color(energy))),
+            Span::styled(
+                format!("{:.0}% ", energy * 100.0),
+                Style::default().fg(need_color(energy)),
+            ),
+            Span::styled("H:", Style::default().fg(need_color(hunger))),
+            Span::styled(
+                format!("{:.0}% ", hunger * 100.0),
+                Style::default().fg(need_color(hunger)),
+            ),
+            Span::styled("S:", Style::default().fg(need_color(safety))),
+            Span::styled(
+                format!("{:.0}% ", safety * 100.0),
+                Style::default().fg(need_color(safety)),
+            ),
+            Span::styled("M:", Style::default().fg(need_color(money))),
+            Span::styled(
+                format!("{:.0}%", money * 100.0),
+                Style::default().fg(need_color(money)),
+            ),
+        ]);
+        let line3 = Line::from(Span::styled(
+            " Tab:switch  Esc:back  ?:help  i:inv  j:journal  m:map  g:gather  r:rest",
+            Style::default().fg(DARK_INK).dim(),
+        ));
+        let status = Paragraph::new(vec![line1, line2, line3])
+            .block(Block::default().style(Style::default().bg(PAPER)));
+        f.render_widget(status, status_area);
+    } else {
+        let line = Line::from(Span::styled(
+            format!(" {} d{} | Press Enter to begin", season_name, day),
+            Style::default().fg(DARK_INK),
+        ));
+        let status = Paragraph::new(line).block(Block::default().style(Style::default().bg(PAPER)));
+        f.render_widget(status, status_area);
     }
 }
 
