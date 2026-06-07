@@ -1,0 +1,32 @@
+// Simulation parameters — tune without recompiling.
+// Loaded at runtime via SimParams::load_or_default("data/sim_params.ron").
+// Food decays fastest (hunger), safety slowest (environmental stability).
+// Dependencies: need_decay_rates must sum to a reasonable total,
+// reputation_spread_rate controls cross-settlement diffusion.
+SimParams(
+    // Need decay rates (per tick, before dt=1 multiplier)
+    // Food is most urgent (hunger), safety is most stable (environment)
+    food_decay_rate: 0.08,
+    money_decay_rate: 0.04,
+    care_decay_rate: 0.02,
+    presence_decay_rate: 0.02,
+    safety_decay_rate: 0.01,
+
+    // Dependent acceleration: children/elders lose care 2x faster without caregiver
+    dependent_care_acceleration: 2.0,
+
+    // Reputation baseline (0.5 = neutral), decay toward baseline per tick
+    reputation_baseline: 0.5,
+    reputation_local_decay_rate: 0.01,
+    reputation_faction_decay_rate: 0.005,
+
+    // How fast reputation spreads to neighboring settlements (0-1)
+    reputation_spread_rate: 0.1,
+
+    // Relationship trust convergence toward baseline per tick
+    trust_convergence_rate: 0.005,
+
+    // Deferred effect timing (tick range for common effects)
+    deferred_effect_min_ticks: 5,
+    deferred_effect_max_ticks: 30,
+)

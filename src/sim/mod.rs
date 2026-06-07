@@ -4,10 +4,12 @@ use crate::model::{Need, World};
 
 pub mod effects;
 pub mod needs_dependent;
+pub mod params;
 pub mod relationships;
 pub mod reputation;
 
 use effects::{EffectContext, EffectQueue};
+pub use params::SimParams;
 use relationships::RelationshipTracker;
 use reputation::ReputationStore;
 
@@ -19,19 +21,13 @@ pub struct JournalEntry {
 
 const MAX_JOURNAL: usize = 200;
 
-const FOOD_DECAY_RATE: f64 = 0.08;
-const MONEY_DECAY_RATE: f64 = 0.04;
-const CARE_DECAY_RATE: f64 = 0.02;
-const PRESENCE_DECAY_RATE: f64 = 0.02;
-const SAFETY_DECAY_RATE: f64 = 0.01;
-
-pub fn tick_needs(world: &mut World, dt: f64) {
+pub fn tick_needs_with_params(world: &mut World, dt: f64, params: &SimParams) {
     let rates: [(Need, f64); 5] = [
-        (Need::Food, FOOD_DECAY_RATE),
-        (Need::Money, MONEY_DECAY_RATE),
-        (Need::Care, CARE_DECAY_RATE),
-        (Need::Presence, PRESENCE_DECAY_RATE),
-        (Need::Safety, SAFETY_DECAY_RATE),
+        (Need::Food, params.food_decay_rate),
+        (Need::Money, params.money_decay_rate),
+        (Need::Care, params.care_decay_rate),
+        (Need::Presence, params.presence_decay_rate),
+        (Need::Safety, params.safety_decay_rate),
     ];
     for region in &mut world.regions {
         for settlement in &mut region.settlements {
@@ -42,6 +38,10 @@ pub fn tick_needs(world: &mut World, dt: f64) {
             }
         }
     }
+}
+
+pub fn tick_needs(world: &mut World, dt: f64) {
+    tick_needs_with_params(world, dt, &SimParams::default());
 }
 
 pub fn tick(world: &mut World) {
@@ -58,6 +58,8 @@ pub struct SimState {
     pub obligations: Vec<needs_dependent::Obligation>,
     pub charts: Charts,
     pub journal: Vec<JournalEntry>,
+    #[serde(default = "SimParams::default")]
+    pub params: SimParams,
 }
 
 impl SimState {
@@ -71,6 +73,7 @@ impl SimState {
             obligations: Vec::new(),
             charts,
             journal: Vec::new(),
+            params: SimParams::default(),
         }
     }
 
@@ -112,7 +115,7 @@ pub fn sim_tick(sim: &mut SimState) {
     for desc in descs {
         sim.log_journal(current_tick, desc);
     }
-    tick_needs(&mut sim.world, 1.0);
+    tick_needs_with_params(&mut sim.world, 1.0, &sim.params);
     needs_dependent::propagate_dependent_needs(&mut sim.world, &sim.obligations);
     reputation::spread_reputation(&mut sim.reputation, &sim.world, 1.0);
     sim.relationships.tick_converge(1.0);
@@ -162,18 +165,19 @@ mod tests {
                 }
             }
         }
-        tick_needs(&mut world, 1.0);
+        let params = SimParams::default();
+        tick_needs_with_params(&mut world, 1.0, &params);
         let p = &world.regions[0].settlements[0].people[0];
         assert!(
-            (p.needs.get(Need::Food) - (0.8 - FOOD_DECAY_RATE)).abs() < f64::EPSILON,
+            (p.needs.get(Need::Food) - (0.8 - params.food_decay_rate)).abs() < f64::EPSILON,
             "food after 1 tick: expected {}, got {}",
-            0.8 - FOOD_DECAY_RATE,
+            0.8 - params.food_decay_rate,
             p.needs.get(Need::Food)
         );
         assert!(
-            (p.needs.get(Need::Safety) - (0.8 - SAFETY_DECAY_RATE)).abs() < f64::EPSILON,
+            (p.needs.get(Need::Safety) - (0.8 - params.safety_decay_rate)).abs() < f64::EPSILON,
             "safety after 1 tick: expected {}, got {}",
-            0.8 - SAFETY_DECAY_RATE,
+            0.8 - params.safety_decay_rate,
             p.needs.get(Need::Safety)
         );
     }
