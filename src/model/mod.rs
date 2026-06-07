@@ -2857,6 +2857,142 @@ pub struct Relationship {
     pub history: Vec<RelationshipEvent>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum QuestType {
+    DeliverItem,
+    GatherResource,
+    EscortNpc,
+    FindLocation,
+    ResolveDispute,
+}
+
+impl QuestType {
+    pub fn name(self) -> &'static str {
+        match self {
+            QuestType::DeliverItem => "deliver item",
+            QuestType::GatherResource => "gather resource",
+            QuestType::EscortNpc => "escort NPC",
+            QuestType::FindLocation => "find location",
+            QuestType::ResolveDispute => "resolve dispute",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Quest {
+    pub id: String,
+    pub quest_type: QuestType,
+    pub description: String,
+    pub issuer_id: String,
+    pub issuer_name: String,
+    pub target_item: Option<ItemType>,
+    pub target_count: u32,
+    pub target_location: Option<String>,
+    pub reward_coins: u32,
+    pub reward_reputation: f64,
+    pub deadline_tick: u64,
+    pub accepted: bool,
+    pub completed: bool,
+    pub progress: u32,
+}
+
+impl Quest {
+    pub fn generate(seed: u64, issuer_id: String, issuer_name: String, current_tick: u64) -> Self {
+        let mut rng = crate::rng::SeedRng::new(seed);
+        let quest_type = match rng.gen_range(5) {
+            0 => QuestType::DeliverItem,
+            1 => QuestType::GatherResource,
+            2 => QuestType::EscortNpc,
+            3 => QuestType::FindLocation,
+            _ => QuestType::ResolveDispute,
+        };
+
+        let (description, target_item, target_count, target_location) = match quest_type {
+            QuestType::DeliverItem => {
+                let items = [
+                    ItemType::Herb,
+                    ItemType::Food,
+                    ItemType::Cloth,
+                    ItemType::Iron,
+                ];
+                let item = items[rng.gen_range(items.len() as u32) as usize];
+                let count = 2 + rng.gen_range(4);
+                (
+                    format!("Deliver {} {} to a contact", count, item.name()),
+                    Some(item),
+                    count,
+                    None,
+                )
+            }
+            QuestType::GatherResource => {
+                let items = [ItemType::Wood, ItemType::Stone, ItemType::Herb];
+                let item = items[rng.gen_range(items.len() as u32) as usize];
+                let count = 3 + rng.gen_range(5);
+                (
+                    format!("Gather {} {}", count, item.name()),
+                    Some(item),
+                    count,
+                    None,
+                )
+            }
+            QuestType::EscortNpc => (
+                "Escort a traveler safely to their destination".to_string(),
+                None,
+                1,
+                Some("nearby settlement".to_string()),
+            ),
+            QuestType::FindLocation => {
+                let locations = [
+                    "ancient ruins",
+                    "hidden cave",
+                    "forgotten shrine",
+                    "old camp",
+                ];
+                let loc = locations[rng.gen_range(locations.len() as u32) as usize];
+                (format!("Find the {}", loc), None, 1, Some(loc.to_string()))
+            }
+            QuestType::ResolveDispute => (
+                "Mediate a dispute between two parties".to_string(),
+                None,
+                1,
+                None,
+            ),
+        };
+
+        let reward_coins = 3 + rng.gen_range(8);
+        let reward_reputation = 0.05 + rng.gen_range(10) as f64 / 100.0;
+        let deadline_tick = current_tick + 48 + rng.gen_range(72) as u64; // 2-5 days
+
+        Quest {
+            id: format!("quest-{:016x}", seed),
+            quest_type,
+            description,
+            issuer_id,
+            issuer_name,
+            target_item,
+            target_count,
+            target_location,
+            reward_coins,
+            reward_reputation,
+            deadline_tick,
+            accepted: false,
+            completed: false,
+            progress: 0,
+        }
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.progress >= self.target_count
+    }
+
+    pub fn advance_progress(&mut self, amount: u32) {
+        self.progress = (self.progress + amount).min(self.target_count);
+        if self.is_complete() {
+            self.completed = true;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4127,5 +4263,57 @@ mod tests {
             "desert should have significant heatwave: {}",
             heat_count
         );
+    }
+
+    #[test]
+    fn quest_generation_deterministic() {
+        let q1 = Quest::generate(42, "npc-1".into(), "Test NPC".into(), 100);
+        let q2 = Quest::generate(42, "npc-1".into(), "Test NPC".into(), 100);
+        assert_eq!(q1.id, q2.id);
+        assert_eq!(q1.quest_type, q2.quest_type);
+        assert_eq!(q1.description, q2.description);
+        assert_eq!(q1.reward_coins, q2.reward_coins);
+    }
+
+    #[test]
+    fn quest_types_variety() {
+        let mut types = std::collections::HashSet::new();
+        for seed in 0..20 {
+            let q = Quest::generate(seed, "npc-1".into(), "Test NPC".into(), 100);
+            types.insert(q.quest_type);
+        }
+        assert!(
+            types.len() >= 3,
+            "should generate at least 3 different quest types"
+        );
+    }
+
+    #[test]
+    fn quest_progress_tracking() {
+        let mut q = Quest::generate(42, "npc-1".into(), "Test NPC".into(), 100);
+        assert!(!q.is_complete());
+        q.advance_progress(1);
+        if q.target_count > 1 {
+            assert!(!q.is_complete());
+        }
+        q.advance_progress(q.target_count);
+        assert!(q.is_complete());
+        assert!(q.completed);
+    }
+
+    #[test]
+    fn quest_deadline_in_future() {
+        let q = Quest::generate(42, "npc-1".into(), "Test NPC".into(), 100);
+        assert!(q.deadline_tick > 100);
+        assert!(q.deadline_tick <= 100 + 48 + 72); // max 5 days
+    }
+
+    #[test]
+    fn quest_rewards_positive() {
+        for seed in 0..10 {
+            let q = Quest::generate(seed, "npc-1".into(), "Test NPC".into(), 100);
+            assert!(q.reward_coins >= 3);
+            assert!(q.reward_reputation > 0.0);
+        }
     }
 }
