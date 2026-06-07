@@ -2879,6 +2879,98 @@ impl QuestType {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum BuildingType {
+    Shelter,
+    Workshop,
+    Shrine,
+    Hearth,
+    Trap,
+}
+
+impl BuildingType {
+    pub fn name(self) -> &'static str {
+        match self {
+            BuildingType::Shelter => "shelter",
+            BuildingType::Workshop => "workshop",
+            BuildingType::Shrine => "shrine",
+            BuildingType::Hearth => "hearth",
+            BuildingType::Trap => "trap",
+        }
+    }
+
+    pub fn materials_required(self) -> Vec<(ItemType, u32)> {
+        match self {
+            BuildingType::Shelter => vec![(ItemType::Wood, 5), (ItemType::Cloth, 2)],
+            BuildingType::Workshop => vec![(ItemType::Wood, 8), (ItemType::Iron, 3)],
+            BuildingType::Shrine => vec![(ItemType::Stone, 6), (ItemType::Cloth, 3)],
+            BuildingType::Hearth => vec![(ItemType::Stone, 4), (ItemType::Wood, 2)],
+            BuildingType::Trap => vec![(ItemType::Wood, 3), (ItemType::Iron, 1)],
+        }
+    }
+
+    pub fn build_ticks(self) -> u64 {
+        match self {
+            BuildingType::Shelter => 48,
+            BuildingType::Workshop => 72,
+            BuildingType::Shrine => 96,
+            BuildingType::Hearth => 36,
+            BuildingType::Trap => 24,
+        }
+    }
+
+    pub fn energy_cost(self) -> f64 {
+        match self {
+            BuildingType::Shelter => 0.3,
+            BuildingType::Workshop => 0.4,
+            BuildingType::Shrine => 0.5,
+            BuildingType::Hearth => 0.2,
+            BuildingType::Trap => 0.15,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Building {
+    pub id: String,
+    pub building_type: BuildingType,
+    pub build_progress: f64,
+    pub completed: bool,
+    pub location: String,
+    pub built_tick: Option<u64>,
+}
+
+impl Building {
+    pub fn new(seed: u64, building_type: BuildingType, location: String) -> Self {
+        Building {
+            id: format!("building-{:016x}", seed),
+            building_type,
+            build_progress: 0.0,
+            completed: false,
+            location,
+            built_tick: None,
+        }
+    }
+
+    pub fn advance_construction(&mut self, ticks: u64, current_tick: u64) {
+        if self.completed {
+            return;
+        }
+        let total_ticks = self.building_type.build_ticks();
+        let progress_per_tick = 1.0 / total_ticks as f64;
+        self.build_progress = (self.build_progress + ticks as f64 * progress_per_tick).min(1.0);
+
+        if self.build_progress >= 1.0 {
+            self.completed = true;
+            self.built_tick = Some(current_tick);
+        }
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.completed
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum CropType {
     Grain,
     RootVegetable,
@@ -4503,5 +4595,55 @@ mod tests {
         farm_storm.update_growth(150, Weather::Storm);
 
         assert!(farm_clear.growth_progress > farm_storm.growth_progress);
+    }
+
+    #[test]
+    fn building_type_properties() {
+        assert_eq!(BuildingType::Shelter.name(), "shelter");
+        let materials = BuildingType::Shelter.materials_required();
+        assert!(materials.len() >= 2);
+        assert!(BuildingType::Shelter.build_ticks() > 0);
+        assert!(BuildingType::Shelter.energy_cost() > 0.0);
+    }
+
+    #[test]
+    fn building_construction_progress() {
+        let mut building = Building::new(42, BuildingType::Shelter, "TestSettlement".into());
+        assert!(!building.is_complete());
+        assert_eq!(building.build_progress, 0.0);
+
+        building.advance_construction(24, 100);
+        assert!(building.build_progress > 0.0);
+        assert!(!building.is_complete());
+
+        building.advance_construction(100, 200);
+        assert!(building.is_complete());
+        assert!(building.built_tick.is_some());
+    }
+
+    #[test]
+    fn building_material_requirements() {
+        let shelter_mats = BuildingType::Shelter.materials_required();
+        assert!(shelter_mats.iter().any(|(item, _)| *item == ItemType::Wood));
+
+        let workshop_mats = BuildingType::Workshop.materials_required();
+        assert!(workshop_mats
+            .iter()
+            .any(|(item, _)| *item == ItemType::Iron));
+    }
+
+    #[test]
+    fn building_energy_costs_vary() {
+        let shelter_cost = BuildingType::Shelter.energy_cost();
+        let trap_cost = BuildingType::Trap.energy_cost();
+        assert!(shelter_cost > trap_cost);
+    }
+
+    #[test]
+    fn building_completion_sets_tick() {
+        let mut building = Building::new(42, BuildingType::Hearth, "TestSettlement".into());
+        building.advance_construction(100, 500);
+        assert!(building.is_complete());
+        assert_eq!(building.built_tick, Some(500));
     }
 }
