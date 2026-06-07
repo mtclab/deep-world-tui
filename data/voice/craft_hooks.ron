@@ -1,0 +1,117 @@
+(
+    forge: (
+        greeting_openers: [
+            "\"The forge burns early today. Good iron takes patience.\"",
+            "\"Smoke on the horizon means work is being done. Welcome.\"",
+            "\"What the forge makes, the world keeps. What brings you?\"",
+            "\"The coals are hot. A good sign for both metal and conversation.\"",
+            "\"The anvil rings. That is the sound of things lasting.\"",
+        ],
+        trade_phrases: [
+            "\"Worth is measured in heat and hammer. Let us measure yours.\"",
+            "\"The forge tempers. So does fair trade.\"",
+            "\"Iron remembers every strike. I remember every deal.\"",
+            "\"What bends without breaking is stronger. That includes patience in trade.\"",
+            "\"The forge does not lie. Neither do I when prices are named.\"",
+        ],
+        farewell_phrases: [
+            "\"May the forge-fire warm your path.\"",
+            "\"The work continues. The fire does not go out.\"",
+            "\"Return when the iron cools. We will talk again.\"",
+            "\"What the forge makes endures. Walk with endurance.\"",
+            "\"The tongs rest, but the heat remains. Farewell.\"",
+        ],
+    ),
+    still: (
+        greeting_openers: [
+            "\"The herbs steep. Patience makes the tincture. Welcome.\"",
+            "\"In stillness, truth rises. What brings you to this quiet place?\"",
+            "\"The mortar rests. The pestle will resume. Sit with me.\"",
+            "\"The still teaches what noise cannot. Come, share the silence.\"",
+            "\"The infusion is ready. The body heals when the spirit holds.\"",
+        ],
+        trade_phrases: [
+            "\"The still offers what coin cannot buy. But we trade willingly.\"",
+            "\"Healing is a gift. The price covers the garden's patience.\"",
+            "\"What grows in stillness is worth its weight.\"",
+            "\"The still-born remedy costs time, not gold. But both are accepted.\"",
+            "\"I trade what I have cultivated. Fair exchange, as always.\"",
+        ],
+        farewell_phrases: [
+            "\"May stillness find you in the noise.\"",
+            "\"The herbs remember. Come back when you need them.\"",
+            "\"Go gently. The world is loud, but you need not be.\"",
+            "\"The still-water road leads back here. Walk it when ready.\"",
+            "\"Patience heals. Farewell.\"",
+        ],
+    ),
+    word: (
+        greeting_openers: [
+            "\"The word shapes the world. What word do you bring?\"",
+            "\"Ink and page. The Archive holds what memory cannot. Welcome.\"",
+            "\"A greeting is itself a word. Well met, then.\"",
+            "\"The text opens. What chapter begins?\"",
+            "\"The word endures. Welcome to where words are kept.\"",
+        ],
+        trade_phrases: [
+            "\"Words have weight. Let us weigh this exchange carefully.\"",
+            "\"The scribe's trade is patience and precision. As is all fair trade.\"",
+            "\"A good contract, like a good text, leaves nothing ambiguous.\"",
+            "\"The written word outlives the spoken. Trade recorded is trade honored.\"",
+            "\"The word is mightier, they say. But ink requires investment.\"",
+        ],
+        farewell_phrases: [
+            "\"May the word find you ready.\"",
+            "\"The text closes. But the story continues.\"",
+            "\"Until the next page. Walk well.\"",
+            "\"The Archive guards all words. Yours are safe here.\"",
+            "\"Written or spoken, the farewell is the same. Go well.\"",
+        ],
+    ),
+    current: (
+        greeting_openers: [
+            "\"The current carries all things. Today, it carries you here.\"",
+            "\"What flows in must flow out. Welcome to the turning.\"",
+            "\"The river does not wait, but it always arrives. As have you.\"",
+            "\"Change is the only constant. The current teaches this.\"",
+            "\"The tide brought you. The current will guide what follows.\"",
+        ],
+        trade_phrases: [
+            "\"Trade flows like water. Let us see which way it runs.\"",
+            "\"The current carries goods and news alike. Both have value.\"",
+            "\"What flows in must be accounted for. Let us count your offering.\"",
+            "\"Value, like water, takes the shape of its container. Fair exchange.\"",
+            "\"The sea does not give, but it delivers. Let us see what it has brought.\"",
+        ],
+        farewell_phrases: [
+            "\"May the current carry you where you need to go.\"",
+            "\"The flow continues. So shall we meet again.\"",
+            "\"What the current brings, it takes. But it also returns.\"",
+            "\"The tide goes out. It always comes back. Farewell.\"",
+            "\"The current does not stop. Neither should you. Walk on.\"",
+        ],
+    ),
+    root: (
+        greeting_openers: [
+            "\"The root knows the way, even in darkness. Welcome.\"",
+            "\"What grows beneath sustains what stands above. Sit with me.\"",
+            "\"The earth holds. The root anchors. This is good ground.\"",
+            "\"Growth is patient. The root teaches this. You are welcome.\"",
+            "\"From root to branch, the path is long but certain. Greetings.\"",
+        ],
+        trade_phrases: [
+            "\"What the root provides, the market values. Let us trade.\"",
+            "\"The harvest feeds the many. The trade feeds the few. Fair balance.\"",
+            "\"Root-grown is well-grown. Worth every weight.\"",
+            "\"The garden's gift has a price, but a fair one.\"",
+            "\"What grows from root and soil has true value. Let us name it.\"",
+        ],
+        farewell_phrases: [
+            "\"May the roots hold your path steady.\"",
+            "\"The garden waits. The root endures. So shall you.\"",
+            "\"Growth continues even when unseen. Farewell and grow.\"",
+            "\"From root to leaf, the cycle continues. Walk in it.\"",
+            "\"The earth remembers. Come back when the root calls.\"",
+        ],
+    ),
+)
