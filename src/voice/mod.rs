@@ -1,6 +1,8 @@
 use crate::model::{Need, PeopleKind, Person};
 use crate::rng::SeedRng;
 
+pub mod people_banks;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Situation {
     Greeting,
