@@ -3,6 +3,7 @@ use crate::gen::world::generate_world;
 use crate::model::{Need, World};
 
 pub mod effects;
+pub mod god;
 pub mod needs_dependent;
 pub mod params;
 pub mod relationships;

@@ -6,7 +6,15 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Phase 2 — Indirect bond signals (continued)
+
+- **#141** God-prayer mini-encounter. When the player rests in a settlement
+  whose dominant people has a patron (Metsik→Keuru, Sepät/Ahjo→Oltzed,
+  Arkit→Sampsa, Väylä/Mëräk→Masa, Laakso/Tzäkhar/She'ar→Kukri, Häl→Keuru,
+  Khör→Sampsa), a sensory first-person dream line is deterministically
+  appended to the journal on roughly one rest in four. The line is pure
+  flavor: no god name, no people name, no number. Implementation lives in
+  `src/sim/god.rs` and is wired into `App::rest()`.
 
 ## [0.1.0] - 2026-06-07
 

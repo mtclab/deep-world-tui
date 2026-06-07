@@ -1499,6 +1499,25 @@ impl App {
         } else {
             self.status_msg = Some("Rested (8h)".into());
         }
+        // God-prayer mini-encounter: a quiet dream from the patron of the
+        // land we rest in. Logged to the journal so the world remembers.
+        let dominant = self.sim.as_ref().and_then(|sim| {
+            let pos = self.player_pos?;
+            let region = sim.world.regions.get(pos.region_idx)?;
+            let settlement = region.settlements.first()?;
+            Some(settlement.people.first()?.people.clone())
+        });
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_else(|| "player".to_string());
+        let tick = self.sim.as_ref().map(|sim| sim.world.tick).unwrap_or(0);
+        if let Some(line) = crate::sim::god::maybe_prayer(&player_id, dominant.as_deref(), tick) {
+            if let Some(ref mut sim) = self.sim {
+                sim.log_journal(tick, line);
+            }
+        }
     }
 
     pub fn clock_str(&self) -> String {
