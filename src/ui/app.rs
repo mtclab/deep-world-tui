@@ -11,6 +11,7 @@ use crate::sim::SimState;
 
 use super::event::AppEvent;
 
+#[derive(Clone)]
 pub enum Screen {
     CharacterCreation,
     World,
@@ -57,6 +58,8 @@ pub enum Screen {
     Encounter,
     Collapse,
     GameOver,
+    Help,
+    Settings,
 }
 
 pub struct App {
@@ -73,6 +76,8 @@ pub struct App {
     pub collapse: Option<Collapse>,
     pub god_affinity: GodAffinity,
     pub inter_people_bias: InterPeopleBias,
+    pub llm_enabled: bool,
+    pub previous_screen: Option<Screen>,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -95,6 +100,8 @@ impl App {
             collapse: None,
             god_affinity: GodAffinity::new(),
             inter_people_bias: InterPeopleBias::default(),
+            llm_enabled: false,
+            previous_screen: None,
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -1560,6 +1567,14 @@ impl App {
                     crossterm::event::KeyCode::Char('c') => {
                         self.enter_craft();
                     }
+                    crossterm::event::KeyCode::Char('?') => {
+                        self.previous_screen = Some(self.screen.clone());
+                        self.screen = Screen::Help;
+                    }
+                    crossterm::event::KeyCode::Char(',') => {
+                        self.previous_screen = Some(self.screen.clone());
+                        self.screen = Screen::Settings;
+                    }
                     _ => {}
                 },
                 Screen::Overmap { region_idx } => match key.code {
@@ -1812,6 +1827,34 @@ impl App {
                     }
                     crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
                         self.running = false;
+                    }
+                    _ => {}
+                },
+                Screen::Help => match key.code {
+                    crossterm::event::KeyCode::Char('q')
+                    | crossterm::event::KeyCode::Esc
+                    | crossterm::event::KeyCode::Char('?') => {
+                        if let Some(prev) = self.previous_screen.take() {
+                            self.screen = prev;
+                        }
+                    }
+                    _ => {}
+                },
+                Screen::Settings => match key.code {
+                    crossterm::event::KeyCode::Char('q')
+                    | crossterm::event::KeyCode::Esc
+                    | crossterm::event::KeyCode::Char(',') => {
+                        if let Some(prev) = self.previous_screen.take() {
+                            self.screen = prev;
+                        }
+                    }
+                    crossterm::event::KeyCode::Char('l') => {
+                        self.llm_enabled = !self.llm_enabled;
+                        self.status_msg = Some(if self.llm_enabled {
+                            "LLM narrator enabled".into()
+                        } else {
+                            "LLM narrator disabled (using voice.rs templates)".into()
+                        });
                     }
                     _ => {}
                 },

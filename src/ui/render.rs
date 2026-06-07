@@ -97,6 +97,12 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::GameOver => {
             draw_game_over_screen(f, app);
         }
+        Screen::Help => {
+            draw_help_screen(f, app);
+        }
+        Screen::Settings => {
+            draw_settings_screen(f, app);
+        }
     }
     draw_status_bar(f, app);
 }
@@ -2440,4 +2446,118 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
+}
+
+fn draw_help_screen(f: &mut Frame, _app: &App) {
+    let area = f.area();
+    let text = vec![
+        Line::from(Span::styled(
+            "=== DEEP WORLD — KEY BINDINGS ===",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            " Movement",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from("   h/←/j/k/l/↑↓→  Move on map"),
+        Line::from("   1-9              Switch region"),
+        Line::from("   M                Region overview (overmap)"),
+        Line::from(""),
+        Line::from(Span::styled(
+            " Actions",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from("   g                Gather resources"),
+        Line::from("   r                Rest (8h)"),
+        Line::from("   Enter            Enter settlement"),
+        Line::from("   Esc/Q            Exit settlement / go back"),
+        Line::from("   Space            Advance 1 hour"),
+        Line::from(""),
+        Line::from(Span::styled(
+            " In Settlement",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from("   t                Talk to NPC (voice lines)"),
+        Line::from("   i                Inventory"),
+        Line::from("   c                Craft"),
+        Line::from("   m                Market (buy/sell)"),
+        Line::from("   j                Journal"),
+        Line::from("   svcs             Use service (tavern/temple/etc.)"),
+        Line::from(""),
+        Line::from(Span::styled(
+            " Encounter",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from("   flee/bribe/talk/trade/calm/intimidate/push/shelter"),
+        Line::from(""),
+        Line::from(Span::styled(
+            " Other",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from("   Ctrl+S           Save game"),
+        Line::from("   Ctrl+L           Load game"),
+        Line::from("   ?                This help screen"),
+        Line::from("   ,                Settings"),
+        Line::from("   Q/Esc            Quit"),
+    ];
+    let paragraph = Paragraph::new(text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Help ")
+            .border_style(Style::default().fg(ARCHIVE_RED)),
+    );
+    f.render_widget(paragraph, area);
+}
+
+fn draw_settings_screen(f: &mut Frame, app: &App) {
+    let area = f.area();
+    let llm_status = if app.llm_enabled {
+        "ON  (persona prompts from LLM)"
+    } else {
+        "OFF (using voice.rs templates)"
+    };
+    let text = vec![
+        Line::from(Span::styled(
+            "=== SETTINGS ===",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            " LLM Narrator",
+            Style::default()
+                .fg(ARCHIVE_RED)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(format!("   Status: {}", llm_status)),
+        Line::from("   [l] Toggle LLM narrator on/off"),
+        Line::from(""),
+        Line::from(Span::styled(
+            " (More settings coming in future versions)",
+            Style::default().fg(DARK_BROWN),
+        )),
+        Line::from(""),
+        Line::from(" [Esc/Q/,]  Back to game"),
+    ];
+    let paragraph = Paragraph::new(text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Settings ")
+            .border_style(Style::default().fg(ARCHIVE_RED)),
+    );
+    f.render_widget(paragraph, area);
 }
