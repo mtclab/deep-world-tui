@@ -60,6 +60,8 @@ pub struct SimState {
     pub journal: Vec<JournalEntry>,
     #[serde(default = "SimParams::default")]
     pub params: SimParams,
+    #[serde(default)]
+    pub npc_memories: std::collections::HashMap<String, crate::model::NpcMemory>,
 }
 
 impl SimState {
@@ -74,6 +76,7 @@ impl SimState {
             charts,
             journal: Vec::new(),
             params: SimParams::default(),
+            npc_memories: std::collections::HashMap::new(),
         }
     }
 

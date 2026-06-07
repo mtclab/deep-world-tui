@@ -194,6 +194,51 @@ pub struct Inventory {
     pub durability: std::collections::HashMap<ItemType, f64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NpcInteraction {
+    pub action: EncounterAction,
+    pub tick: u64,
+    pub settlement: String,
+    pub trust_delta: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct NpcMemory {
+    pub interactions: Vec<NpcInteraction>,
+}
+
+impl NpcMemory {
+    pub fn last(&self) -> Option<&NpcInteraction> {
+        self.interactions.last()
+    }
+
+    pub fn count(&self) -> usize {
+        self.interactions.len()
+    }
+
+    pub fn cumulative_trust(&self) -> f64 {
+        self.interactions.iter().map(|i| i.trust_delta).sum()
+    }
+
+    pub fn add(
+        &mut self,
+        action: EncounterAction,
+        tick: u64,
+        settlement: String,
+        trust_delta: f64,
+    ) {
+        if self.interactions.len() >= 10 {
+            self.interactions.remove(0);
+        }
+        self.interactions.push(NpcInteraction {
+            action,
+            tick,
+            settlement,
+            trust_delta,
+        });
+    }
+}
+
 fn default_durability() -> std::collections::HashMap<ItemType, f64> {
     std::collections::HashMap::new()
 }
@@ -3527,5 +3572,45 @@ mod tests {
     fn repair_full_item_costs_nothing() {
         let inv = Inventory::default();
         assert_eq!(inv.repair_cost(ItemType::Iron), 0);
+    }
+
+    #[test]
+    fn npc_memory_default_empty() {
+        let mem = NpcMemory::default();
+        assert_eq!(mem.count(), 0);
+        assert!(mem.last().is_none());
+        assert_eq!(mem.cumulative_trust(), 0.0);
+    }
+
+    #[test]
+    fn npc_memory_add_interaction() {
+        let mut mem = NpcMemory::default();
+        mem.add(EncounterAction::Talk, 100, "TestSettlement".into(), 0.02);
+        assert_eq!(mem.count(), 1);
+        assert!(mem.last().is_some());
+        assert!((mem.cumulative_trust() - 0.02).abs() < 0.001);
+    }
+
+    #[test]
+    fn npc_memory_cumulative_trust() {
+        let mut mem = NpcMemory::default();
+        mem.add(EncounterAction::Talk, 100, "TestSettlement".into(), 0.02);
+        mem.add(EncounterAction::Trade, 200, "TestSettlement".into(), 0.03);
+        mem.add(
+            EncounterAction::Intimidate,
+            300,
+            "TestSettlement".into(),
+            -0.02,
+        );
+        assert!((mem.cumulative_trust() - 0.03).abs() < 0.001);
+    }
+
+    #[test]
+    fn npc_memory_caps_at_10_interactions() {
+        let mut mem = NpcMemory::default();
+        for i in 0..15 {
+            mem.add(EncounterAction::Talk, i * 10, "TestSettlement".into(), 0.01);
+        }
+        assert_eq!(mem.count(), 10);
     }
 }

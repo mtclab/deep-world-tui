@@ -353,6 +353,7 @@ impl App {
                 }
             }
         }
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
         self.screen = Screen::Talk {
             region_idx,
             settlement_idx,
@@ -793,6 +794,54 @@ impl App {
         Some(PeopleKind::from_name(&dominant.people))
     }
 
+    pub fn npc_memory(&self, person_id: &str) -> Option<&crate::model::NpcMemory> {
+        self.sim
+            .as_ref()
+            .and_then(|sim| sim.npc_memories.get(person_id))
+    }
+
+    pub fn has_met_npc(&self, person_id: &str) -> bool {
+        self.npc_memory(person_id).is_some_and(|m| m.count() > 0)
+    }
+
+    pub fn npc_trust_bonus(&self, person_id: &str) -> f64 {
+        self.npc_memory(person_id)
+            .map_or(0.0, |m| m.cumulative_trust().clamp(-0.3, 0.3))
+    }
+
+    pub fn record_npc_memory(
+        &mut self,
+        settlement_idx: usize,
+        person_idx: usize,
+        action: EncounterAction,
+        trust_delta: f64,
+    ) {
+        let (person_id, settlement_name, _region_idx) = if let Some(ref sim) = self.sim {
+            let pos = match self.player_pos {
+                Some(p) => p,
+                None => return,
+            };
+            let region = sim.world.regions.get(pos.region_idx);
+            let settlement = region.and_then(|r| r.settlements.get(settlement_idx));
+            let person = settlement.and_then(|s| s.people.get(person_idx));
+            match (person, settlement) {
+                (Some(p), Some(s)) => (p.id.clone(), s.name.clone(), pos.region_idx),
+                _ => return,
+            }
+        } else {
+            return;
+        };
+        let tick = (self.clock.day * 24 + self.clock.hour) as u64;
+        if let Some(ref mut sim) = self.sim {
+            sim.npc_memories.entry(person_id).or_default().add(
+                action,
+                tick,
+                settlement_name,
+                trust_delta,
+            );
+        }
+    }
+
     pub fn buy_item(&mut self, item: ItemType) {
         if !item.tradeable() {
             self.status_msg = Some("Cannot buy that".into());
@@ -914,8 +963,29 @@ impl App {
         } else {
             0.0
         };
-        let talk_success = people_bias_mod > -0.20;
-        let trade_bonus = people_bias_mod > 0.05;
+        // Trust bonus from NPC memory (if we know this person)
+        let trust_bonus = self.current_settlement_people().map_or(0.0, |_npc_people| {
+            if let Some(ref sim) = self.sim {
+                let pos = match self.player_pos {
+                    Some(p) => p,
+                    None => return 0.0,
+                };
+                let region = sim.world.regions.get(pos.region_idx);
+                let settlement = region.and_then(|r| r.settlements.first());
+                let person = settlement.and_then(|s| s.people.first());
+                if let Some(p) = person {
+                    sim.npc_memories
+                        .get(&p.id)
+                        .map_or(0.0, |m| m.cumulative_trust().clamp(-0.3, 0.3))
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            }
+        });
+        let talk_success = people_bias_mod + trust_bonus > -0.20;
+        let trade_bonus = people_bias_mod + trust_bonus > 0.05;
         let msg = match action {
             EncounterAction::Flee => {
                 if enc_mod.flee > 0.05 {
@@ -1047,6 +1117,38 @@ impl App {
                 for tool in [ItemType::Iron, ItemType::Wood, ItemType::Stone] {
                     if ps.inventory.has(tool) {
                         ps.inventory.decay(tool, combat_decay);
+                    }
+                }
+            }
+        }
+        // Record NPC memory for this encounter
+        let trust_delta = match action {
+            EncounterAction::Talk => 0.02,
+            EncounterAction::Trade => 0.03,
+            EncounterAction::Calm => 0.01,
+            EncounterAction::Shelter => 0.01,
+            EncounterAction::Bribe => 0.005,
+            EncounterAction::Flee => 0.0,
+            EncounterAction::Intimidate => -0.02,
+            EncounterAction::PushThrough => -0.01,
+        };
+        if let Some(pos) = self.player_pos {
+            if let Some(ref sim) = self.sim {
+                if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                    if let Some(settlement) = region.settlements.first() {
+                        if let Some(person) = settlement.people.first() {
+                            let person_id = person.id.clone();
+                            let settlement_name = settlement.name.clone();
+                            let tick = (self.clock.day * 24 + self.clock.hour) as u64;
+                            if let Some(ref mut sim) = self.sim {
+                                sim.npc_memories.entry(person_id).or_default().add(
+                                    action,
+                                    tick,
+                                    settlement_name,
+                                    trust_delta,
+                                );
+                            }
+                        }
                     }
                 }
             }

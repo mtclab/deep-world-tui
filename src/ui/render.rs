@@ -1122,6 +1122,30 @@ fn draw_talk_screen(
         }
         lines.push(Line::from(""));
 
+        // Show "met before" if we have memory of this NPC
+        if app.has_met_npc(&p.id) {
+            let memory = app.npc_memory(&p.id);
+            let count = memory.map_or(0, |m| m.count());
+            let trust = app.npc_trust_bonus(&p.id);
+            let trust_label = if trust > 0.1 {
+                "warmly"
+            } else if trust < -0.1 {
+                "warily"
+            } else {
+                "neutrally"
+            };
+            lines.push(Line::from(Span::styled(
+                format!(
+                    "  You've met {} time{}. They remember you {}.",
+                    count,
+                    if count == 1 { "" } else { "s" },
+                    trust_label
+                ),
+                Style::default().fg(theme.warm_brown()),
+            )));
+            lines.push(Line::from(""));
+        }
+
         for (sit, label) in &situations {
             let vline = crate::voice::voice_line_situation_biased(
                 p,
