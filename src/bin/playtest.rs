@@ -1,8 +1,10 @@
 use std::io::{self, BufRead, Write};
 
 use deep_world_tui::charts::load::load_charts;
-use deep_world_tui::model::{EncounterAction, ItemType, SettlementService};
+use deep_world_tui::model::{EncounterAction, ItemType, PeopleKind, SettlementService};
 use deep_world_tui::ui::app::App;
+use deep_world_tui::voice::people_banks::PeopleBanks;
+use deep_world_tui::voice::{self, Situation};
 
 fn main() -> anyhow::Result<()> {
     let seed: u64 = std::env::args()
@@ -19,7 +21,7 @@ fn main() -> anyhow::Result<()> {
     println!("=== Deep World Playtest (seed={}) ===", seed);
     println!("Commands: status, move <dir>, map, gather, rest,");
     println!("  enter <ri> <si>, exit, inventory, craft [n], use <svc>,");
-    println!("  encounter <action>, collapse-dismiss, save, load, help, quit");
+    println!("  encounter <action>, talk [idx], collapse-dismiss, save, load, help, quit");
     println!();
 
     let stdin = io::stdin();
@@ -145,6 +147,50 @@ fn main() -> anyhow::Result<()> {
                 app.use_service(svc);
                 print_msg(&app);
             }
+            "talk" | "t" => {
+                let people_banks = match PeopleBanks::load("data/voice/people_banks.ron") {
+                    Ok(b) => b,
+                    Err(e) => {
+                        eprintln!("  Warning: Could not load people banks: {}", e);
+                        continue;
+                    }
+                };
+                if let (Some(ref sim), Some(pos)) = (&app.sim, app.player_pos) {
+                    if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                        if let Some(settlement) = region.settlements.first() {
+                            let idx: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                            if let Some(person) = settlement.people.get(idx) {
+                                let npc_people = PeopleKind::from_name(&person.people);
+                                let player_people = app.inter_people_bias.player_people;
+                                for sit in [
+                                    Situation::Greeting,
+                                    Situation::Trade,
+                                    Situation::NeedFine,
+                                    Situation::Farewell,
+                                    Situation::Gossip,
+                                    Situation::NeedDire,
+                                ] {
+                                    let line = voice::voice_line_situation_biased(
+                                        person,
+                                        sit,
+                                        player_people,
+                                    );
+                                    println!("  [{:?}] {}", sit, line);
+                                }
+                                let bank = people_banks.bank_for(&npc_people);
+                                let bank_line = &bank.greetings[idx % bank.greetings.len()];
+                                println!("  [{}] {}", person.people, bank_line);
+                            } else {
+                                println!(
+                                    "  No NPC at index {}. Settlement has {} people.",
+                                    idx,
+                                    settlement.people.len()
+                                );
+                            }
+                        }
+                    }
+                }
+            }
             "encounter" | "enc" => {
                 let action = match parts.get(1).copied().unwrap_or("") {
                     "flee" => EncounterAction::Flee,
@@ -267,6 +313,7 @@ fn print_help() {
     println!("  craft <n>    - Craft recipe #n");
     println!("  use <svc>    - Use service (tavern/temple/forge/hearth/trap)");
     println!("  encounter <a> - Resolve encounter");
+    println!("  talk [idx]    - Talk to NPC (voice + people bank)");
     println!("  collapse-dismiss - Dismiss collapse");
     println!("  god          - Show god affinity and people bias");
     println!("  save/load    - Save/load game");
