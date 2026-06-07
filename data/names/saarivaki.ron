@@ -1,0 +1,13 @@
+// Saariväki name grammar — island-folk naming tradition
+// Masaran family: Permic/Komi profile with back-rounded vowels, open finals
+// Roots: islands, inland sea, trade, navigation, boat-building
+NameGrammar(
+    prefixes: ["Saari", "Laiva", "Purje", "Ranta", "Nokk", "Köli", "Masto", "Vene"],
+    roots: [
+        "Kyl", "Vyl", "Saar", "Meri", "Vuok", "Laiva", "Laine",
+        "Purje", "Masto", "Köli", "Nokk", "Ankkur", "Kompass",
+        "Satama", "Maja", "Ranta", "Kallio", "Luoto", "Selkä",
+    ],
+    suffixes: ["mi", "ri", "la", "va", "nä", "kkä", "sto"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)

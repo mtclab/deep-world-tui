@@ -28,6 +28,10 @@ features = ["blocking"]
 name = "deep-world-tui"
 path = "src/main.rs"
 
+[[bin]]
+name = "playtest"
+path = "src/bin/playtest.rs"
+
 [lib]
 name = "deep_world_tui"
 path = "src/lib.rs"

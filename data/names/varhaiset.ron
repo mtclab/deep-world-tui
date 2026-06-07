@@ -1,0 +1,13 @@
+// Varhaiset name grammar — earliest-ones naming tradition
+// Keurish family: conservative, preserves pre-lenition consonants, no vowel harmony
+// Roots: headwaters, meadows, seasonal cycles, herding, ancient things
+NameGrammar(
+    prefixes: ["Perä", "Vana", "Alku", "Ysi", "Kauko", "Enno", "Ilta", "Aamu"],
+    roots: [
+        "Korva", "Pyy", "Härkä", "Lammas", "Vuohi", "Niitty", "Lähde",
+        "Puro", "Harju", "Kumpu", "Aho", "Keto", "Niemi", "Salmi",
+        "Vaara", "Tunturi", "Räme", "Korpi", "Selkä", "Rinne",
+    ],
+    suffixes: ["nen", "lä", "kkä", "ja", "sto", "maa", "kko"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)

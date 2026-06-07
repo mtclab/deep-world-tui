@@ -1,4 +1,4 @@
-mod load;
+pub mod load;
 mod validate;
 
 use serde::{Deserialize, Serialize};

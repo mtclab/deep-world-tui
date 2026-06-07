@@ -1,3 +1,5 @@
-/// TUI app state and event loop. Stub for issue #6.
-
 pub mod app;
+pub mod event;
+pub mod render;
+
+pub use app::App;

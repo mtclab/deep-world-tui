@@ -1,5 +1,5 @@
 use crate::charts::Charts;
-use crate::model::{Region, Settlement, World};
+use crate::model::{Region, Settlement, SettlementService, Terrain, TerrainMap, World};
 use crate::rng::SeedRng;
 
 pub fn generate_world(seed: u64, charts: &Charts) -> World {
@@ -19,11 +19,100 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
         regions.push(region);
     }
 
+    let region_cols = compute_grid_cols(n_regions);
+    for (i, region) in regions.iter_mut().enumerate() {
+        region.neighbors = compute_neighbors(i, n_regions, region_cols);
+    }
+
+    seamless_terrain_edges(&mut regions);
+
     World {
         seed,
         tick: 0,
         regions,
         charts_version: "0.1.0".into(),
+        region_cols,
+    }
+}
+
+fn compute_grid_cols(n: usize) -> usize {
+    let cols = (n as f64).sqrt().ceil() as usize;
+    cols.max(1)
+}
+
+fn compute_neighbors(index: usize, total: usize, cols: usize) -> crate::model::RegionNeighbors {
+    let row = index / cols;
+    let col = index % cols;
+    let north = if row > 0 {
+        Some((row - 1) * cols + col)
+    } else {
+        None
+    };
+    let south = {
+        let si = (row + 1) * cols + col;
+        if si < total {
+            Some(si)
+        } else {
+            None
+        }
+    };
+    let east = {
+        if col + 1 < cols {
+            let ei = row * cols + col + 1;
+            if ei < total {
+                Some(ei)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+    let west = if col > 0 {
+        Some(row * cols + col - 1)
+    } else {
+        None
+    };
+    crate::model::RegionNeighbors {
+        north,
+        south,
+        east,
+        west,
+    }
+}
+
+fn seamless_terrain_edges(regions: &mut [Region]) {
+    let n = regions.len();
+    for pass in 0..2 {
+        for i in 0..n {
+            if pass == 0 {
+                let north = regions[i].neighbors.north;
+                if let Some(ni) = north {
+                    let w = regions[i].terrain.width;
+                    let h = regions[i].terrain.height;
+                    let h_other = regions[ni].terrain.height;
+                    if h == h_other && regions[ni].terrain.width == w {
+                        for x in 0..w {
+                            let top = regions[ni].terrain.get(x, h - 1).unwrap_or(Terrain::Grass);
+                            regions[i].terrain.set(x, 0, top);
+                        }
+                    }
+                }
+            } else {
+                let east = regions[i].neighbors.east;
+                if let Some(ei) = east {
+                    let w = regions[i].terrain.width;
+                    let h = regions[i].terrain.height;
+                    let w_other = regions[ei].terrain.width;
+                    if w_other == w && regions[ei].terrain.height == h {
+                        for y in 1..h.saturating_sub(1) {
+                            let right = regions[ei].terrain.get(0, y).unwrap_or(Terrain::Grass);
+                            regions[i].terrain.set(w - 1, y, right);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -93,12 +182,165 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
         settlements.push(settlement);
     }
 
+    let terrain = generate_terrain(&mut rng, &region_type, &settlements);
+
     Region {
         id: region_id,
         name: region_name,
         region_type,
         description,
         settlements,
+        terrain,
+        neighbors: crate::model::RegionNeighbors::default(),
+    }
+}
+
+fn generate_terrain(
+    rng: &mut SeedRng,
+    region_type: &str,
+    settlements: &[Settlement],
+) -> TerrainMap {
+    let width = 40usize;
+    let height = 20usize;
+    let base = match region_type {
+        "river_valley" => Terrain::Grass,
+        "coast" => Terrain::Sand,
+        "forest" => Terrain::Forest,
+        "upland" => Terrain::Mountain,
+        "steppe" => Terrain::Grass,
+        "delta" => Terrain::Swamp,
+        _ => Terrain::Grass,
+    };
+    let mut tiles = vec![base; width * height];
+    let water_row = match region_type {
+        "river_valley" | "delta" => Some(height / 2),
+        "coast" => Some(height - 3),
+        _ => None,
+    };
+    if let Some(row) = water_row {
+        for x in 0..width {
+            tiles[row * width + x] = Terrain::Water;
+            if row + 1 < height {
+                tiles[(row + 1) * width + x] = Terrain::Water;
+            }
+            if region_type == "river_valley" && row > 0 && x % 4 == 0 {
+                let spread = (rng.next_u64() as usize) % 3;
+                for d in 0..=spread {
+                    if row > d {
+                        tiles[(row - 1 - d) * width + x] = Terrain::Water;
+                    }
+                    if row + 2 + d < height {
+                        tiles[(row + 2 + d) * width + x] = Terrain::Water;
+                    }
+                }
+            }
+        }
+    }
+    if region_type == "upland" {
+        for y in 0..height {
+            for x in 0..width {
+                let v = (rng.next_u64() as usize) % 5;
+                if v == 0 {
+                    tiles[y * width + x] = Terrain::Mountain;
+                } else if v == 1 {
+                    tiles[y * width + x] = Terrain::Grass;
+                }
+            }
+        }
+    }
+    if region_type == "steppe" {
+        for y in 0..height {
+            for x in 0..width {
+                let v = (rng.next_u64() as usize) % 10;
+                if v == 0 {
+                    tiles[y * width + x] = Terrain::Farmland;
+                }
+            }
+        }
+    }
+    if region_type == "forest" {
+        for y in 0..height {
+            for x in 0..width {
+                let v = (rng.next_u64() as usize) % 4;
+                if v == 0 {
+                    tiles[y * width + x] = Terrain::Grass;
+                }
+            }
+        }
+    }
+    if region_type == "coast" {
+        for y in 0..height {
+            for x in 0..width {
+                if y < height - 3 {
+                    let v = (rng.next_u64() as usize) % 3;
+                    tiles[y * width + x] = if v == 0 {
+                        Terrain::Grass
+                    } else {
+                        Terrain::Sand
+                    };
+                }
+            }
+        }
+    }
+    if region_type == "delta" {
+        for y in 0..height {
+            for x in 0..width {
+                let v = (rng.next_u64() as usize) % 3;
+                if v == 0 {
+                    tiles[y * width + x] = Terrain::Water;
+                } else if v == 1 {
+                    tiles[y * width + x] = Terrain::Swamp;
+                }
+            }
+        }
+    }
+    let n_settle = settlements.len().max(1);
+    let spacing = width / n_settle;
+    let mut settle_positions: Vec<(usize, usize)> = Vec::new();
+    for (i, _) in settlements.iter().enumerate() {
+        let sx = (spacing / 2 + i * spacing).min(width - 1);
+        let sy = if let Some(row) = water_row {
+            if row > 3 { row - 2 } else { row + 3 }.min(height - 1)
+        } else {
+            3 + (rng.next_u64() as usize) % (height - 6).max(1)
+        };
+        tiles[sy * width + sx] = Terrain::Settlement;
+        for dy in 0..3 {
+            for dx in 0..3 {
+                let ty = sy + dy;
+                let tx = sx + dx;
+                if ty < height && tx < width && tiles[ty * width + tx] != Terrain::Settlement {
+                    tiles[ty * width + tx] = Terrain::Farmland;
+                }
+            }
+        }
+        settle_positions.push((sx, sy));
+    }
+
+    for window in settle_positions.windows(2) {
+        let (x1, y1) = window[0];
+        let (x2, y2) = window[1];
+        let mut cx = x1;
+        let mut cy = y1;
+        while cx != x2 || cy != y2 {
+            if cx < width && cy < height && tiles[cy * width + cx] != Terrain::Settlement {
+                tiles[cy * width + cx] = Terrain::Road;
+            }
+            if cx < x2 {
+                cx += 1;
+            } else if cx > x2 {
+                cx -= 1;
+            } else if cy < y2 {
+                cy += 1;
+            } else if cy > y2 {
+                cy -= 1;
+            }
+        }
+    }
+    TerrainMap {
+        width,
+        height,
+        tiles,
     }
 }
 
@@ -140,15 +382,36 @@ fn generate_settlement(
         people.push(person);
     }
 
+    let dominant_people = people.first().map(|p| p.people.clone()).unwrap_or_default();
+
     Settlement {
         id: settlement_id,
         name,
-        size,
+        size: size.clone(),
         region: region_id.to_string(),
         population,
         description: String::new(),
         people,
+        services: settlement_services(&size, &dominant_people),
     }
+}
+
+fn settlement_services(size: &str, people: &str) -> Vec<SettlementService> {
+    let mut svcs = match size {
+        "hamlet" => vec![SettlementService::Tavern],
+        "village" => vec![SettlementService::Tavern, SettlementService::Temple],
+        "town" => vec![SettlementService::Tavern, SettlementService::Temple],
+        "city" => vec![SettlementService::Tavern, SettlementService::Temple],
+        _ => vec![],
+    };
+    let pk = crate::model::PeopleKind::from_name(people);
+    match pk {
+        crate::model::PeopleKind::Sepat => svcs.push(SettlementService::Forge),
+        crate::model::PeopleKind::Ahjo => svcs.push(SettlementService::Hearth),
+        crate::model::PeopleKind::Metsik => svcs.push(SettlementService::TrapWorkshop),
+        _ => {}
+    }
+    svcs
 }
 
 fn population_per_settlement(population: u32) -> usize {
@@ -529,5 +792,191 @@ mod tests {
             p1.id, p2.id,
             "different seeds should produce different person ids"
         );
+    }
+
+    #[test]
+    fn terrain_map_has_correct_dimensions() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        for region in &w.regions {
+            assert_eq!(region.terrain.width, 40, "terrain width must be 40");
+            assert_eq!(region.terrain.height, 20, "terrain height must be 20");
+            assert_eq!(
+                region.terrain.tiles.len(),
+                800,
+                "terrain must have 800 tiles"
+            );
+        }
+    }
+
+    #[test]
+    fn terrain_has_settlements_and_roads() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        for region in &w.regions {
+            let settle_count = region
+                .terrain
+                .tiles
+                .iter()
+                .filter(|&&t| t == crate::model::Terrain::Settlement)
+                .count();
+            assert!(
+                settle_count >= region.settlements.len(),
+                "terrain must have at least as many settlement tiles as settlements"
+            );
+            if region.settlements.len() > 1 {
+                let road_count = region
+                    .terrain
+                    .tiles
+                    .iter()
+                    .filter(|&&t| t == crate::model::Terrain::Road)
+                    .count();
+                assert!(road_count > 0, "multi-settlement regions must have roads");
+            }
+        }
+    }
+
+    #[test]
+    fn terrain_river_valley_has_water() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        for region in &w.regions {
+            if region.region_type == "river_valley" {
+                let water_count = region
+                    .terrain
+                    .tiles
+                    .iter()
+                    .filter(|&&t| t == crate::model::Terrain::Water)
+                    .count();
+                assert!(water_count > 0, "river_valley must have water tiles");
+            }
+        }
+    }
+
+    #[test]
+    fn terrain_deterministic() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w1 = generate_world(42, &charts);
+        let w2 = generate_world(42, &charts);
+        for (r1, r2) in w1.regions.iter().zip(w2.regions.iter()) {
+            assert_eq!(
+                r1.terrain, r2.terrain,
+                "terrain must be deterministic for same seed"
+            );
+        }
+    }
+
+    #[test]
+    fn world_has_region_grid_cols() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        assert!(w.region_cols > 0, "region_cols must be > 0");
+        let rows = w.regions.len().div_ceil(w.region_cols);
+        assert!(
+            rows * w.region_cols >= w.regions.len(),
+            "grid must fit all regions"
+        );
+    }
+
+    #[test]
+    fn region_neighbors_consistent() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        let cols = w.region_cols;
+        for (i, region) in w.regions.iter().enumerate() {
+            let row = i / cols;
+            let col = i % cols;
+            if row > 0 {
+                assert_eq!(
+                    region.neighbors.north,
+                    Some((row - 1) * cols + col),
+                    "north neighbor must match grid"
+                );
+            }
+            if row > 0 {
+                if let Some(ni) = region.neighbors.north {
+                    let north_region = &w.regions[ni];
+                    assert_eq!(
+                        north_region.neighbors.south,
+                        Some(i),
+                        "north's south must point back"
+                    );
+                }
+            }
+            if let Some(ei) = region.neighbors.east {
+                let east_region = &w.regions[ei];
+                assert_eq!(
+                    east_region.neighbors.west,
+                    Some(i),
+                    "east's west must point back"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn edge_regions_have_no_out_of_bounds_neighbors() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        let cols = w.region_cols;
+        for (i, region) in w.regions.iter().enumerate() {
+            let row = i / cols;
+            let col = i % cols;
+            if col == 0 {
+                assert_eq!(region.neighbors.west, None, "leftmost column has no west");
+            }
+            if col == cols - 1 || i == w.regions.len() - 1 {
+                // Last in row or last region
+            }
+            if row == 0 {
+                assert_eq!(region.neighbors.north, None, "top row has no north");
+            }
+            if let Some(si) = region.neighbors.south {
+                assert!(si < w.regions.len(), "south neighbor must be valid index");
+            }
+        }
+    }
+
+    #[test]
+    fn seamless_edges_match_neighbors() {
+        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let w = generate_world(42, &charts);
+        for i in 0..w.regions.len() {
+            if let Some(ni) = w.regions[i].neighbors.north {
+                let w_width = w.regions[i].terrain.width;
+                if w.regions[ni].terrain.width == w_width
+                    && w.regions[ni].terrain.height == w.regions[i].terrain.height
+                {
+                    for x in 0..w_width {
+                        let north_bottom = w.regions[ni]
+                            .terrain
+                            .get(x, w.regions[ni].terrain.height - 1);
+                        let my_top = w.regions[i].terrain.get(x, 0);
+                        assert_eq!(
+                            north_bottom, my_top,
+                            "region {} top row must match region {} bottom row at x={}",
+                            i, ni, x
+                        );
+                    }
+                }
+            }
+            if let Some(ei) = w.regions[i].neighbors.east {
+                let h = w.regions[i].terrain.height;
+                if w.regions[ei].terrain.height == h
+                    && w.regions[ei].terrain.width == w.regions[i].terrain.width
+                    && h > 2
+                {
+                    for y in 1..h.saturating_sub(1) {
+                        let east_left = w.regions[ei].terrain.get(0, y);
+                        let my_right = w.regions[i].terrain.get(w.regions[i].terrain.width - 1, y);
+                        assert_eq!(
+                            east_left, my_right,
+                            "region {} right col must match region {} left col at y={}",
+                            i, ei, y
+                        );
+                    }
+                }
+            }
+        }
     }
 }

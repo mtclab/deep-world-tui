@@ -1,0 +1,12 @@
+// Häl name grammar — canopy/forest-people naming tradition
+// Roots: canopy, green, commune, gathering
+NameGrammar(
+    prefixes: ["Häl", "Sal", "Vip", "Rin", "Kor", "Pol", "Täl", "Fär"],
+    roots: [
+        "Häl", "Sal", "Vip", "Rin", "Kor", "Pol", "Täl", "Löv",
+        "Gren", "Bär", "Ris", "Kvist", "Skog", "Dun", "Moss",
+        "Stam", "Kron", "Korg", "Bål", "Ek", "Asp",
+    ],
+    suffixes: ["el", "ik", "il", "al", "en", "ös"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)

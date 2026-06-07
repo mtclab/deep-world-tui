@@ -282,6 +282,8 @@ mod tests {
                 name: "R".into(),
                 region_type: "river_valley".into(),
                 description: String::new(),
+                terrain: crate::model::TerrainMap::default(),
+                neighbors: crate::model::RegionNeighbors::default(),
                 settlements: vec![crate::model::Settlement {
                     id: "s1".into(),
                     name: "S1".into(),
@@ -303,9 +305,11 @@ mod tests {
                             ..Default::default()
                         },
                     ],
+                    services: vec![],
                 }],
             }],
             charts_version: "0.1.0".into(),
+            region_cols: 1,
         }
     }
 
@@ -408,6 +412,8 @@ mod tests {
                     name: "R1".into(),
                     region_type: "river_valley".into(),
                     description: String::new(),
+                    terrain: crate::model::TerrainMap::default(),
+                    neighbors: crate::model::RegionNeighbors::default(),
                     settlements: vec![crate::model::Settlement {
                         id: "s1".into(),
                         name: "S1".into(),
@@ -420,6 +426,7 @@ mod tests {
                             settlement: "s1".into(),
                             ..Default::default()
                         }],
+                        services: vec![],
                     }],
                 },
                 crate::model::Region {
@@ -427,6 +434,8 @@ mod tests {
                     name: "R2".into(),
                     region_type: "forest".into(),
                     description: String::new(),
+                    terrain: crate::model::TerrainMap::default(),
+                    neighbors: crate::model::RegionNeighbors::default(),
                     settlements: vec![crate::model::Settlement {
                         id: "s2".into(),
                         name: "S2".into(),
@@ -435,10 +444,12 @@ mod tests {
                         population: 0,
                         description: String::new(),
                         people: vec![],
+                        services: vec![],
                     }],
                 },
             ],
             charts_version: "0.1.0".into(),
+            region_cols: 1,
         };
         let mut rels = RelationshipTracker::new();
         let mut rep = ReputationStore::new();

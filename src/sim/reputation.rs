@@ -45,7 +45,7 @@ pub struct ReputationEntry {
     pub reputation: Reputation,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ReputationStore {
     pub entries: HashMap<String, ReputationEntry>,
 }
@@ -102,6 +102,19 @@ impl ReputationStore {
         entry.reputation.adjust(delta);
     }
 
+    pub fn adjust_local_biased(
+        &mut self,
+        person_id: &str,
+        settlement: &str,
+        delta: f64,
+        player_people: crate::model::PeopleKind,
+        settlement_people: crate::model::PeopleKind,
+    ) {
+        let bias = player_people.bias_toward(settlement_people);
+        let mod_ = (1.0 + bias * 0.5).max(0.3);
+        self.adjust_local(person_id, settlement, delta * mod_);
+    }
+
     pub fn adjust_faction(&mut self, person_id: &str, settlement: &str, faction: &str, delta: f64) {
         let key = reputation_key(person_id, settlement);
         let entry = self.entries.entry(key).or_insert_with(|| ReputationEntry {
@@ -119,6 +132,7 @@ fn reputation_key(person_id: &str, settlement: &str) -> String {
 
 pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
     let mut updates: Vec<(String, f64, HashMap<String, f64>)> = Vec::new();
+    let mut spread_acc: HashMap<String, f64> = HashMap::new();
     for (key, entry) in &store.entries {
         let local_decayed = decay_toward(entry.reputation.local, BASELINE, LOCAL_DECAY_RATE * dt);
         let mut faction_decayed = HashMap::new();
@@ -128,7 +142,6 @@ pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
                 decay_toward(*val, BASELINE, FACTION_DECAY_RATE * dt),
             );
         }
-        let mut spread_from_neighbors: HashMap<String, f64> = HashMap::new();
         let person_settlement = &entry.settlement;
         for region in &world.regions {
             for settlement in &region.settlements {
@@ -143,7 +156,7 @@ pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
                     let diff = neighbor.reputation.local - entry.reputation.local;
                     if diff.abs() > f64::EPSILON {
                         let spread = diff * SPREAD_RATE * dt;
-                        *spread_from_neighbors.entry(key.clone()).or_insert(0.0) += spread;
+                        *spread_acc.entry(key.clone()).or_insert(0.0) += spread;
                     }
                 }
             }
@@ -152,7 +165,8 @@ pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
     }
     for (key, local, factions) in updates {
         if let Some(entry) = store.entries.get_mut(&key) {
-            entry.reputation.local = local;
+            let spread_delta = spread_acc.get(&key).copied().unwrap_or(0.0);
+            entry.reputation.local = (local + spread_delta).clamp(0.0, 1.0);
             entry.reputation.by_faction = factions;
         }
     }
@@ -200,6 +214,8 @@ mod tests {
                 name: "R".into(),
                 region_type: "river_valley".into(),
                 description: String::new(),
+                terrain: crate::model::TerrainMap::default(),
+                neighbors: crate::model::RegionNeighbors::default(),
                 settlements: vec![
                     crate::model::Settlement {
                         id: "s1".into(),
@@ -213,6 +229,7 @@ mod tests {
                             settlement: "s1".into(),
                             ..Default::default()
                         }],
+                        services: vec![],
                     },
                     crate::model::Settlement {
                         id: "s2".into(),
@@ -227,10 +244,12 @@ mod tests {
                             needs: Needs::default(),
                             ..Default::default()
                         }],
+                        services: vec![],
                     },
                 ],
             }],
             charts_version: "0.1.0".into(),
+            region_cols: 1,
         }
     }
 

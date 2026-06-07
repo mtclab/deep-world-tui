@@ -17,6 +17,53 @@ people-names (Metsik, Arkit, Väylä, Laakso, Sepät, Ahjo), the **Kingdom of
 Ahjorath**, magic is bounded *enhancement* (no spells). Don't edit
 `../deep-world-history` from here.
 
+## ⚠️ CANON RULES (HARD CONSTRAINTS)
+
+The deep-world-history lore bible is ground truth. Violations break the game world.
+
+### The Five Gods (NON-NEGOTIABLE)
+
+1. **Oltzed** — Labor, invention, engineering, machinery, construction. Metal sky-chariot. Travels. (Patron of Sepät, Ahjo; also revered by Arkit)
+2. **Keuru** — Forests, hospitality, celebration, travel, social life. Charismatic extrovert. (Patron of Metsik; also revered by Väylä)
+3. **Sampsa** — Knowledge, memory, archives, astronomy, forgotten tech. Tireless scholar. (Patron of Arkit)
+4. **Masa** — Trade, perseverance, loyalty, common people. Dependable merchant. (Patron of Väylä)
+5. **Kukri** — Solitude, old wisdom, nostalgia, quiet kindness. Melancholic hermit. (Patron of Laakso)
+
+**GOD NAMES ARE NEVER PEOPLE NAMES.** Metsik is a people, not a god. Ahjo is a people, not a god. Väylä is a people, not a god. The gods are Oltzed, Keuru, Sampsa, Masa, Kukri. Period.
+
+People→God patron mapping:
+- Metsik → Keuru
+- Sepät → Oltzed  
+- Ahjo → Oltzed
+- Arkit → Sampsa
+- Väylä → Masa
+- Laakso → Kukri
+- Tzäkhar → Kukri (deep solitude)
+- Mëräk → Masa (sea trade)
+- She'ar → none / Kukri (desert hermits)
+- Häl → Keuru (forest communion)
+- Khör → Sampsa (oral tradition keepers)
+
+### The Six Human Peoples
+Metsik, Arkit, Väylä, Laakso, Sepät, Ahjo — these are ENDONYMS (self-names). God-derived names like Keurimä, Sampsari, Sepät (forge-born), Masari, Kukreva are EXONYMS used by others.
+
+### The Five Non-Human Peoples
+Tzäkhar (deep/cave), Mëräk (sea/coastal), She'ar (desert), Häl (canopy/forest), Khör (tundra/steppe). They exist alongside humans. They are minorities in most regions but majorities in their home biomes. Playable but rare (~5-15% of encounters in their biomes).
+
+### Terrain→God Mapping (CANON)
+- Forest → Keuru (forests, hospitality)
+- Grass/Farmland/Settlement → Oltzed (construction, settlement) or Masa (trade)
+- Mountain → Oltzed (forge, engineering)
+- Road → Masa (trade, travel) or Keuru (hospitality)
+- Water/Coast → Masa (trade, rivers)
+- Swamp → Kukri (solitude, wisdom)
+- Sand/DeepDesert → Kukri (hermits, solitude) or She'ar gods
+- Cave → Kukri or Sampsa (deep knowledge)
+- Tundra/Steppe → Kukri (endurance, solitude)
+
+### What Was Wrong (Fixed 2026-06-07)
+The GodName enum previously had Metsik/Ahjo/Vayla — PEOPLE names used as GOD names. This was a fundamental category error. All code has been refactored to use the canonical five gods.
+
 ## Toolchain
 
 No Rust on the base image — install once (user-local, no root):

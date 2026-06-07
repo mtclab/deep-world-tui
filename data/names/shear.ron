@@ -1,0 +1,11 @@
+// She'ar name grammar — desert-people naming tradition
+// Roots: sand, sun, stillness, heat, endurance
+NameGrammar(
+    prefixes: ["She", "Kar", "Dun", "Raf", "Zal", "Or", "Khe", "Nir"],
+    roots: [
+        "She", "Kar", "Dun", "Raf", "Zal", "Or", "Khe", "Mak",
+        "Dra", "Sul", "Teb", "Har", "Esh", "Kal", "Vor",
+    ],
+    suffixes: ["ar", "ak", "esh", "or", "an", "uk"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)
