@@ -1,0 +1,22 @@
+(
+    code: "fi",
+    strings: {
+        "ui.title": "Syvä Maailma",
+        "ui.menu.new_game": "Uusi peli",
+        "ui.menu.continue": "Jatka",
+        "ui.menu.settings": "Asetukset",
+        "ui.menu.quit": "Lopeta",
+        "ui.settings.title": "Asetukset",
+        "ui.settings.language": "Kieli",
+        "ui.settings.monochrome": "Mustavalkoinen",
+        "ui.settings.llm": "Käytä tekoälyä",
+        "ui.settings.endpoint": "Päätepiste",
+        "ui.settings.model": "Malli",
+        "ui.settings.save": "Tallenna",
+        "ui.status.hunger": "Nälkä",
+        "ui.status.thirst": "Jano",
+        "ui.status.fatigue": "Väsymys",
+        "ui.status.health": "Terveys",
+        "ui.status.mood": "Mieliala",
+    }
+)

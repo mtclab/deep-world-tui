@@ -80,6 +80,7 @@ pub struct App {
     pub llm_endpoint: String,
     pub llm_model: String,
     pub monochrome: bool,
+    pub language: String,
     pub previous_screen: Option<Screen>,
     pub encounters_had: u32,
     pub collapses_had: u32,
@@ -110,6 +111,7 @@ impl App {
             llm_endpoint: settings.llm_endpoint,
             llm_model: settings.llm_model,
             monochrome: settings.monochrome,
+            language: settings.language,
             previous_screen: None,
             encounters_had: 0,
             collapses_had: 0,
@@ -125,6 +127,7 @@ impl App {
             llm_endpoint: self.llm_endpoint.clone(),
             llm_model: self.llm_model.clone(),
             monochrome: self.monochrome,
+            language: self.language.clone(),
         };
         settings.save();
     }
@@ -2105,6 +2108,15 @@ impl App {
                         } else {
                             "Full color mode on".into()
                         });
+                        self.save_settings();
+                    }
+                    crossterm::event::KeyCode::Char('g') => {
+                        self.language = if self.language == "en" {
+                            "fi".into()
+                        } else {
+                            "en".into()
+                        };
+                        self.status_msg = Some(format!("Language: {}", self.language));
                         self.save_settings();
                     }
                     crossterm::event::KeyCode::Char('e') => {
