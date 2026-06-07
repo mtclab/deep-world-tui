@@ -10,6 +10,7 @@ pub struct AppSettings {
     pub llm_endpoint: String,
     pub llm_model: String,
     pub monochrome: bool,
+    pub language: String,
 }
 
 impl Default for AppSettings {
@@ -19,6 +20,7 @@ impl Default for AppSettings {
             llm_endpoint: "http://localhost:11434/v1".into(),
             llm_model: "llama3".into(),
             monochrome: false,
+            language: crate::i18n::DEFAULT_LOCALE.into(),
         }
     }
 }
@@ -62,6 +64,7 @@ mod tests {
             llm_endpoint: "http://test:8080/v1".into(),
             llm_model: "test-model".into(),
             monochrome: true,
+            language: "fi".into(),
         };
         let data = ron::ser::to_string_pretty(&s, ron::ser::PrettyConfig::default()).unwrap();
         let s2: AppSettings = ron::from_str(&data).unwrap();
@@ -69,5 +72,6 @@ mod tests {
         assert_eq!(s.llm_endpoint, s2.llm_endpoint);
         assert_eq!(s.llm_model, s2.llm_model);
         assert_eq!(s.monochrome, s2.monochrome);
+        assert_eq!(s.language, s2.language);
     }
 }
