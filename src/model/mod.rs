@@ -190,6 +190,12 @@ impl ItemType {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct Inventory {
     pub items: std::collections::HashMap<ItemType, u32>,
+    #[serde(default = "default_durability")]
+    pub durability: std::collections::HashMap<ItemType, f64>,
+}
+
+fn default_durability() -> std::collections::HashMap<ItemType, f64> {
+    std::collections::HashMap::new()
 }
 
 impl Inventory {
@@ -197,8 +203,44 @@ impl Inventory {
         self.items.get(&item).copied().unwrap_or(0)
     }
 
+    pub fn durability(&self, item: ItemType) -> f64 {
+        self.durability.get(&item).copied().unwrap_or(1.0)
+    }
+
+    pub fn is_broken(&self, item: ItemType) -> bool {
+        self.has(item) && self.durability(item) <= 0.0
+    }
+
+    pub fn has(&self, item: ItemType) -> bool {
+        self.get(item) > 0
+    }
+
+    pub fn decay(&mut self, item: ItemType, amount: f64) {
+        if let Some(d) = self.durability.get_mut(&item) {
+            *d = (*d - amount).max(0.0);
+        }
+    }
+
+    pub fn repair_cost(&self, item: ItemType) -> u32 {
+        let d = self.durability(item);
+        if d >= 1.0 {
+            return 0;
+        }
+        let base = item.base_price();
+        ((1.0 - d) * base as f64 * 2.0).ceil() as u32
+    }
+
+    pub fn repair(&mut self, item: ItemType) -> u32 {
+        let cost = self.repair_cost(item);
+        if cost > 0 && self.durability.contains_key(&item) {
+            self.durability.insert(item, 1.0);
+        }
+        cost
+    }
+
     pub fn add(&mut self, item: ItemType, count: u32) {
         *self.items.entry(item).or_insert(0) += count;
+        self.durability.entry(item).or_insert(1.0);
     }
 
     pub fn remove(&mut self, item: ItemType, count: u32) -> bool {
@@ -3432,5 +3474,58 @@ mod tests {
             Terrain::people_gather_bonus(PeopleKind::Ahjo, Terrain::Farmland),
             1
         );
+    }
+
+    #[test]
+    fn durability_default_is_full() {
+        let inv = Inventory::default();
+        assert!(!inv.has(ItemType::Iron));
+        assert_eq!(inv.durability(ItemType::Iron), 1.0);
+        assert!(!inv.is_broken(ItemType::Iron));
+    }
+
+    #[test]
+    fn durability_decay_reduces() {
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Iron, 3);
+        inv.decay(ItemType::Iron, 0.3);
+        assert!((inv.durability(ItemType::Iron) - 0.7).abs() < 0.001);
+        assert!(!inv.is_broken(ItemType::Iron));
+    }
+
+    #[test]
+    fn durability_broken_when_zero() {
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Iron, 1);
+        inv.decay(ItemType::Iron, 1.5);
+        assert!(inv.is_broken(ItemType::Iron));
+        assert!(inv.durability(ItemType::Iron) <= 0.0);
+    }
+
+    #[test]
+    fn repair_cost_scaled_by_base_price() {
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Iron, 1);
+        inv.decay(ItemType::Iron, 0.5);
+        let cost = inv.repair_cost(ItemType::Iron);
+        assert!(cost > 0, "repair cost should be positive: got {}", cost);
+        assert_eq!(cost, 5, "Iron(5) at 50%% wear: ceil((1-0.5)*5*2) = 5");
+    }
+
+    #[test]
+    fn repair_restores_durability() {
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Wood, 2);
+        inv.decay(ItemType::Wood, 0.4);
+        assert!((inv.durability(ItemType::Wood) - 0.6).abs() < 0.001);
+        let cost = inv.repair(ItemType::Wood);
+        assert!(cost > 0);
+        assert!((inv.durability(ItemType::Wood) - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn repair_full_item_costs_nothing() {
+        let inv = Inventory::default();
+        assert_eq!(inv.repair_cost(ItemType::Iron), 0);
     }
 }

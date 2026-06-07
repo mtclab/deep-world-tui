@@ -1825,6 +1825,21 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
             ItemType::Cloth => Color::Rgb(0xc2, 0x9a, 0x6b),
             ItemType::Iron => Color::Rgb(0x5a, 0x5a, 0x6a),
         };
+        let dur = inv.durability(*item);
+        let dur_bar = if count > 0 && dur < 1.0 {
+            let dur_color = if dur > 0.5 {
+                Color::Green
+            } else if dur > 0.25 {
+                Color::Yellow
+            } else {
+                Color::Red
+            };
+            let filled = (dur * 10.0).round() as usize;
+            let dur_str = format!(" [{}{}]", "█".repeat(filled), "░".repeat(10 - filled));
+            Span::styled(dur_str, Style::default().fg(dur_color))
+        } else {
+            Span::raw("")
+        };
         lines.push(Line::from(vec![
             Span::styled(
                 format!("  {:6}", item.name()),
@@ -1835,6 +1850,7 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
                 format!(" x{}", count),
                 Style::default().fg(theme.dark_brown()),
             ),
+            dur_bar,
         ]));
     }
 

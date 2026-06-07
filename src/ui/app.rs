@@ -642,7 +642,20 @@ impl App {
             let pp = self.inter_people_bias.player_people;
             let people_bonus = Terrain::people_gather_bonus(pp, terrain);
             let base = 1 + people_bonus;
-            let count = (base as f64 * mult).floor() as u32;
+            let tool_bonus = if let Some(ref ps) = self.player_start {
+                let best_tool = [ItemType::Iron, ItemType::Wood, ItemType::Stone]
+                    .into_iter()
+                    .filter(|t| ps.inventory.has(*t) && !ps.inventory.is_broken(*t))
+                    .max_by_key(|t| t.base_price());
+                if best_tool.is_some() {
+                    1
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+            let count = ((base + tool_bonus) as f64 * mult).floor() as u32;
             let mut boon_msg = None;
             let patron = terrain.patron_god();
             let count = if let Some(god) = patron {
@@ -665,6 +678,17 @@ impl App {
             }
             if let Some(ref mut ps) = self.player_start {
                 ps.inventory.add(item, count);
+                let decay_items = [
+                    ItemType::Wood,
+                    ItemType::Stone,
+                    ItemType::Iron,
+                    ItemType::Cloth,
+                ];
+                for di in decay_items {
+                    if ps.inventory.has(di) {
+                        ps.inventory.decay(di, 0.05);
+                    }
+                }
             }
             self.advance_clock_hour();
             let msg = format!("Gathered {} {} (1h, {})", count, item.name(), season);
@@ -731,6 +755,8 @@ impl App {
                         ""
                     };
                     inv.add(recipe.output, output_count);
+                    inv.decay(ItemType::Iron, 0.03);
+                    inv.decay(ItemType::Wood, 0.04);
                     self.advance_clock(2);
                     self.status_msg = Some(format!(
                         "Crafted {} (x{}) (2h){}",
@@ -1010,6 +1036,21 @@ impl App {
                 }
             }
         }
+        if let Some(ref mut ps) = self.player_start {
+            let combat_decay = match action {
+                EncounterAction::Flee | EncounterAction::Calm | EncounterAction::Talk => 0.0,
+                EncounterAction::Intimidate | EncounterAction::PushThrough => 0.08,
+                EncounterAction::Shelter => 0.02,
+                EncounterAction::Bribe | EncounterAction::Trade => 0.01,
+            };
+            if combat_decay > 0.0 {
+                for tool in [ItemType::Iron, ItemType::Wood, ItemType::Stone] {
+                    if ps.inventory.has(tool) {
+                        ps.inventory.decay(tool, combat_decay);
+                    }
+                }
+            }
+        }
         self.encounter = None;
         let msg_with_witness = match witness {
             WitnessLevel::Unseen => format!("{}. {}", msg, witness.flavor()),
@@ -1201,10 +1242,35 @@ impl App {
                 self.god_affinity.adjust(GodName::Oltzed, 0.02);
                 if let Some(ref mut ps) = self.player_start {
                     ps.inventory.add(ItemType::Iron, 2);
+                    let mut repaired = Vec::new();
+                    for tool in [
+                        ItemType::Iron,
+                        ItemType::Wood,
+                        ItemType::Stone,
+                        ItemType::Cloth,
+                    ] {
+                        let cost = ps.inventory.repair_cost(tool);
+                        if cost > 0 && ps.inventory.get(ItemType::Coin) >= cost {
+                            ps.inventory.remove(ItemType::Coin, cost);
+                            ps.inventory.repair(tool);
+                            repaired.push(tool.name());
+                        }
+                    }
+                    let repair_msg = if repaired.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" Repaired: {}.", repaired.join(", "))
+                    };
+                    ps.inventory.add(ItemType::Iron, 0); // no-op to ensure key exists
+                    self.advance_clock(3);
+                    self.status_msg = Some(format!(
+                        "Worked at the forge (+2 Iron, 3h, {} coins){}",
+                        cost, repair_msg
+                    ));
+                } else {
+                    self.advance_clock(3);
+                    self.status_msg = Some(format!("Worked at the forge (3h, {} coins)", cost));
                 }
-                self.advance_clock(3);
-                self.status_msg =
-                    Some(format!("Worked at the forge (+2 Iron, 3h, {} coins)", cost));
             }
             SettlementService::Hearth => {
                 self.vitals.hunger = (self.vitals.hunger + 0.6).min(1.0);
