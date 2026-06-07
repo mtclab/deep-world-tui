@@ -14,7 +14,7 @@ fn splitmix64(x: u64) -> u64 {
 /// Deterministic hash of a string for use in sub-seed derivation.
 /// Uses FNV-1a for simplicity — not cryptographic, just needs to be reproducible
 /// and spread bits across u64.
-fn fnv1a_hash(s: &str) -> u64 {
+pub fn fnv1a_hash(s: &str) -> u64 {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325; // FNV offset basis
     for byte in s.bytes() {
         hash ^= byte as u64;
