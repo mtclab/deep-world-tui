@@ -10,27 +10,8 @@ use ratatui::{
 use crate::model::{craft_recipes, ItemType, Need, Season, Terrain};
 use crate::sim::relationships::BondCategory;
 use crate::ui::app::{App, Screen};
+use crate::ui::theme::Theme;
 use crate::voice::Situation;
-
-const ARCHIVE_RED: Color = Color::Rgb(0x7a, 0x2e, 0x1d);
-const INK: Color = Color::Rgb(0x3a, 0x2a, 0x1a);
-const DARK_INK: Color = Color::Rgb(0x6a, 0x5a, 0x4a);
-const WARM_BROWN: Color = Color::Rgb(0x8b, 0x73, 0x55);
-const DARK_BROWN: Color = Color::Rgb(0x5a, 0x4a, 0x3a);
-const PAPER: Color = Color::Rgb(0xef, 0xe9, 0xdd);
-const NEED_LOW: Color = Color::Rgb(0x6b, 0x8e, 0x4a);
-const NEED_MID: Color = Color::Rgb(0xc2, 0x9a, 0x6b);
-const NEED_HIGH: Color = Color::Rgb(0x7a, 0x2e, 0x1d);
-
-fn need_color(val: f64) -> Color {
-    if val >= 0.7 {
-        NEED_LOW
-    } else if val >= 0.3 {
-        NEED_MID
-    } else {
-        NEED_HIGH
-    }
-}
 
 fn need_bar(val: f64, width: usize) -> String {
     let filled = (val * width as f64).round() as usize;
@@ -41,8 +22,14 @@ fn need_bar(val: f64, width: usize) -> String {
 const STATUS_HEIGHT: u16 = 3;
 
 pub fn draw(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let area = f.area();
-    f.render_widget(Block::default().style(Style::default().bg(PAPER)), area);
+    f.render_widget(
+        Block::default().style(Style::default().bg(theme.paper())),
+        area,
+    );
     match app.screen {
         Screen::CharacterCreation => draw_character_creation(f, app),
         Screen::World => draw_world_screen(f, app),
@@ -108,6 +95,9 @@ pub fn draw(f: &mut Frame, app: &App) {
 }
 
 fn draw_status_bar(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let area = f.area();
     let status_top = area.height.saturating_sub(STATUS_HEIGHT);
     let status_area = Rect {
@@ -145,61 +135,71 @@ fn draw_status_bar(f: &mut Frame, app: &App) {
         let line1 = Line::from(vec![
             Span::styled(
                 format!(" {} ", ps.person.name),
-                Style::default().fg(INK).bold(),
+                Style::default().fg(theme.ink()).bold(),
             ),
-            Span::styled(format!("{} ", people), Style::default().fg(INK)),
-            Span::styled(format!("{} ", profession), Style::default().fg(DARK_INK)),
-            Span::styled(format!("| {} ", location), Style::default().fg(WARM_BROWN)),
+            Span::styled(format!("{} ", people), Style::default().fg(theme.ink())),
+            Span::styled(
+                format!("{} ", profession),
+                Style::default().fg(theme.dark_ink()),
+            ),
+            Span::styled(
+                format!("| {} ", location),
+                Style::default().fg(theme.warm_brown()),
+            ),
             Span::styled(
                 format!("| {} d{}", season_name, day),
-                Style::default().fg(DARK_INK),
+                Style::default().fg(theme.dark_ink()),
             ),
         ]);
         let line2 = Line::from(vec![
-            Span::styled(" F:", Style::default().fg(need_color(food))),
+            Span::styled(" F:", Style::default().fg(theme.need_color(food))),
             Span::styled(
                 format!("{:.0}% ", food * 100.0),
-                Style::default().fg(need_color(food)),
+                Style::default().fg(theme.need_color(food)),
             ),
-            Span::styled("E:", Style::default().fg(need_color(energy))),
+            Span::styled("E:", Style::default().fg(theme.need_color(energy))),
             Span::styled(
                 format!("{:.0}% ", energy * 100.0),
-                Style::default().fg(need_color(energy)),
+                Style::default().fg(theme.need_color(energy)),
             ),
-            Span::styled("H:", Style::default().fg(need_color(hunger))),
+            Span::styled("H:", Style::default().fg(theme.need_color(hunger))),
             Span::styled(
                 format!("{:.0}% ", hunger * 100.0),
-                Style::default().fg(need_color(hunger)),
+                Style::default().fg(theme.need_color(hunger)),
             ),
-            Span::styled("S:", Style::default().fg(need_color(safety))),
+            Span::styled("S:", Style::default().fg(theme.need_color(safety))),
             Span::styled(
                 format!("{:.0}% ", safety * 100.0),
-                Style::default().fg(need_color(safety)),
+                Style::default().fg(theme.need_color(safety)),
             ),
-            Span::styled("M:", Style::default().fg(need_color(money))),
+            Span::styled("M:", Style::default().fg(theme.need_color(money))),
             Span::styled(
                 format!("{:.0}%", money * 100.0),
-                Style::default().fg(need_color(money)),
+                Style::default().fg(theme.need_color(money)),
             ),
         ]);
         let line3 = Line::from(Span::styled(
             " Tab:switch  Esc:back  ?:help  i:inv  j:journal  m:map  g:gather  r:rest",
-            Style::default().fg(DARK_INK).dim(),
+            Style::default().fg(theme.dark_ink()).dim(),
         ));
         let status = Paragraph::new(vec![line1, line2, line3])
-            .block(Block::default().style(Style::default().bg(PAPER)));
+            .block(Block::default().style(Style::default().bg(theme.paper())));
         f.render_widget(status, status_area);
     } else {
         let line = Line::from(Span::styled(
             format!(" {} d{} | Press Enter to begin", season_name, day),
-            Style::default().fg(DARK_INK),
+            Style::default().fg(theme.dark_ink()),
         ));
-        let status = Paragraph::new(line).block(Block::default().style(Style::default().bg(PAPER)));
+        let status =
+            Paragraph::new(line).block(Block::default().style(Style::default().bg(theme.paper())));
         f.render_widget(status, status_area);
     }
 }
 
 fn draw_character_creation(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -211,10 +211,10 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
         Span::styled(
             " Deep World",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" — Who Are You?", Style::default().fg(WARM_BROWN)),
+        Span::styled(" — Who Are You?", Style::default().fg(theme.warm_brown())),
     ]))
     .block(Block::default().borders(Borders::BOTTOM));
     f.render_widget(title, chunks[0]);
@@ -225,12 +225,14 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             " The fates have shaped you thus:",
-            Style::default().fg(WARM_BROWN).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.warm_brown())
+                .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             format!("   Personality    {}", p.personality.join(", ")),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         let npc_pk = crate::model::PeopleKind::from_name(&p.people);
         let bias = app.inter_people_bias.player_people.bias_toward(npc_pk);
@@ -244,72 +246,72 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
             "hostile"
         };
         let stance_color = if bias > 0.05 {
-            NEED_LOW
+            theme.need_color(1.0)
         } else if bias < -0.05 {
-            NEED_HIGH
+            theme.need_color(0.0)
         } else {
-            DARK_BROWN
+            theme.dark_brown()
         };
         lines.push(Line::from(vec![
-            Span::styled("   Toward you    ", Style::default().fg(INK)),
+            Span::styled("   Toward you    ", Style::default().fg(theme.ink())),
             Span::styled(stance, Style::default().fg(stance_color)),
         ]));
         lines.push(Line::from(Span::styled(
             format!("   People        {}", p.people),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Profession    {}", p.profession),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Craft         {}", p.craft_affinity),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Social Class  {}", p.social_class),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Age           {}", p.age_band),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Personality    {}", p.personality.join(", ")),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         if p.has_spouse {
             lines.push(Line::from(Span::styled(
                 "   Household     married",
-                Style::default().fg(INK),
+                Style::default().fg(theme.ink()),
             )));
         }
         if p.children_count > 0 {
             lines.push(Line::from(Span::styled(
                 format!("   Children      {}", p.children_count),
-                Style::default().fg(INK),
+                Style::default().fg(theme.ink()),
             )));
         }
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             format!("   Rerolls: {}", ps.reroll_count),
-            Style::default().fg(DARK_BROWN),
+            Style::default().fg(theme.dark_brown()),
         )));
     } else {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             " You stand at the threshold of the Kingdom of Ahjorath.",
-            Style::default().fg(WARM_BROWN),
+            Style::default().fg(theme.warm_brown()),
         )));
         lines.push(Line::from(Span::styled(
             " The Archive watches. The Sepát wait.",
-            Style::default().fg(WARM_BROWN),
+            Style::default().fg(theme.warm_brown()),
         )));
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             " Press Enter to see who you might become.",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
     }
@@ -321,30 +323,33 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
         Span::styled(
             " [Enter]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" accept  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" accept  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[R]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" reroll  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" reroll  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Q]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" quit", Style::default().fg(DARK_BROWN)),
+        Span::styled(" quit", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
 fn draw_world_screen(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -356,10 +361,13 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
         Span::styled(
             " Deep World",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" — Archive of Ahjorath", Style::default().fg(WARM_BROWN)),
+        Span::styled(
+            " — Archive of Ahjorath",
+            Style::default().fg(theme.warm_brown()),
+        ),
     ]))
     .block(Block::default().borders(Borders::BOTTOM));
     f.render_widget(title, chunks[0]);
@@ -370,7 +378,7 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
         lines.push(Line::from(Span::styled(
             format!(" Tick {}", world.tick),
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
@@ -379,7 +387,9 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
         for (ri, region) in world.regions.iter().enumerate() {
             lines.push(Line::from(Span::styled(
                 format!(" {} [{}]", region.name, region.region_type),
-                Style::default().fg(WARM_BROWN).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme.region_color(&region.region_type))
+                    .add_modifier(Modifier::BOLD),
             )));
             for (si, settlement) in region.settlements.iter().enumerate() {
                 let idx = settlements
@@ -398,14 +408,14 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
                             "   {} ({}, pop {})",
                             settlement.name, size_label, settlement.population
                         ),
-                        Style::default().fg(DARK_BROWN),
+                        Style::default().fg(theme.dark_brown()),
                     )));
                 } else {
                     lines.push(Line::from(vec![
                         Span::styled(
                             format!("  [{}]", key_label),
                             Style::default()
-                                .fg(ARCHIVE_RED)
+                                .fg(theme.archive_red())
                                 .add_modifier(Modifier::BOLD),
                         ),
                         Span::styled(
@@ -413,7 +423,7 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
                                 " {} ({}, pop {})",
                                 settlement.name, size_label, settlement.population
                             ),
-                            Style::default().fg(DARK_BROWN),
+                            Style::default().fg(theme.dark_brown()),
                         ),
                     ]));
                 }
@@ -428,7 +438,7 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             format!(" {}", msg),
-            Style::default().fg(WARM_BROWN),
+            Style::default().fg(theme.warm_brown()),
         )));
     }
 
@@ -439,52 +449,55 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
         Span::styled(
             " [1-9]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" enter settlement  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(
+            " enter settlement  ",
+            Style::default().fg(theme.dark_brown()),
+        ),
         Span::styled(
             "[Space]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" step  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" step  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[A]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" x10  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" x10  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[J]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" journal  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" journal  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[S]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" save  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" save  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[L]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" load  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" load  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Q]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" quit", Style::default().fg(DARK_BROWN)),
+        Span::styled(" quit", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
@@ -497,6 +510,9 @@ fn draw_location_screen(
     settlement_idx: usize,
     scroll: u16,
 ) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -520,7 +536,7 @@ fn draw_location_screen(
     let title = Paragraph::new(Line::from(Span::styled(
         header_text,
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -532,7 +548,7 @@ fn draw_location_screen(
             lines.push(Line::from(Span::styled(
                 format!(" Tick {}", sim.world.tick),
                 Style::default()
-                    .fg(ARCHIVE_RED)
+                    .fg(theme.archive_red())
                     .add_modifier(Modifier::BOLD),
             )));
             if let Some(ref ps) = app.player_start {
@@ -550,7 +566,7 @@ fn draw_location_screen(
                 };
                 lines.push(Line::from(Span::styled(
                     format!(" Your reputation: {:.0}% ({})", rep * 100.0, rep_label),
-                    Style::default().fg(WARM_BROWN),
+                    Style::default().fg(theme.warm_brown()),
                 )));
             }
         }
@@ -574,11 +590,11 @@ fn draw_location_screen(
             let atm_color = {
                 let bias = player_people.bias_toward(npc_people);
                 if bias > 0.05 {
-                    NEED_LOW
+                    theme.need_color(1.0)
                 } else if bias < -0.05 {
-                    NEED_HIGH
+                    theme.need_color(0.0)
                 } else {
-                    DARK_BROWN
+                    theme.dark_brown()
                 }
             };
             lines.push(Line::from(Span::styled(
@@ -588,11 +604,11 @@ fn draw_location_screen(
         }
         lines.push(Line::from(Span::styled(
             format!(" Population: {}", s.population),
-            Style::default().fg(WARM_BROWN),
+            Style::default().fg(theme.warm_brown()),
         )));
         lines.push(Line::from(Span::styled(
             format!(" Size: {}", s.size),
-            Style::default().fg(WARM_BROWN),
+            Style::default().fg(theme.warm_brown()),
         )));
         if !s.services.is_empty() {
             let svc_str: String = s
@@ -603,20 +619,20 @@ fn draw_location_screen(
                 .join("  ");
             lines.push(Line::from(Span::styled(
                 format!(" Services: {}", svc_str),
-                Style::default().fg(WARM_BROWN),
+                Style::default().fg(theme.warm_brown()),
             )));
         }
         if !s.description.is_empty() {
             lines.push(Line::from(Span::styled(
                 format!(" {}", s.description),
-                Style::default().fg(DARK_BROWN),
+                Style::default().fg(theme.dark_brown()),
             )));
         }
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             " People",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
@@ -631,7 +647,7 @@ fn draw_location_screen(
                 Span::styled(
                     format!("  [{}]", key),
                     Style::default()
-                        .fg(ARCHIVE_RED)
+                        .fg(theme.archive_red())
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
@@ -639,7 +655,7 @@ fn draw_location_screen(
                         " {} — {} ({})",
                         person.name, person.profession, person.people
                     ),
-                    Style::default().fg(INK),
+                    Style::default().fg(theme.ink()),
                 ),
             ]));
             let needs = &person.needs;
@@ -655,7 +671,7 @@ fn draw_location_screen(
                 let bar = need_bar(val, 10);
                 lines.push(Line::from(Span::styled(
                     format!("   {:4} {} {:.0}%", label, bar, val * 100.0),
-                    Style::default().fg(need_color(val)),
+                    Style::default().fg(theme.need_color(val)),
                 )));
             }
             lines.push(Line::from(""));
@@ -671,45 +687,45 @@ fn draw_location_screen(
         Span::styled(
             " [1-9]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" person  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" person  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[m]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" market  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" market  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[s]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" service  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" service  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc/Q]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" back  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[↑↓]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" scroll  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" scroll  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Space]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" step", Style::default().fg(DARK_BROWN)),
+        Span::styled(" step", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
@@ -723,6 +739,9 @@ fn draw_npc_screen(
     person_idx: usize,
     scroll: u16,
 ) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -747,7 +766,7 @@ fn draw_npc_screen(
     let title = Paragraph::new(Line::from(Span::styled(
         header_text,
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -757,50 +776,52 @@ fn draw_npc_screen(
     if let Some(p) = &person {
         lines.push(Line::from(Span::styled(
             format!(" {} — {} of {}", p.name, p.profession, p.people),
-            Style::default().fg(INK).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.ink())
+                .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
 
         lines.push(Line::from(Span::styled(
             " Identity",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(Span::styled(
             format!("   People        {}", p.people),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Sex           {}", p.sex),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Age           {}", p.age_band),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Social Class  {}", p.social_class),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Craft         {}", p.craft_affinity),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Personality    {}", p.personality.join(", ")),
-            Style::default().fg(INK),
+            Style::default().fg(theme.ink()),
         )));
         if p.has_spouse {
             lines.push(Line::from(Span::styled(
                 "   Household     married",
-                Style::default().fg(INK),
+                Style::default().fg(theme.ink()),
             )));
         }
         if p.children_count > 0 {
             lines.push(Line::from(Span::styled(
                 format!("   Children      {}", p.children_count),
-                Style::default().fg(INK),
+                Style::default().fg(theme.ink()),
             )));
         }
         lines.push(Line::from(""));
@@ -819,15 +840,15 @@ fn draw_npc_screen(
                     };
                     (
                         format!("   Bond     {:.0}% {}", rel.strength * 100.0, label),
-                        need_color(rel.strength),
+                        theme.need_color(rel.strength),
                     )
                 } else {
-                    ("   Bond     stranger".into(), DARK_BROWN)
+                    ("   Bond     stranger".into(), theme.dark_brown())
                 };
                 lines.push(Line::from(Span::styled(
                     " Relationship",
                     Style::default()
-                        .fg(ARCHIVE_RED)
+                        .fg(theme.archive_red())
                         .add_modifier(Modifier::BOLD),
                 )));
                 lines.push(Line::from(Span::styled(
@@ -842,7 +863,7 @@ fn draw_npc_screen(
         lines.push(Line::from(Span::styled(
             " Needs",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
         let needs = &p.needs;
@@ -858,7 +879,7 @@ fn draw_npc_screen(
             let bar = need_bar(val, 12);
             lines.push(Line::from(Span::styled(
                 format!("   {:4} {} {:.0}%", label, bar, val * 100.0),
-                Style::default().fg(need_color(val)),
+                Style::default().fg(theme.need_color(val)),
             )));
         }
         lines.push(Line::from(""));
@@ -869,7 +890,7 @@ fn draw_npc_screen(
                 lines.push(Line::from(Span::styled(
                     " Relationships",
                     Style::default()
-                        .fg(ARCHIVE_RED)
+                        .fg(theme.archive_red())
                         .add_modifier(Modifier::BOLD),
                 )));
                 for rel in rels {
@@ -889,7 +910,7 @@ fn draw_npc_screen(
                             rel.strength * 100.0,
                             rel.trust * 100.0
                         ),
-                        Style::default().fg(DARK_BROWN),
+                        Style::default().fg(theme.dark_brown()),
                     )));
                 }
                 lines.push(Line::from(""));
@@ -900,12 +921,12 @@ fn draw_npc_screen(
                 lines.push(Line::from(Span::styled(
                     " Reputation",
                     Style::default()
-                        .fg(ARCHIVE_RED)
+                        .fg(theme.archive_red())
                         .add_modifier(Modifier::BOLD),
                 )));
                 lines.push(Line::from(Span::styled(
                     format!("   {} local reputation", rep),
-                    Style::default().fg(INK),
+                    Style::default().fg(theme.ink()),
                 )));
             }
 
@@ -914,12 +935,12 @@ fn draw_npc_screen(
             lines.push(Line::from(Span::styled(
                 " Voice",
                 Style::default()
-                    .fg(ARCHIVE_RED)
+                    .fg(theme.archive_red())
                     .add_modifier(Modifier::BOLD),
             )));
             lines.push(Line::from(Span::styled(
                 vline,
-                Style::default().fg(DARK_BROWN),
+                Style::default().fg(theme.dark_brown()),
             )));
         }
     }
@@ -933,30 +954,33 @@ fn draw_npc_screen(
         Span::styled(
             " [Esc/Q]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" back  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[↑↓]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" scroll  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" scroll  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Space]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" step", Style::default().fg(DARK_BROWN)),
+        Span::styled(" step", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
 fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -968,10 +992,10 @@ fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
         Span::styled(
             " Deep World",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" — Journal", Style::default().fg(WARM_BROWN)),
+        Span::styled(" — Journal", Style::default().fg(theme.warm_brown())),
     ]))
     .block(Block::default().borders(Borders::BOTTOM));
     f.render_widget(title, chunks[0]);
@@ -982,12 +1006,12 @@ fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
                 " The Archive holds no records yet.",
-                Style::default().fg(WARM_BROWN),
+                Style::default().fg(theme.warm_brown()),
             )));
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
                 " Time passes. Events will be recorded here.",
-                Style::default().fg(DARK_BROWN),
+                Style::default().fg(theme.dark_brown()),
             )));
         } else {
             for entry in sim.journal.iter().rev() {
@@ -995,10 +1019,10 @@ fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
                     Span::styled(
                         format!(" [{}] ", entry.tick),
                         Style::default()
-                            .fg(ARCHIVE_RED)
+                            .fg(theme.archive_red())
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled(entry.text.clone(), Style::default().fg(INK)),
+                    Span::styled(entry.text.clone(), Style::default().fg(theme.ink())),
                 ]));
             }
         }
@@ -1013,17 +1037,17 @@ fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
         Span::styled(
             " [Esc/Q]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" back  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[↑↓]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" scroll", Style::default().fg(DARK_BROWN)),
+        Span::styled(" scroll", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
@@ -1037,6 +1061,9 @@ fn draw_talk_screen(
     person_idx: usize,
     scroll: u16,
 ) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1061,7 +1088,7 @@ fn draw_talk_screen(
     let title = Paragraph::new(Line::from(Span::styled(
         header,
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -1081,7 +1108,7 @@ fn draw_talk_screen(
         lines.push(Line::from(Span::styled(
             format!(" {} speaks:", p.name),
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
         let npc_people = crate::model::PeopleKind::from_name(&p.people);
@@ -1090,7 +1117,7 @@ fn draw_talk_screen(
             let greeting = player_people.greeting_to(npc_people);
             lines.push(Line::from(Span::styled(
                 format!("  {}", greeting),
-                Style::default().fg(DARK_BROWN),
+                Style::default().fg(theme.dark_brown()),
             )));
         }
         lines.push(Line::from(""));
@@ -1103,11 +1130,13 @@ fn draw_talk_screen(
             );
             lines.push(Line::from(Span::styled(
                 format!(" [{}]", label),
-                Style::default().fg(WARM_BROWN).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme.warm_brown())
+                    .add_modifier(Modifier::BOLD),
             )));
             lines.push(Line::from(Span::styled(
                 format!("   {}", vline),
-                Style::default().fg(INK),
+                Style::default().fg(theme.ink()),
             )));
             lines.push(Line::from(""));
         }
@@ -1118,26 +1147,26 @@ fn draw_talk_screen(
         lines.push(Line::from(Span::styled(
             " Actions",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
         if low_food {
             lines.push(Line::from(Span::styled(
                 "   Food is low. Share a meal?",
-                Style::default().fg(NEED_HIGH),
+                Style::default().fg(theme.need_color(0.0)),
             )));
         }
         if low_money {
             lines.push(Line::from(Span::styled(
                 "   Coin is thin. Offer payment?",
-                Style::default().fg(NEED_HIGH),
+                Style::default().fg(theme.need_color(0.0)),
             )));
         }
         if low_money {
             lines.push(Line::from(Span::styled(
                 "   Coin is thin. Offer payment?",
-                Style::default().fg(NEED_HIGH),
+                Style::default().fg(theme.need_color(0.0)),
             )));
         }
 
@@ -1145,7 +1174,7 @@ fn draw_talk_screen(
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
                 format!(" {}", msg),
-                Style::default().fg(WARM_BROWN),
+                Style::default().fg(theme.warm_brown()),
             )));
         }
     }
@@ -1159,30 +1188,33 @@ fn draw_talk_screen(
         Span::styled(
             " [F]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" give food  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" give food  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[C]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" give coin  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" give coin  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc/Q]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back", Style::default().fg(DARK_BROWN)),
+        Span::styled(" back", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
 fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1194,10 +1226,10 @@ fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
         Span::styled(
             " Deep World",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" — Need Alerts", Style::default().fg(WARM_BROWN)),
+        Span::styled(" — Need Alerts", Style::default().fg(theme.warm_brown())),
     ]))
     .block(Block::default().borders(Borders::BOTTOM));
     f.render_widget(title, chunks[0]);
@@ -1209,35 +1241,38 @@ fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             " No critical needs. The Archive rests.",
-            Style::default().fg(WARM_BROWN),
+            Style::default().fg(theme.warm_brown()),
         )));
     } else {
         lines.push(Line::from(Span::styled(
             format!(" {} people in dire need", critical.len()),
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
         for (name, settlement, profession, need, val) in &critical {
             let bar = need_bar(*val, 8);
             lines.push(Line::from(vec![
-                Span::styled(format!(" {} ", name), Style::default().fg(INK)),
+                Span::styled(format!(" {} ", name), Style::default().fg(theme.ink())),
                 Span::styled(
                     format!("({}) ", settlement),
-                    Style::default().fg(DARK_BROWN),
+                    Style::default().fg(theme.dark_brown()),
                 ),
-                Span::styled(format!("{}, ", profession), Style::default().fg(DARK_BROWN)),
+                Span::styled(
+                    format!("{}, ", profession),
+                    Style::default().fg(theme.dark_brown()),
+                ),
                 Span::styled(
                     format!("{:?} ", need),
                     Style::default()
-                        .fg(need_color(*val))
+                        .fg(theme.need_color(*val))
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(bar, Style::default().fg(need_color(*val))),
+                Span::styled(bar, Style::default().fg(theme.need_color(*val))),
                 Span::styled(
                     format!(" {:.0}%", val * 100.0),
-                    Style::default().fg(need_color(*val)),
+                    Style::default().fg(theme.need_color(*val)),
                 ),
             ]));
         }
@@ -1252,17 +1287,17 @@ fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
         Span::styled(
             " [Esc/Q]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" back  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[↑↓]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" scroll", Style::default().fg(DARK_BROWN)),
+        Span::styled(" scroll", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
@@ -1286,36 +1321,6 @@ fn terrain_color(terrain: Terrain) -> Color {
     }
 }
 
-fn people_color(people: crate::model::PeopleKind) -> Color {
-    match people {
-        crate::model::PeopleKind::Metsik => Color::Rgb(0x3a, 0x5a, 0x2a),
-        crate::model::PeopleKind::Arkit => Color::Rgb(0x7a, 0x8a, 0x6a),
-        crate::model::PeopleKind::Vayla => Color::Rgb(0x4a, 0x7a, 0x9e),
-        crate::model::PeopleKind::Laakso => Color::Rgb(0x5a, 0x6a, 0x3a),
-        crate::model::PeopleKind::Sepat => Color::Rgb(0x8a, 0x7a, 0x6a),
-        crate::model::PeopleKind::Ahjo => Color::Rgb(0x7a, 0x2e, 0x1d),
-        crate::model::PeopleKind::Varhaiset => Color::Rgb(0x5a, 0x7a, 0x4a),
-        crate::model::PeopleKind::Metsareunat => Color::Rgb(0x3a, 0x6a, 0x2a),
-        crate::model::PeopleKind::Porokansa => Color::Rgb(0x4a, 0x6a, 0x3a),
-        crate::model::PeopleKind::Koskimetsa => Color::Rgb(0x2a, 0x5a, 0x3a),
-        crate::model::PeopleKind::Muistikansa => Color::Rgb(0x6a, 0x7a, 0x5a),
-        crate::model::PeopleKind::Taulukansa => Color::Rgb(0x7a, 0x8a, 0x5a),
-        crate::model::PeopleKind::Kirjakansa => Color::Rgb(0x6a, 0x7a, 0x4a),
-        crate::model::PeopleKind::Takovaki => Color::Rgb(0x8a, 0x6a, 0x3a),
-        crate::model::PeopleKind::Rantavaki => Color::Rgb(0x4a, 0x7a, 0x8a),
-        crate::model::PeopleKind::Saarivaki => Color::Rgb(0x3a, 0x6a, 0x9a),
-        crate::model::PeopleKind::Hiekkakavelijat => Color::Rgb(0x9a, 0x8a, 0x5a),
-        crate::model::PeopleKind::Haramaki => Color::Rgb(0x6a, 0x5a, 0x3a),
-        crate::model::PeopleKind::Jamavaki => Color::Rgb(0x5a, 0x5a, 0x4a),
-        crate::model::PeopleKind::Pohjavaki => Color::Rgb(0x4a, 0x4a, 0x3a),
-        crate::model::PeopleKind::Tzakhar => Color::Rgb(0x4a, 0x4a, 0x5a),
-        crate::model::PeopleKind::Merak => Color::Rgb(0x3a, 0x6a, 0x8a),
-        crate::model::PeopleKind::Shear => Color::Rgb(0x9a, 0x8a, 0x6a),
-        crate::model::PeopleKind::Hal => Color::Rgb(0x2a, 0x7a, 0x3a),
-        crate::model::PeopleKind::Khor => Color::Rgb(0x6a, 0x7a, 0x9a),
-    }
-}
-
 fn dim_color(c: Color) -> Color {
     match c {
         Color::Rgb(r, g, b) => Color::Rgb(r / 2, g / 2, b / 2),
@@ -1333,6 +1338,9 @@ fn terrain_color_at(terrain: Terrain, dark: bool) -> Color {
 }
 
 fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: usize) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1350,12 +1358,14 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
         Span::styled(
             " Map — ",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
             &region_name,
-            Style::default().fg(INK).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.ink())
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
             format!(
@@ -1364,7 +1374,7 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                 app.vitals.hunger_label(),
                 app.vitals.energy_label()
             ),
-            Style::default().fg(DARK_INK),
+            Style::default().fg(theme.dark_ink()),
         ),
     ]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -1389,7 +1399,8 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
     };
 
     if map_w == 0 || map_h == 0 {
-        let empty = Paragraph::new("No terrain data").style(Style::default().fg(DARK_BROWN));
+        let empty =
+            Paragraph::new("No terrain data").style(Style::default().fg(theme.dark_brown()));
         f.render_widget(empty, chunks[1]);
         return;
     }
@@ -1423,7 +1434,7 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                             Style::default().fg(terrain_color_at(*terrain, dark)),
                         ));
                     } else {
-                        spans.push(Span::styled(" ", Style::default().fg(DARK_BROWN)));
+                        spans.push(Span::styled(" ", Style::default().fg(theme.dark_brown())));
                     }
                 }
             }
@@ -1431,44 +1442,44 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
         lines.push(Line::from(spans));
     }
 
-    let map_widget = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    let map_widget = Paragraph::new(lines).style(Style::default().bg(theme.paper()));
     f.render_widget(map_widget, map_area);
 
     let legend_lines = vec![
         Line::from(vec![
             Span::styled("░", Style::default().fg(terrain_color(Terrain::Grass))),
-            Span::styled("Grass ", Style::default().fg(DARK_BROWN)),
+            Span::styled("Grass ", Style::default().fg(theme.dark_brown())),
             Span::styled("▓", Style::default().fg(terrain_color(Terrain::Forest))),
-            Span::styled("Forest ", Style::default().fg(DARK_BROWN)),
+            Span::styled("Forest ", Style::default().fg(theme.dark_brown())),
             Span::styled("≈", Style::default().fg(terrain_color(Terrain::Water))),
-            Span::styled("Water ", Style::default().fg(DARK_BROWN)),
+            Span::styled("Water ", Style::default().fg(theme.dark_brown())),
         ]),
         Line::from(vec![
             Span::styled("▲", Style::default().fg(terrain_color(Terrain::Mountain))),
-            Span::styled("Mtn ", Style::default().fg(DARK_BROWN)),
+            Span::styled("Mtn ", Style::default().fg(theme.dark_brown())),
             Span::styled("·", Style::default().fg(terrain_color(Terrain::Road))),
-            Span::styled("Road ", Style::default().fg(DARK_BROWN)),
+            Span::styled("Road ", Style::default().fg(theme.dark_brown())),
             Span::styled("█", Style::default().fg(terrain_color(Terrain::Settlement))),
-            Span::styled("Town ", Style::default().fg(DARK_BROWN)),
+            Span::styled("Town ", Style::default().fg(theme.dark_brown())),
         ]),
         Line::from(vec![
             Span::styled("▒", Style::default().fg(terrain_color(Terrain::Farmland))),
-            Span::styled("Farm ", Style::default().fg(DARK_BROWN)),
+            Span::styled("Farm ", Style::default().fg(theme.dark_brown())),
             Span::styled("~", Style::default().fg(terrain_color(Terrain::Swamp))),
-            Span::styled("Swmp ", Style::default().fg(DARK_BROWN)),
+            Span::styled("Swmp ", Style::default().fg(theme.dark_brown())),
             Span::styled(
                 "@",
                 Style::default()
                     .fg(Color::White)
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled("You", Style::default().fg(DARK_BROWN)),
+            Span::styled("You", Style::default().fg(theme.dark_brown())),
         ]),
     ];
     let legend = Paragraph::new(legend_lines).block(
         Block::default()
             .borders(Borders::ALL)
-            .style(Style::default().bg(PAPER)),
+            .style(Style::default().bg(theme.paper())),
     );
     let legend_rect = ratatui::layout::Rect {
         x: map_area.x + map_area.width.saturating_sub(22),
@@ -1490,53 +1501,53 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
         Span::styled(
             " [hjkl/↑↓←→]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" move  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" move  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[g]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" gather  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" gather  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[r]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" rest  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" rest  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[i]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" inv  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" inv  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[c]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" craft  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" craft  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Enter]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" enter  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" enter  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back", Style::default().fg(DARK_BROWN)),
-        Span::styled(coord, Style::default().fg(DARK_BROWN)),
+        Span::styled(" back", Style::default().fg(theme.dark_brown())),
+        Span::styled(coord, Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
@@ -1555,6 +1566,9 @@ fn region_type_glyph(region_type: &str) -> char {
 }
 
 fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1566,10 +1580,10 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
         Span::styled(
             " World Map — ",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled("choose region", Style::default().fg(WARM_BROWN)),
+        Span::styled("choose region", Style::default().fg(theme.warm_brown())),
     ]))
     .block(Block::default().borders(Borders::BOTTOM));
     f.render_widget(header, chunks[0]);
@@ -1581,7 +1595,7 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
     };
 
     if regions == 0 {
-        let empty = Paragraph::new("No regions").style(Style::default().fg(DARK_BROWN));
+        let empty = Paragraph::new("No regions").style(Style::default().fg(theme.dark_brown()));
         f.render_widget(empty, chunks[1]);
         return;
     }
@@ -1591,7 +1605,7 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
     lines.push(Line::from(""));
     for row in 0..rows_count {
         let mut spans: Vec<Span> = Vec::new();
-        spans.push(Span::styled("  ", Style::default().fg(DARK_BROWN)));
+        spans.push(Span::styled("  ", Style::default().fg(theme.dark_brown())));
         for col in 0..cols {
             let idx = row * cols + col;
             if idx < regions {
@@ -1602,9 +1616,9 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                             region.danger_level_biased(app.inter_people_bias.player_people);
                         let danger_glyph = danger.glyph();
                         let danger_color = match danger {
-                            crate::model::DangerLevel::Safe => NEED_LOW,
-                            crate::model::DangerLevel::Risky => WARM_BROWN,
-                            crate::model::DangerLevel::Dangerous => NEED_HIGH,
+                            crate::model::DangerLevel::Safe => theme.need_color(1.0),
+                            crate::model::DangerLevel::Risky => theme.warm_brown(),
+                            crate::model::DangerLevel::Dangerous => theme.need_color(0.0),
                         };
                         let width_label = format!(" {:3}{}", idx + 1, danger_glyph);
                         if idx == current_region {
@@ -1614,7 +1628,7 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                                     .fg(Color::White)
                                     .add_modifier(Modifier::BOLD),
                             ));
-                            spans.push(Span::styled(width_label, Style::default().fg(INK)));
+                            spans.push(Span::styled(width_label, Style::default().fg(theme.ink())));
                             spans.push(Span::styled(
                                 format!("{}", danger_glyph),
                                 Style::default().fg(danger_color),
@@ -1634,7 +1648,10 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                                     },
                                 )),
                             ));
-                            spans.push(Span::styled(width_label, Style::default().fg(DARK_BROWN)));
+                            spans.push(Span::styled(
+                                width_label,
+                                Style::default().fg(theme.dark_brown()),
+                            ));
                             spans.push(Span::styled(
                                 format!("{}", danger_glyph),
                                 Style::default().fg(danger_color),
@@ -1643,11 +1660,14 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                     }
                 }
             } else {
-                spans.push(Span::styled("     ", Style::default().fg(DARK_BROWN)));
+                spans.push(Span::styled(
+                    "     ",
+                    Style::default().fg(theme.dark_brown()),
+                ));
             }
         }
         let mut name_spans: Vec<Span> = Vec::new();
-        name_spans.push(Span::styled("  ", Style::default().fg(DARK_BROWN)));
+        name_spans.push(Span::styled("  ", Style::default().fg(theme.dark_brown())));
         for col in 0..cols {
             let idx = row * cols + col;
             if idx < regions {
@@ -1666,10 +1686,15 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
                         if idx == current_region {
                             name_spans.push(Span::styled(
                                 label,
-                                Style::default().fg(INK).add_modifier(Modifier::BOLD),
+                                Style::default()
+                                    .fg(theme.ink())
+                                    .add_modifier(Modifier::BOLD),
                             ));
                         } else {
-                            let name_color = dominant.map_or(DARK_BROWN, people_color);
+                            let name_color = dominant.map_or_else(
+                                || theme.region_color(&region.region_type),
+                                |pk| theme.people_color(pk),
+                            );
                             name_spans.push(Span::styled(label, Style::default().fg(name_color)));
                         }
                     }
@@ -1677,7 +1702,7 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
             } else {
                 name_spans.push(Span::styled(
                     "            ",
-                    Style::default().fg(DARK_BROWN),
+                    Style::default().fg(theme.dark_brown()),
                 ));
             }
         }
@@ -1686,73 +1711,76 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
         lines.push(Line::from(""));
     }
     lines.push(Line::from(vec![
-        Span::styled("  Danger: ", Style::default().fg(DARK_BROWN)),
-        Span::styled("·", Style::default().fg(NEED_LOW)),
-        Span::styled(" safe  ", Style::default().fg(DARK_BROWN)),
-        Span::styled("⚠", Style::default().fg(WARM_BROWN)),
-        Span::styled(" risky  ", Style::default().fg(DARK_BROWN)),
-        Span::styled("☠", Style::default().fg(NEED_HIGH)),
-        Span::styled(" dangerous", Style::default().fg(DARK_BROWN)),
+        Span::styled("  Danger: ", Style::default().fg(theme.dark_brown())),
+        Span::styled("·", Style::default().fg(theme.need_color(1.0))),
+        Span::styled(" safe  ", Style::default().fg(theme.dark_brown())),
+        Span::styled("⚠", Style::default().fg(theme.warm_brown())),
+        Span::styled(" risky  ", Style::default().fg(theme.dark_brown())),
+        Span::styled("☠", Style::default().fg(theme.need_color(0.0))),
+        Span::styled(" dangerous", Style::default().fg(theme.dark_brown())),
     ]));
     lines.push(Line::from(vec![
-        Span::styled("  People: ", Style::default().fg(DARK_BROWN)),
+        Span::styled("  People: ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "Metsik ",
-            Style::default().fg(people_color(crate::model::PeopleKind::Metsik)),
+            Style::default().fg(theme.people_color(crate::model::PeopleKind::Metsik)),
         ),
         Span::styled(
             "Arkit ",
-            Style::default().fg(people_color(crate::model::PeopleKind::Arkit)),
+            Style::default().fg(theme.people_color(crate::model::PeopleKind::Arkit)),
         ),
         Span::styled(
             "Väylä ",
-            Style::default().fg(people_color(crate::model::PeopleKind::Vayla)),
+            Style::default().fg(theme.people_color(crate::model::PeopleKind::Vayla)),
         ),
         Span::styled(
             "Laakso ",
-            Style::default().fg(people_color(crate::model::PeopleKind::Laakso)),
+            Style::default().fg(theme.people_color(crate::model::PeopleKind::Laakso)),
         ),
         Span::styled(
             "Sepät ",
-            Style::default().fg(people_color(crate::model::PeopleKind::Sepat)),
+            Style::default().fg(theme.people_color(crate::model::PeopleKind::Sepat)),
         ),
         Span::styled(
             "Ahjo",
-            Style::default().fg(people_color(crate::model::PeopleKind::Ahjo)),
+            Style::default().fg(theme.people_color(crate::model::PeopleKind::Ahjo)),
         ),
     ]));
 
-    let map_widget = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    let map_widget = Paragraph::new(lines).style(Style::default().bg(theme.paper()));
     f.render_widget(map_widget, chunks[1]);
 
     let help = Paragraph::new(Line::from(vec![
         Span::styled(
             " [hjkl/↑↓←→]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" navigate  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" navigate  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Enter]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" enter map  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" enter map  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc/M]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back", Style::default().fg(DARK_BROWN)),
+        Span::styled(" back", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
 fn draw_inventory_screen(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1763,7 +1791,7 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
     let header = Paragraph::new(Line::from(vec![Span::styled(
         " Inventory",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -1789,18 +1817,24 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
             "        ".into()
         };
         let color = match item {
-            ItemType::Food => NEED_LOW,
+            ItemType::Food => theme.need_color(1.0),
             ItemType::Coin => Color::Rgb(0xc2, 0x9a, 0x2a),
-            ItemType::Herb => NEED_LOW,
-            ItemType::Wood => WARM_BROWN,
+            ItemType::Herb => theme.need_color(1.0),
+            ItemType::Wood => theme.warm_brown(),
             ItemType::Stone => Color::Rgb(0x8a, 0x7a, 0x6a),
             ItemType::Cloth => Color::Rgb(0xc2, 0x9a, 0x6b),
             ItemType::Iron => Color::Rgb(0x5a, 0x5a, 0x6a),
         };
         lines.push(Line::from(vec![
-            Span::styled(format!("  {:6}", item.name()), Style::default().fg(INK)),
+            Span::styled(
+                format!("  {:6}", item.name()),
+                Style::default().fg(theme.ink()),
+            ),
             Span::styled(bar, Style::default().fg(color)),
-            Span::styled(format!(" x{}", count), Style::default().fg(DARK_BROWN)),
+            Span::styled(
+                format!(" x{}", count),
+                Style::default().fg(theme.dark_brown()),
+            ),
         ]));
     }
 
@@ -1808,24 +1842,24 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
     lines.push(Line::from(Span::styled(
         " Identity",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )));
     let people_label = app.inter_people_bias.player_people.label();
     lines.push(Line::from(vec![
-        Span::styled("  People: ", Style::default().fg(DARK_BROWN)),
-        Span::styled(people_label, Style::default().fg(INK)),
+        Span::styled("  People: ", Style::default().fg(theme.dark_brown())),
+        Span::styled(people_label, Style::default().fg(theme.ink())),
     ]));
     let title = app
         .god_affinity
         .people_title(app.inter_people_bias.player_people);
     if !title.is_empty() {
         lines.push(Line::from(vec![
-            Span::styled("  Known as: ", Style::default().fg(DARK_BROWN)),
+            Span::styled("  Known as: ", Style::default().fg(theme.dark_brown())),
             Span::styled(
                 title,
                 Style::default()
-                    .fg(WARM_BROWN)
+                    .fg(theme.warm_brown())
                     .add_modifier(Modifier::ITALIC),
             ),
         ]));
@@ -1847,17 +1881,17 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
                             "unwelcome"
                         };
                         let stance_color = if bias > 0.05 {
-                            NEED_LOW
+                            theme.need_color(1.0)
                         } else if bias < -0.05 {
-                            NEED_HIGH
+                            theme.need_color(0.0)
                         } else {
-                            DARK_BROWN
+                            theme.dark_brown()
                         };
                         lines.push(Line::from(vec![
-                            Span::styled("  Here:   ", Style::default().fg(DARK_BROWN)),
+                            Span::styled("  Here:   ", Style::default().fg(theme.dark_brown())),
                             Span::styled(
                                 format!("{} settlement", npc_people.label()),
-                                Style::default().fg(INK),
+                                Style::default().fg(theme.ink()),
                             ),
                             Span::styled(
                                 format!(" — {}", stance),
@@ -1874,26 +1908,26 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
     lines.push(Line::from(Span::styled(
         " Vitals",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )));
     lines.push(Line::from(vec![
-        Span::styled("  Hunger: ", Style::default().fg(DARK_BROWN)),
+        Span::styled("  Hunger: ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             app.vitals.hunger_label(),
-            Style::default().fg(need_color(app.vitals.hunger)),
+            Style::default().fg(theme.need_color(app.vitals.hunger)),
         ),
-        Span::styled("  Energy: ", Style::default().fg(DARK_BROWN)),
+        Span::styled("  Energy: ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             app.vitals.energy_label(),
-            Style::default().fg(need_color(app.vitals.energy)),
+            Style::default().fg(theme.need_color(app.vitals.energy)),
         ),
     ]));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         " Gods",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )));
     let gods = [
@@ -1920,36 +1954,42 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
             "angered"
         };
         let color = if *val > 0.0 {
-            NEED_LOW
+            theme.need_color(1.0)
         } else if *val < 0.0 {
-            NEED_HIGH
+            theme.need_color(0.0)
         } else {
-            DARK_BROWN
+            theme.dark_brown()
         };
         lines.push(Line::from(vec![
             Span::styled(format!("  {} ", god.glyph()), Style::default().fg(color)),
-            Span::styled(format!("{:<8}", god.label()), Style::default().fg(INK)),
+            Span::styled(
+                format!("{:<8}", god.label()),
+                Style::default().fg(theme.ink()),
+            ),
             Span::styled(format!(" {}", label), Style::default().fg(color)),
         ]));
     }
 
-    let para = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    let para = Paragraph::new(lines).style(Style::default().bg(theme.paper()));
     f.render_widget(para, chunks[1]);
 
     let help = Paragraph::new(Line::from(vec![
         Span::styled(
             " [Esc/i]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back", Style::default().fg(DARK_BROWN)),
+        Span::styled(" back", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
 fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1960,7 +2000,7 @@ fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
     let header = Paragraph::new(Line::from(vec![Span::styled(
         " Craft",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -1986,7 +2026,11 @@ fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
             .map(|&(item, count)| format!("{}x{} ", count, item.name()))
             .collect::<Vec<_>>()
             .join("+ ");
-        let can_color = if has_all { NEED_LOW } else { DARK_BROWN };
+        let can_color = if has_all {
+            theme.need_color(1.0)
+        } else {
+            theme.dark_brown()
+        };
         let people_tag = if let Some(pk) = recipe.people {
             format!(" [{}]", pk.label())
         } else {
@@ -1996,14 +2040,17 @@ fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
             Span::styled(
                 format!(" [{}] ", key),
                 Style::default()
-                    .fg(ARCHIVE_RED)
+                    .fg(theme.archive_red())
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
                 format!("{:<10}{}", recipe.name, people_tag),
                 Style::default().fg(can_color).add_modifier(Modifier::BOLD),
             ),
-            Span::styled(format!("({})", inputs), Style::default().fg(DARK_BROWN)),
+            Span::styled(
+                format!("({})", inputs),
+                Style::default().fg(theme.dark_brown()),
+            ),
             Span::styled(
                 format!(" -> {}x{}", recipe.output_count, recipe.output.name()),
                 Style::default().fg(can_color),
@@ -2012,7 +2059,7 @@ fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
     }
 
     let para = Paragraph::new(lines)
-        .style(Style::default().bg(PAPER))
+        .style(Style::default().bg(theme.paper()))
         .scroll((scroll, 0));
     f.render_widget(para, chunks[1]);
 
@@ -2020,23 +2067,26 @@ fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
         Span::styled(
             " [1-9]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" craft  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" craft  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back", Style::default().fg(DARK_BROWN)),
+        Span::styled(" back", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
 fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2047,7 +2097,7 @@ fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
     let header = Paragraph::new(Line::from(vec![Span::styled(
         " Market",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -2061,58 +2111,69 @@ fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
     let mut lines: Vec<Line> = Vec::new();
     lines.push(Line::from(Span::styled(
         format!(" You have {} coins", coins),
-        Style::default().fg(WARM_BROWN),
+        Style::default().fg(theme.warm_brown()),
     )));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         " Buy",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )));
     for (i, &item) in items.iter().enumerate() {
         let price = item.base_price();
         let can = coins >= price;
-        let color = if can { NEED_LOW } else { DARK_BROWN };
+        let color = if can {
+            theme.need_color(1.0)
+        } else {
+            theme.dark_brown()
+        };
         lines.push(Line::from(vec![
             Span::styled(
                 format!(" [{}] ", buy_keys[i]),
                 Style::default()
-                    .fg(ARCHIVE_RED)
+                    .fg(theme.archive_red())
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(format!("{:<8}", item.name()), Style::default().fg(color)),
-            Span::styled(format!(" {} coins", price), Style::default().fg(DARK_BROWN)),
+            Span::styled(
+                format!(" {} coins", price),
+                Style::default().fg(theme.dark_brown()),
+            ),
         ]));
     }
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         " Sell",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )));
     for (i, &item) in items.iter().enumerate() {
         let price = item.base_price();
         let have = inv.get(item);
-        let color = if have > 0 { NEED_LOW } else { DARK_BROWN };
+        let color = if have > 0 {
+            theme.need_color(1.0)
+        } else {
+            theme.dark_brown()
+        };
         lines.push(Line::from(vec![
             Span::styled(
                 format!(" [{}] ", sell_keys[i]),
                 Style::default()
-                    .fg(ARCHIVE_RED)
+                    .fg(theme.archive_red())
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(format!("{:<8}", item.name()), Style::default().fg(color)),
             Span::styled(
                 format!(" (have {}) -> {} coins", have, price),
-                Style::default().fg(DARK_BROWN),
+                Style::default().fg(theme.dark_brown()),
             ),
         ]));
     }
 
     let para = Paragraph::new(lines)
-        .style(Style::default().bg(PAPER))
+        .style(Style::default().bg(theme.paper()))
         .scroll((scroll, 0));
     f.render_widget(para, chunks[1]);
 
@@ -2120,30 +2181,33 @@ fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
         Span::styled(
             " [1-6]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" buy  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" buy  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[a-f]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" sell  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" sell  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back", Style::default().fg(DARK_BROWN)),
+        Span::styled(" back", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
 fn draw_encounter_screen(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2154,7 +2218,7 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
     let header = Paragraph::new(Line::from(vec![Span::styled(
         " Encounter!",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -2165,7 +2229,9 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
     if let Some(enc) = app.encounter {
         lines.push(Line::from(Span::styled(
             enc.kind.description(),
-            Style::default().fg(INK).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.ink())
+                .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
         let kind_str = match enc.kind {
@@ -2176,7 +2242,7 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
         };
         lines.push(Line::from(Span::styled(
             format!("  Kind: {}", kind_str),
-            Style::default().fg(WARM_BROWN),
+            Style::default().fg(theme.warm_brown()),
         )));
         if let Some(npc_people) = app.current_settlement_people() {
             let bias = app.inter_people_bias.player_people.bias_toward(npc_people)
@@ -2191,14 +2257,14 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
                 "hostile"
             };
             let stance_color = if bias > 0.05 {
-                NEED_LOW
+                theme.need_color(1.0)
             } else if bias < -0.05 {
-                NEED_HIGH
+                theme.need_color(0.0)
             } else {
-                DARK_BROWN
+                theme.dark_brown()
             };
             lines.push(Line::from(vec![
-                Span::styled("  Local stance: ", Style::default().fg(WARM_BROWN)),
+                Span::styled("  Local stance: ", Style::default().fg(theme.warm_brown())),
                 Span::styled(stance, Style::default().fg(stance_color)),
             ]));
         }
@@ -2206,7 +2272,7 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
         lines.push(Line::from(Span::styled(
             " What do you do?",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
         for action in enc.kind.available_actions() {
@@ -2214,10 +2280,10 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
                 Span::styled(
                     format!(" [{}] ", action.key()),
                     Style::default()
-                        .fg(ARCHIVE_RED)
+                        .fg(theme.archive_red())
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(action.label(), Style::default().fg(INK)),
+                Span::styled(action.label(), Style::default().fg(theme.ink())),
             ]));
         }
     }
@@ -2228,33 +2294,36 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
             app.vitals.hunger_label(),
             app.vitals.energy_label()
         ),
-        Style::default().fg(DARK_BROWN),
+        Style::default().fg(theme.dark_brown()),
     )));
 
-    let para = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    let para = Paragraph::new(lines).style(Style::default().bg(theme.paper()));
     f.render_widget(para, chunks[1]);
 
     let help = Paragraph::new(Line::from(vec![
         Span::styled(
             " [key]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" act  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" act  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" flee", Style::default().fg(DARK_BROWN)),
+        Span::styled(" flee", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
 fn draw_collapse_screen(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2265,7 +2334,7 @@ fn draw_collapse_screen(f: &mut Frame, app: &App) {
     let header = Paragraph::new(Line::from(vec![Span::styled(
         " You collapsed!",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -2276,47 +2345,49 @@ fn draw_collapse_screen(f: &mut Frame, app: &App) {
     if let Some(collapse) = app.collapse {
         lines.push(Line::from(Span::styled(
             collapse.outcome.description(),
-            Style::default().fg(INK).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.ink())
+                .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             format!("  {}", collapse.outcome.glyph()),
-            Style::default().fg(ARCHIVE_RED),
+            Style::default().fg(theme.archive_red()),
         )));
         if let Some(god) = collapse.rescued_by {
             lines.push(Line::from(Span::styled(
                 format!("  {} watches over you.", god.label()),
-                Style::default().fg(WARM_BROWN),
+                Style::default().fg(theme.warm_brown()),
             )));
         }
         if collapse.outcome.is_hostile() {
             lines.push(Line::from(Span::styled(
                 "  You are wounded and shaken.",
-                Style::default().fg(NEED_HIGH),
+                Style::default().fg(theme.need_color(0.0)),
             )));
         }
         if collapse.outcome.is_beast_aided() {
             lines.push(Line::from(Span::styled(
                 "  The forest creatures remember your kindness.",
-                Style::default().fg(NEED_LOW),
+                Style::default().fg(theme.need_color(1.0)),
             )));
         }
         if collapse.outcome.is_divine() {
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
                 "  The fire's warmth lingers. Something impossible happened here.",
-                Style::default().fg(WARM_BROWN),
+                Style::default().fg(theme.warm_brown()),
             )));
         }
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             format!("  {} hours passed", collapse.outcome.hours_passed()),
-            Style::default().fg(DARK_BROWN),
+            Style::default().fg(theme.dark_brown()),
         )));
         if collapse.outcome.coin_loss() > 0 {
             lines.push(Line::from(Span::styled(
                 format!("  Lost {} coins", collapse.outcome.coin_loss()),
-                Style::default().fg(NEED_HIGH),
+                Style::default().fg(theme.need_color(0.0)),
             )));
         }
     }
@@ -2327,7 +2398,7 @@ fn draw_collapse_screen(f: &mut Frame, app: &App) {
             app.vitals.hunger_label(),
             app.vitals.energy_label()
         ),
-        Style::default().fg(DARK_BROWN),
+        Style::default().fg(theme.dark_brown()),
     )));
     if app.god_affinity.oltzed != 0.0
         || app.god_affinity.keuru != 0.0
@@ -2344,27 +2415,30 @@ fn draw_collapse_screen(f: &mut Frame, app: &App) {
                 app.god_affinity.masa * 100.0,
                 app.god_affinity.kukri * 100.0,
             ),
-            Style::default().fg(DARK_BROWN),
+            Style::default().fg(theme.dark_brown()),
         )));
     }
 
-    let para = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    let para = Paragraph::new(lines).style(Style::default().bg(theme.paper()));
     f.render_widget(para, chunks[1]);
 
     let help = Paragraph::new(Line::from(vec![
         Span::styled(
             " [Enter/Esc]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" continue", Style::default().fg(DARK_BROWN)),
+        Span::styled(" continue", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
 fn draw_game_over_screen(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2375,7 +2449,7 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
     let header = Paragraph::new(Line::from(vec![Span::styled(
         " You have perished",
         Style::default()
-            .fg(ARCHIVE_RED)
+            .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
     )]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -2386,24 +2460,26 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
     if let Some(collapse) = app.collapse {
         lines.push(Line::from(Span::styled(
             collapse.outcome.description(),
-            Style::default().fg(INK).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.ink())
+                .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             "  But this time, you did not wake.",
-            Style::default().fg(NEED_HIGH),
+            Style::default().fg(theme.need_color(0.0)),
         )));
         if let Some(god) = collapse.rescued_by {
             lines.push(Line::from(Span::styled(
                 format!("  Even {} could not reach you this time.", god.label()),
-                Style::default().fg(WARM_BROWN),
+                Style::default().fg(theme.warm_brown()),
             )));
         }
     }
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         "  The world continues without you.",
-        Style::default().fg(DARK_BROWN),
+        Style::default().fg(theme.dark_brown()),
     )));
     if app.god_affinity.oltzed != 0.0
         || app.god_affinity.keuru != 0.0
@@ -2421,47 +2497,50 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
                 app.god_affinity.masa * 100.0,
                 app.god_affinity.kukri * 100.0,
             ),
-            Style::default().fg(DARK_BROWN),
+            Style::default().fg(theme.dark_brown()),
         )));
     }
 
-    let para = Paragraph::new(lines).style(Style::default().bg(PAPER));
+    let para = Paragraph::new(lines).style(Style::default().bg(theme.paper()));
     f.render_widget(para, chunks[1]);
 
     let help = Paragraph::new(Line::from(vec![
         Span::styled(
             " [r]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" restart  ", Style::default().fg(DARK_BROWN)),
+        Span::styled(" restart  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc/Q]",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" quit", Style::default().fg(DARK_BROWN)),
+        Span::styled(" quit", Style::default().fg(theme.dark_brown())),
     ]))
     .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 
-fn draw_help_screen(f: &mut Frame, _app: &App) {
+fn draw_help_screen(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let area = f.area();
     let text = vec![
         Line::from(Span::styled(
             "=== DEEP WORLD — KEY BINDINGS ===",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(Span::styled(
             " Movement",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from("   h/←/j/k/l/↑↓→  Move on map"),
@@ -2471,7 +2550,7 @@ fn draw_help_screen(f: &mut Frame, _app: &App) {
         Line::from(Span::styled(
             " Actions",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from("   g                Gather resources"),
@@ -2483,7 +2562,7 @@ fn draw_help_screen(f: &mut Frame, _app: &App) {
         Line::from(Span::styled(
             " In Settlement",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from("   t                Talk to NPC (voice lines)"),
@@ -2496,7 +2575,7 @@ fn draw_help_screen(f: &mut Frame, _app: &App) {
         Line::from(Span::styled(
             " Encounter",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from("   flee/bribe/talk/trade/calm/intimidate/push/shelter"),
@@ -2504,7 +2583,7 @@ fn draw_help_screen(f: &mut Frame, _app: &App) {
         Line::from(Span::styled(
             " Other",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from("   Ctrl+S           Save game"),
@@ -2517,38 +2596,55 @@ fn draw_help_screen(f: &mut Frame, _app: &App) {
         Block::default()
             .borders(Borders::ALL)
             .title(" Help ")
-            .border_style(Style::default().fg(ARCHIVE_RED)),
+            .border_style(Style::default().fg(theme.archive_red())),
     );
     f.render_widget(paragraph, area);
 }
 
 fn draw_settings_screen(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
     let area = f.area();
     let llm_status = if app.llm_enabled {
         "ON  (persona prompts from LLM)"
     } else {
         "OFF (using voice.rs templates)"
     };
+    let mono_status = if app.monochrome {
+        "ON  (ink-only palette for accessibility)"
+    } else {
+        "OFF (full color palette)"
+    };
     let text = vec![
         Line::from(Span::styled(
             "=== SETTINGS ===",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(Span::styled(
             " LLM Narrator",
             Style::default()
-                .fg(ARCHIVE_RED)
+                .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(format!("   Status: {}", llm_status)),
         Line::from("   [l] Toggle LLM narrator on/off"),
         Line::from(""),
         Line::from(Span::styled(
+            " Monochrome Mode",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(format!("   Status: {}", mono_status)),
+        Line::from("   [m] Toggle monochrome mode"),
+        Line::from(""),
+        Line::from(Span::styled(
             " (More settings coming in future versions)",
-            Style::default().fg(DARK_BROWN),
+            Style::default().fg(theme.dark_brown()),
         )),
         Line::from(""),
         Line::from(" [Esc/Q/,]  Back to game"),
@@ -2557,7 +2653,7 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
         Block::default()
             .borders(Borders::ALL)
             .title(" Settings ")
-            .border_style(Style::default().fg(ARCHIVE_RED)),
+            .border_style(Style::default().fg(theme.archive_red())),
     );
     f.render_widget(paragraph, area);
 }
