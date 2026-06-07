@@ -107,6 +107,8 @@ fn full_pipeline_seed_generate_enter_talk() {
         player_pos: None,
         god_affinity: GodAffinity::new(),
         inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
+        encounters_had: 0,
+        collapses_had: 0,
     };
 
     let dir = tempfile::tempdir().expect("temp dir should create");

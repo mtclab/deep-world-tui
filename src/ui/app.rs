@@ -81,6 +81,8 @@ pub struct App {
     pub llm_model: String,
     pub monochrome: bool,
     pub previous_screen: Option<Screen>,
+    pub encounters_had: u32,
+    pub collapses_had: u32,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -109,6 +111,8 @@ impl App {
             llm_model: settings.llm_model,
             monochrome: settings.monochrome,
             previous_screen: None,
+            encounters_had: 0,
+            collapses_had: 0,
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -307,6 +311,8 @@ impl App {
                 player_pos: self.player_pos,
                 god_affinity: self.god_affinity,
                 inter_people_bias: self.inter_people_bias.clone(),
+                encounters_had: self.encounters_had,
+                collapses_had: self.collapses_had,
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -325,6 +331,8 @@ impl App {
                 self.player_pos = data.player_pos;
                 self.god_affinity = data.god_affinity;
                 self.inter_people_bias = data.inter_people_bias;
+                self.encounters_had = data.encounters_had;
+                self.collapses_had = data.collapses_had;
                 self.screen = Screen::World;
                 self.status_msg = Some("Loaded from save.ron".into());
             }
@@ -840,6 +848,7 @@ impl App {
         let pp = Some(self.inter_people_bias.player_people);
         if let Some(enc) = Encounter::roll_biased(terrain, self.clock.hour, self.seed, pp) {
             self.encounter = Some(enc);
+            self.encounters_had += 1;
             self.screen = Screen::Encounter;
         }
     }
@@ -1065,6 +1074,7 @@ impl App {
         }
         self.advance_clock(hours);
         self.collapse = Some(collapse);
+        self.collapses_had += 1;
         if let Some(ref mut sim) = self.sim {
             let journal_text = if died {
                 format!("COLLAPSED — {:?}. You did not wake.", outcome)

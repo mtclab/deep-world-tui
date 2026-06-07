@@ -2394,9 +2394,11 @@ fn draw_collapse_screen(f: &mut Frame, app: &App) {
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         format!(
-            "  Hunger: {}  Energy: {}",
+            "  Hunger: {}  Energy: {}  |  Day {}  Encounters: {}",
             app.vitals.hunger_label(),
-            app.vitals.energy_label()
+            app.vitals.energy_label(),
+            app.clock.day,
+            app.encounters_had
         ),
         Style::default().fg(theme.dark_brown()),
     )));
@@ -2479,6 +2481,14 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         "  The world continues without you.",
+        Style::default().fg(theme.dark_brown()),
+    )));
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        format!(
+            "  Days survived: {}  |  Encounters: {}  |  Collapses: {}",
+            app.clock.day, app.encounters_had, app.collapses_had
+        ),
         Style::default().fg(theme.dark_brown()),
     )));
     if app.god_affinity.oltzed != 0.0

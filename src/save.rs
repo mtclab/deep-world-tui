@@ -13,6 +13,8 @@ pub struct SaveData {
     pub player_pos: Option<PlayerPos>,
     pub god_affinity: GodAffinity,
     pub inter_people_bias: InterPeopleBias,
+    pub encounters_had: u32,
+    pub collapses_had: u32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -97,6 +99,8 @@ pub fn restore_from_compact(
         player_pos: None,
         god_affinity: GodAffinity::new(),
         inter_people_bias: InterPeopleBias::new(crate::model::PeopleKind::Metsik),
+        encounters_had: 0,
+        collapses_had: 0,
     })
 }
 
@@ -121,6 +125,8 @@ mod tests {
             player_pos: None,
             god_affinity: GodAffinity::new(),
             inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
+            encounters_had: 0,
+            collapses_had: 0,
         };
         save_game(&data, path_str).expect("save should succeed");
         let loaded = load_game(path_str).expect("load should succeed");
@@ -198,6 +204,8 @@ mod tests {
             player_pos: None,
             god_affinity: GodAffinity::new(),
             inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
+            encounters_had: 0,
+            collapses_had: 0,
         };
         let compact_data = CompactSave {
             seed: 42,
