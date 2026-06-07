@@ -2879,6 +2879,89 @@ impl QuestType {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum Disease {
+    Fever,
+    Infection,
+    Sprain,
+    Exhaustion,
+    Plague,
+}
+
+impl Disease {
+    pub fn name(self) -> &'static str {
+        match self {
+            Disease::Fever => "fever",
+            Disease::Infection => "infection",
+            Disease::Sprain => "sprain",
+            Disease::Exhaustion => "exhaustion",
+            Disease::Plague => "plague",
+        }
+    }
+
+    pub fn vitals_decay_modifier(self) -> f64 {
+        match self {
+            Disease::Fever => 1.3,
+            Disease::Infection => 1.4,
+            Disease::Sprain => 1.2,
+            Disease::Exhaustion => 1.5,
+            Disease::Plague => 1.8,
+        }
+    }
+
+    pub fn recovery_ticks(self) -> u64 {
+        match self {
+            Disease::Fever => 48,
+            Disease::Infection => 72,
+            Disease::Sprain => 36,
+            Disease::Exhaustion => 24,
+            Disease::Plague => 120,
+        }
+    }
+
+    pub fn contraction_probability(self, terrain: Terrain) -> f64 {
+        match (self, terrain) {
+            (Disease::Fever, Terrain::Swamp | Terrain::Forest) => 0.02,
+            (Disease::Infection, Terrain::Swamp) => 0.03,
+            (Disease::Sprain, Terrain::Mountain | Terrain::Forest) => 0.015,
+            (Disease::Exhaustion, _) => 0.01,
+            (Disease::Plague, Terrain::Settlement) => 0.005,
+            _ => 0.002,
+        }
+    }
+
+    pub fn can_contract(seed: u64, tick: u64, terrain: Terrain, disease: Disease) -> bool {
+        let mut rng = crate::rng::SeedRng::new(seed.wrapping_add(tick));
+        let roll = rng.gen_range(1000) as f64 / 1000.0;
+        roll < disease.contraction_probability(terrain)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ActiveDisease {
+    pub disease: Disease,
+    pub contracted_tick: u64,
+    pub severity: f64,
+}
+
+impl ActiveDisease {
+    pub fn new(disease: Disease, contracted_tick: u64) -> Self {
+        ActiveDisease {
+            disease,
+            contracted_tick,
+            severity: 1.0,
+        }
+    }
+
+    pub fn is_recovered(&self, current_tick: u64) -> bool {
+        current_tick >= self.contracted_tick + self.disease.recovery_ticks()
+    }
+
+    pub fn vitals_modifier(&self) -> f64 {
+        self.disease.vitals_decay_modifier()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum BuildingType {
     Shelter,
     Workshop,
@@ -4645,5 +4728,42 @@ mod tests {
         building.advance_construction(100, 500);
         assert!(building.is_complete());
         assert_eq!(building.built_tick, Some(500));
+    }
+
+    #[test]
+    fn disease_properties() {
+        assert_eq!(Disease::Fever.name(), "fever");
+        assert!(Disease::Fever.vitals_decay_modifier() > 1.0);
+        assert!(Disease::Fever.recovery_ticks() > 0);
+        assert!(Disease::Fever.contraction_probability(Terrain::Swamp) > 0.0);
+    }
+
+    #[test]
+    fn disease_contraction_deterministic() {
+        let result1 = Disease::can_contract(42, 100, Terrain::Swamp, Disease::Fever);
+        let result2 = Disease::can_contract(42, 100, Terrain::Swamp, Disease::Fever);
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn active_disease_recovery() {
+        let disease = ActiveDisease::new(Disease::Fever, 100);
+        assert!(!disease.is_recovered(120));
+        assert!(!disease.is_recovered(147));
+        assert!(disease.is_recovered(148));
+        assert!(disease.is_recovered(200));
+    }
+
+    #[test]
+    fn disease_vitals_modifier() {
+        let disease = ActiveDisease::new(Disease::Plague, 100);
+        assert!(disease.vitals_modifier() > 1.5);
+    }
+
+    #[test]
+    fn disease_regional_probability() {
+        let swamp_prob = Disease::Fever.contraction_probability(Terrain::Swamp);
+        let desert_prob = Disease::Fever.contraction_probability(Terrain::DeepDesert);
+        assert!(swamp_prob > desert_prob);
     }
 }
