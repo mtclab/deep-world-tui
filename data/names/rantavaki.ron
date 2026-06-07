@@ -1,0 +1,13 @@
+// Rantaväki name grammar — shore-folk naming tradition
+// Masaran family: Permic/Komi profile with back-rounded vowels, open finals
+// Roots: shore, tidepool, cultivation, beach, salt-water, fishing
+NameGrammar(
+    prefixes: ["Ranta", "Meri", "Vuok", "Luod", "Saar", "Riih", "Kalast", "Suo"],
+    roots: [
+        "Vyl", "Kyl", "Rant", "Meri", "Aalto", "Laine", "Vesi",
+        "Kivi", "Hiekk", "Rakku", "Simpukka", "Levä", "Rutto",
+        "Ahven", "Kuha", "Siika", "Muikku", "Särki", "Lohi",
+    ],
+    suffixes: ["ri", "la", "va", "ka", "nä", "mo", "kkä"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)

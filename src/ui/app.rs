@@ -801,7 +801,7 @@ impl App {
     pub fn resolve_encounter(&mut self, action: EncounterAction) {
         let terrain = self.encounter.map(|e| e.terrain).unwrap_or(Terrain::Grass);
         let witness = WitnessLevel::roll(self.seed.wrapping_mul(7919), terrain);
-        let _rep_mult = witness.reputation_multiplier();
+        let rep_mult = witness.reputation_multiplier();
         let enc_mod = match terrain {
             Terrain::Settlement | Terrain::Road => self
                 .sim
@@ -910,10 +910,43 @@ impl App {
                 }
             }
         };
+        let encounter_data = self.encounter.map(|e| e.kind);
+        let pos_opt = self.player_pos;
+        let npc_people = self.current_settlement_people().unwrap_or(PeopleKind::Metsik);
+        let player_people = self.inter_people_bias.player_people;
+        let pid = self.player_start.as_ref().map(|ps| ps.person.id.clone());
         if let Some(ref mut sim) = self.sim {
-            if let Some(kind) = self.encounter.map(|e| e.kind) {
+            if let Some(kind) = encounter_data {
                 let journal_text = format!("Encounter ({:?}): {} — {}", kind, action.label(), msg);
                 sim.log_journal(sim.world.tick, journal_text);
+            }
+            if rep_mult > 0.0 {
+                let rep_delta = match action {
+                    EncounterAction::Talk => 0.02,
+                    EncounterAction::Trade => 0.03,
+                    EncounterAction::Calm => 0.01,
+                    EncounterAction::Shelter => 0.01,
+                    EncounterAction::Bribe => 0.005,
+                    EncounterAction::Flee => 0.0,
+                    EncounterAction::Intimidate => -0.01,
+                    EncounterAction::PushThrough => -0.005,
+                };
+                if rep_delta != 0.0 {
+                    if let (Some(ref pid), Some(pos)) = (&pid, pos_opt) {
+                        if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                            if let Some(settlement) = region.settlements.first() {
+                                let sid = settlement.id.clone();
+                                sim.reputation.adjust_local_biased(
+                                    pid,
+                                    &sid,
+                                    rep_delta * rep_mult,
+                                    player_people,
+                                    npc_people,
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
         self.encounter = None;

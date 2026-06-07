@@ -5,10 +5,31 @@
 // Demographics note: river-corridor density; most people farm/labour; soldiers +
 // merchants are minorities. Numbers are relative weights (need not sum to 1).
 Charts(
-    // ---- people (≈ lore demographics; SAST names) ----
+    // ---- people (lore demographics: SAST ~15-20%, stayed ~70-80%, non-human ~5-10%) ----
+    // Ref: deep-world-history docs on population_scale_and_settlement_hierarchy
+    // SAST god-peoples: major civilizations, but minorities in remote regions
+    // Stayed peoples: the majority common folk, per canon
+    // Non-human: biome-dependent, rare in mixed settlements
     people: WeightedTable(entries: {
-        "metsik": 22, "arkit": 14, "vayla": 16, "laakso": 10, "sepat": 12, "ahjo": 20,
-        "tzakhar": 3, "merak": 4, "shear": 2, "hal": 3, "khor": 2,
+        // SAST god-peoples (~16% total)
+        "metsik": 16, "ahjo": 22, "sepat": 10, "arkit": 6, "vayla": 8, "laakso": 6,
+        // Peoples who stayed (~76% total) — weight by canon lore on population/status
+        "varhaiset": 2,      // Extinct — only in old stories, not encountered
+        "metsareunat": 8,    // Keurish forest-edge, moderate
+        "porokansa": 6,      // Keurish tundra-reindeer, low
+        "koskimetsa": 4,     // Keurish river-rapids, endangered
+        "muistikansa": 6,    // Sampsaran memory-keepers, moderate
+        "taulukansa": 4,     // Sampsaran tablet-scribes, low
+        "kirjakansa": 5,     // Sampsaran book-people, moderate
+        "takovaki": 5,       // Oltkar surface-forge, moderate
+        "rantavaki": 7,      // Masaran shore-folk, moderate
+        "saarivaki": 9,      // Masaran island-traders, thriving
+        "hiekkakavelijat": 5, // Masaran sand-walkers, moderate
+        "haramaki": 3,       // Kukresh steep-valley, small
+        "jamavaki": 2,       // Kukresh hidden-valley, very small
+        "pohjavaki": 4,      // Kukresh deep-bottom, small
+        // Non-human peoples (~8% total) — biome-dependent, very rare in settlements
+        "tzakhar": 3, "merak": 3, "shear": 1, "hal": 2, "khor": 1,
     }),
 
     // ---- region / settlement (river-corridor principle) ----
@@ -46,6 +67,27 @@ Charts(
             (when: People("metsik"),      mult: { "forester": 5.0, "herder": 2.0, "healer": 2.0 }),
             (when: People("arkit"),       mult: { "scribe": 6.0, "healer": 2.0 }),
             (when: People("laakso"),      mult: { "priest": 4.0, "herder": 2.0 }),
+            // Stayed peoples profession modifiers (per canon ecology)
+            (when: People("varhaiset"),    mult: { "herder": 4.0, "farmer": 0.3, "labourer": 2.0 }),
+            (when: People("metsareunat"), mult: { "forester": 4.0, "herder": 2.0, "trader": 1.5 }),
+            (when: People("porokansa"),   mult: { "herder": 6.0, "forester": 2.0, "farmer": 0.1 }),
+            (when: People("koskimetsa"),  mult: { "fisher": 5.0, "forester": 3.0, "carpenter": 1.5 }),
+            (when: People("muistikansa"), mult: { "scribe": 4.0, "healer": 3.0, "priest": 2.0 }),
+            (when: People("taulukansa"),  mult: { "scribe": 3.0, "carpenter": 2.0, "smith": 1.5 }),
+            (when: People("kirjakansa"), mult: { "scribe": 4.0, "trader": 2.0, "healer": 1.5 }),
+            (when: People("takovaki"),   mult: { "smith": 5.0, "miner": 3.0, "carpenter": 1.5, "farmer": 0.3 }),
+            (when: People("rantavaki"),  mult: { "fisher": 5.0, "farmer": 2.0, "trader": 1.5 }),
+            (when: People("saarivaki"),  mult: { "sailor": 6.0, "trader": 5.0, "fisher": 3.0 }),
+            (when: People("hiekkakavelijat"), mult: { "fisher": 3.0, "trader": 4.0, "herder": 1.5, "farmer": 0.3 }),
+            (when: People("haramaki"),   mult: { "farmer": 3.0, "herder": 2.0, "labourer": 2.0 }),
+            (when: People("jamavaki"),   mult: { "herder": 3.0, "healer": 2.0, "priest": 2.0 }),
+            (when: People("pohjavaki"),  mult: { "miner": 3.0, "herder": 2.0, "forester": 2.0 }),
+            // Non-human peoples profession modifiers
+            (when: People("tzakhar"),   mult: { "miner": 5.0, "forester": 2.0, "labourer": 3.0, "farmer": 0.01, "trader": 0.1 }),
+            (when: People("merak"),     mult: { "sailor": 6.0, "fisher": 5.0, "trader": 4.0, "farmer": 0.01 }),
+            (when: People("shear"),    mult: { "smith": 3.0, "labourer": 4.0, "farmer": 0.2, "herder": 2.0 }),
+            (when: People("hal"),       mult: { "forester": 5.0, "herder": 3.0, "healer": 2.0, "farmer": 0.1 }),
+            (when: People("khor"),     mult: { "herder": 4.0, "labourer": 3.0, "priest": 2.0, "farmer": 0.1 }),
             (when: Region("coast"),       mult: { "fisher": 4.0, "sailor": 3.0, "farmer": 0.6 }),
             (when: Region("forest"),      mult: { "forester": 4.0, "herder": 1.5, "farmer": 0.7 }),
             (when: Region("upland"),      mult: { "miner": 3.0, "herder": 2.0, "farmer": 0.6 }),
@@ -65,6 +107,28 @@ Charts(
             (when: People("sepat"),  mult: { "forge": 6.0 }),
             (when: People("ahjo"),   mult: { "forge": 4.0 }),
             (when: People("metsik"), mult: { "root": 6.0 }),
+            // Stayed peoples craft affinities
+            (when: People("varhaiset"),   mult: { "root": 3.0 }),
+            (when: People("metsareunat"), mult: { "root": 4.0 }),
+            (when: People("porokansa"),  mult: { "root": 3.0, "still": 2.0 }),
+            (when: People("koskimetsa"), mult: { "current": 3.0, "root": 2.0 }),
+            (when: People("muistikansa"), mult: { "word": 5.0 }),
+            (when: People("taulukansa"),  mult: { "word": 4.0, "forge": 2.0 }),
+            (when: People("kirjakansa"),  mult: { "word": 5.0, "current": 2.0 }),
+            (when: People("takovaki"),   mult: { "forge": 5.0 }),
+            (when: People("rantavaki"),   mult: { "current": 4.0 }),
+            (when: People("saarivaki"),   mult: { "current": 5.0 }),
+            (when: People("hiekkakavelijat"), mult: { "current": 3.0 }),
+            (when: People("haramaki"),   mult: { "still": 3.0, "forge": 2.0 }),
+            (when: People("jamavaki"),   mult: { "still": 5.0 }),
+            (when: People("pohjavaki"),  mult: { "still": 4.0, "root": 2.0 }),
+            (when: People("pohjavaki"),  mult: { "still": 4.0, "root": 2.0 }),
+            // Non-human craft affinities
+            (when: People("tzakhar"),  mult: { "still": 4.0, "forge": 3.0 }),
+            (when: People("merak"),    mult: { "current": 5.0 }),
+            (when: People("shear"),    mult: { "forge": 4.0 }),
+            (when: People("hal"),      mult: { "root": 5.0 }),
+            (when: People("khor"),     mult: { "still": 5.0, "word": 3.0 }),
         ],
     ),
 
@@ -92,6 +156,21 @@ Charts(
         "tzakhar": "names/tzakhar.ron", "merak": "names/merak.ron",
         "shear": "names/shear.ron", "hal": "names/hal.ron",
         "khor": "names/khor.ron",
+        // Stayed peoples name grammars
+        "varhaiset": "names/varhaiset.ron",
+        "metsareunat": "names/metsareunat.ron",
+        "porokansa": "names/porokansa.ron",
+        "koskimetsa": "names/koskimetsa.ron",
+        "muistikansa": "names/muistikansa.ron",
+        "taulukansa": "names/taulukansa.ron",
+        "kirjakansa": "names/kirjakansa.ron",
+        "takovaki": "names/takovaki.ron",
+        "rantavaki": "names/rantavaki.ron",
+        "saarivaki": "names/saarivaki.ron",
+        "hiekkakavelijat": "names/hiekkakavelijat.ron",
+        "haramaki": "names/haramaki.ron",
+        "jamavaki": "names/jamavaki.ron",
+        "pohjavaki": "names/pohjavaki.ron",
     },
 
     // ---- world structure (issue #24) ----

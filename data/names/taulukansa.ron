@@ -1,0 +1,13 @@
+// Taulukansa name grammar — tablet-people naming tradition
+// Sampsaran family: Mordvinic profile with front æ and final t
+// Roots: tablets, inscriptions, independent scribes, carved words
+NameGrammar(
+    prefixes: ["Taulu", "Kivi", "Rauta", "Puu", "Grani", "Piir", "Hakka", "Kolv"],
+    roots: [
+        "Vel", "Tär", "Mer", "Kiel", "Taul", "Piirt", "Kirj",
+        "Hakka", "Kolva", "Rive", "Sivu", "Kans", "Luku", "Merk",
+        "Sauv", "Pats", "Stee", "Kipp", "Mool", "Kartt",
+    ],
+    suffixes: ["ät", "än", "oi", "ik", "as", "es", "ot"],
+    patterns: [Root, RootSuffix, PrefixRoot],
+)
