@@ -1069,7 +1069,15 @@ fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
                 Style::default().fg(theme.dark_brown()),
             )));
         } else {
-            for entry in sim.journal.iter().rev() {
+            for entry in sim.journal.entries.iter().rev() {
+                let color = match entry.voice {
+                    crate::sim::journal::Voice::Encounter => theme.ink(),
+                    crate::sim::journal::Voice::Travel => theme.warm_brown(),
+                    crate::sim::journal::Voice::Rest => theme.dark_ink(),
+                    crate::sim::journal::Voice::Dream => theme.archive_red(),
+                    crate::sim::journal::Voice::Scar => theme.archive_red(),
+                    crate::sim::journal::Voice::Rumor => theme.ink(),
+                };
                 lines.push(Line::from(vec![
                     Span::styled(
                         format!(" [{}] ", entry.tick),
@@ -1077,7 +1085,7 @@ fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
                             .fg(theme.archive_red())
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled(entry.text.clone(), Style::default().fg(theme.ink())),
+                    Span::styled(entry.text.clone(), Style::default().fg(color)),
                 ]));
             }
         }

@@ -7,6 +7,7 @@ pub mod collapse_log;
 pub mod effects;
 pub mod god;
 pub mod illness;
+pub mod journal;
 pub mod migration;
 pub mod needs_dependent;
 pub mod params;
@@ -17,17 +18,10 @@ pub mod signals;
 pub mod weather;
 
 use effects::{EffectContext, EffectQueue};
+pub use journal::{Journal, JournalEntry, Voice};
 pub use params::SimParams;
 use relationships::RelationshipTracker;
 use reputation::ReputationStore;
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct JournalEntry {
-    pub tick: u64,
-    pub text: String,
-}
-
-const MAX_JOURNAL: usize = 200;
 
 pub fn tick_needs_with_params(world: &mut World, dt: f64, params: &SimParams) {
     let rates: [(Need, f64); 5] = [
@@ -65,7 +59,8 @@ pub struct SimState {
     pub reputation: ReputationStore,
     pub obligations: Vec<needs_dependent::Obligation>,
     pub charts: Charts,
-    pub journal: Vec<JournalEntry>,
+    #[serde(default)]
+    pub journal: Journal,
     #[serde(default = "SimParams::default")]
     pub params: SimParams,
     #[serde(default)]
@@ -97,7 +92,7 @@ impl SimState {
             reputation: ReputationStore::new(),
             obligations: Vec::new(),
             charts,
-            journal: Vec::new(),
+            journal: Journal::default(),
             params: SimParams::default(),
             npc_memories: std::collections::HashMap::new(),
             quests: Vec::new(),
@@ -110,10 +105,11 @@ impl SimState {
     }
 
     pub fn log_journal(&mut self, tick: u64, text: String) {
-        if self.journal.len() >= MAX_JOURNAL {
-            self.journal.remove(0);
-        }
-        self.journal.push(JournalEntry { tick, text });
+        self.journal.log(tick, Voice::Encounter, text);
+    }
+
+    pub fn log(&mut self, tick: u64, voice: Voice, text: String) {
+        self.journal.log(tick, voice, text);
     }
 }
 
