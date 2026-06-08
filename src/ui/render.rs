@@ -3006,6 +3006,7 @@ mod minimap_tests {
             has_debt: false,
             schedule: Default::default(),
             illnesses: Vec::new(),
+            relations: vec![],
         }
     }
 

@@ -83,6 +83,7 @@ mod tests {
             has_debt: false,
             schedule: NpcSchedule::default(),
             illnesses: Vec::new(),
+            relations: vec![],
         }
     }
 

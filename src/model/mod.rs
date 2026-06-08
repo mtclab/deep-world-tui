@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub mod discovery;
+pub mod relation;
 
 pub use discovery::{Discovery, DiscoveryKind, DiscoveryStore};
 
@@ -2884,6 +2885,8 @@ pub struct Person {
     pub schedule: NpcSchedule,
     #[serde(default)]
     pub illnesses: Vec<ActiveDisease>,
+    #[serde(default)]
+    pub relations: Vec<relation::InterNpcRelation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -3758,6 +3761,7 @@ mod tests {
             has_debt: false,
             schedule: NpcSchedule::default(),
             illnesses: Vec::new(),
+            relations: vec![],
         };
         roundtrip(&person);
     }
