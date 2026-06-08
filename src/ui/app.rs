@@ -8,6 +8,7 @@ use crate::model::{
 };
 use crate::rng::SeedRng;
 use crate::save::{self, LineageRecord, SaveData};
+use crate::save_migrations;
 use crate::sim::collapse_log::CollapseEvent;
 use crate::sim::SimState;
 
@@ -335,6 +336,7 @@ impl App {
                 collapses_had: self.collapses_had,
                 collapse_log: self.collapse_log.clone(),
                 lineage: self.lineage.clone(),
+                version: save_migrations::CURRENT_SAVE_VERSION,
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -346,11 +348,7 @@ impl App {
     pub fn load_game(&mut self) {
         match save::load_game("save.ron") {
             Ok(data) => {
-                let last_collapse_died = data
-                    .collapse_log
-                    .last()
-                    .map(|c| c.died)
-                    .unwrap_or(false);
+                let last_collapse_died = data.collapse_log.last().map(|c| c.died).unwrap_or(false);
                 self.sim = Some(data.sim);
                 self.player_start = data.player_start;
                 self.clock = data.clock;
@@ -1321,7 +1319,10 @@ impl App {
         if died {
             if self.player_start.is_some() {
                 let save_data = SaveData {
-                    sim: self.sim.clone().unwrap_or_else(|| SimState::new(self.seed, self.charts.clone())),
+                    sim: self
+                        .sim
+                        .clone()
+                        .unwrap_or_else(|| SimState::new(self.seed, self.charts.clone())),
                     player_start: self.player_start.clone(),
                     clock: self.clock,
                     vitals: self.vitals,
@@ -1332,6 +1333,7 @@ impl App {
                     collapses_had: self.collapses_had,
                     collapse_log: self.collapse_log.clone(),
                     lineage: self.lineage.clone(),
+                    version: save_migrations::CURRENT_SAVE_VERSION,
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }
@@ -1435,10 +1437,7 @@ impl App {
         }
 
         // 5. Any person
-        settlement
-            .people
-            .iter()
-            .position(|p| p.id != *dead_id)
+        settlement.people.iter().position(|p| p.id != *dead_id)
     }
 
     fn continue_as_npc(&mut self) {
@@ -1470,7 +1469,11 @@ impl App {
                     return;
                 }
             };
-            let region = match self.sim.as_ref().and_then(|s| s.world.regions.get(pos.region_idx)) {
+            let region = match self
+                .sim
+                .as_ref()
+                .and_then(|s| s.world.regions.get(pos.region_idx))
+            {
                 Some(r) => r,
                 None => {
                     self.screen = Screen::GameOver;
