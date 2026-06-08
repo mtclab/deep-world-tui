@@ -493,6 +493,10 @@ pub enum Weather {
     Snow,
     Fog,
     Heatwave,
+    Whiteout,
+    Thunderhead,
+    DryLightning,
+    SeaSquall,
 }
 
 impl Weather {
@@ -540,6 +544,10 @@ impl Weather {
             Weather::Snow => "snow",
             Weather::Fog => "fog",
             Weather::Heatwave => "heatwave",
+            Weather::Whiteout => "whiteout",
+            Weather::Thunderhead => "thunderhead",
+            Weather::DryLightning => "dry_lightning",
+            Weather::SeaSquall => "sea_squall",
         }
     }
 
@@ -552,6 +560,10 @@ impl Weather {
             Weather::Snow => '❄',
             Weather::Fog => '🌫',
             Weather::Heatwave => '🔥',
+            Weather::Whiteout => '⚪',
+            Weather::Thunderhead => '🌩',
+            Weather::DryLightning => '⚡',
+            Weather::SeaSquall => '🌬',
         }
     }
 
@@ -564,6 +576,10 @@ impl Weather {
             Weather::Snow => 0.6,
             Weather::Fog => 0.85,
             Weather::Heatwave => 0.7,
+            Weather::Whiteout => 0.2,
+            Weather::Thunderhead => 0.55,
+            Weather::DryLightning => 0.65,
+            Weather::SeaSquall => 0.4,
         }
     }
 
@@ -576,6 +592,10 @@ impl Weather {
             Weather::Snow => 0.7,
             Weather::Fog => 0.75,
             Weather::Heatwave => 0.8,
+            Weather::Whiteout => 0.35,
+            Weather::Thunderhead => 0.55,
+            Weather::DryLightning => 0.75,
+            Weather::SeaSquall => 0.45,
         }
     }
 
@@ -588,6 +608,10 @@ impl Weather {
             Weather::Snow => 1.2,
             Weather::Fog => 1.05,
             Weather::Heatwave => 1.25,
+            Weather::Whiteout => 1.3,
+            Weather::Thunderhead => 1.15,
+            Weather::DryLightning => 1.1,
+            Weather::SeaSquall => 1.2,
         }
     }
 
@@ -600,6 +624,10 @@ impl Weather {
             Weather::Snow => -0.03,
             Weather::Fog => -0.01,
             Weather::Heatwave => -0.04,
+            Weather::Whiteout => -0.06,
+            Weather::Thunderhead => -0.05,
+            Weather::DryLightning => -0.03,
+            Weather::SeaSquall => -0.05,
         }
     }
 }
@@ -2930,6 +2958,14 @@ pub enum Animal {
     Ox,
     Falcon,
     Goat,
+    CaveLurker,
+    RiverEel,
+    RockLizard,
+    ForestOwl,
+    TundraFox,
+    DesertCaravanDog,
+    HighlandGoat,
+    MarshCrane,
 }
 
 impl Animal {
@@ -2940,6 +2976,14 @@ impl Animal {
             Animal::Ox => "ox",
             Animal::Falcon => "falcon",
             Animal::Goat => "goat",
+            Animal::CaveLurker => "cave_lurker",
+            Animal::RiverEel => "river_eel",
+            Animal::RockLizard => "rock_lizard",
+            Animal::ForestOwl => "forest_owl",
+            Animal::TundraFox => "tundra_fox",
+            Animal::DesertCaravanDog => "desert_caravan_dog",
+            Animal::HighlandGoat => "highland_goat",
+            Animal::MarshCrane => "marsh_crane",
         }
     }
 
@@ -2950,6 +2994,14 @@ impl Animal {
             Animal::Ox => "strong back for heavy loads",
             Animal::Falcon => "sharp-eyed scout from the sky",
             Animal::Goat => "patient provider of milk",
+            Animal::CaveLurker => "silent shadow that knows the deep paths",
+            Animal::RiverEel => "slippery hunter of shallows and weirs",
+            Animal::RockLizard => "cold-blooded climber of crags and ruins",
+            Animal::ForestOwl => "watchful spirit of the midnight canopy",
+            Animal::TundraFox => "white-furred ghost of the northern wastes",
+            Animal::DesertCaravanDog => "hardy trail-runner bred for sand and heat",
+            Animal::HighlandGoat => "sure-footed provider for the high places",
+            Animal::MarshCrane => "tall wader that knows the safe passages",
         }
     }
 
@@ -2984,6 +3036,7 @@ impl Animal {
     pub fn milk_production(self) -> u32 {
         match self {
             Animal::Goat => 1,
+            Animal::HighlandGoat => 1,
             _ => 0,
         }
     }
@@ -2995,6 +3048,14 @@ impl Animal {
             Animal::Ox => 15,
             Animal::Falcon => 12,
             Animal::Goat => 6,
+            Animal::CaveLurker => 18,
+            Animal::RiverEel => 4,
+            Animal::RockLizard => 7,
+            Animal::ForestOwl => 10,
+            Animal::TundraFox => 14,
+            Animal::DesertCaravanDog => 9,
+            Animal::HighlandGoat => 8,
+            Animal::MarshCrane => 5,
         }
     }
 
@@ -3005,6 +3066,14 @@ impl Animal {
             Animal::Ox => 2,
             Animal::Falcon => 1,
             Animal::Goat => 1,
+            Animal::CaveLurker => 1,
+            Animal::RiverEel => 0,
+            Animal::RockLizard => 0,
+            Animal::ForestOwl => 1,
+            Animal::TundraFox => 1,
+            Animal::DesertCaravanDog => 1,
+            Animal::HighlandGoat => 1,
+            Animal::MarshCrane => 0,
         }
     }
 
@@ -3015,6 +3084,14 @@ impl Animal {
             Animal::Ox => 2,
             Animal::Falcon => 1,
             Animal::Goat => 1,
+            Animal::CaveLurker => 1,
+            Animal::RiverEel => 0,
+            Animal::RockLizard => 1,
+            Animal::ForestOwl => 1,
+            Animal::TundraFox => 1,
+            Animal::DesertCaravanDog => 1,
+            Animal::HighlandGoat => 1,
+            Animal::MarshCrane => 0,
         }
     }
 }
@@ -3143,6 +3220,11 @@ pub enum Disease {
     Sprain,
     Exhaustion,
     Plague,
+    WinterCough,
+    MarshFever,
+    BloodAche,
+    ForgeBlindness,
+    ChildbirthComplication,
 }
 
 impl Disease {
@@ -3153,6 +3235,11 @@ impl Disease {
             Disease::Sprain => "sprain",
             Disease::Exhaustion => "exhaustion",
             Disease::Plague => "plague",
+            Disease::WinterCough => "winter_cough",
+            Disease::MarshFever => "marsh_fever",
+            Disease::BloodAche => "blood_ache",
+            Disease::ForgeBlindness => "forge_blindness",
+            Disease::ChildbirthComplication => "childbirth_complication",
         }
     }
 
@@ -3163,6 +3250,11 @@ impl Disease {
             Disease::Sprain => 1.2,
             Disease::Exhaustion => 1.5,
             Disease::Plague => 1.8,
+            Disease::WinterCough => 1.15,
+            Disease::MarshFever => 1.35,
+            Disease::BloodAche => 1.25,
+            Disease::ForgeBlindness => 1.1,
+            Disease::ChildbirthComplication => 1.6,
         }
     }
 
@@ -3173,6 +3265,11 @@ impl Disease {
             Disease::Sprain => 36,
             Disease::Exhaustion => 24,
             Disease::Plague => 120,
+            Disease::WinterCough => 60,
+            Disease::MarshFever => 96,
+            Disease::BloodAche => 48,
+            Disease::ForgeBlindness => 200,
+            Disease::ChildbirthComplication => 30,
         }
     }
 
@@ -3183,6 +3280,11 @@ impl Disease {
             (Disease::Sprain, Terrain::Mountain | Terrain::Forest) => 0.015,
             (Disease::Exhaustion, _) => 0.01,
             (Disease::Plague, Terrain::Settlement) => 0.005,
+            (Disease::WinterCough, Terrain::Tundra | Terrain::Mountain) => 0.025,
+            (Disease::MarshFever, Terrain::Swamp | Terrain::Coast) => 0.02,
+            (Disease::BloodAche, _) => 0.005,
+            (Disease::ForgeBlindness, Terrain::Mountain | Terrain::Settlement) => 0.01,
+            (Disease::ChildbirthComplication, _) => 0.003,
             _ => 0.002,
         }
     }
