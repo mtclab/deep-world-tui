@@ -150,6 +150,7 @@ Charts(
     personality_traits: WeightedTable(entries: {
         "stoic": 10, "warm": 10, "proud": 8, "cautious": 9, "reckless": 6, "devout": 6,
         "mercenary": 6, "loyal": 9, "bitter": 5, "curious": 7, "withdrawn": 6, "shrewd": 7,
+        "suspicious": 7, "cheerful": 8, "boisterous": 5, "melancholic": 6, "devious": 5, "earnest": 8, "world-weary": 5,
     }),
 
     // ---- household (the consequence hooks) ----
