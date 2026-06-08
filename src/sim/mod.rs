@@ -4,6 +4,7 @@ use crate::model::{Need, World};
 
 pub mod collapse_log;
 pub mod effects;
+pub mod god;
 pub mod illness;
 pub mod migration;
 pub mod needs_dependent;
