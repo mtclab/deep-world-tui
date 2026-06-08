@@ -2938,6 +2938,7 @@ mod minimap_tests {
             children_count: 0,
             has_debt: false,
             schedule: Default::default(),
+            wants: Vec::new(),
         }
     }
 

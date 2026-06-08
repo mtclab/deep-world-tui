@@ -2298,6 +2298,54 @@ pub struct World {
     pub region_cols: usize,
 }
 
+impl World {
+    pub fn set_wants_for_person(
+        &mut self,
+        person_id: &str,
+        wants: Vec<crate::sim::wants::NpcWant>,
+    ) {
+        for region in &mut self.regions {
+            for settlement in &mut region.settlements {
+                for person in &mut settlement.people {
+                    if person.id == person_id {
+                        person.wants = wants;
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn tick_npc_wants(&mut self, current_tick: u64, ticks_per_day: u64) {
+        let season = crate::model::Season::from_day((current_tick / ticks_per_day.max(1)) as u32);
+        let is_frost = matches!(season, Season::Winter);
+        for region in &mut self.regions {
+            for settlement in &mut region.settlements {
+                for person in &mut settlement.people {
+                    crate::sim::wants::tick_wants(
+                        &mut person.wants,
+                        current_tick,
+                        ticks_per_day,
+                        is_frost,
+                    );
+                }
+            }
+        }
+    }
+
+    pub fn recompute_all_schedules(&mut self, hour: u32) {
+        for region in &mut self.regions {
+            for settlement in &mut region.settlements {
+                for person in &mut settlement.people {
+                    let base = person.schedule.clone();
+                    person.schedule =
+                        crate::sim::wants::recompute_schedule(&person.wants, &base, hour);
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct RegionNeighbors {
     pub north: Option<usize>,
@@ -2802,6 +2850,8 @@ pub struct Person {
     pub has_debt: bool,
     #[serde(default)]
     pub schedule: NpcSchedule,
+    #[serde(default)]
+    pub wants: Vec<crate::sim::wants::NpcWant>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -3601,6 +3651,7 @@ mod tests {
             children_count: 2,
             has_debt: false,
             schedule: NpcSchedule::default(),
+            wants: Vec::new(),
         };
         roundtrip(&person);
     }

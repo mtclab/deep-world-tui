@@ -6,7 +6,7 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+- **#147** NPC goal-driven daily behavior: `WantKind` (10 archetypes), `NpcWant` lifecycle (pending→in_progress→satisfied/failed), wants weighted by people-kind, `tick_wants()` with frost-season awareness, `recompute_schedule()` derives `NpcSchedule` from active want, `wants_label()` for flavor, `World.set_wants_for_person()`, `World.tick_npc_wants()`, `World.recompute_all_schedules()`, `Person.wants: Vec<NpcWant>` field. 7 new tests.
 
 ## [0.1.0] - 2026-06-07
 

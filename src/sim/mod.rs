@@ -7,6 +7,7 @@ pub mod needs_dependent;
 pub mod params;
 pub mod relationships;
 pub mod reputation;
+pub mod wants;
 
 use effects::{EffectContext, EffectQueue};
 pub use params::SimParams;
@@ -69,7 +70,7 @@ pub struct SimState {
 impl SimState {
     pub fn new(seed: u64, charts: Charts) -> Self {
         let world = generate_world(seed, &charts);
-        SimState {
+        let mut sim = SimState {
             world,
             effect_queue: EffectQueue::new(),
             relationships: RelationshipTracker::new(),
@@ -80,6 +81,24 @@ impl SimState {
             params: SimParams::default(),
             npc_memories: std::collections::HashMap::new(),
             quests: Vec::new(),
+        };
+        sim.init_npc_wants();
+        sim
+    }
+
+    fn init_npc_wants(&mut self) {
+        let seed = self.world.seed;
+        let person_info: Vec<(String, String)> = self
+            .world
+            .regions
+            .iter()
+            .flat_map(|r| r.settlements.iter())
+            .flat_map(|s| s.people.iter())
+            .map(|p| (p.id.clone(), p.people.clone()))
+            .collect();
+        for (id, people) in person_info {
+            let wants = wants::generate_npc_wants(seed, &id, &people);
+            self.world.set_wants_for_person(&id, wants);
         }
     }
 
@@ -125,6 +144,10 @@ pub fn sim_tick(sim: &mut SimState) {
     needs_dependent::propagate_dependent_needs(&mut sim.world, &sim.obligations);
     reputation::spread_reputation(&mut sim.reputation, &sim.world, 1.0);
     sim.relationships.tick_converge(1.0);
+    let tick = sim.world.tick;
+    let hour = ((tick % 24) / 4) as u32;
+    sim.world.tick_npc_wants(tick, 24);
+    sim.world.recompute_all_schedules(hour);
 }
 
 #[cfg(test)]

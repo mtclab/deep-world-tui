@@ -82,6 +82,7 @@ mod tests {
             children_count: 0,
             has_debt: false,
             schedule: NpcSchedule::default(),
+            wants: Vec::new(),
         }
     }
 
