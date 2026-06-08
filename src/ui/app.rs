@@ -1294,6 +1294,16 @@ impl App {
     }
 
     pub fn use_service(&mut self, service: SettlementService) {
+        // Time-of-day gate: Night/DeepNight — doors shut, sleep. Refuse with journal line.
+        let tod = crate::model::TimeOfDay::from_hour(self.clock.hour);
+        if tod.blocks_services() {
+            let line = "The door is shut. I sleep.".to_string();
+            self.status_msg = Some(line.clone());
+            if let Some(ref mut sim) = self.sim {
+                sim.log_journal(sim.world.tick, line);
+            }
+            return;
+        }
         // Check if service provider is available at current hour
         if let Some(ref sim) = self.sim {
             if let Some(pos) = self.player_pos {
@@ -1490,10 +1500,15 @@ impl App {
     }
 
     pub fn rest(&mut self) {
+        let tod = crate::model::TimeOfDay::from_hour(self.clock.hour);
+        let was_deep_night = tod == crate::model::TimeOfDay::DeepNight;
         self.advance_clock(8);
         self.vitals.rest();
         self.god_affinity.adjust(GodName::Kukri, 0.02);
-        if self.god_affinity.get(GodName::Kukri) > 0.5 {
+        if was_deep_night {
+            self.status_msg =
+                Some("Dreams are strange in the deep night. I wake restless. (8h)".into());
+        } else if self.god_affinity.get(GodName::Kukri) > 0.5 {
             self.vitals.energy = (self.vitals.energy + 0.05).min(1.0);
             self.status_msg = Some("Rested deeply. Dreams of clear water. (8h)".into());
         } else {

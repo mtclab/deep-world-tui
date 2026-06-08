@@ -380,46 +380,66 @@ pub fn npc_combat_action(trust: f64, aggression: f64, seed: u64) -> CombatAction
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum TimeOfDay {
     Dawn,
-    Day,
+    Morning,
+    Noon,
+    Afternoon,
     Dusk,
     Night,
+    DeepNight,
 }
 
 impl TimeOfDay {
     pub fn from_hour(hour: u32) -> Self {
         match hour {
-            5..=7 => TimeOfDay::Dawn,
-            8..=17 => TimeOfDay::Day,
+            5..=6 => TimeOfDay::Dawn,
+            7..=10 => TimeOfDay::Morning,
+            11..=13 => TimeOfDay::Noon,
+            14..=17 => TimeOfDay::Afternoon,
             18..=20 => TimeOfDay::Dusk,
-            _ => TimeOfDay::Night,
+            21..=23 => TimeOfDay::Night,
+            _ => TimeOfDay::DeepNight,
         }
     }
 
     pub fn glyph(self) -> char {
         match self {
             TimeOfDay::Dawn => '☼',
-            TimeOfDay::Day => '☀',
+            TimeOfDay::Morning => '☼',
+            TimeOfDay::Noon => '☀',
+            TimeOfDay::Afternoon => '☀',
             TimeOfDay::Dusk => '◐',
-            TimeOfDay::Night => '●',
+            TimeOfDay::Night => '◑',
+            TimeOfDay::DeepNight => '●',
         }
     }
 
     pub fn is_dark(self) -> bool {
-        matches!(self, TimeOfDay::Night)
+        matches!(self, TimeOfDay::Night | TimeOfDay::DeepNight)
+    }
+
+    pub fn blocks_services(self) -> bool {
+        matches!(self, TimeOfDay::Night | TimeOfDay::DeepNight)
+    }
+
+    pub fn one_word(self) -> &'static str {
+        match self {
+            TimeOfDay::Dawn => "Dawn.",
+            TimeOfDay::Morning => "Morning.",
+            TimeOfDay::Noon => "Noon.",
+            TimeOfDay::Afternoon => "Afternoon.",
+            TimeOfDay::Dusk => "Dusk.",
+            TimeOfDay::Night => "Night.",
+            TimeOfDay::DeepNight => "Deep night.",
+        }
     }
 }
 
 impl fmt::Display for TimeOfDay {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TimeOfDay::Dawn => write!(f, "Dawn"),
-            TimeOfDay::Day => write!(f, "Day"),
-            TimeOfDay::Dusk => write!(f, "Dusk"),
-            TimeOfDay::Night => write!(f, "Night"),
-        }
+        f.write_str(self.one_word().trim_end_matches('.'))
     }
 }
 
@@ -3988,14 +4008,75 @@ mod tests {
 
     #[test]
     fn time_of_day_from_hour() {
-        assert_eq!(TimeOfDay::from_hour(0), TimeOfDay::Night);
-        assert_eq!(TimeOfDay::from_hour(4), TimeOfDay::Night);
+        assert_eq!(TimeOfDay::from_hour(0), TimeOfDay::DeepNight);
+        assert_eq!(TimeOfDay::from_hour(4), TimeOfDay::DeepNight);
         assert_eq!(TimeOfDay::from_hour(5), TimeOfDay::Dawn);
-        assert_eq!(TimeOfDay::from_hour(8), TimeOfDay::Day);
-        assert_eq!(TimeOfDay::from_hour(12), TimeOfDay::Day);
+        assert_eq!(TimeOfDay::from_hour(6), TimeOfDay::Dawn);
+        assert_eq!(TimeOfDay::from_hour(7), TimeOfDay::Morning);
+        assert_eq!(TimeOfDay::from_hour(10), TimeOfDay::Morning);
+        assert_eq!(TimeOfDay::from_hour(11), TimeOfDay::Noon);
+        assert_eq!(TimeOfDay::from_hour(13), TimeOfDay::Noon);
+        assert_eq!(TimeOfDay::from_hour(14), TimeOfDay::Afternoon);
+        assert_eq!(TimeOfDay::from_hour(17), TimeOfDay::Afternoon);
         assert_eq!(TimeOfDay::from_hour(18), TimeOfDay::Dusk);
+        assert_eq!(TimeOfDay::from_hour(20), TimeOfDay::Dusk);
         assert_eq!(TimeOfDay::from_hour(21), TimeOfDay::Night);
         assert_eq!(TimeOfDay::from_hour(23), TimeOfDay::Night);
+    }
+
+    #[test]
+    fn time_of_day_is_dark() {
+        assert!(TimeOfDay::Night.is_dark());
+        assert!(TimeOfDay::DeepNight.is_dark());
+        assert!(!TimeOfDay::Dawn.is_dark());
+        assert!(!TimeOfDay::Morning.is_dark());
+        assert!(!TimeOfDay::Noon.is_dark());
+        assert!(!TimeOfDay::Afternoon.is_dark());
+        assert!(!TimeOfDay::Dusk.is_dark());
+    }
+
+    #[test]
+    fn time_of_day_blocks_services() {
+        assert!(TimeOfDay::Night.blocks_services());
+        assert!(TimeOfDay::DeepNight.blocks_services());
+        assert!(!TimeOfDay::Dawn.blocks_services());
+        assert!(!TimeOfDay::Morning.blocks_services());
+        assert!(!TimeOfDay::Noon.blocks_services());
+        assert!(!TimeOfDay::Afternoon.blocks_services());
+        assert!(!TimeOfDay::Dusk.blocks_services());
+    }
+
+    #[test]
+    fn time_of_day_one_word_ends_with_period_or_phrase() {
+        for tod in [
+            TimeOfDay::Dawn,
+            TimeOfDay::Morning,
+            TimeOfDay::Noon,
+            TimeOfDay::Afternoon,
+            TimeOfDay::Dusk,
+            TimeOfDay::Night,
+            TimeOfDay::DeepNight,
+        ] {
+            let w = tod.one_word();
+            assert!(!w.is_empty(), "one_word() must not be empty for {tod:?}");
+            assert!(w.ends_with('.'), "one_word() must end with period: {w}");
+        }
+    }
+
+    #[test]
+    fn time_of_day_display_strips_period() {
+        assert_eq!(format!("{}", TimeOfDay::Dawn), "Dawn");
+        assert_eq!(format!("{}", TimeOfDay::DeepNight), "Deep night");
+        assert_eq!(format!("{}", TimeOfDay::Night), "Night");
+    }
+
+    #[test]
+    fn time_of_day_seven_phases() {
+        let mut seen = std::collections::HashSet::new();
+        for h in 0..24 {
+            seen.insert(TimeOfDay::from_hour(h));
+        }
+        assert_eq!(seen.len(), 7, "expected 7 distinct phases across 24h");
     }
 
     #[test]
@@ -4027,7 +4108,9 @@ mod tests {
     #[test]
     fn night_is_dark() {
         assert!(TimeOfDay::Night.is_dark());
-        assert!(!TimeOfDay::Day.is_dark());
+        assert!(TimeOfDay::DeepNight.is_dark());
+        assert!(!TimeOfDay::Morning.is_dark());
+        assert!(!TimeOfDay::Noon.is_dark());
         assert!(!TimeOfDay::Dawn.is_dark());
         assert!(!TimeOfDay::Dusk.is_dark());
     }

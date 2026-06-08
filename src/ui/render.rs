@@ -378,8 +378,15 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
     let mut lines: Vec<Line> = Vec::new();
     if let Some(ref sim) = app.sim {
         let world = &sim.world;
+        let phase = app.clock.time_of_day();
+        let phase_text = phase.one_word();
+        let phase_label = if app.clock.day % 30 == 1 {
+            format!("{} — the season turns", phase_text)
+        } else {
+            phase_text.to_string()
+        };
         lines.push(Line::from(Span::styled(
-            format!(" Tick {}", world.tick),
+            format!(" {}", phase_label),
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
