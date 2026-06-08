@@ -13,6 +13,7 @@ pub fn generate_player_start(rng: &mut SeedRng, charts: &Charts) -> PlayerStart 
         point_buy_adjustments: vec![],
         accepted: false,
         inventory,
+        companions: vec![],
     }
 }
 

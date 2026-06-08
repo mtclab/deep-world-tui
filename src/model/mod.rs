@@ -2481,6 +2481,21 @@ pub struct Settlement {
     pub services: Vec<SettlementService>,
 }
 
+impl Settlement {
+    pub fn allows_companions(&self) -> bool {
+        matches!(self.size.as_str(), "village" | "town" | "city")
+    }
+
+    pub fn companion_capacity(&self) -> usize {
+        match self.size.as_str() {
+            "village" => 1,
+            "town" => 2,
+            "city" => 3,
+            _ => 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Need {
     Food,
@@ -2836,6 +2851,32 @@ pub struct PlayerStart {
     pub accepted: bool,
     #[serde(default)]
     pub inventory: Inventory,
+    #[serde(default)]
+    pub companions: Vec<Companion>,
+}
+
+impl PlayerStart {
+    pub fn adopt_companion(&mut self, animal: Animal, name: String, tick: u64) {
+        let c = Companion::new(animal, name, tick);
+        self.companions.push(c);
+    }
+
+    pub fn has_companion_kind(&self, kind: Animal) -> bool {
+        self.companions.iter().any(|c| c.animal == kind)
+    }
+
+    pub fn total_carry_bonus(&self) -> u32 {
+        self.companions
+            .iter()
+            .map(|c| c.animal.carry_capacity_bonus())
+            .sum()
+    }
+
+    pub fn has_hound(&self) -> bool {
+        self.companions
+            .iter()
+            .any(|c| matches!(c.animal, Animal::Dog | Animal::Hound))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -2924,9 +2965,12 @@ impl QuestType {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Animal {
     Dog,
+    Hound,
     Horse,
+    Donkey,
     Ox,
     Falcon,
+    Crow,
     Goat,
 }
 
@@ -2934,9 +2978,12 @@ impl Animal {
     pub fn name(self) -> &'static str {
         match self {
             Animal::Dog => "dog",
+            Animal::Hound => "hound",
             Animal::Horse => "horse",
+            Animal::Donkey => "donkey",
             Animal::Ox => "ox",
             Animal::Falcon => "falcon",
+            Animal::Crow => "crow",
             Animal::Goat => "goat",
         }
     }
@@ -2944,16 +2991,19 @@ impl Animal {
     pub fn description(self) -> &'static str {
         match self {
             Animal::Dog => "loyal guardian and keen-nosed gatherer",
+            Animal::Hound => "faithful hound, warns of danger",
             Animal::Horse => "swift mount for distant roads",
+            Animal::Donkey => "sturdy carrier, lightens the load",
             Animal::Ox => "strong back for heavy loads",
             Animal::Falcon => "sharp-eyed scout from the sky",
+            Animal::Crow => "bird of the road, bearer of rumors",
             Animal::Goat => "patient provider of milk",
         }
     }
 
     pub fn gathering_bonus(self) -> f64 {
         match self {
-            Animal::Dog => 0.15,
+            Animal::Dog | Animal::Hound => 0.15,
             _ => 0.0,
         }
     }
@@ -2968,13 +3018,14 @@ impl Animal {
     pub fn carry_capacity_bonus(self) -> u32 {
         match self {
             Animal::Ox => 10,
+            Animal::Donkey => 8,
             _ => 0,
         }
     }
 
     pub fn scouting_bonus(self) -> f64 {
         match self {
-            Animal::Falcon => 0.2,
+            Animal::Falcon | Animal::Crow => 0.2,
             _ => 0.0,
         }
     }
@@ -2989,18 +3040,20 @@ impl Animal {
     pub fn cost(self) -> u32 {
         match self {
             Animal::Dog => 8,
+            Animal::Hound => 10,
             Animal::Horse => 25,
+            Animal::Donkey => 12,
             Animal::Ox => 15,
             Animal::Falcon => 12,
+            Animal::Crow => 5,
             Animal::Goat => 6,
         }
     }
 
     pub fn food_per_tick(self) -> u32 {
         match self {
-            Animal::Dog => 1,
-            Animal::Horse => 2,
-            Animal::Ox => 2,
+            Animal::Dog | Animal::Hound | Animal::Crow => 1,
+            Animal::Horse | Animal::Ox | Animal::Donkey => 2,
             Animal::Falcon => 1,
             Animal::Goat => 1,
         }
@@ -3008,9 +3061,8 @@ impl Animal {
 
     pub fn rest_per_tick(self) -> u32 {
         match self {
-            Animal::Dog => 1,
-            Animal::Horse => 2,
-            Animal::Ox => 2,
+            Animal::Dog | Animal::Hound | Animal::Crow => 1,
+            Animal::Horse | Animal::Ox | Animal::Donkey => 2,
             Animal::Falcon => 1,
             Animal::Goat => 1,
         }
@@ -3809,6 +3861,7 @@ mod tests {
             ],
             accepted: false,
             inventory: Inventory::default(),
+            companions: vec![],
         };
         roundtrip(&ps);
     }
@@ -5163,5 +5216,113 @@ mod tests {
         let last = log.iter().next_back().map(|e| e.day);
         assert_eq!(first, Some(15));
         assert_eq!(last, Some(34));
+    }
+
+    #[test]
+    fn settlement_allows_companions_village_and_above() {
+        let village = Settlement {
+            id: "v1".into(),
+            name: "Avillage".into(),
+            size: "village".into(),
+            region: "r1".into(),
+            population: 100,
+            description: String::new(),
+            people: vec![],
+            services: vec![],
+        };
+        assert!(village.allows_companions());
+        assert_eq!(village.companion_capacity(), 1);
+
+        let hamlet = Settlement {
+            id: "h1".into(),
+            name: "Ahamlet".into(),
+            size: "hamlet".into(),
+            region: "r1".into(),
+            population: 20,
+            description: String::new(),
+            people: vec![],
+            services: vec![],
+        };
+        assert!(!hamlet.allows_companions());
+        assert_eq!(hamlet.companion_capacity(), 0);
+
+        let town = Settlement {
+            id: "t1".into(),
+            name: "Atown".into(),
+            size: "town".into(),
+            region: "r1".into(),
+            population: 500,
+            description: String::new(),
+            people: vec![],
+            services: vec![],
+        };
+        assert!(town.allows_companions());
+        assert_eq!(town.companion_capacity(), 2);
+
+        let city = Settlement {
+            id: "c1".into(),
+            name: "Acity".into(),
+            size: "city".into(),
+            region: "r1".into(),
+            population: 2000,
+            description: String::new(),
+            people: vec![],
+            services: vec![],
+        };
+        assert!(city.allows_companions());
+        assert_eq!(city.companion_capacity(), 3);
+    }
+
+    #[test]
+    fn player_start_adopt_and_query_companions() {
+        let mut ps = PlayerStart {
+            person: Person::default(),
+            reroll_count: 0,
+            point_buy_adjustments: vec![],
+            accepted: false,
+            inventory: Inventory::default(),
+            companions: vec![],
+        };
+        assert!(ps.companions.is_empty());
+        assert!(!ps.has_companion_kind(Animal::Hound));
+        ps.adopt_companion(Animal::Hound, "Bracken".into(), 0);
+        assert_eq!(ps.companions.len(), 1);
+        assert!(ps.has_companion_kind(Animal::Hound));
+        assert!(!ps.has_companion_kind(Animal::Crow));
+        assert_eq!(ps.total_carry_bonus(), 0);
+        ps.adopt_companion(Animal::Donkey, "Moss".into(), 10);
+        assert_eq!(ps.companions.len(), 2);
+        assert_eq!(ps.total_carry_bonus(), 8);
+        assert!(ps.has_hound());
+    }
+
+    #[test]
+    fn animal_new_variants_properties() {
+        assert_eq!(Animal::Hound.name(), "hound");
+        assert_eq!(Animal::Donkey.name(), "donkey");
+        assert_eq!(Animal::Crow.name(), "crow");
+        assert!(Animal::Hound.gathering_bonus() > 0.0);
+        assert_eq!(Animal::Donkey.carry_capacity_bonus(), 8);
+        assert!(Animal::Crow.scouting_bonus() > 0.0);
+        assert!(Animal::Hound.cost() > 0);
+        assert!(Animal::Donkey.cost() > 0);
+        assert!(Animal::Crow.cost() > 0);
+        assert!(Animal::Hound.food_per_tick() > 0);
+        assert!(Animal::Donkey.food_per_tick() > 0);
+        assert!(Animal::Crow.food_per_tick() > 0);
+    }
+
+    #[test]
+    fn companion_decay_and_rest_cycle() {
+        let mut c = Companion::new(Animal::Hound, "Ashen".into(), 0);
+        assert!(!c.is_starving());
+        c.decay_needs(50);
+        assert!(c.food_need > 0.0);
+        assert!(c.rest_need > 0.0);
+        c.rest(2.0);
+        assert!(c.rest_need < c.food_need);
+        c.feed(2.0);
+        assert!(c.food_need < 80.0);
+        assert!(c.is_alive());
     }
 }

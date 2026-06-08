@@ -1,4 +1,5 @@
 use crate::charts::Charts;
+use crate::gen::companion::settlement_companions;
 use crate::gen::player::generate_player_start;
 use crate::model::{
     craft_recipes, Collapse, Encounter, EncounterAction, EncounterLog, EncounterLogEntry,
@@ -926,6 +927,9 @@ impl App {
         self.clock.advance(hours);
         if let Some(ref mut ps) = self.player_start {
             self.vitals.tick(hours, &mut ps.inventory, season);
+            for companion in &mut ps.companions {
+                companion.decay_needs(hours as u64);
+            }
         }
         if let Some(ref mut sim) = self.sim {
             for _ in 0..hours {
@@ -1485,6 +1489,102 @@ impl App {
         }
     }
 
+    pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
+        let ps = match self.player_start {
+            Some(ref mut ps) => ps,
+            None => {
+                self.status_msg = Some("No character yet.".into());
+                return;
+            }
+        };
+        if ps.companions.len() >= 3 {
+            self.status_msg = Some("I cannot take another companion. My hands are full.".into());
+            return;
+        }
+        let (capacity, settlement_name) = if let Some(ref sim) = self.sim {
+            if let Some(region) = sim.world.regions.get(region_idx) {
+                if let Some(settlement) = region.settlements.get(settlement_idx) {
+                    if !settlement.allows_companions() {
+                        self.status_msg = Some(
+                            "This place is too small for stable animals. No companions here."
+                                .into(),
+                        );
+                        return;
+                    }
+                    (settlement.companion_capacity(), settlement.name.clone())
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
+        } else {
+            return;
+        };
+        let animal_rng_seed = self
+            .seed
+            .wrapping_add(region_idx as u64 * 997)
+            .wrapping_add(settlement_idx as u64 * 31);
+        let mut rng = SeedRng::new(animal_rng_seed);
+        let available = settlement_companions(&mut rng, capacity);
+        if available.is_empty() {
+            self.status_msg = Some("No companions available.".into());
+            return;
+        }
+        let companion = available.into_iter().next().unwrap();
+        if self
+            .player_start
+            .as_ref()
+            .is_some_and(|ps| ps.has_companion_kind(companion.animal))
+        {
+            self.status_msg = Some(format!(
+                "I already travel with a {}. No need for another.",
+                companion.animal.name()
+            ));
+            return;
+        }
+        let cost = companion.animal.cost();
+        if self
+            .player_start
+            .as_ref()
+            .map_or(0, |ps| ps.inventory.get(ItemType::Coin))
+            < cost
+        {
+            self.status_msg = Some(format!(
+                "The {} in {} costs {} coin. I lack that much.",
+                companion.animal.name(),
+                settlement_name,
+                cost
+            ));
+            return;
+        }
+        let _ = self
+            .player_start
+            .as_mut()
+            .unwrap()
+            .inventory
+            .remove(ItemType::Coin, cost);
+        let name = companion.name.clone();
+        let animal = companion.animal;
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        self.player_start
+            .as_mut()
+            .unwrap()
+            .adopt_companion(animal, name.clone(), tick);
+        if let Some(ref mut sim) = self.sim {
+            sim.log_journal(
+                tick,
+                format!(
+                    "A {} called {} joins me from the yards of {}. My road grows less lonely.",
+                    animal.name(),
+                    name,
+                    settlement_name
+                ),
+            );
+        }
+        self.status_msg = Some(format!("{} the {} joins me.", name, animal.name()));
+    }
+
     pub fn advance_clock_hour(&mut self) {
         self.advance_clock(1);
     }
@@ -1492,6 +1592,11 @@ impl App {
     pub fn rest(&mut self) {
         self.advance_clock(8);
         self.vitals.rest();
+        if let Some(ref mut ps) = self.player_start {
+            for companion in &mut ps.companions {
+                companion.rest(1.0);
+            }
+        }
         self.god_affinity.adjust(GodName::Kukri, 0.02);
         if self.god_affinity.get(GodName::Kukri) > 0.5 {
             self.vitals.energy = (self.vitals.energy + 0.05).min(1.0);
@@ -1982,6 +2087,9 @@ impl App {
                                 }
                             }
                         }
+                    }
+                    crossterm::event::KeyCode::Char('a') => {
+                        self.adopt_companion(region_idx, settlement_idx);
                     }
                     _ => {}
                 },

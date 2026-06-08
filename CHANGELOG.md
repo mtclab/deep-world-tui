@@ -6,7 +6,17 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+
+- **#148** Companion adoption: adopt Hound/Donkey/Crow at village-or-larger settlements
+  via `[a]` key. Companions cost coin; need decay per tick; rest during player rest;
+  carry bonus (Donkey), gathering bonus (Hound), scouting bonus (Crow). Max 3
+  companions. Location screen shows companion list + adoption availability.
+
+### Changed
+
+- `Animal` enum: added `Hound`, `Donkey`, `Crow` variants with flavor names,
+  costs, bonuses, and per-tick food/rest values.
 
 ## [0.1.0] - 2026-06-07
 
