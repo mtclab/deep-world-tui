@@ -6,6 +6,15 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
+### Phase 3 — Rest quality by location
+
+- **#144** Rest quality by location: `RestQuality` enum with 5 tiers
+  (OutInCold, Campfire, LeanTo, SettlementFloor, Inn). Recovery rates and
+  encounter risk vary monotonically per tier. `App::rest()` reads location
+  context and applies quality-appropriate stamina/morale/energy recovery and
+  encounter risk. DeepNight forces OutInCold tier. Journal flavor per tier,
+  no numbers/labels/bars exposed. God-prayer encounter preserved on top.
+
 ### Phase 3 — Discoveries & landmarks
 
 - **#138** Discoveries & landmarks: one-shot permanent world features discovered

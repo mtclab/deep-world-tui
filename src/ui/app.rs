@@ -1892,20 +1892,48 @@ impl App {
     }
 
     pub fn rest(&mut self) {
+        use crate::sim::rest::{tile_rest_quality, RestQuality};
+
         let tod = crate::model::TimeOfDay::from_hour(self.clock.hour);
         let was_deep_night = tod == crate::model::TimeOfDay::DeepNight;
+        let on_settlement = self.player_on_settlement().is_some();
+        let quality = if was_deep_night {
+            RestQuality::OutInCold
+        } else {
+            tile_rest_quality(on_settlement, false, false, false)
+        };
+        let stamina_gain = quality.stamina_per_hour() * 8.0;
+        let morale_gain = quality.morale_per_hour() * 8.0;
+        let encounter_risk = quality.encounter_risk_per_hour() * 8.0;
+
         self.advance_clock(8);
         self.vitals.rest();
-        self.god_affinity.adjust(GodName::Kukri, 0.02);
-        if was_deep_night {
-            self.status_msg =
-                Some("Dreams are strange in the deep night. I wake restless. (8h)".into());
-        } else if self.god_affinity.get(GodName::Kukri) > 0.5 {
+        self.vitals.energy = (self.vitals.energy + stamina_gain / 8.0).min(1.0);
+        self.god_affinity
+            .adjust(GodName::Kukri, 0.02 + morale_gain * 0.1);
+        if quality == RestQuality::Inn {
             self.vitals.energy = (self.vitals.energy + 0.05).min(1.0);
-            self.status_msg = Some("Rested deeply. Dreams of clear water. (8h)".into());
-        } else {
-            self.status_msg = Some("Rested (8h)".into());
         }
+
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        if let Some(ref mut sim) = self.sim {
+            sim.log_journal(tick, quality.journal_flavor().to_string());
+        }
+
+        if encounter_risk > 0.0 {
+            let roll = {
+                let mut rng = crate::rng::SeedRng::new(self.seed.wrapping_add(tick));
+                rng.gen_f64()
+            };
+            if roll < encounter_risk {
+                self.status_msg = Some(format!("Restless night. {}", quality.journal_flavor()));
+            } else {
+                self.status_msg = Some(quality.journal_flavor().to_string());
+            }
+        } else {
+            self.status_msg = Some(quality.journal_flavor().to_string());
+        }
+
         // God-prayer mini-encounter: a quiet dream from the patron of the
         // land we rest in. Logged to the journal so the world remembers.
         let dominant = self.sim.as_ref().and_then(|sim| {
@@ -1919,7 +1947,6 @@ impl App {
             .as_ref()
             .map(|ps| ps.person.id.clone())
             .unwrap_or_else(|| "player".to_string());
-        let tick = self.sim.as_ref().map(|sim| sim.world.tick).unwrap_or(0);
         if let Some(line) = crate::sim::god::maybe_prayer(&player_id, dominant.as_deref(), tick) {
             if let Some(ref mut sim) = self.sim {
                 sim.log_journal(tick, line);
