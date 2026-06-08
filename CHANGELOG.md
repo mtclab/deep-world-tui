@@ -6,6 +6,15 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
+### Phase 2 — Hunger & thirst core loop
+
+- **#143** `PlayerVitals` gains `thirst: f64` (0.0–1.0, baseline 1.0). Thirst
+  decays at 0.06/h (faster than hunger at 0.05/h — water runs out first).
+  Auto-drinks `ItemType::Water` when thirst ≤ 0.3 (restores +0.4).
+  `ItemType::Water` added (price 1, gatherable from Coast/Water terrain).
+  `is_dehydrated()`, `thirst_label()` (quenched/thirsty/parched/dehydrated).
+  Inventory screen shows water item. 6 new unit tests.
+
 ### Phase 2 — Three-season world cycle
 
 - **#146** `Season` enum: Thaw / Green / Frost (3 seasons, 90-day year). Each

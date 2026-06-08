@@ -122,6 +122,7 @@ impl TerrainMap {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ItemType {
     Food,
+    Water,
     Coin,
     Herb,
     Wood,
@@ -134,6 +135,7 @@ impl ItemType {
     pub fn name(self) -> &'static str {
         match self {
             ItemType::Food => "Food",
+            ItemType::Water => "Water",
             ItemType::Coin => "Coin",
             ItemType::Herb => "Herb",
             ItemType::Wood => "Wood",
@@ -148,6 +150,7 @@ impl ItemType {
             ItemType::Coin => 1,
             ItemType::Herb => 2,
             ItemType::Food => 3,
+            ItemType::Water => 1,
             ItemType::Wood => 2,
             ItemType::Stone => 3,
             ItemType::Cloth => 4,
@@ -163,6 +166,7 @@ impl ItemType {
         vec![
             ItemType::Herb,
             ItemType::Food,
+            ItemType::Water,
             ItemType::Wood,
             ItemType::Stone,
             ItemType::Cloth,
@@ -175,12 +179,11 @@ impl ItemType {
             Terrain::Grass | Terrain::Farmland | Terrain::Tundra => Some(ItemType::Herb),
             Terrain::Forest => Some(ItemType::Wood),
             Terrain::Settlement => Some(ItemType::Coin),
-            Terrain::Coast => Some(ItemType::Food),
+            Terrain::Coast | Terrain::Water => Some(ItemType::Water),
             Terrain::Sand
             | Terrain::DeepDesert
             | Terrain::Cave
             | Terrain::Swamp
-            | Terrain::Water
             | Terrain::Mountain
             | Terrain::Road => None,
         }
@@ -938,6 +941,7 @@ impl GameClock {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct PlayerVitals {
     pub hunger: f64,
+    pub thirst: f64,
     pub energy: f64,
 }
 
@@ -945,6 +949,7 @@ impl Default for PlayerVitals {
     fn default() -> Self {
         PlayerVitals {
             hunger: 1.0,
+            thirst: 1.0,
             energy: 1.0,
         }
     }
@@ -957,15 +962,21 @@ impl PlayerVitals {
 
     pub fn tick(&mut self, hours: u32, inventory: &mut Inventory, season: Season) {
         let hunger_rate = 0.05 * season.need_decay_multiplier();
+        let thirst_rate = 0.06 * season.need_decay_multiplier();
         let energy_rate = 0.02 * season.need_decay_multiplier();
         for _ in 0..hours {
             self.hunger -= hunger_rate;
+            self.thirst -= thirst_rate;
             self.energy -= energy_rate;
             if self.hunger <= 0.3 && inventory.remove(ItemType::Food, 1) {
                 self.hunger = (self.hunger + 0.3).min(1.0);
             }
+            if self.thirst <= 0.3 && inventory.remove(ItemType::Water, 1) {
+                self.thirst = (self.thirst + 0.4).min(1.0);
+            }
         }
         self.hunger = self.hunger.max(0.0);
+        self.thirst = self.thirst.max(0.0);
         self.energy = self.energy.max(0.0);
     }
 
@@ -975,6 +986,10 @@ impl PlayerVitals {
 
     pub fn is_starving(self) -> bool {
         self.hunger <= 0.0
+    }
+
+    pub fn is_dehydrated(self) -> bool {
+        self.thirst <= 0.0
     }
 
     pub fn is_exhausted(self) -> bool {
@@ -990,6 +1005,18 @@ impl PlayerVitals {
             "starving"
         } else {
             "famished"
+        }
+    }
+
+    pub fn thirst_label(self) -> &'static str {
+        if self.thirst >= 0.7 {
+            "quenched"
+        } else if self.thirst >= 0.4 {
+            "thirsty"
+        } else if self.thirst > 0.0 {
+            "parched"
+        } else {
+            "dehydrated"
         }
     }
 
@@ -4099,7 +4126,7 @@ mod tests {
             ItemType::gather_from(Terrain::Settlement),
             Some(ItemType::Coin)
         );
-        assert_eq!(ItemType::gather_from(Terrain::Water), None);
+        assert_eq!(ItemType::gather_from(Terrain::Water), Some(ItemType::Water));
     }
 
     #[test]
@@ -4253,16 +4280,86 @@ mod tests {
     fn player_vitals_labels() {
         let full = PlayerVitals {
             hunger: 0.8,
+            thirst: 0.8,
             energy: 0.8,
         };
         assert_eq!(full.hunger_label(), "full");
+        assert_eq!(full.thirst_label(), "quenched");
         assert_eq!(full.energy_label(), "energized");
         let hungry = PlayerVitals {
             hunger: 0.5,
+            thirst: 0.5,
             energy: 0.5,
         };
         assert_eq!(hungry.hunger_label(), "hungry");
-        assert_eq!(hungry.energy_label(), "tired");
+        assert_eq!(hungry.thirst_label(), "thirsty");
+         assert_eq!(hungry.energy_label(), "tired");
+    }
+
+    #[test]
+    fn player_vitals_auto_drink() {
+        let mut v = PlayerVitals::new();
+        v.thirst = 0.2;
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Water, 3);
+        v.tick(1, &mut inv, Season::Thaw);
+        assert!(v.thirst > 0.2, "should auto-drink when thirsty");
+        assert_eq!(inv.get(ItemType::Water), 2);
+    }
+
+    #[test]
+    fn thirst_depletes_faster_than_hunger() {
+        let mut v = PlayerVitals::new();
+        let mut inv = Inventory::default();
+        v.tick(10, &mut inv, Season::Thaw);
+        assert!(
+            v.thirst < v.hunger,
+            "thirst should deplete faster than hunger"
+        );
+    }
+
+    #[test]
+    fn is_dehydrated() {
+        let v = PlayerVitals {
+            hunger: 1.0,
+            thirst: 0.0,
+            energy: 1.0,
+        };
+        assert!(v.is_dehydrated());
+        let v_ok = PlayerVitals {
+            hunger: 1.0,
+            thirst: 0.5,
+            energy: 1.0,
+        };
+        assert!(!v_ok.is_dehydrated());
+    }
+
+    #[test]
+    fn thirst_labels() {
+        let v = PlayerVitals {
+            hunger: 1.0,
+            thirst: 0.9,
+            energy: 1.0,
+        };
+        assert_eq!(v.thirst_label(), "quenched");
+        let v2 = PlayerVitals {
+            hunger: 1.0,
+            thirst: 0.5,
+            energy: 1.0,
+        };
+        assert_eq!(v2.thirst_label(), "thirsty");
+        let v3 = PlayerVitals {
+            hunger: 1.0,
+            thirst: 0.15,
+            energy: 1.0,
+        };
+        assert_eq!(v3.thirst_label(), "parched");
+        let v4 = PlayerVitals {
+            hunger: 1.0,
+            thirst: 0.0,
+            energy: 1.0,
+        };
+        assert_eq!(v4.thirst_label(), "dehydrated");
     }
 
     #[test]
@@ -4282,7 +4379,7 @@ mod tests {
     fn tradeable_items_excludes_coin() {
         let items = ItemType::tradeable_items();
         assert!(!items.contains(&ItemType::Coin));
-        assert_eq!(items.len(), 6);
+        assert_eq!(items.len(), 7);
     }
 
     #[test]
