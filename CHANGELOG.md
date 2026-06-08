@@ -6,7 +6,14 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+
+- **#138** Discoveries & landmarks: one-shot permanent world features discovered
+  while exploring. `DiscoveryKind` enum (StandingStone, Wreck, StrangeTree, Cairn,
+  Spring, BurningTree, SleepingBear, SunkenVillage, ErredMarker, FrostShrine,
+  WhisperingPool, BoneCircle). 1-3 per region, deterministic via seed fork.
+  First observation fires once (immutable), journal entry + status message.
+  World screen shows discovery text when standing on a discovery tile.
 
 ## [0.1.0] - 2026-06-07
 

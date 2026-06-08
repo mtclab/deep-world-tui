@@ -1,6 +1,7 @@
 use crate::charts::Charts;
 use crate::gen::world::generate_world;
 use crate::model::{Need, World};
+use crate::rng::SeedRng;
 
 pub mod effects;
 pub mod needs_dependent;
@@ -64,11 +65,24 @@ pub struct SimState {
     pub npc_memories: std::collections::HashMap<String, crate::model::NpcMemory>,
     #[serde(default)]
     pub quests: Vec<crate::model::Quest>,
+    #[serde(default)]
+    pub discoveries: crate::model::DiscoveryStore,
 }
 
 impl SimState {
     pub fn new(seed: u64, charts: Charts) -> Self {
         let world = generate_world(seed, &charts);
+        let mut discoveries = crate::model::DiscoveryStore::new();
+        {
+            let mut rng = SeedRng::new(seed).fork_for("discoveries");
+            for (ri, region) in world.regions.iter().enumerate() {
+                let w = region.terrain.width.max(1);
+                let h = region.terrain.height.max(1);
+                let region_discs =
+                    crate::model::discovery::generate_region_discoveries(&mut rng, ri, w, h);
+                discoveries.entries.extend(region_discs);
+            }
+        }
         SimState {
             world,
             effect_queue: EffectQueue::new(),
@@ -80,6 +94,7 @@ impl SimState {
             params: SimParams::default(),
             npc_memories: std::collections::HashMap::new(),
             quests: Vec::new(),
+            discoveries,
         }
     }
 

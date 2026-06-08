@@ -953,6 +953,35 @@ impl App {
         }
     }
 
+    pub fn check_discovery(&mut self, region_idx: usize, px: usize, py: usize) {
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let px_u32 = px as u32;
+        let py_u32 = py as u32;
+        if let Some(ref mut sim) = self.sim {
+            let disc_id = match sim.discoveries.at_position(region_idx, px_u32, py_u32) {
+                Some(d) => d.id.clone(),
+                None => return,
+            };
+            if sim.discoveries.observe(&disc_id, tick, player_id) {
+                let kind = sim
+                    .discoveries
+                    .entries
+                    .iter()
+                    .find(|d| d.id == disc_id)
+                    .map(|d| d.kind);
+                if let Some(kind) = kind {
+                    sim.log_journal(tick, kind.observe_text().to_string());
+                    self.status_msg = Some(format!("I found a {}!", kind.label()));
+                }
+            }
+        }
+    }
+
     pub fn dismiss_encounter(&mut self) {
         self.resolve_encounter(EncounterAction::Flee);
     }
@@ -1560,6 +1589,7 @@ impl App {
                 let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
                 self.advance_clock(hours);
                 self.check_encounter(terrain);
+                self.check_discovery(region_idx, px, py);
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
                 }
@@ -1589,6 +1619,7 @@ impl App {
                 let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
                 self.advance_clock(hours);
                 self.check_encounter(terrain);
+                self.check_discovery(region_idx, px, py);
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
                 }
