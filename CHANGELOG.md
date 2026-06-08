@@ -6,7 +6,13 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+
+- **#144** Rest quality by location: `RestQuality` enum with 5 tiers
+  (OutInCold, Campfire, LeanTo, SettlementFloor, Inn). Recovery rates and
+  encounter risk vary monotonically per tier. `App::rest()` reads location
+  context and applies quality-appropriate stamina/morale/energy recovery and
+  encounter risk. Journal flavor per tier, no numbers/labels/bars exposed.
 
 ## [0.1.0] - 2026-06-07
 

@@ -7,6 +7,7 @@ pub mod needs_dependent;
 pub mod params;
 pub mod relationships;
 pub mod reputation;
+pub mod rest;
 
 use effects::{EffectContext, EffectQueue};
 pub use params::SimParams;
