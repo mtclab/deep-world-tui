@@ -2748,10 +2748,9 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
     } else {
         "OFF (full color palette)"
     };
-    let locale = crate::i18n::Locale::load(&app.language);
     let text = vec![
         Line::from(Span::styled(
-            format!("=== {} ===", locale.t("ui.settings.title")),
+            "=== Settings ===",
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
@@ -2770,7 +2769,7 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
         Line::from("   [e] Edit endpoint  [o] Edit model"),
         Line::from(""),
         Line::from(Span::styled(
-            format!(" {}", locale.t("ui.settings.monochrome")),
+            " Monochrome".to_string(),
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
@@ -2779,13 +2778,12 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
         Line::from("   [m] Toggle monochrome mode"),
         Line::from(""),
         Line::from(Span::styled(
-            format!(" {}", locale.t("ui.settings.language")),
+            " Language".to_string(),
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
-        Line::from(format!("   Current: {}  (en / fi)", app.language)),
-        Line::from("   [g] Cycle language"),
+        Line::from("   Current: en"),
         Line::from(""),
         Line::from(Span::styled(
             " Audio",
