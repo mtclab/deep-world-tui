@@ -6,7 +6,19 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+- #129 Expand charts.ron: 30+ new entries
+- 4 new Weather variants: Whiteout, Thunderhead, DryLightning, SeaSquall
+- 8 new Animal variants: CaveLurker, RiverEel, RockLizard, ForestOwl, TundraFox, DesertCaravanDog, HighlandGoat, MarshCrane
+- 5 new Disease variants: WinterCough, MarshFever, BloodAche, ForgeBlindness, ChildbirthComplication
+- 5 new Professions: hearth-keeper, path-finder, fence-builder, beast-handler, singer
+- 6 new Craft affinities: tanner, rope_maker, charcoal_burner, falconer, salt_miner, reed_weaver
+- 7 new Personality traits: suspicious, cheerful, boisterous, melancholic, devious, earnest, world-weary
+- Chart validation now checks for god names in people/profession/personality entries
+- All Weather methods updated (name, glyph, gather/travel/need/mood modifiers)
+- All Animal methods updated (name, description, cost, food, rest)
+- All Disease methods updated (name, vitals_decay, recovery_ticks, contraction_probability)
+- Profession flavor and craft flavor strings for new entriesg yet)
 
 ## [0.1.0] - 2026-06-07
 
