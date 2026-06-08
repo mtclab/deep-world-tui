@@ -6,7 +6,15 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+- #128 Personality-driven gossip flavor
+- `gossip_personality_flavor()` — appends personality-specific flavor text to NPC gossip
+- `has_conflict()` — detects opposing personality pairs (cheerful+bitter, earnest+devious, etc.)
+- 7 new personality traits: suspicious, cheerful, boisterous, melancholic, devious, earnest, world-weary
+- 19 personality gossip flavors (stoic→measured, warm→easy warmth, etc.)
+- 9 conflicting personality pairs that cancel gossip flavor
+- RON: personality_traits weighted table expanded with 7 new entries
+- Tests: determinism, conflict cancellation, vanilla NPC, new trait flavors
 
 ## [0.1.0] - 2026-06-07
 
