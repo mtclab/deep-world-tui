@@ -137,6 +137,7 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
         children_count,
         has_debt,
         schedule,
+        wants: Vec::new(),
     }
 }
 
@@ -231,6 +232,7 @@ pub fn generate_person_from(
         children_count,
         has_debt,
         schedule,
+        wants: Vec::new(),
     }
 }
 

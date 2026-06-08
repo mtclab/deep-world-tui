@@ -217,6 +217,7 @@ mod tests {
                 description: String::new(),
                 terrain: crate::model::TerrainMap::default(),
                 neighbors: crate::model::RegionNeighbors::default(),
+                structures: Vec::new(),
                 settlements: vec![
                     crate::model::Settlement {
                         id: "s1".into(),

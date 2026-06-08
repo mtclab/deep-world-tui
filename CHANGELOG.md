@@ -6,7 +6,16 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+- #149 Camping & structures: 8-tier build system (Tarp → Home) with resource costs
+- `BuildKind` enum with label(), glyph(), cost(), build_hours(), decay_years(), rest_quality()
+- `BuildSite` for in-progress builds, `Structure` for completed builds
+- NPC structures auto-generated per region (Metsik→Kota, Metsik/Väylä→Laavu)
+- Player build command (`b` key) on map screen
+- Structure glyphs on map (.#.▒▓ for buildings, ░▒▓ for build progress)
+- Rest quality bonus: structures at player position improve energy recovery
+- New item types: Branches, Cordage, Tinder, Nails, Thatch, Glass
+- Terrain gather_from: Swamp→Branches, Sand/DeepDesert→Tinder, Mountain→Stone
 
 ## [0.1.0] - 2026-06-07
 

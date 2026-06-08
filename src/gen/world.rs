@@ -171,6 +171,7 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
         settlements,
         terrain,
         neighbors: crate::model::RegionNeighbors::default(),
+        structures: Vec::new(),
     }
 }
 
