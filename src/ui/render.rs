@@ -1917,6 +1917,7 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
     lines.push(Line::from(""));
     let all_items = [
         ItemType::Food,
+        ItemType::Water,
         ItemType::Coin,
         ItemType::Herb,
         ItemType::Wood,
@@ -1933,6 +1934,7 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
         };
         let color = match item {
             ItemType::Food => theme.need_color(1.0),
+            ItemType::Water => Color::Rgb(0x4a, 0x8a, 0xc2),
             ItemType::Coin => Color::Rgb(0xc2, 0x9a, 0x2a),
             ItemType::Herb => theme.need_color(1.0),
             ItemType::Wood => theme.warm_brown(),
