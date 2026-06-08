@@ -217,6 +217,7 @@ mod tests {
             schedule: crate::model::NpcSchedule::default(),
             illnesses: vec![],
             relations: vec![],
+        wants: vec![],
         };
         assert_eq!(illness_productivity_modifier(&person), 1.0);
     }
