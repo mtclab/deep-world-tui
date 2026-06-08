@@ -8,7 +8,6 @@ use ratatui::{
 };
 
 use crate::model::{craft_recipes, ItemType, Need, Season, Terrain};
-use crate::sim::relationships::BondCategory;
 use crate::ui::app::{App, Screen};
 use crate::ui::theme::Theme;
 use crate::voice::Situation;
@@ -932,16 +931,11 @@ fn draw_npc_screen(
                         &rel.from_id
                     };
                     let dir = if rel.from_id == p.id { "→" } else { "←" };
-                    let bond = BondCategory::from_strength(rel.strength);
+                    let descriptor =
+                        crate::sim::relationships::bond_descriptor(rel.strength, other);
+                    let regard = crate::sim::relationships::bond_descriptor(rel.trust, other);
                     lines.push(Line::from(Span::styled(
-                        format!(
-                            "   {} {} {:?} str={:.0}% trust={:.0}%",
-                            dir,
-                            other,
-                            bond,
-                            rel.strength * 100.0,
-                            rel.trust * 100.0
-                        ),
+                        format!("   {} {} — {}. {}", dir, other, descriptor, regard),
                         Style::default().fg(theme.dark_brown()),
                     )));
                 }
