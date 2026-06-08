@@ -6,7 +6,15 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Phase 2 — Three-season world cycle
+
+- **#146** `Season` enum: Thaw / Green / Frost (3 seasons, 90-day year). Each
+  season is 30 in-game days. `from_day` uses `(day-1) % 90` for correct
+  boundary alignment (days 1–30 Thaw, 31–60 Green, 61–90 Frost). Gather
+  multiplier: Thaw 1.0×, Green 1.2×, Frost 0.3×. Need decay: Frost 1.3×,
+  others 1.0×. Bias modifier: Green +0.05, Frost −0.05. Festival chance:
+  Green 30, Thaw 10, Frost 0. `YEAR_DAYS = 90` constant. Status bar shows
+  season name. 9 unit tests.
 
 ## [0.1.0] - 2026-06-07
 

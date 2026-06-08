@@ -425,63 +425,61 @@ impl fmt::Display for TimeOfDay {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Season {
-    Spring,
-    Summer,
-    Autumn,
-    Winter,
+    Thaw,
+    Green,
+    Frost,
 }
 
 impl Season {
     pub fn from_day(day: u32) -> Self {
-        match day % 360 {
-            0..=89 => Season::Spring,
-            90..=179 => Season::Summer,
-            180..=269 => Season::Autumn,
-            _ => Season::Winter,
+        let day_in_year = (day - 1) % 90;
+        match day_in_year {
+            0..=29 => Season::Thaw,
+            30..=59 => Season::Green,
+            _ => Season::Frost,
         }
     }
 
     pub fn gather_multiplier(self) -> f64 {
         match self {
-            Season::Spring => 1.0,
-            Season::Summer => 1.2,
-            Season::Autumn => 0.8,
-            Season::Winter => 0.3,
+            Season::Thaw => 1.0,
+            Season::Green => 1.2,
+            Season::Frost => 0.3,
         }
     }
 
     pub fn need_decay_multiplier(self) -> f64 {
         match self {
-            Season::Winter => 1.3,
+            Season::Frost => 1.3,
             _ => 1.0,
         }
     }
 
     pub fn bias_modifier(self) -> f64 {
         match self {
-            Season::Summer => 0.05,
-            Season::Winter => -0.05,
+            Season::Green => 0.05,
+            Season::Frost => -0.05,
             _ => 0.0,
         }
     }
 
     pub fn glyph(self) -> char {
         match self {
-            Season::Spring => '❀',
-            Season::Summer => '✿',
-            Season::Autumn => '🍂',
-            Season::Winter => '❄',
+            Season::Thaw => '❀',
+            Season::Green => '✿',
+            Season::Frost => '❄',
         }
     }
 
     pub fn festival_chance(self) -> u32 {
         match self {
-            Season::Summer => 30,
-            Season::Autumn => 15,
-            Season::Spring => 10,
-            Season::Winter => 0,
+            Season::Green => 30,
+            Season::Thaw => 10,
+            Season::Frost => 0,
         }
     }
+
+    pub const YEAR_DAYS: u32 = 90;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -843,10 +841,9 @@ impl FestivalKind {
 impl fmt::Display for Season {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Season::Spring => write!(f, "Spring"),
-            Season::Summer => write!(f, "Summer"),
-            Season::Autumn => write!(f, "Autumn"),
-            Season::Winter => write!(f, "Winter"),
+            Season::Thaw => write!(f, "Thaw"),
+            Season::Green => write!(f, "Green"),
+            Season::Frost => write!(f, "Frost"),
         }
     }
 }
@@ -4036,7 +4033,7 @@ mod tests {
     fn player_vitals_tick_hunger_decay() {
         let mut v = PlayerVitals::new();
         let mut inv = Inventory::default();
-        v.tick(5, &mut inv, Season::Spring);
+        v.tick(5, &mut inv, Season::Thaw);
         assert!(v.hunger < 1.0, "hunger should decrease");
         assert!(v.energy < 1.0, "energy should decrease");
     }
@@ -4047,7 +4044,7 @@ mod tests {
         v.hunger = 0.2;
         let mut inv = Inventory::default();
         inv.add(ItemType::Food, 3);
-        v.tick(1, &mut inv, Season::Spring);
+        v.tick(1, &mut inv, Season::Thaw);
         assert!(v.hunger > 0.2, "should auto-eat when hungry");
         assert_eq!(inv.get(ItemType::Food), 2);
     }
@@ -4155,28 +4152,35 @@ mod tests {
 
     #[test]
     fn season_cycle() {
-        assert_eq!(Season::from_day(1), Season::Spring);
-        assert_eq!(Season::from_day(90), Season::Summer);
-        assert_eq!(Season::from_day(180), Season::Autumn);
-        assert_eq!(Season::from_day(270), Season::Winter);
-        assert_eq!(Season::from_day(360), Season::Spring);
+        assert_eq!(Season::from_day(1), Season::Thaw);
+        assert_eq!(Season::from_day(30), Season::Thaw);
+        assert_eq!(Season::from_day(31), Season::Green);
+        assert_eq!(Season::from_day(60), Season::Green);
+        assert_eq!(Season::from_day(61), Season::Frost);
+        assert_eq!(Season::from_day(90), Season::Frost);
+        assert_eq!(Season::from_day(91), Season::Thaw);
+        assert_eq!(Season::from_day(180), Season::Frost);
+        assert_eq!(Season::from_day(181), Season::Thaw);
     }
 
     #[test]
     fn season_gather_multiplier() {
-        assert!((Season::Summer.gather_multiplier() - 1.2).abs() < f64::EPSILON);
-        assert!((Season::Winter.gather_multiplier() - 0.3).abs() < f64::EPSILON);
+        assert!((Season::Green.gather_multiplier() - 1.2).abs() < f64::EPSILON);
+        assert!((Season::Frost.gather_multiplier() - 0.3).abs() < f64::EPSILON);
+        assert!((Season::Thaw.gather_multiplier() - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
-    fn winter_faster_hunger_decay() {
-        assert!((Season::Winter.need_decay_multiplier() - 1.3).abs() < f64::EPSILON);
+    fn frost_faster_hunger_decay() {
+        assert!((Season::Frost.need_decay_multiplier() - 1.3).abs() < f64::EPSILON);
+        assert!((Season::Thaw.need_decay_multiplier() - 1.0).abs() < f64::EPSILON);
+        assert!((Season::Green.need_decay_multiplier() - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn clock_season() {
-        let clock = GameClock::new(90, 12);
-        assert_eq!(clock.season(), Season::Summer);
+        let clock = GameClock::new(31, 12);
+        assert_eq!(clock.season(), Season::Green);
     }
 
     #[test]
@@ -4477,10 +4481,9 @@ mod tests {
 
     #[test]
     fn season_bias_modifier() {
-        assert_eq!(Season::Summer.bias_modifier(), 0.05);
-        assert_eq!(Season::Winter.bias_modifier(), -0.05);
-        assert_eq!(Season::Spring.bias_modifier(), 0.0);
-        assert_eq!(Season::Autumn.bias_modifier(), 0.0);
+        assert_eq!(Season::Green.bias_modifier(), 0.05);
+        assert_eq!(Season::Frost.bias_modifier(), -0.05);
+        assert_eq!(Season::Thaw.bias_modifier(), 0.0);
     }
 
     #[test]
