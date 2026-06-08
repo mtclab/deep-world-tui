@@ -6,6 +6,17 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
+### Phase 2 — Time-of-day rules (continued)
+
+- **#145** Extend `TimeOfDay` to 7 phases: Dawn, Morning, Noon, Afternoon, Dusk,
+  Night, DeepNight. `from_hour` boundaries: 5–6 Dawn, 7–10 Morning, 11–13
+  Noon, 14–17 Afternoon, 18–20 Dusk, 21–23 Night, 0–4 DeepNight. Added
+  `is_dark` (Night + DeepNight), `blocks_services` (Night + DeepNight),
+  `one_word` (period-ended flavor labels). World-screen footer shows one-word
+  phase label instead of tick number. `use_service` refuses at Night/DeepNight
+  with journal line "The door is shut. I sleep." `rest()` at DeepNight shows
+  "Dreams are strange in the deep night. I wake restless." 11 new unit tests.
+
 ### Phase 2 — God-prayer mini encounter (#141)
 
 - **#141** God-prayer mini-encounter. When the player rests in a settlement
