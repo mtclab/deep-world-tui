@@ -6,6 +6,15 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
+### Phase 3 — Discoveries & landmarks
+
+- **#138** Discoveries & landmarks: one-shot permanent world features discovered
+  while exploring. `DiscoveryKind` enum (StandingStone, Wreck, StrangeTree, Cairn,
+  Spring, BurningTree, SleepingBear, SunkenVillage, ErredMarker, FrostShrine,
+  WhisperingPool, BoneCircle). 1-3 per region, deterministic via seed fork.
+  First observation fires once (immutable), journal entry + status message.
+  World screen shows discovery text when standing on a discovery tile.
+
 ### Phase 2 — Hunger & thirst core loop
 
 - **#143** `PlayerVitals` gains `thirst: f64` (0.0–1.0, baseline 1.0). Thirst

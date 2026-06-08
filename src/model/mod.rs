@@ -2,6 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
+pub mod discovery;
+
+pub use discovery::{Discovery, DiscoveryKind, DiscoveryStore};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Terrain {
     Grass,

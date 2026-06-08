@@ -440,6 +440,29 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
                 lines.push(Line::from(""));
             }
         }
+
+        if let Some(pos) = app.player_pos {
+            if let Some(disc) =
+                sim.discoveries
+                    .at_position(pos.region_idx, pos.px as u32, pos.py as u32)
+            {
+                lines.push(Line::from(""));
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!(" {} ", disc.kind.glyph()),
+                        Style::default()
+                            .fg(theme.archive_red())
+                            .add_modifier(Modifier::ITALIC),
+                    ),
+                    Span::styled(
+                        disc.kind.observe_text(),
+                        Style::default()
+                            .fg(theme.warm_brown())
+                            .add_modifier(Modifier::ITALIC),
+                    ),
+                ]));
+            }
+        }
     }
 
     if let Some(ref msg) = app.status_msg {
