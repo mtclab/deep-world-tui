@@ -144,6 +144,13 @@ pub fn sim_tick(sim: &mut SimState) {
     reputation::spread_reputation(&mut sim.reputation, &sim.world, 1.0);
     sim.relationships.tick_converge(1.0);
     tick_npc_illness(sim, current_tick);
+    for region in sim.world.regions.iter_mut() {
+        for settlement in region.settlements.iter_mut() {
+            for person in settlement.people.iter_mut() {
+                crate::model::relation::decay_relations(&mut person.relations);
+            }
+        }
+    }
     migration::tick_migration(sim, current_tick);
 }
 

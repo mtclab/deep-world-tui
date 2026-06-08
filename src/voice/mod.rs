@@ -492,6 +492,7 @@ mod tests {
             bias: "0.0".into(),
             schedule: NpcSchedule::default(),
             illnesses: Vec::new(),
+            relations: vec![],
         }
     }
 
