@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub mod discovery;
+pub mod memorial;
 pub mod relation;
 
 pub use discovery::{Discovery, DiscoveryKind, DiscoveryStore};
