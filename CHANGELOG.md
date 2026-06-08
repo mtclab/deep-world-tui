@@ -6,7 +6,7 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+- **#142** Death memorials and recovery-region bonus: `Memorial` struct with flavor text, ⚰ glyph on map, `pick_recovery_region()` (never same region), `pick_recovery_god()` affinity +0.01, vitals reset on dismiss collapse, `check_memorial()` status message on step.
 
 ## [0.1.0] - 2026-06-07
 

@@ -1543,11 +1543,23 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                                 .add_modifier(Modifier::BOLD),
                         ));
                     } else if let Some(terrain) = tiles.get(my * map_w + mx) {
-                        let c = terrain.glyph();
-                        spans.push(Span::styled(
-                            c.to_string(),
-                            Style::default().fg(terrain_color_at(*terrain, dark)),
-                        ));
+                        let is_memorial = app.sim.as_ref().is_some_and(|sim| {
+                            sim.memorials
+                                .iter()
+                                .any(|m| m.at_position(region_idx, mx as u32, my as u32))
+                        });
+                        if is_memorial {
+                            spans.push(Span::styled(
+                                crate::model::memorial::Memorial::glyph().to_string(),
+                                Style::default().fg(theme.archive_red()),
+                            ));
+                        } else {
+                            let c = terrain.glyph();
+                            spans.push(Span::styled(
+                                c.to_string(),
+                                Style::default().fg(terrain_color_at(*terrain, dark)),
+                            ));
+                        }
                     } else {
                         spans.push(Span::styled(" ", Style::default().fg(theme.dark_brown())));
                     }
@@ -1588,7 +1600,12 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                     .fg(Color::White)
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled("You", Style::default().fg(theme.dark_brown())),
+            Span::styled("You ", Style::default().fg(theme.dark_brown())),
+            Span::styled(
+                crate::model::memorial::Memorial::glyph().to_string(),
+                Style::default().fg(theme.archive_red()),
+            ),
+            Span::styled("Fall", Style::default().fg(theme.dark_brown())),
         ]),
     ];
     let legend = Paragraph::new(legend_lines).block(

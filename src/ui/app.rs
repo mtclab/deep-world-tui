@@ -953,6 +953,20 @@ impl App {
         }
     }
 
+    pub fn check_memorial(&mut self) {
+        if let Some(pos) = self.player_pos {
+            if let Some(ref sim) = self.sim {
+                if let Some(memorial) = sim
+                    .memorials
+                    .iter()
+                    .find(|m| m.at_position(pos.region_idx, pos.px as u32, pos.py as u32))
+                {
+                    self.status_msg = Some(memorial.text.clone());
+                }
+            }
+        }
+    }
+
     pub fn dismiss_encounter(&mut self) {
         self.resolve_encounter(EncounterAction::Flee);
     }
@@ -1257,13 +1271,37 @@ impl App {
         self.collapses_had += 1;
         if let Some(ref mut sim) = self.sim {
             let journal_text = if died {
-                format!("COLLAPSED — {:?}. You did not wake.", outcome)
+                "COLLAPSED — You did not wake.".into()
             } else if let Some(god) = collapse.rescued_by {
-                format!("COLLAPSED — {:?}. {} intervened.", outcome, god.label())
+                format!("COLLAPSED — {} intervened.", god.label())
             } else {
-                format!("COLLAPSED — {:?}", outcome)
+                "COLLAPSED — You survived, barely.".into()
             };
             sim.log_journal(sim.world.tick, journal_text);
+        }
+        if let Some(ref mut sim) = self.sim {
+            if let Some(pos) = self.player_pos {
+                let memorial = crate::model::memorial::Memorial::generate(
+                    sim.world.seed,
+                    sim.world.tick,
+                    pos.region_idx,
+                    pos.px as u32,
+                    pos.py as u32,
+                );
+                sim.memorials.push(memorial);
+                if !died {
+                    let recovery_region = crate::model::memorial::pick_recovery_region(
+                        sim.world.seed,
+                        pos.region_idx,
+                        sim.world.regions.len(),
+                    );
+                    let recovery_god = crate::model::memorial::pick_recovery_god(sim.world.seed);
+                    self.god_affinity.adjust(recovery_god, 0.01);
+                    if let Some(ref mut p) = self.player_pos {
+                        p.region_idx = recovery_region;
+                    }
+                }
+            }
         }
         if died {
             self.screen = Screen::GameOver;
@@ -1274,6 +1312,8 @@ impl App {
 
     pub fn dismiss_collapse(&mut self) {
         self.collapse = None;
+        self.vitals.hunger = 0.4;
+        self.vitals.energy = 0.5;
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
@@ -1560,6 +1600,7 @@ impl App {
                 let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
                 self.advance_clock(hours);
                 self.check_encounter(terrain);
+                self.check_memorial();
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
                 }
@@ -1589,6 +1630,7 @@ impl App {
                 let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
                 self.advance_clock(hours);
                 self.check_encounter(terrain);
+                self.check_memorial();
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
                 }

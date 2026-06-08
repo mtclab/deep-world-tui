@@ -57,6 +57,7 @@ pub struct SimState {
     pub reputation: ReputationStore,
     pub obligations: Vec<needs_dependent::Obligation>,
     pub charts: Charts,
+    #[serde(default)]
     pub journal: Vec<JournalEntry>,
     #[serde(default = "SimParams::default")]
     pub params: SimParams,
@@ -64,6 +65,8 @@ pub struct SimState {
     pub npc_memories: std::collections::HashMap<String, crate::model::NpcMemory>,
     #[serde(default)]
     pub quests: Vec<crate::model::Quest>,
+    #[serde(default)]
+    pub memorials: Vec<crate::model::memorial::Memorial>,
 }
 
 impl SimState {
@@ -77,6 +80,7 @@ impl SimState {
             obligations: Vec::new(),
             charts,
             journal: Vec::new(),
+            memorials: vec![],
             params: SimParams::default(),
             npc_memories: std::collections::HashMap::new(),
             quests: Vec::new(),
