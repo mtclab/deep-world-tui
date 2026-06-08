@@ -6,6 +6,16 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
+### Phase 2 — Indirect reputation signals (#135)
+
+- **#135** Player deduces reputation from world's reactions; game never prints a number, label, or bar.
+  - `sim::signals` module: `ReputationBand` (Hostile / Cold / Neutral / Warm / Revered), `EngagementLevel` (Refuses / Reluctant / Neutral / Willing / Eager), body-language strings keyed off FNV-1a hash of person id.
+  - `reputation_price_modifier` layers multiplicatively on top of `inter_people_bias`; rep 0.0 → 1.5× (worst price), rep 1.0 → 0.6× (best price).
+  - `App::reputation_in_current_settlement`, `quote_buy_price`, `quote_sell_price`, `npc_will_engage` added; `buy_item` / `sell_item` / `use_service` use the quote helpers.
+  - `EncounterKind::can_have_outside_help()` introduced; deterministic 1-2% seed-rolled intervention: at rep ≥ 0.7 a passing trader intervenes in `Bandit` / `Wildlife` encounters; at rep ≤ 0.25 the attacker cuts and runs. Single `Voice::Travel` journal entry per intervention.
+  - 17 unit tests including 4 leak-guard tests asserting no `Refuses` / `Warm` / `reputation` / `level=` token ever leaks from any band across the full rep range.
+  - 383 tests pass (366 baseline + 17 signals).
+
 ### Added
 - #127 Illness/disease balance pass
 - `Person.illnesses: Vec<ActiveDisease>` field (serde default)

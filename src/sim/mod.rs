@@ -10,6 +10,7 @@ pub mod needs_dependent;
 pub mod params;
 pub mod relationships;
 pub mod reputation;
+pub mod signals;
 pub mod weather;
 
 use effects::{EffectContext, EffectQueue};
