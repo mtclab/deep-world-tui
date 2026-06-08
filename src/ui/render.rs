@@ -3024,6 +3024,7 @@ mod minimap_tests {
             schedule: Default::default(),
             illnesses: Vec::new(),
             relations: vec![],
+        wants: vec![],
         }
     }
 

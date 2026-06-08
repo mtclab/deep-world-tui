@@ -15,6 +15,7 @@ pub mod relationships;
 pub mod reputation;
 pub mod rest;
 pub mod signals;
+pub mod wants;
 pub mod weather;
 
 use effects::{EffectContext, EffectQueue};
@@ -87,7 +88,7 @@ impl SimState {
                 discoveries.entries.extend(region_discs);
             }
         }
-        SimState {
+        let mut sim = SimState {
             world,
             effect_queue: EffectQueue::new(),
             relationships: RelationshipTracker::new(),
@@ -100,6 +101,24 @@ impl SimState {
             quests: Vec::new(),
             discoveries,
             memorials: vec![],
+        };
+        sim.init_npc_wants();
+        sim
+    }
+
+    fn init_npc_wants(&mut self) {
+        let seed = self.world.seed;
+        let person_info: Vec<(String, String)> = self
+            .world
+            .regions
+            .iter()
+            .flat_map(|r| r.settlements.iter())
+            .flat_map(|s| s.people.iter())
+            .map(|p| (p.id.clone(), p.people.clone()))
+            .collect();
+        for (id, people) in person_info {
+            let wants = wants::generate_npc_wants(seed, &id, &people);
+            self.world.set_wants_for_person(&id, wants);
         }
     }
 
@@ -155,6 +174,9 @@ pub fn sim_tick(sim: &mut SimState) {
         }
     }
     migration::tick_migration(sim, current_tick);
+    let hour = ((current_tick % 24) / 4) as u32;
+    sim.world.tick_npc_wants(current_tick, 24);
+    sim.world.recompute_all_schedules(hour);
 }
 
 fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {
