@@ -6,6 +6,16 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
+### Phase 2 — God-prayer mini encounter (#141)
+
+- **#141** God-prayer mini-encounter. When the player rests in a settlement
+  whose dominant people has a patron (Metsik→Keuru, Sepät/Ahjo→Oltzed,
+  Arkit→Sampsa, Väylä/Mëräk→Masa, Laakso/Tzäkhar/She'ar→Kukri, Häl→Keuru,
+  Khör→Sampsa), a sensory first-person dream line is deterministically
+  appended to the journal on roughly one rest in four. The line is pure
+  flavor: no god name, no people name, no number. Implementation lives in
+  `src/sim/god.rs` and is wired into `App::rest()`.
+
 ### Phase 2 — Indirect bond descriptors (#137)
 
 - **#137** NPC bond % no longer leaks to the player in inter-NPC relationship lines. The `→/← other {:?} str=XX% trust=YY%` line is replaced with `→/← other — bond_descriptor. regard_descriptor.` using the existing `bond_descriptor()` function from `sim::relationships`. The `BondCategory` import is removed from `render.rs`.
