@@ -1,4 +1,5 @@
 use crate::charts::Charts;
+use crate::model::relation;
 use crate::model::{Region, Settlement, SettlementService, Terrain, TerrainMap, World};
 use crate::rng::SeedRng;
 
@@ -25,6 +26,7 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
     }
 
     seamless_terrain_edges(&mut regions);
+    populate_npc_relations(&mut regions, seed);
 
     World {
         seed,
@@ -32,6 +34,29 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
         regions,
         charts_version: "0.1.0".into(),
         region_cols,
+    }
+}
+
+fn populate_npc_relations(regions: &mut [Region], seed: u64) {
+    for region in regions.iter_mut() {
+        for settlement in region.settlements.iter_mut() {
+            let ids: Vec<String> = settlement.people.iter().map(|p| p.id.clone()).collect();
+            if ids.len() < 2 {
+                continue;
+            }
+            for person in settlement.people.iter_mut() {
+                let mut rng = SeedRng::new(seed)
+                    .fork_for(&format!("npc-rel:{}:{}", person.id, person.people));
+                person.relations = relation::generate_npc_relations(
+                    &mut rng,
+                    &person.id,
+                    &ids,
+                    0,
+                    person.has_spouse,
+                    person.children_count,
+                );
+            }
+        }
     }
 }
 

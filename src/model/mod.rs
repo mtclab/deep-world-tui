@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
+pub mod relation;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Terrain {
     Grass,
@@ -2802,6 +2804,8 @@ pub struct Person {
     pub has_debt: bool,
     #[serde(default)]
     pub schedule: NpcSchedule,
+    #[serde(default)]
+    pub relations: Vec<relation::InterNpcRelation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -3601,6 +3605,7 @@ mod tests {
             children_count: 2,
             has_debt: false,
             schedule: NpcSchedule::default(),
+            relations: vec![],
         };
         roundtrip(&person);
     }

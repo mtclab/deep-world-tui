@@ -125,6 +125,13 @@ pub fn sim_tick(sim: &mut SimState) {
     needs_dependent::propagate_dependent_needs(&mut sim.world, &sim.obligations);
     reputation::spread_reputation(&mut sim.reputation, &sim.world, 1.0);
     sim.relationships.tick_converge(1.0);
+    for region in sim.world.regions.iter_mut() {
+        for settlement in region.settlements.iter_mut() {
+            for person in settlement.people.iter_mut() {
+                crate::model::relation::decay_relations(&mut person.relations);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
