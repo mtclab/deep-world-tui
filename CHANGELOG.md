@@ -6,7 +6,18 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+- #127 Illness/disease balance pass
+- `Person.illnesses: Vec<ActiveDisease>` field (serde default)
+- `sim/illness.rs`: illness contraction per tick based on health, shelter, healer presence
+- Low health (<0.5 Food need) increases illness probability
+- Low shelter (Safety <0.3) → 1.5× illness rate
+- Missing healer → 1.5× illness rate
+- Cap: max 30% of settlement ill, max 2 diseases per person
+- `illness::apply_illness_effects()` removes recovered diseases each tick
+- `illness::illness_productivity_modifier()` returns 0.7× for ill NPCs
+- `illness::settlement_has_healer()` checks for Temple/Shrine services or healer/herbalist profession
+- Wired into `sim_tick` via `tick_npc_illness()`
 
 ## [0.1.0] - 2026-06-07
 

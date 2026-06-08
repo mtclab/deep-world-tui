@@ -3,6 +3,7 @@ use crate::gen::world::generate_world;
 use crate::model::{Need, World};
 
 pub mod effects;
+pub mod illness;
 pub mod needs_dependent;
 pub mod params;
 pub mod relationships;
@@ -125,6 +126,94 @@ pub fn sim_tick(sim: &mut SimState) {
     needs_dependent::propagate_dependent_needs(&mut sim.world, &sim.obligations);
     reputation::spread_reputation(&mut sim.reputation, &sim.world, 1.0);
     sim.relationships.tick_converge(1.0);
+    tick_npc_illness(sim, current_tick);
+}
+
+fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {
+    use crate::sim::illness;
+
+    let person_info: Vec<(usize, usize)> = sim
+        .world
+        .regions
+        .iter()
+        .enumerate()
+        .flat_map(|(ri, region)| {
+            region
+                .settlements
+                .iter()
+                .enumerate()
+                .map(move |(si, _)| (ri, si))
+        })
+        .collect();
+
+    for (ri, si) in person_info {
+        let has_healer = sim
+            .world
+            .regions
+            .get(ri)
+            .and_then(|r| r.settlements.get(si))
+            .map(illness::settlement_has_healer)
+            .unwrap_or(false);
+        let terrain = sim
+            .world
+            .regions
+            .get(ri)
+            .and_then(|r| r.terrain.get(0, 0))
+            .unwrap_or(crate::model::Terrain::Grass);
+        let settlement = match sim
+            .world
+            .regions
+            .get_mut(ri)
+            .and_then(|r| r.settlements.get_mut(si))
+        {
+            Some(s) => s,
+            None => continue,
+        };
+        let person_count = settlement.people.len();
+        let mut new_illnesses: Vec<(usize, crate::model::ActiveDisease)> = Vec::new();
+
+        for i in 0..person_count {
+            illness::apply_illness_effects(&mut settlement.people[i], current_tick);
+        }
+
+        let ill_count = settlement.people.iter().filter(|p| !p.illnesses.is_empty()).count();
+        let cap = (settlement.people.len().max(1) * 30 / 100).max(1);
+
+        if ill_count >= cap {
+            continue;
+        }
+
+        for i in 0..person_count {
+            let person = &settlement.people[i];
+            if person.illnesses.len() >= 2 {
+                continue;
+            }
+            let person_id_bytes = person.id.as_bytes();
+            let mut seed_val: u64 = sim.world.seed;
+            for &b in person_id_bytes.iter().take(8) {
+                seed_val = seed_val.wrapping_shl(8).wrapping_add(b as u64);
+            }
+            seed_val = seed_val.wrapping_add(current_tick);
+            let existing = person.illnesses.len();
+            if let Some(disease) = illness::tick_illness(
+                seed_val,
+                current_tick,
+                terrain,
+                &person.needs,
+                0,
+                has_healer,
+                existing,
+            ) {
+                new_illnesses.push((i, disease));
+            }
+        }
+
+        for (i, disease) in new_illnesses {
+            if settlement.people.iter().filter(|p| !p.illnesses.is_empty()).count() < cap {
+                settlement.people[i].illnesses.push(disease);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
