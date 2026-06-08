@@ -55,6 +55,64 @@ fn personality_prefix(personality: &[String]) -> &'static str {
         "nervous" => "Fidgeting. ",
         "calm" => "",
         "stubborn" => "Arms crossed. ",
+        "suspicious" => "Eyes narrowed. ",
+        "cheerful" => "Grinning. ",
+        "boisterous" => "Loudly. ",
+        "melancholic" => "A long pause. ",
+        "devious" => "A sly glance. ",
+        "earnest" => "Earnestly. ",
+        "world-weary" => "Heavily. ",
+        _ => "",
+    }
+}
+
+const PERSONALITY_CONFLICTS: &[(&str, &str)] = &[
+    ("cheerful", "bitter"),
+    ("cheerful", "melancholic"),
+    ("cheerful", "suspicious"),
+    ("cheerful", "withdrawn"),
+    ("earnest", "devious"),
+    ("earnest", "mercenary"),
+    ("stoic", "boisterous"),
+    ("warm", "suspicious"),
+    ("loyal", "mercenary"),
+];
+
+fn has_conflict(personality: &[String]) -> bool {
+    for (a, b) in PERSONALITY_CONFLICTS {
+        let has_a = personality.iter().any(|t| t == *a);
+        let has_b = personality.iter().any(|t| t == *b);
+        if has_a && has_b {
+            return true;
+        }
+    }
+    false
+}
+
+fn gossip_personality_flavor(personality: &[String]) -> &'static str {
+    if personality.is_empty() || has_conflict(personality) {
+        return "";
+    }
+    match personality[0].as_str() {
+        "stoic" => "measured words, carefully chosen. ",
+        "warm" => "with easy warmth, as if to an old friend. ",
+        "proud" => "with the certainty of one who has seen much. ",
+        "cautious" => "selectively, weighing each word. ",
+        "reckless" => "bluntly, without hesitation. ",
+        "devout" => "reverently, as if sharing a teaching. ",
+        "mercenary" => "like a transaction — information for a price. ",
+        "loyal" => "with fierce conviction. ",
+        "bitter" => "with an edge that cuts. ",
+        "curious" => "eagerly, hungry for reaction. ",
+        "withdrawn" => "almost to themselves, half-whispered. ",
+        "shrewd" => "sharply, as if measuring your worth. ",
+        "suspicious" => "guardedly, watching your reaction. ",
+        "cheerful" => "brightly, as if the news itself is a gift. ",
+        "boisterous" => "loudly, for all to hear. ",
+        "melancholic" => "with a heaviness, as if the words themselves are tired. ",
+        "devious" => "with a knowing half-smile, letting the silence speak. ",
+        "earnest" => "plainly, no decoration, just truth. ",
+        "world-weary" => "with the weariness of one who has seen it all before. ",
         _ => "",
     }
 }
@@ -317,18 +375,29 @@ pub fn voice_line_situation(person: &Person, situation: Situation) -> String {
             }
         }
         Situation::Gossip => {
+            let flavor = gossip_personality_flavor(&person.personality);
             if low_food {
                 let bank = gossip_hungry_lines();
                 let idx = pick_line(&mut rng, bank);
-                format!("{name} {}", fill_template(bank[idx], person))
+                let base = format!("{name} {}", fill_template(bank[idx], person));
+                if flavor.is_empty() {
+                    base
+                } else {
+                    format!("{flavor}{base}")
+                }
             } else {
                 let bank = gossip_lines();
                 let idx = pick_line(&mut rng, bank);
-                format!(
+                let base = format!(
                     "{name} the {} {}",
                     person.profession,
                     fill_template(bank[idx], person)
-                )
+                );
+                if flavor.is_empty() {
+                    base
+                } else {
+                    format!("{flavor}{base}")
+                }
             }
         }
     };
@@ -584,5 +653,63 @@ mod tests {
         assert_eq!(profession_flavor("smith"), "hammer-marked");
         assert_eq!(profession_flavor("trader"), "road-wise");
         assert_eq!(profession_flavor("unknown"), "steady-eyed");
+    }
+
+    #[test]
+    fn gossip_personality_flavor_deterministic() {
+        let mut p = test_person();
+        p.personality = vec!["cheerful".into()];
+        let a = voice_line_situation(&p, Situation::Gossip);
+        let b = voice_line_situation(&p, Situation::Gossip);
+        assert_eq!(a, b, "same person must produce same gossip line");
+    }
+
+    #[test]
+    fn gossip_conflict_cancels_flavor() {
+        let mut p = test_person();
+        p.personality = vec!["cheerful".into(), "bitter".into()];
+        let line = voice_line_situation(&p, Situation::Gossip);
+        assert!(
+            !line.contains("brightly") && !line.contains("as if the news itself"),
+            "conflicting personality should cancel gossip flavor: {line}"
+        );
+    }
+
+    #[test]
+    fn gossip_vanilla_npc_no_flavor() {
+        let mut p = test_person();
+        p.personality = vec![];
+        let line = voice_line_situation(&p, Situation::Gossip);
+        assert!(!line.is_empty(), "empty personality should still produce gossip");
+    }
+
+    #[test]
+    fn gossip_flavor_new_traits() {
+        let mut suspicious = test_person();
+        suspicious.personality = vec!["suspicious".into()];
+        let line = voice_line_situation(&suspicious, Situation::Gossip);
+        assert!(
+            line.contains("guardedly") || line.contains("watching"),
+            "suspicious gossip should have guarded flavor: {line}"
+        );
+
+        let mut earnest = test_person();
+        earnest.personality = vec!["earnest".into()];
+        let line2 = voice_line_situation(&earnest, Situation::Gossip);
+        assert!(
+            line2.contains("plainly") || line2.contains("just truth"),
+            "earnest gossip should have plain flavor: {line2}"
+        );
+    }
+
+    #[test]
+    fn gossip_flavor_earnest_devious_conflict() {
+        let mut p = test_person();
+        p.personality = vec!["earnest".into(), "devious".into()];
+        let line = voice_line_situation(&p, Situation::Gossip);
+        assert!(
+            !line.contains("plainly") && !line.contains("half-smile"),
+            "earnest+devious conflict should cancel flavor: {line}"
+        );
     }
 }
