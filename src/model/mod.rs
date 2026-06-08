@@ -2083,6 +2083,10 @@ impl EncounterKind {
         matches!(self, EncounterKind::Wildlife | EncounterKind::Bandit)
     }
 
+    pub fn can_have_outside_help(self) -> bool {
+        matches!(self, EncounterKind::Wildlife | EncounterKind::Bandit)
+    }
+
     pub fn available_actions(self) -> Vec<EncounterAction> {
         match self {
             EncounterKind::Wildlife => vec![EncounterAction::Flee, EncounterAction::Calm],
