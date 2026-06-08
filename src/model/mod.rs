@@ -2802,6 +2802,8 @@ pub struct Person {
     pub has_debt: bool,
     #[serde(default)]
     pub schedule: NpcSchedule,
+    #[serde(default)]
+    pub illnesses: Vec<ActiveDisease>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -3601,6 +3603,7 @@ mod tests {
             children_count: 2,
             has_debt: false,
             schedule: NpcSchedule::default(),
+                    illnesses: Vec::new(),
         };
         roundtrip(&person);
     }

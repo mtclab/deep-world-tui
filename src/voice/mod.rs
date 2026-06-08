@@ -393,6 +393,7 @@ mod tests {
             has_debt: false,
             bias: "0.0".into(),
             schedule: NpcSchedule::default(),
+            illnesses: Vec::new(),
         }
     }
 
