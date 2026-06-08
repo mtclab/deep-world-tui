@@ -6,7 +6,18 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+- Voice journal system (#139): first-person present-tense journal entries
+  - New `src/sim/journal.rs` with `Voice` enum (Encounter, Travel, Rest, Dream, Scar, Rumor)
+  - Each voice has 3-5 template variants, deterministically selected via seed fork
+  - Travel entries vary by TimeOfDay and Weather (dawn, day, dusk, night, storm, snow, fog, clear)
+  - Rest entries vary by quality (outside, lean_to, campfire, settlement, inn)
+  - Dream entries logged on deep rest (Kukri affinity > 0.5)
+  - Scar entries on collapse; Rumor entries reserved for future settlement gossip
+  - Journal screen color-codes entries by Voice (ink, warm_brown, dark_ink, archive_red)
+  - Backward-compatible deserialization: old saves with `Vec<{tick, text}>` load as Encounter voice
+  - No template uses "you" — first-person singular only
+  - 12 new tests for template stability, determinism, min-counts, no-you rule
 
 ## [0.1.0] - 2026-06-07
 

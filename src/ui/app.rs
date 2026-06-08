@@ -4,7 +4,7 @@ use crate::model::{
     craft_recipes, Collapse, Encounter, EncounterAction, EncounterLog, EncounterLogEntry,
     FestivalKind, GameClock, GodAffinity, GodName, InterPeopleBias, Inventory, ItemType, Need,
     PeopleKind, PlayerPos, PlayerStart, PlayerVitals, Settlement, SettlementService, TensionEvent,
-    Terrain, WitnessLevel,
+    Terrain, Weather, WitnessLevel,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
@@ -944,6 +944,17 @@ impl App {
         self.check_collapse();
     }
 
+    fn log_travel(&mut self, terrain: Terrain) {
+        if let Some(ref mut sim) = self.sim {
+            let tod = self.clock.time_of_day();
+            let weather = Weather::generate(sim.world.seed, sim.world.tick, terrain);
+            let mut rng = crate::rng::SeedRng::new(sim.world.seed)
+                .fork_for(&format!("travel-journal-{}", sim.world.tick));
+            let text = crate::sim::journal::travel_text(&mut rng, tod, weather);
+            sim.log(sim.world.tick, crate::sim::journal::Voice::Travel, text);
+        }
+    }
+
     pub fn check_encounter(&mut self, terrain: Terrain) {
         let pp = Some(self.inter_people_bias.player_people);
         if let Some(enc) = Encounter::roll_biased(terrain, self.clock.hour, self.seed, pp) {
@@ -1100,8 +1111,11 @@ impl App {
         let player_people = self.inter_people_bias.player_people;
         let pid = self.player_start.as_ref().map(|ps| ps.person.id.clone());
         if let Some(ref mut sim) = self.sim {
-            if let Some(kind) = encounter_data {
-                let journal_text = format!("Encounter ({:?}): {} — {}", kind, action.label(), msg);
+            if let Some(_kind) = encounter_data {
+                let mut rng = crate::rng::SeedRng::new(sim.world.seed)
+                    .fork_for(&format!("encounter-journal-{}", sim.world.tick));
+                let voice_text = crate::sim::journal::encounter_text(&mut rng);
+                let journal_text = format!("{} — {} — {}", voice_text, action.label(), msg);
                 sim.log_journal(sim.world.tick, journal_text);
             }
             if rep_mult > 0.0 {
@@ -1256,14 +1270,14 @@ impl App {
         self.collapse = Some(collapse);
         self.collapses_had += 1;
         if let Some(ref mut sim) = self.sim {
-            let journal_text = if died {
-                format!("COLLAPSED — {:?}. You did not wake.", outcome)
+            let voice_text = if died {
+                "I collapsed. The dark took me.".into()
             } else if let Some(god) = collapse.rescued_by {
-                format!("COLLAPSED — {:?}. {} intervened.", outcome, god.label())
+                format!("I collapsed. {} held me back from the edge.", god.label())
             } else {
-                format!("COLLAPSED — {:?}", outcome)
+                "I collapsed. The world swam and went dark.".into()
             };
-            sim.log_journal(sim.world.tick, journal_text);
+            sim.log(sim.world.tick, crate::sim::journal::Voice::Scar, voice_text);
         }
         if died {
             self.screen = Screen::GameOver;
@@ -1490,14 +1504,28 @@ impl App {
     }
 
     pub fn rest(&mut self) {
+        let on_settlement = self.player_pos.is_some() && self.current_settlement_people().is_some();
+        let quality = crate::sim::journal::rest_quality_label(on_settlement, false, false, false);
         self.advance_clock(8);
         self.vitals.rest();
         self.god_affinity.adjust(GodName::Kukri, 0.02);
+        if let Some(ref mut sim) = self.sim {
+            let mut rng = crate::rng::SeedRng::new(sim.world.seed)
+                .fork_for(&format!("rest-journal-{}", sim.world.tick));
+            let text = crate::sim::journal::rest_text(&mut rng, quality);
+            sim.log(sim.world.tick, crate::sim::journal::Voice::Rest, text);
+        }
         if self.god_affinity.get(GodName::Kukri) > 0.5 {
             self.vitals.energy = (self.vitals.energy + 0.05).min(1.0);
-            self.status_msg = Some("Rested deeply. Dreams of clear water. (8h)".into());
+            if let Some(ref mut sim) = self.sim {
+                let mut rng = crate::rng::SeedRng::new(sim.world.seed)
+                    .fork_for(&format!("dream-journal-{}", sim.world.tick));
+                let text = crate::sim::journal::dream_text(&mut rng);
+                sim.log(sim.world.tick, crate::sim::journal::Voice::Dream, text);
+            }
+            self.status_msg = Some("Rested deeply. Dreams of clear water.".into());
         } else {
-            self.status_msg = Some("Rested (8h)".into());
+            self.status_msg = Some("Rested.".into());
         }
     }
 
@@ -1559,6 +1587,7 @@ impl App {
                 });
                 let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
                 self.advance_clock(hours);
+                self.log_travel(terrain);
                 self.check_encounter(terrain);
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
@@ -1588,6 +1617,7 @@ impl App {
                 });
                 let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
                 self.advance_clock(hours);
+                self.log_travel(terrain);
                 self.check_encounter(terrain);
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
