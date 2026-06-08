@@ -110,6 +110,7 @@ fn full_pipeline_seed_generate_enter_talk() {
         encounters_had: 0,
         collapses_had: 0,
         collapse_log: Vec::new(),
+        lineage: Vec::new(),
     };
 
     let dir = tempfile::tempdir().expect("temp dir should create");
