@@ -285,6 +285,7 @@ mod tests {
                 description: String::new(),
                 terrain: crate::model::TerrainMap::default(),
                 neighbors: crate::model::RegionNeighbors::default(),
+                structures: vec![],
                 settlements: vec![crate::model::Settlement {
                     id: "s1".into(),
                     name: "S1".into(),
@@ -416,6 +417,7 @@ mod tests {
                     description: String::new(),
                     terrain: crate::model::TerrainMap::default(),
                     neighbors: crate::model::RegionNeighbors::default(),
+                structures: vec![],
                     settlements: vec![crate::model::Settlement {
                         id: "s1".into(),
                         name: "S1".into(),
@@ -439,6 +441,7 @@ mod tests {
                     description: String::new(),
                     terrain: crate::model::TerrainMap::default(),
                     neighbors: crate::model::RegionNeighbors::default(),
+                structures: vec![],
                     settlements: vec![crate::model::Settlement {
                         id: "s2".into(),
                         name: "S2".into(),

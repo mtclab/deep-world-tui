@@ -135,6 +135,12 @@ pub enum ItemType {
     Stone,
     Cloth,
     Iron,
+    Branches,
+    Cordage,
+    Tinder,
+    Nails,
+    Thatch,
+    Glass,
 }
 
 impl ItemType {
@@ -148,6 +154,12 @@ impl ItemType {
             ItemType::Stone => "Stone",
             ItemType::Cloth => "Cloth",
             ItemType::Iron => "Iron",
+            ItemType::Branches => "Branches",
+            ItemType::Cordage => "Cordage",
+            ItemType::Tinder => "Tinder",
+            ItemType::Nails => "Nails",
+            ItemType::Thatch => "Thatch",
+            ItemType::Glass => "Glass",
         }
     }
 
@@ -161,6 +173,12 @@ impl ItemType {
             ItemType::Stone => 3,
             ItemType::Cloth => 4,
             ItemType::Iron => 5,
+            ItemType::Branches => 1,
+            ItemType::Cordage => 2,
+            ItemType::Tinder => 1,
+            ItemType::Nails => 3,
+            ItemType::Thatch => 1,
+            ItemType::Glass => 8,
         }
     }
 
@@ -177,6 +195,12 @@ impl ItemType {
             ItemType::Stone,
             ItemType::Cloth,
             ItemType::Iron,
+            ItemType::Branches,
+            ItemType::Cordage,
+            ItemType::Tinder,
+            ItemType::Nails,
+            ItemType::Thatch,
+            ItemType::Glass,
         ]
     }
 
@@ -186,12 +210,11 @@ impl ItemType {
             Terrain::Forest => Some(ItemType::Wood),
             Terrain::Settlement => Some(ItemType::Coin),
             Terrain::Coast | Terrain::Water => Some(ItemType::Water),
-            Terrain::Sand
-            | Terrain::DeepDesert
-            | Terrain::Cave
-            | Terrain::Swamp
-            | Terrain::Mountain
-            | Terrain::Road => None,
+            Terrain::Mountain => Some(ItemType::Stone),
+            Terrain::Swamp => Some(ItemType::Branches),
+            Terrain::Sand | Terrain::DeepDesert => Some(ItemType::Tinder),
+            Terrain::Cave => Some(ItemType::Stone),
+            Terrain::Road => None,
         }
     }
 }
@@ -2450,6 +2473,8 @@ pub struct Region {
     pub terrain: TerrainMap,
     #[serde(default)]
     pub neighbors: RegionNeighbors,
+    #[serde(default)]
+    pub structures: Vec<crate::sim::structures::Structure>,
 }
 
 impl Region {
@@ -3897,6 +3922,7 @@ mod tests {
             settlements: vec![],
             terrain: TerrainMap::default(),
             neighbors: RegionNeighbors::default(),
+            structures: vec![],
         };
         roundtrip(&r);
     }
@@ -3931,6 +3957,7 @@ mod tests {
             description: "desc".into(),
             terrain: TerrainMap::default(),
             neighbors: RegionNeighbors::default(),
+            structures: vec![],
             settlements: vec![Settlement {
                 id: "s1".into(),
                 name: "V".into(),
@@ -4235,12 +4262,14 @@ mod tests {
     fn item_type_gather() {
         assert_eq!(ItemType::gather_from(Terrain::Grass), Some(ItemType::Herb));
         assert_eq!(ItemType::gather_from(Terrain::Forest), Some(ItemType::Wood));
-        assert_eq!(ItemType::gather_from(Terrain::Mountain), None);
+        assert_eq!(ItemType::gather_from(Terrain::Mountain), Some(ItemType::Stone));
         assert_eq!(
             ItemType::gather_from(Terrain::Settlement),
             Some(ItemType::Coin)
         );
         assert_eq!(ItemType::gather_from(Terrain::Water), Some(ItemType::Water));
+        assert_eq!(ItemType::gather_from(Terrain::Swamp), Some(ItemType::Branches));
+        assert_eq!(ItemType::gather_from(Terrain::Sand), Some(ItemType::Tinder));
     }
 
     #[test]
@@ -4493,7 +4522,7 @@ mod tests {
     fn tradeable_items_excludes_coin() {
         let items = ItemType::tradeable_items();
         assert!(!items.contains(&ItemType::Coin));
-        assert_eq!(items.len(), 7);
+        assert_eq!(items.len(), 13);
     }
 
     #[test]
@@ -4607,6 +4636,7 @@ mod tests {
             settlements: vec![],
             terrain,
             neighbors: RegionNeighbors::default(),
+            structures: vec![],
         };
         assert_eq!(region.danger_level(), DangerLevel::Safe);
     }
@@ -4632,6 +4662,7 @@ mod tests {
             settlements: vec![],
             terrain,
             neighbors: RegionNeighbors::default(),
+            structures: vec![],
         };
         assert_eq!(region.danger_level(), DangerLevel::Dangerous);
     }
