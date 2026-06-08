@@ -127,18 +127,12 @@ pub fn validate_charts(charts: &Charts) -> Result<Vec<String>, Vec<String>> {
     }
     for key in charts.profession.base.entries.keys() {
         if contains_god_name(key) {
-            errors.push(format!(
-                "profession '{}' contains a god name",
-                key
-            ));
+            errors.push(format!("profession '{}' contains a god name", key));
         }
     }
     for key in charts.personality_traits.entries.keys() {
         if contains_god_name(key) {
-            errors.push(format!(
-                "personality '{}' contains a god name",
-                key
-            ));
+            errors.push(format!("personality '{}' contains a god name", key));
         }
     }
 
@@ -215,11 +209,7 @@ mod tests {
         let result = validate_charts(&charts);
         if let Err(errors) = &result {
             for e in errors {
-                assert!(
-                    !e.contains("god name"),
-                    "Found god name in charts: {}",
-                    e
-                );
+                assert!(!e.contains("god name"), "Found god name in charts: {}", e);
             }
         }
     }
@@ -228,7 +218,9 @@ mod tests {
     fn validate_catches_god_name_in_people() {
         let mut charts = load_charts("data/charts.ron").unwrap();
         charts.people.entries.insert("Oltzed".into(), 10);
-        charts.name_grammars.insert("Oltzed".into(), "names/metsik.ron".into());
+        charts
+            .name_grammars
+            .insert("Oltzed".into(), "names/metsik.ron".into());
         let errors = validate_charts(&charts).unwrap_err();
         assert!(errors.iter().any(|e| e.contains("god name")));
     }

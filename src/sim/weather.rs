@@ -145,8 +145,14 @@ mod tests {
 
     #[test]
     fn snow_non_mountain_is_1_6x() {
-        for terrain in [Terrain::Grass, Terrain::Forest, Terrain::Road, Terrain::Swamp, Terrain::Coast, Terrain::Sand]
-        {
+        for terrain in [
+            Terrain::Grass,
+            Terrain::Forest,
+            Terrain::Road,
+            Terrain::Swamp,
+            Terrain::Coast,
+            Terrain::Sand,
+        ] {
             let t = travel_time_minutes(10, Weather::Snow, terrain);
             let expected: u32 = (10.0_f64 * 30.0 * 1.6).round() as u32;
             assert_eq!(t, expected, "snow on {:?}", terrain);
@@ -349,37 +355,61 @@ mod tests {
     #[test]
     fn weather_flavor_shelter_whiteout() {
         let text = weather_travel_flavor(Weather::Whiteout, true);
-        assert!(text.contains("snow") || text.contains("White") || text.contains("huddled"), "whiteout shelter flavor: {}", text);
+        assert!(
+            text.contains("snow") || text.contains("White") || text.contains("huddled"),
+            "whiteout shelter flavor: {}",
+            text
+        );
     }
 
     #[test]
     fn weather_flavor_shelter_thunderhead() {
         let text = weather_travel_flavor(Weather::Thunderhead, true);
-        assert!(text.contains("Lightning") || text.contains("thunder"), "thunderhead shelter flavor: {}", text);
+        assert!(
+            text.contains("Lightning") || text.contains("thunder"),
+            "thunderhead shelter flavor: {}",
+            text
+        );
     }
 
     #[test]
     fn weather_flavor_shelter_sea_squall() {
         let text = weather_travel_flavor(Weather::SeaSquall, true);
-        assert!(text.contains("sea") || text.contains("wind") || text.contains("hut"), "sea squall shelter flavor: {}", text);
+        assert!(
+            text.contains("sea") || text.contains("wind") || text.contains("hut"),
+            "sea squall shelter flavor: {}",
+            text
+        );
     }
 
     #[test]
     fn weather_flavor_no_shelter_rain() {
         let text = weather_travel_flavor(Weather::Rain, false);
-        assert!(text.contains("rain") || text.contains("Rain") || text.contains("grey"), "rain travel flavor: {}", text);
+        assert!(
+            text.contains("rain") || text.contains("Rain") || text.contains("grey"),
+            "rain travel flavor: {}",
+            text
+        );
     }
 
     #[test]
     fn weather_flavor_no_shelter_fog() {
         let text = weather_travel_flavor(Weather::Fog, false);
-        assert!(text.contains("fog") || text.contains("Fog") || text.contains("sight"), "fog travel flavor: {}", text);
+        assert!(
+            text.contains("fog") || text.contains("Fog") || text.contains("sight"),
+            "fog travel flavor: {}",
+            text
+        );
     }
 
     #[test]
     fn weather_flavor_no_shelter_heatwave() {
         let text = weather_travel_flavor(Weather::Heatwave, false);
-        assert!(text.contains("heat") || text.contains("Heat") || text.contains("shimmered"), "heatwave flavor: {}", text);
+        assert!(
+            text.contains("heat") || text.contains("Heat") || text.contains("shimmered"),
+            "heatwave flavor: {}",
+            text
+        );
     }
 
     // --- table test: (distance × weather × terrain) ---
@@ -399,13 +429,24 @@ mod tests {
             Weather::DryLightning,
             Weather::SeaSquall,
         ];
-        let terrains = [Terrain::Grass, Terrain::Mountain, Terrain::Coast, Terrain::Forest];
+        let terrains = [
+            Terrain::Grass,
+            Terrain::Mountain,
+            Terrain::Coast,
+            Terrain::Forest,
+        ];
 
         for &d in &distances {
             for &w in &weathers {
                 for &t in &terrains {
                     let result = travel_time_minutes(d, w, t);
-                    assert!(result > 0, "travel time must be positive for {}km {:?} {:?}", d, w, t);
+                    assert!(
+                        result > 0,
+                        "travel time must be positive for {}km {:?} {:?}",
+                        d,
+                        w,
+                        t
+                    );
                     // Base rate: 30 min/km, minimum multiplier is 1.0 (clear/cloudy)
                     let base = d * BASE_MINUTES_PER_KM;
                     // Result should be >= base (multipliers are >= 1.0 except clear/cloudy = 1.0)
