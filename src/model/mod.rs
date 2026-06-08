@@ -3705,7 +3705,7 @@ mod tests {
             children_count: 2,
             has_debt: false,
             schedule: NpcSchedule::default(),
-                    illnesses: Vec::new(),
+            illnesses: Vec::new(),
         };
         roundtrip(&person);
     }

@@ -226,31 +226,31 @@ impl RelationshipTracker {
     }
 }
 
-    #[test]
-    fn bond_descriptor_never_leaks_numbers() {
-        for strength in [0.0, 0.1, 0.25, 0.45, 0.55, 0.75, 0.85, 0.95] {
-            let desc = bond_descriptor(strength, "test-person-id");
-            assert!(
-                !desc.contains('%'),
-                "bond_descriptor leaked percentage: {desc}"
-            );
-            assert!(
-                !desc.contains("0."),
-                "bond_descriptor leaked decimal: {desc}"
-            );
-            assert!(
-                !desc.contains("1."),
-                "bond_descriptor leaked decimal: {desc}"
-            );
-        }
+#[test]
+fn bond_descriptor_never_leaks_numbers() {
+    for strength in [0.0, 0.1, 0.25, 0.45, 0.55, 0.75, 0.85, 0.95] {
+        let desc = bond_descriptor(strength, "test-person-id");
+        assert!(
+            !desc.contains('%'),
+            "bond_descriptor leaked percentage: {desc}"
+        );
+        assert!(
+            !desc.contains("0."),
+            "bond_descriptor leaked decimal: {desc}"
+        );
+        assert!(
+            !desc.contains("1."),
+            "bond_descriptor leaked decimal: {desc}"
+        );
     }
+}
 
-    #[test]
-    fn bond_descriptor_stable_per_person() {
-        let a = bond_descriptor(0.6, "alice");
-        let b = bond_descriptor(0.6, "alice");
-        assert_eq!(a, b, "same person+strength must give same descriptor");
-    }
+#[test]
+fn bond_descriptor_stable_per_person() {
+    let a = bond_descriptor(0.6, "alice");
+    let b = bond_descriptor(0.6, "alice");
+    assert_eq!(a, b, "same person+strength must give same descriptor");
+}
 
 #[cfg(test)]
 mod tests {

@@ -2,6 +2,7 @@ use crate::charts::Charts;
 use crate::gen::world::generate_world;
 use crate::model::{Need, World};
 
+pub mod collapse_log;
 pub mod effects;
 pub mod illness;
 pub mod needs_dependent;
@@ -177,7 +178,11 @@ fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {
             illness::apply_illness_effects(&mut settlement.people[i], current_tick);
         }
 
-        let ill_count = settlement.people.iter().filter(|p| !p.illnesses.is_empty()).count();
+        let ill_count = settlement
+            .people
+            .iter()
+            .filter(|p| !p.illnesses.is_empty())
+            .count();
         let cap = (settlement.people.len().max(1) * 30 / 100).max(1);
 
         if ill_count >= cap {
@@ -210,7 +215,13 @@ fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {
         }
 
         for (i, disease) in new_illnesses {
-            if settlement.people.iter().filter(|p| !p.illnesses.is_empty()).count() < cap {
+            if settlement
+                .people
+                .iter()
+                .filter(|p| !p.illnesses.is_empty())
+                .count()
+                < cap
+            {
                 settlement.people[i].illnesses.push(disease);
             }
         }

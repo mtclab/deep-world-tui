@@ -45,16 +45,46 @@ pub fn tick_illness(
 
 fn pick_disease(rng: &mut SeedRng, terrain: Terrain) -> Disease {
     let weights: Vec<(Disease, f64)> = vec![
-        (Disease::Fever, Disease::Fever.contraction_probability(terrain)),
-        (Disease::Infection, Disease::Infection.contraction_probability(terrain)),
-        (Disease::Sprain, Disease::Sprain.contraction_probability(terrain)),
-        (Disease::Exhaustion, Disease::Exhaustion.contraction_probability(terrain)),
-        (Disease::Plague, Disease::Plague.contraction_probability(terrain)),
-        (Disease::WinterCough, Disease::WinterCough.contraction_probability(terrain)),
-        (Disease::MarshFever, Disease::MarshFever.contraction_probability(terrain)),
-        (Disease::BloodAche, Disease::BloodAche.contraction_probability(terrain)),
-        (Disease::ForgeBlindness, Disease::ForgeBlindness.contraction_probability(terrain)),
-        (Disease::ChildbirthComplication, Disease::ChildbirthComplication.contraction_probability(terrain)),
+        (
+            Disease::Fever,
+            Disease::Fever.contraction_probability(terrain),
+        ),
+        (
+            Disease::Infection,
+            Disease::Infection.contraction_probability(terrain),
+        ),
+        (
+            Disease::Sprain,
+            Disease::Sprain.contraction_probability(terrain),
+        ),
+        (
+            Disease::Exhaustion,
+            Disease::Exhaustion.contraction_probability(terrain),
+        ),
+        (
+            Disease::Plague,
+            Disease::Plague.contraction_probability(terrain),
+        ),
+        (
+            Disease::WinterCough,
+            Disease::WinterCough.contraction_probability(terrain),
+        ),
+        (
+            Disease::MarshFever,
+            Disease::MarshFever.contraction_probability(terrain),
+        ),
+        (
+            Disease::BloodAche,
+            Disease::BloodAche.contraction_probability(terrain),
+        ),
+        (
+            Disease::ForgeBlindness,
+            Disease::ForgeBlindness.contraction_probability(terrain),
+        ),
+        (
+            Disease::ChildbirthComplication,
+            Disease::ChildbirthComplication.contraction_probability(terrain),
+        ),
     ];
     let total: f64 = weights.iter().map(|(_, w)| w).sum();
     let mut roll = rng.gen_range(10000) as f64 / 10000.0 * total;
@@ -79,7 +109,10 @@ pub fn illness_productivity_modifier(person: &crate::model::Person) -> f64 {
 }
 
 pub fn settlement_has_healer(settlement: &crate::model::Settlement) -> bool {
-    settlement.services.iter().any(|s| matches!(s, crate::model::SettlementService::Temple))
+    settlement
+        .services
+        .iter()
+        .any(|s| matches!(s, crate::model::SettlementService::Temple))
         || settlement
             .people
             .iter()
@@ -108,7 +141,11 @@ mod tests {
                 ill_count += 1;
             }
         }
-        assert!(ill_count <= 5, "healthy person got ill {} times in 200 ticks", ill_count);
+        assert!(
+            ill_count <= 5,
+            "healthy person got ill {} times in 200 ticks",
+            ill_count
+        );
     }
 
     #[test]
@@ -120,7 +157,11 @@ mod tests {
                 ill_count += 1;
             }
         }
-        assert!(ill_count >= 1, "low health + no healer: expected some illness, got {}", ill_count);
+        assert!(
+            ill_count >= 1,
+            "low health + no healer: expected some illness, got {}",
+            ill_count
+        );
     }
 
     #[test]
@@ -151,10 +192,7 @@ mod tests {
         let needs = test_needs(0.2, 0.3);
         let r1 = tick_illness(99, 50, Terrain::Swamp, &needs, 35, false, 0);
         let r2 = tick_illness(99, 50, Terrain::Swamp, &needs, 35, false, 0);
-        assert_eq!(
-            r1.map(|d| d.disease),
-            r2.map(|d| d.disease)
-        );
+        assert_eq!(r1.map(|d| d.disease), r2.map(|d| d.disease));
     }
 
     #[test]

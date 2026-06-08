@@ -8,6 +8,7 @@ use crate::model::{
 };
 use crate::rng::SeedRng;
 use crate::save::{self, SaveData};
+use crate::sim::collapse_log::CollapseEvent;
 use crate::sim::SimState;
 
 use super::event::AppEvent;
@@ -91,6 +92,7 @@ pub struct App {
     pub previous_screen: Option<Screen>,
     pub encounters_had: u32,
     pub collapses_had: u32,
+    pub collapse_log: Vec<CollapseEvent>,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -125,6 +127,7 @@ impl App {
             encounters_had: 0,
             encounter_log: EncounterLog::new(),
             collapses_had: 0,
+            collapse_log: Vec::new(),
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -328,6 +331,7 @@ impl App {
                 inter_people_bias: self.inter_people_bias.clone(),
                 encounters_had: self.encounters_had,
                 collapses_had: self.collapses_had,
+                collapse_log: self.collapse_log.clone(),
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -348,6 +352,7 @@ impl App {
                 self.inter_people_bias = data.inter_people_bias;
                 self.encounters_had = data.encounters_had;
                 self.collapses_had = data.collapses_had;
+                self.collapse_log = data.collapse_log;
                 self.screen = Screen::World;
                 self.status_msg = Some("Loaded from save.ron".into());
             }
@@ -1207,6 +1212,30 @@ impl App {
         if self.vitals.hunger > 0.0 && self.vitals.energy > 0.0 {
             return;
         }
+        let vitals_before = self.vitals;
+        let region_name = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                let region = sim.world.regions.get(pos.region_idx)?;
+                Some(region.name.clone())
+            })
+            .unwrap_or_else(|| "unknown".to_string());
+        let weather = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                let region = sim.world.regions.get(pos.region_idx)?;
+                let terrain = region.terrain.get(0, 0)?;
+                Some(
+                    crate::model::Weather::generate(sim.world.seed, sim.world.tick, terrain)
+                        .name()
+                        .to_string(),
+                )
+            })
+            .unwrap_or_else(|| "unknown".to_string());
         let local_rep = self
             .player_start
             .as_ref()
@@ -1228,6 +1257,7 @@ impl App {
         let outcome = collapse.outcome;
         let hours = outcome.hours_passed();
         let died = collapse.died;
+        let rescued_by = collapse.rescued_by;
         self.vitals.hunger = (self.vitals.hunger + outcome.hunger_restore()).min(1.0);
         self.vitals.energy = (self.vitals.energy + outcome.energy_restore()).min(1.0);
         if let Some(ref mut ps) = self.player_start {
@@ -1253,12 +1283,22 @@ impl App {
             self.vitals.energy = 0.1;
         }
         self.advance_clock(hours);
+        let tick = self.sim.as_ref().map(|sim| sim.world.tick).unwrap_or(0);
+        self.collapse_log.push(CollapseEvent {
+            tick,
+            vitals_before,
+            region: region_name,
+            weather,
+            outcome,
+            died,
+            rescued_by,
+        });
         self.collapse = Some(collapse);
         self.collapses_had += 1;
         if let Some(ref mut sim) = self.sim {
             let journal_text = if died {
                 format!("COLLAPSED — {:?}. You did not wake.", outcome)
-            } else if let Some(god) = collapse.rescued_by {
+            } else if let Some(god) = rescued_by {
                 format!("COLLAPSED — {:?}. {} intervened.", outcome, god.label())
             } else {
                 format!("COLLAPSED — {:?}", outcome)

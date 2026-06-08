@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::model::{GameClock, GodAffinity, InterPeopleBias, PlayerPos, PlayerStart, PlayerVitals};
+use crate::sim::collapse_log::CollapseEvent;
 use crate::sim::SimState;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -15,6 +16,8 @@ pub struct SaveData {
     pub inter_people_bias: InterPeopleBias,
     pub encounters_had: u32,
     pub collapses_had: u32,
+    #[serde(default)]
+    pub collapse_log: Vec<CollapseEvent>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -101,6 +104,7 @@ pub fn restore_from_compact(
         inter_people_bias: InterPeopleBias::new(crate::model::PeopleKind::Metsik),
         encounters_had: 0,
         collapses_had: 0,
+        collapse_log: Vec::new(),
     })
 }
 
@@ -127,6 +131,7 @@ mod tests {
             inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
             encounters_had: 0,
             collapses_had: 0,
+            collapse_log: Vec::new(),
         };
         save_game(&data, path_str).expect("save should succeed");
         let loaded = load_game(path_str).expect("load should succeed");
@@ -206,6 +211,7 @@ mod tests {
             inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
             encounters_had: 0,
             collapses_had: 0,
+            collapse_log: Vec::new(),
         };
         let compact_data = CompactSave {
             seed: 42,

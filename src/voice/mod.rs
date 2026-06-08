@@ -709,7 +709,10 @@ mod tests {
         let mut p = test_person();
         p.personality = vec![];
         let line = voice_line_situation(&p, Situation::Gossip);
-        assert!(!line.is_empty(), "empty personality should still produce gossip");
+        assert!(
+            !line.is_empty(),
+            "empty personality should still produce gossip"
+        );
     }
 
     #[test]
