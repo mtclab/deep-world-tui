@@ -31,6 +31,62 @@ impl BondCategory {
     }
 }
 
+const BOND_STRANGERS: &[&str] = &[
+    "They keep their distance.",
+    "No warmth in their eyes.",
+    "A face among many.",
+    "Strangers still.",
+];
+
+const BOND_ACQUAINTANCES: &[&str] = &[
+    "They remember your name.",
+    "You've crossed paths before.",
+    "A cautious nod.",
+    "Known by sight.",
+];
+
+const BOND_FRIENDS: &[&str] = &[
+    "A nod of recognition.",
+    "A familiar face.",
+    "They'd share a meal with you.",
+    "Easy company.",
+];
+
+const BOND_KIN: &[&str] = &[
+    "Like family.",
+    "Bound by shared history.",
+    "They'd follow you into the wild.",
+    "Deep trust.",
+];
+
+const BOND_BONDED: &[&str] = &[
+    "Old friends.",
+    "Inseparable across seasons.",
+    "They'd lay down their life.",
+    "Blood-deep bond.",
+];
+
+pub fn bond_descriptor(strength: f64, person_id: &str) -> &'static str {
+    let pool = match BondCategory::from_strength(strength) {
+        BondCategory::Stranger => BOND_STRANGERS,
+        BondCategory::Acquaintance => BOND_ACQUAINTANCES,
+        BondCategory::Friend => BOND_FRIENDS,
+        BondCategory::Kin => BOND_KIN,
+        BondCategory::Bonded => BOND_BONDED,
+    };
+    let hash = fnv_hash(person_id);
+    pool[hash as usize % pool.len()]
+}
+
+fn fnv_hash(s: &str) -> u32 {
+    let mut h: u32 = 2166136261;
+    for b in s.bytes() {
+        h ^= b as u32;
+        h = h.wrapping_mul(16777619);
+    }
+    h
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RelationshipTracker {
     pub relationships: HashMap<(String, String), Relationship>,
@@ -169,6 +225,32 @@ impl RelationshipTracker {
         }
     }
 }
+
+    #[test]
+    fn bond_descriptor_never_leaks_numbers() {
+        for strength in [0.0, 0.1, 0.25, 0.45, 0.55, 0.75, 0.85, 0.95] {
+            let desc = bond_descriptor(strength, "test-person-id");
+            assert!(
+                !desc.contains('%'),
+                "bond_descriptor leaked percentage: {desc}"
+            );
+            assert!(
+                !desc.contains("0."),
+                "bond_descriptor leaked decimal: {desc}"
+            );
+            assert!(
+                !desc.contains("1."),
+                "bond_descriptor leaked decimal: {desc}"
+            );
+        }
+    }
+
+    #[test]
+    fn bond_descriptor_stable_per_person() {
+        let a = bond_descriptor(0.6, "alice");
+        let b = bond_descriptor(0.6, "alice");
+        assert_eq!(a, b, "same person+strength must give same descriptor");
+    }
 
 #[cfg(test)]
 mod tests {
