@@ -5,6 +5,7 @@ use deep_world_tui::model::{
 };
 use deep_world_tui::rng::SeedRng;
 use deep_world_tui::save::{self, SaveData};
+use deep_world_tui::save_migrations::CURRENT_SAVE_VERSION;
 use deep_world_tui::sim::SimState;
 use deep_world_tui::voice::Situation;
 
@@ -111,6 +112,7 @@ fn full_pipeline_seed_generate_enter_talk() {
         collapses_had: 0,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
+        version: CURRENT_SAVE_VERSION,
     };
 
     let dir = tempfile::tempdir().expect("temp dir should create");

@@ -33,10 +33,7 @@ fn find_settlement_refs(world: &World) -> Vec<SettlementRef> {
     refs
 }
 
-fn find_adjacent_settlements(
-    world: &World,
-    region_idx: usize,
-) -> Vec<SettlementRef> {
+fn find_adjacent_settlements(world: &World, region_idx: usize) -> Vec<SettlementRef> {
     let mut adjacent = Vec::new();
     let region = &world.regions[region_idx];
 
@@ -50,7 +47,15 @@ fn find_adjacent_settlements(
 
     // Settlements in neighboring regions
     let neighbors = &region.neighbors;
-    for ni in [neighbors.north, neighbors.south, neighbors.east, neighbors.west].iter().flatten() {
+    for ni in [
+        neighbors.north,
+        neighbors.south,
+        neighbors.east,
+        neighbors.west,
+    ]
+    .iter()
+    .flatten()
+    {
         if *ni < world.regions.len() {
             for si in 0..world.regions[*ni].settlements.len() {
                 adjacent.push(SettlementRef {
@@ -66,11 +71,10 @@ fn find_adjacent_settlements(
 
 fn profession_demand(settlement: &crate::model::Settlement, profession: &str) -> f64 {
     let profession_lower = profession.to_lowercase();
-    let has_matching_service = settlement
-        .services
-        .iter()
-        .any(|s| s.label().to_lowercase().contains(&profession_lower)
-            || profession_lower.contains(&s.label().to_lowercase()));
+    let has_matching_service = settlement.services.iter().any(|s| {
+        s.label().to_lowercase().contains(&profession_lower)
+            || profession_lower.contains(&s.label().to_lowercase())
+    });
 
     let current_count = settlement
         .people
@@ -96,8 +100,7 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
     }
 
     for (sri, sref) in settlement_refs.iter().enumerate() {
-        let settlement =
-            &sim.world.regions[sref.region_idx].settlements[sref.settlement_idx];
+        let settlement = &sim.world.regions[sref.region_idx].settlements[sref.settlement_idx];
         let adjacent = find_adjacent_settlements(&sim.world, sref.region_idx);
 
         for person in settlement.people.iter() {
@@ -105,8 +108,8 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
                 continue;
             }
 
-            let mut person_rng = SeedRng::new(seed)
-                .fork_for(&format!("migration-{}-{}-{}", person.id, sri, tick));
+            let mut person_rng =
+                SeedRng::new(seed).fork_for(&format!("migration-{}-{}-{}", person.id, sri, tick));
 
             // Job-seeking: low stability + matching profession demand
             if person.needs.get(crate::model::Need::Safety) < JOB_SEEKING_STABILITY_THRESHOLD {
@@ -177,8 +180,8 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
                         sref.region_idx,
                         sref.settlement_idx,
                     ) {
-                        let target_settlement =
-                            &sim.world.regions[target.region_idx].settlements[target.settlement_idx];
+                        let target_settlement = &sim.world.regions[target.region_idx].settlements
+                            [target.settlement_idx];
                         let people_kind = PeopleKind::from_name(&person.people);
                         let reason = format!(
                             "A {} {} fled to {}, seeking a fresh start.",
@@ -202,11 +205,14 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
     }
 
     // Apply migrations - reverse sort by source region/settlement to preserve indices
-    migrants.sort_by(|a: &(MigrationCandidate, SettlementRef, String), b: &(MigrationCandidate, SettlementRef, String)| {
-        b.0.source_region_idx
-            .cmp(&a.0.source_region_idx)
-            .then(b.0.source_settlement_idx.cmp(&a.0.source_settlement_idx))
-    });
+    migrants.sort_by(
+        |a: &(MigrationCandidate, SettlementRef, String),
+         b: &(MigrationCandidate, SettlementRef, String)| {
+            b.0.source_region_idx
+                .cmp(&a.0.source_region_idx)
+                .then(b.0.source_settlement_idx.cmp(&a.0.source_settlement_idx))
+        },
+    );
 
     let mut migrated_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
 
@@ -228,16 +234,16 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
             .position(|p| p.id == person_id);
 
         let person = match person_pos {
-            Some(idx) => {
-                sim.world.regions[source_region_idx].settlements[source_settlement_idx]
-                    .people
-                    .remove(idx)
-            }
+            Some(idx) => sim.world.regions[source_region_idx].settlements[source_settlement_idx]
+                .people
+                .remove(idx),
             None => continue,
         };
 
-        let target_settlement_id =
-            sim.world.regions[target_region_idx].settlements[target_settlement_idx].id.clone();
+        let target_settlement_id = sim.world.regions[target_region_idx].settlements
+            [target_settlement_idx]
+            .id
+            .clone();
         let target_region_id = sim.world.regions[target_region_idx].id.clone();
 
         // Update person's location
@@ -281,9 +287,7 @@ fn find_job_seeking_target(
     let mut best_target: Option<(SettlementRef, f64)> = None;
 
     for sref in adjacent {
-        if sref.region_idx == source_region_idx
-            && sref.settlement_idx == source_settlement_idx
-        {
+        if sref.region_idx == source_region_idx && sref.settlement_idx == source_settlement_idx {
             continue;
         }
 
@@ -328,9 +332,7 @@ fn check_marriage_migration(
     let person_kind = PeopleKind::from_name(&person.people);
 
     for sref in adjacent {
-        if sref.region_idx == source_region_idx
-            && sref.settlement_idx == source_settlement_idx
-        {
+        if sref.region_idx == source_region_idx && sref.settlement_idx == source_settlement_idx {
             continue;
         }
 
@@ -348,10 +350,8 @@ fn check_marriage_migration(
             if bias_to_partner > MARRIAGE_BIAS_THRESHOLD
                 && bias_from_partner > MARRIAGE_BIAS_THRESHOLD
             {
-                let mut partner_rng = SeedRng::new(seed).fork_for(&format!(
-                    "marriage-{}-{}-{}",
-                    person.id, partner.id, tick
-                ));
+                let mut partner_rng = SeedRng::new(seed)
+                    .fork_for(&format!("marriage-{}-{}-{}", person.id, partner.id, tick));
                 let roll = partner_rng.gen_f64();
                 let chance =
                     (bias_to_partner.min(bias_from_partner) - MARRIAGE_BIAS_THRESHOLD) * 2.0;
@@ -384,9 +384,7 @@ fn find_flight_target(
     let mut best_target: Option<(SettlementRef, f64)> = None;
 
     for sref in adjacent {
-        if sref.region_idx == source_region_idx
-            && sref.settlement_idx == source_settlement_idx
-        {
+        if sref.region_idx == source_region_idx && sref.settlement_idx == source_settlement_idx {
             continue;
         }
 
@@ -515,16 +513,12 @@ mod tests {
                     assert_eq!(
                         person.settlement, settlement.id,
                         "person {} says they're in {} but found in {}",
-                        person.id,
-                        person.settlement,
-                        settlement.id
+                        person.id, person.settlement, settlement.id
                     );
                     assert_eq!(
                         person.region, region.id,
                         "person {} says they're in region {} but found in {}",
-                        person.id,
-                        person.region,
-                        region.id
+                        person.id, person.region, region.id
                     );
                 }
             }
@@ -553,7 +547,8 @@ mod tests {
         let settlement_id = sim.world.regions[0].settlements[0].id.clone();
 
         for _ in 0..20 {
-            sim.reputation.adjust_local(&person_id, &settlement_id, -0.1);
+            sim.reputation
+                .adjust_local(&person_id, &settlement_id, -0.1);
         }
 
         let rep_before = sim.reputation.get(&person_id, &settlement_id);
@@ -596,9 +591,7 @@ mod tests {
                         assert_eq!(
                             existing, &settlement.id,
                             "person {} found in both {} and {}",
-                            person.id,
-                            existing,
-                            settlement.id
+                            person.id, existing, settlement.id
                         );
                     }
                     person_settlements.insert(person.id.clone(), settlement.id.clone());
@@ -609,10 +602,7 @@ mod tests {
         // All population counts match
         for region in &sim.world.regions {
             for settlement in &region.settlements {
-                assert_eq!(
-                    settlement.population,
-                    settlement.people.len() as u32
-                );
+                assert_eq!(settlement.population, settlement.people.len() as u32);
             }
         }
     }

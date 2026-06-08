@@ -4,6 +4,7 @@ use deep_world_tui::model::{
 };
 use deep_world_tui::rng::SeedRng;
 use deep_world_tui::save::{self, LineageRecord, SaveData};
+use deep_world_tui::save_migrations::CURRENT_SAVE_VERSION;
 use deep_world_tui::sim::SimState;
 
 fn load_charts() -> charts::Charts {
@@ -29,6 +30,7 @@ fn make_save_data(seed: u64, charts: &charts::Charts) -> SaveData {
         collapses_had: 0,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
+        version: CURRENT_SAVE_VERSION,
     }
 }
 
@@ -43,8 +45,7 @@ fn lineage_record_serializes_and_deserializes() {
     };
     let ron_str = ron::ser::to_string_pretty(&record, ron::ser::PrettyConfig::default())
         .expect("serialize should work");
-    let loaded: LineageRecord =
-        ron::from_str(&ron_str).expect("deserialize should work");
+    let loaded: LineageRecord = ron::from_str(&ron_str).expect("deserialize should work");
     assert_eq!(loaded.predecessor_name, "Test Character");
     assert_eq!(loaded.predecessor_id, "p_42");
     assert_eq!(loaded.cause, "Ditch");
@@ -91,10 +92,7 @@ fn savedata_without_lineage_loads_empty() {
     save::save_game(&data, path_str).expect("save should succeed");
     let loaded = save::load_game(path_str).expect("load should succeed");
 
-    assert!(
-        loaded.lineage.is_empty(),
-        "lineage should default to empty"
-    );
+    assert!(loaded.lineage.is_empty(), "lineage should default to empty");
 }
 
 #[test]
@@ -145,10 +143,7 @@ fn find_related_npc_by_relationship() {
     let rels = data.sim.relationships.relationships_for(&person.id);
     // Relationships may or may not exist for generated characters
     // but the function should not panic
-    assert!(
-        rels.len() < 1000,
-        "relationship count should be reasonable"
-    );
+    assert!(rels.len() < 1000, "relationship count should be reasonable");
 }
 
 #[test]

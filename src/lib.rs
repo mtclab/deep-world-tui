@@ -6,6 +6,7 @@ pub mod llm;
 pub mod model;
 pub mod rng;
 pub mod save;
+pub mod save_migrations;
 pub mod sim;
 pub mod ui;
 pub mod voice;

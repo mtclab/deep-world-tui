@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::model::{GameClock, GodAffinity, InterPeopleBias, PlayerPos, PlayerStart, PlayerVitals};
+use crate::save_migrations::CURRENT_SAVE_VERSION;
 use crate::sim::collapse_log::CollapseEvent;
 use crate::sim::SimState;
 
@@ -14,7 +15,11 @@ pub struct LineageRecord {
     pub tick: u64,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+fn current_save_version() -> u32 {
+    CURRENT_SAVE_VERSION
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct SaveData {
     pub sim: SimState,
     pub player_start: Option<PlayerStart>,
@@ -29,6 +34,8 @@ pub struct SaveData {
     pub collapse_log: Vec<CollapseEvent>,
     #[serde(default)]
     pub lineage: Vec<LineageRecord>,
+    #[serde(default = "current_save_version")]
+    pub version: u32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -82,7 +89,10 @@ pub fn save_lineage(data: &SaveData, seed: u64) -> Result<(), String> {
 pub fn load_game(filename: &str) -> Result<SaveData, String> {
     let path = Path::new(filename);
     let contents = fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
-    ron::from_str(&contents).map_err(|e| format!("Failed to deserialize: {}", e))
+    let mut data: SaveData =
+        ron::from_str(&contents).map_err(|e| format!("Failed to deserialize: {}", e))?;
+    crate::save_migrations::migrate(&mut data)?;
+    Ok(data)
 }
 
 pub fn save_compact(data: &CompactSave, filename: &str) -> Result<(), String> {
@@ -122,6 +132,7 @@ pub fn restore_from_compact(
         collapses_had: 0,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
+        version: CURRENT_SAVE_VERSION,
     })
 }
 
@@ -150,6 +161,7 @@ mod tests {
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
+            version: CURRENT_SAVE_VERSION,
         };
         save_game(&data, path_str).expect("save should succeed");
         let loaded = load_game(path_str).expect("load should succeed");
@@ -157,6 +169,7 @@ mod tests {
             data.sim.world.tick, loaded.sim.world.tick,
             "tick should match"
         );
+        assert_eq!(loaded.version, CURRENT_SAVE_VERSION);
         assert_eq!(
             data.sim.world.regions.len(),
             loaded.sim.world.regions.len(),
@@ -231,6 +244,7 @@ mod tests {
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
+            version: CURRENT_SAVE_VERSION,
         };
         let compact_data = CompactSave {
             seed: 42,
