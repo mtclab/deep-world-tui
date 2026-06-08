@@ -1180,6 +1180,94 @@ impl App {
         self.status_msg = Some(format!("{} the {} joins me.", name, animal.name()));
     }
 
+    pub fn start_build(&mut self) {
+        let pos = match self.player_pos {
+            Some(p) => p,
+            None => {
+                self.status_msg = Some("No position".into());
+                return;
+            }
+        };
+        let region_idx = pos.region_idx;
+        let px = pos.px as u32;
+        let py = pos.py as u32;
+        let inv = match self.player_start.as_ref() {
+            Some(ps) => ps.inventory.clone(),
+            None => {
+                self.status_msg = Some("No inventory".into());
+                return;
+            }
+        };
+        let sim = match self.sim.as_mut() {
+            Some(s) => s,
+            None => return,
+        };
+        let candidates: Vec<crate::sim::structures::BuildKind> =
+            crate::sim::structures::BuildKind::all()
+                .iter()
+                .filter(|k| {
+                    k.cost()
+                        .iter()
+                        .all(|(item, count)| inv.get(*item) >= *count)
+                        && !k.cost().is_empty()
+                })
+                .cloned()
+                .collect();
+        if candidates.is_empty() {
+            self.status_msg = Some("Nothing to build — need materials".into());
+            return;
+        }
+        let kind = candidates[0];
+        if let Some(ref mut ps) = self.player_start {
+            for (item, count) in kind.cost() {
+                ps.inventory.remove(item, count);
+            }
+        }
+        if kind.is_short_build() {
+            let structure = crate::sim::structures::Structure {
+                kind,
+                region_idx,
+                x: px,
+                y: py,
+                built_tick: sim.world.tick,
+                last_maintenance_tick: sim.world.tick,
+                name: None,
+                is_npc_built: false,
+            };
+            if let Some(region) = sim.world.regions.get_mut(region_idx) {
+                region.structures.push(structure.clone());
+            }
+            sim.structures.push(structure);
+            self.status_msg = Some(format!("Built {}!", kind.label()));
+        } else {
+            let site = crate::sim::structures::BuildSite {
+                kind,
+                region_idx,
+                x: px,
+                y: py,
+                hours_done: 0,
+                started_tick: sim.world.tick,
+            };
+            sim.build_sites.push(site);
+            self.status_msg = Some(format!(
+                "Started building {} ({}h)",
+                kind.label(),
+                kind.build_hours()
+            ));
+        }
+    }
+
+    fn structure_at_player(&self) -> Option<crate::sim::structures::Structure> {
+        let pos = self.player_pos?;
+        let sim = self.sim.as_ref()?;
+        let region = sim.world.regions.get(pos.region_idx)?;
+        region
+            .structures
+            .iter()
+            .find(|s| s.at_position(pos.region_idx, pos.px as u32, pos.py as u32))
+            .cloned()
+    }
+
     pub fn resolve_encounter(&mut self, action: EncounterAction) {
         let terrain = self.encounter.map(|e| e.terrain).unwrap_or(Terrain::Grass);
         let witness = WitnessLevel::roll(self.seed.wrapping_mul(7919), terrain);
@@ -2075,6 +2163,23 @@ impl App {
                 companion.rest(1.0);
             }
         }
+        let structure_bonus = match self.structure_at_player() {
+            Some(s) => match s.kind {
+                crate::sim::structures::BuildKind::Tarp => 0.05,
+                crate::sim::structures::BuildKind::LeanTo => 0.10,
+                crate::sim::structures::BuildKind::TarpTent => 0.15,
+                crate::sim::structures::BuildKind::Laavu => 0.20,
+                crate::sim::structures::BuildKind::Kota => 0.30,
+                crate::sim::structures::BuildKind::Cabin => 0.45,
+                crate::sim::structures::BuildKind::Longhouse => 0.60,
+                crate::sim::structures::BuildKind::Home => 0.80,
+            },
+            None => 0.0,
+        };
+        if structure_bonus > 0.0 {
+            self.vitals.energy = (self.vitals.energy + structure_bonus).min(1.0);
+            self.vitals.hunger = (self.vitals.hunger - structure_bonus * 0.3).max(0.0);
+        }
         self.vitals.energy = (self.vitals.energy + stamina_gain / 8.0).min(1.0);
         self.god_affinity
             .adjust(GodName::Kukri, 0.02 + morale_gain * 0.1);
@@ -2497,6 +2602,9 @@ impl App {
                     }
                     crossterm::event::KeyCode::Char('c') => {
                         self.enter_craft();
+                    }
+                    crossterm::event::KeyCode::Char('b') => {
+                        self.start_build();
                     }
                     crossterm::event::KeyCode::Char('H') => {
                         self.open_encounter_log();

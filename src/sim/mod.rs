@@ -15,6 +15,7 @@ pub mod relationships;
 pub mod reputation;
 pub mod rest;
 pub mod signals;
+pub mod structures;
 pub mod wants;
 pub mod weather;
 
@@ -72,11 +73,16 @@ pub struct SimState {
     pub discoveries: crate::model::DiscoveryStore,
     #[serde(default)]
     pub memorials: Vec<crate::model::memorial::Memorial>,
+    #[serde(default)]
+    pub structures: Vec<crate::sim::structures::Structure>,
+    #[serde(default)]
+    pub build_sites: Vec<crate::sim::structures::BuildSite>,
 }
 
 impl SimState {
     pub fn new(seed: u64, charts: Charts) -> Self {
-        let world = generate_world(seed, &charts);
+        let mut world = generate_world(seed, &charts);
+        structures::generate_world_structures(seed, &mut world);
         let mut discoveries = crate::model::DiscoveryStore::new();
         {
             let mut rng = SeedRng::new(seed).fork_for("discoveries");
@@ -101,6 +107,8 @@ impl SimState {
             quests: Vec::new(),
             discoveries,
             memorials: vec![],
+            structures: Vec::new(),
+            build_sites: Vec::new(),
         };
         sim.init_npc_wants();
         sim
@@ -177,6 +185,36 @@ pub fn sim_tick(sim: &mut SimState) {
     let hour = ((current_tick % 24) / 4) as u32;
     sim.world.tick_npc_wants(current_tick, 24);
     sim.world.recompute_all_schedules(hour);
+    tick_build_sites(sim);
+}
+
+fn tick_build_sites(sim: &mut SimState) {
+    use crate::sim::structures::Structure;
+    let tick = sim.world.tick;
+    let mut completed = Vec::new();
+    for site in &mut sim.build_sites {
+        site.hours_done += 1;
+        if site.hours_done >= site.kind.build_hours() {
+            completed.push(Structure {
+                kind: site.kind,
+                region_idx: site.region_idx,
+                x: site.x,
+                y: site.y,
+                built_tick: tick,
+                last_maintenance_tick: tick,
+                name: None,
+                is_npc_built: false,
+            });
+        }
+    }
+    sim.build_sites
+        .retain(|s| s.hours_done < s.kind.build_hours());
+    for structure in completed {
+        if let Some(region) = sim.world.regions.get_mut(structure.region_idx) {
+            region.structures.push(structure.clone());
+        }
+        sim.structures.push(structure);
+    }
 }
 
 fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {

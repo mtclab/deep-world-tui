@@ -180,7 +180,7 @@ fn draw_status_bar(f: &mut Frame, app: &App) {
             ),
         ]);
         let line3 = Line::from(Span::styled(
-            " Tab:switch  Esc:back  ?:help  i:inv  j:journal  m:map  g:gather  r:rest",
+            " Tab:switch  Esc:back  ?:help  i:inv  j:journal  m:map  g:gather  r:rest  b:build  c:craft",
             Style::default().fg(theme.dark_ink()).dim(),
         ));
         let status = Paragraph::new(vec![line1, line2, line3])
@@ -1672,6 +1672,34 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                                 .fg(Color::White)
                                 .add_modifier(Modifier::BOLD),
                         ));
+                    } else if let Some(structure) = app.sim.as_ref().and_then(|sim| {
+                        sim.world.regions.get(region_idx).and_then(|r| {
+                            r.structures
+                                .iter()
+                                .find(|s| s.x as usize == mx && s.y as usize == my)
+                        })
+                    }) {
+                        spans.push(Span::styled(
+                            structure.kind.glyph().to_string(),
+                            Style::default().fg(theme.archive_red()),
+                        ));
+                    } else if let Some(build) = app.sim.as_ref().and_then(|sim| {
+                        sim.build_sites.iter().find(|s| {
+                            s.region_idx == region_idx && s.x as usize == mx && s.y as usize == my
+                        })
+                    }) {
+                        let pct = build.progress_fraction(build.kind);
+                        let pct_char = if pct < 0.33 {
+                            '░'
+                        } else if pct < 0.66 {
+                            '▒'
+                        } else {
+                            '▓'
+                        };
+                        spans.push(Span::styled(
+                            pct_char.to_string(),
+                            Style::default().fg(theme.archive_red()),
+                        ));
                     } else if let Some(terrain) = tiles.get(my * map_w + mx) {
                         let is_memorial = app.sim.as_ref().is_some_and(|sim| {
                             sim.memorials
@@ -1735,7 +1763,9 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                 crate::model::memorial::Memorial::glyph().to_string(),
                 Style::default().fg(theme.archive_red()),
             ),
-            Span::styled("Fall", Style::default().fg(theme.dark_brown())),
+            Span::styled("Fall  ", Style::default().fg(theme.dark_brown())),
+            Span::styled("#", Style::default().fg(theme.archive_red())),
+            Span::styled("Bldg", Style::default().fg(theme.dark_brown())),
         ]),
     ];
     let legend = Paragraph::new(legend_lines).block(
@@ -2088,6 +2118,12 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
             ItemType::Stone => Color::Rgb(0x8a, 0x7a, 0x6a),
             ItemType::Cloth => Color::Rgb(0xc2, 0x9a, 0x6b),
             ItemType::Iron => Color::Rgb(0x5a, 0x5a, 0x6a),
+            ItemType::Branches => theme.warm_brown(),
+            ItemType::Cordage => Color::Rgb(0x8a, 0x6a, 0x4a),
+            ItemType::Tinder => Color::Rgb(0xaa, 0x8a, 0x5a),
+            ItemType::Nails => Color::Rgb(0x5a, 0x5a, 0x6a),
+            ItemType::Thatch => Color::Rgb(0xaa, 0x9a, 0x4a),
+            ItemType::Glass => Color::Rgb(0x8a, 0xc2, 0xca),
         };
         let dur = inv.durability(*item);
         let dur_bar = if count > 0 && dur < 1.0 {
@@ -3126,6 +3162,7 @@ mod minimap_tests {
                 tiles,
             },
             neighbors: Default::default(),
+            structures: Vec::new(),
         }
     }
 
