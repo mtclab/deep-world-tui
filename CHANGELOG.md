@@ -6,6 +6,11 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
+### Phase 2 — Indirect bond descriptors (#137)
+
+- **#137** NPC bond % no longer leaks to the player in inter-NPC relationship lines. The `→/← other {:?} str=XX% trust=YY%` line is replaced with `→/← other — bond_descriptor. regard_descriptor.` using the existing `bond_descriptor()` function from `sim::relationships`. The `BondCategory` import is removed from `render.rs`.
+  - 387 tests pass.
+
 ### Phase 2 — Indirect reputation signals (#135)
 
 - **#135** Player deduces reputation from world's reactions; game never prints a number, label, or bar.
