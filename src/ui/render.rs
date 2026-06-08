@@ -832,20 +832,10 @@ fn draw_npc_screen(
             if let Some(ref ps) = app.player_start {
                 let bond = sim.relationships.get(&ps.person.id, &p.id);
                 let (bond_str, bond_color) = if let Some(rel) = bond {
-                    let cat = crate::sim::relationships::BondCategory::from_strength(rel.strength);
-                    let label = match cat {
-                        crate::sim::relationships::BondCategory::Bonded => "bonded",
-                        crate::sim::relationships::BondCategory::Kin => "kin",
-                        crate::sim::relationships::BondCategory::Friend => "friend",
-                        crate::sim::relationships::BondCategory::Acquaintance => "acquaintance",
-                        crate::sim::relationships::BondCategory::Stranger => "stranger",
-                    };
-                    (
-                        format!("   Bond     {:.0}% {}", rel.strength * 100.0, label),
-                        theme.need_color(rel.strength),
-                    )
+                    let desc = crate::sim::relationships::bond_descriptor(rel.strength, &p.id);
+                    (format!("   {desc}"), theme.need_color(rel.strength))
                 } else {
-                    ("   Bond     stranger".into(), theme.dark_brown())
+                    ("   They keep their distance.".into(), theme.dark_brown())
                 };
                 lines.push(Line::from(Span::styled(
                     " Relationship",

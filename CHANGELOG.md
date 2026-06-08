@@ -6,7 +6,12 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+- #137 NPC bond % leak replaced with flavor descriptors
+- `sim/relationships::bond_descriptor()` — FNV-1a hashed flavor text per bond strength band
+- 5 bond bands: Stranger, Acquaintance, Friend, Kin, Bonded — each with 4 flavor strings
+- `draw_npc_screen` now shows organic text instead of "Bond 85% friend"
+- Tests: no numeric/%/decimal tokens leak, descriptor stable per person-id
 
 ## [0.1.0] - 2026-06-07
 
