@@ -7,7 +7,7 @@ use crate::model::{
     Terrain, WitnessLevel,
 };
 use crate::rng::SeedRng;
-use crate::save::{self, SaveData};
+use crate::save::{self, LineageRecord, SaveData};
 use crate::sim::collapse_log::CollapseEvent;
 use crate::sim::SimState;
 
@@ -93,6 +93,7 @@ pub struct App {
     pub encounters_had: u32,
     pub collapses_had: u32,
     pub collapse_log: Vec<CollapseEvent>,
+    pub lineage: Vec<LineageRecord>,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -128,6 +129,7 @@ impl App {
             encounter_log: EncounterLog::new(),
             collapses_had: 0,
             collapse_log: Vec::new(),
+            lineage: Vec::new(),
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -332,6 +334,7 @@ impl App {
                 encounters_had: self.encounters_had,
                 collapses_had: self.collapses_had,
                 collapse_log: self.collapse_log.clone(),
+                lineage: self.lineage.clone(),
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -343,6 +346,11 @@ impl App {
     pub fn load_game(&mut self) {
         match save::load_game("save.ron") {
             Ok(data) => {
+                let last_collapse_died = data
+                    .collapse_log
+                    .last()
+                    .map(|c| c.died)
+                    .unwrap_or(false);
                 self.sim = Some(data.sim);
                 self.player_start = data.player_start;
                 self.clock = data.clock;
@@ -353,8 +361,13 @@ impl App {
                 self.encounters_had = data.encounters_had;
                 self.collapses_had = data.collapses_had;
                 self.collapse_log = data.collapse_log;
-                self.screen = Screen::World;
-                self.status_msg = Some("Loaded from save.ron".into());
+                self.lineage = data.lineage;
+                if last_collapse_died {
+                    self.continue_as_npc();
+                } else {
+                    self.screen = Screen::World;
+                    self.status_msg = Some("Loaded from save.ron".into());
+                }
             }
             Err(e) => self.status_msg = Some(format!("Load failed: {}", e)),
         }
@@ -1306,7 +1319,23 @@ impl App {
             sim.log_journal(sim.world.tick, journal_text);
         }
         if died {
-            self.screen = Screen::GameOver;
+            if self.player_start.is_some() {
+                let save_data = SaveData {
+                    sim: self.sim.clone().unwrap_or_else(|| SimState::new(self.seed, self.charts.clone())),
+                    player_start: self.player_start.clone(),
+                    clock: self.clock,
+                    vitals: self.vitals,
+                    player_pos: self.player_pos,
+                    god_affinity: self.god_affinity,
+                    inter_people_bias: self.inter_people_bias.clone(),
+                    encounters_had: self.encounters_had,
+                    collapses_had: self.collapses_had,
+                    collapse_log: self.collapse_log.clone(),
+                    lineage: self.lineage.clone(),
+                };
+                let _ = save::save_lineage(&save_data, self.seed);
+            }
+            self.continue_as_npc();
         } else {
             self.screen = Screen::Collapse;
         }
@@ -1331,6 +1360,189 @@ impl App {
         self.screen = Screen::CharacterCreation;
         self.status_msg = None;
         self.running = true;
+        self.lineage.clear();
+    }
+
+    fn find_related_npc(&self, dead_person: &crate::model::Person) -> Option<usize> {
+        let sim = self.sim.as_ref()?;
+        let pos = self.player_pos?;
+        let region = sim.world.regions.get(pos.region_idx)?;
+        let settlement = region.settlements.first()?;
+        let dead_id = &dead_person.id;
+
+        // 1. Find person with highest bond to dead character
+        let mut best_idx: Option<usize> = None;
+        let mut best_strength: f64 = -1.0;
+        for (idx, person) in settlement.people.iter().enumerate() {
+            if person.id == *dead_id {
+                continue;
+            }
+            if let Some(rel) = sim.relationships.get(dead_id, &person.id) {
+                if rel.strength > best_strength {
+                    best_strength = rel.strength;
+                    best_idx = Some(idx);
+                }
+            }
+            if let Some(rel) = sim.relationships.get(&person.id, dead_id) {
+                if rel.strength > best_strength {
+                    best_strength = rel.strength;
+                    best_idx = Some(idx);
+                }
+            }
+        }
+        if best_idx.is_some() {
+            return best_idx;
+        }
+
+        // 2. Prefer spouse
+        if dead_person.has_spouse {
+            for (idx, person) in settlement.people.iter().enumerate() {
+                if person.id == *dead_id {
+                    continue;
+                }
+                if let Some(rel) = sim.relationships.get(dead_id, &person.id) {
+                    if rel.kind == crate::model::RelationshipKind::Spouse {
+                        return Some(idx);
+                    }
+                }
+                if let Some(rel) = sim.relationships.get(&person.id, dead_id) {
+                    if rel.kind == crate::model::RelationshipKind::Spouse {
+                        return Some(idx);
+                    }
+                }
+            }
+        }
+
+        // 3. Same people kind
+        let dead_people_kind = dead_person.people.as_str();
+        for (idx, person) in settlement.people.iter().enumerate() {
+            if person.id == *dead_id {
+                continue;
+            }
+            if person.people == dead_people_kind {
+                return Some(idx);
+            }
+        }
+
+        // 4. First adult in settlement (age_band != "child")
+        for (idx, person) in settlement.people.iter().enumerate() {
+            if person.id == *dead_id {
+                continue;
+            }
+            if person.age_band != "child" {
+                return Some(idx);
+            }
+        }
+
+        // 5. Any person
+        settlement
+            .people
+            .iter()
+            .position(|p| p.id != *dead_id)
+    }
+
+    fn continue_as_npc(&mut self) {
+        let dead_ps = match &self.player_start {
+            Some(ps) => ps.clone(),
+            None => {
+                self.screen = Screen::GameOver;
+                return;
+            }
+        };
+        let dead_person = dead_ps.person.clone();
+        let settlement_id = dead_person.settlement.clone();
+
+        // Find a related NPC
+        let npc_idx = match self.find_related_npc(&dead_person) {
+            Some(idx) => idx,
+            None => {
+                self.screen = Screen::GameOver;
+                return;
+            }
+        };
+
+        // Get the NPC person
+        let npc_person = {
+            let pos = match self.player_pos {
+                Some(p) => p,
+                None => {
+                    self.screen = Screen::GameOver;
+                    return;
+                }
+            };
+            let region = match self.sim.as_ref().and_then(|s| s.world.regions.get(pos.region_idx)) {
+                Some(r) => r,
+                None => {
+                    self.screen = Screen::GameOver;
+                    return;
+                }
+            };
+            let settlement = match region.settlements.first() {
+                Some(s) => s,
+                None => {
+                    self.screen = Screen::GameOver;
+                    return;
+                }
+            };
+            match settlement.people.get(npc_idx) {
+                Some(p) => p.clone(),
+                None => {
+                    self.screen = Screen::GameOver;
+                    return;
+                }
+            }
+        };
+
+        // Add lineage record
+        let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+        let cause = self
+            .collapse
+            .as_ref()
+            .map(|c| format!("{:?}", c.outcome))
+            .unwrap_or_else(|| "unknown".to_string());
+
+        self.lineage.push(LineageRecord {
+            predecessor_name: dead_person.name.clone(),
+            predecessor_id: dead_person.id.clone(),
+            cause,
+            settlement_id: settlement_id.clone(),
+            tick,
+        });
+
+        // Create new PlayerStart from NPC
+        let new_player_start = PlayerStart {
+            person: npc_person.clone(),
+            reroll_count: 0,
+            point_buy_adjustments: Vec::new(),
+            accepted: true,
+            inventory: Inventory::default(),
+        };
+
+        // Add memorial journal entry
+        let memorial = format!(
+            "{} passed on. You carry their memory forward.",
+            dead_person.name
+        );
+        if let Some(ref mut sim) = self.sim {
+            sim.log_journal(sim.world.tick, memorial);
+        }
+
+        // +0.15 reputation boost
+        if let Some(ref mut sim) = self.sim {
+            sim.reputation
+                .adjust_local(&npc_person.id, &settlement_id, 0.15);
+        }
+
+        // Switch player
+        self.player_start = Some(new_player_start);
+        self.vitals = PlayerVitals::default();
+        self.inter_people_bias = InterPeopleBias::new(PeopleKind::from_name(&npc_person.people));
+
+        // Continue on Map screen
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
+        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
+        self.screen = Screen::Map { region_idx, px, py };
     }
 
     pub fn use_service(&mut self, service: SettlementService) {

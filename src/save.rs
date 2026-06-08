@@ -5,6 +5,15 @@ use crate::model::{GameClock, GodAffinity, InterPeopleBias, PlayerPos, PlayerSta
 use crate::sim::collapse_log::CollapseEvent;
 use crate::sim::SimState;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct LineageRecord {
+    pub predecessor_name: String,
+    pub predecessor_id: String,
+    pub cause: String,
+    pub settlement_id: String,
+    pub tick: u64,
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct SaveData {
     pub sim: SimState,
@@ -18,6 +27,8 @@ pub struct SaveData {
     pub collapses_had: u32,
     #[serde(default)]
     pub collapse_log: Vec<CollapseEvent>,
+    #[serde(default)]
+    pub lineage: Vec<LineageRecord>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -63,6 +74,11 @@ pub fn save_game(data: &SaveData, filename: &str) -> Result<(), String> {
     fs::write(path, ron_string).map_err(|e| format!("Failed to write file: {}", e))
 }
 
+pub fn save_lineage(data: &SaveData, seed: u64) -> Result<(), String> {
+    let filename = format!("saves/lineage_{}.ron", seed);
+    save_game(data, &filename)
+}
+
 pub fn load_game(filename: &str) -> Result<SaveData, String> {
     let path = Path::new(filename);
     let contents = fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
@@ -105,6 +121,7 @@ pub fn restore_from_compact(
         encounters_had: 0,
         collapses_had: 0,
         collapse_log: Vec::new(),
+        lineage: Vec::new(),
     })
 }
 
@@ -132,6 +149,7 @@ mod tests {
             encounters_had: 0,
             collapses_had: 0,
             collapse_log: Vec::new(),
+            lineage: Vec::new(),
         };
         save_game(&data, path_str).expect("save should succeed");
         let loaded = load_game(path_str).expect("load should succeed");
@@ -212,6 +230,7 @@ mod tests {
             encounters_had: 0,
             collapses_had: 0,
             collapse_log: Vec::new(),
+            lineage: Vec::new(),
         };
         let compact_data = CompactSave {
             seed: 42,
