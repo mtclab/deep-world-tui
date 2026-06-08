@@ -73,6 +73,7 @@ Charts(
             "farmer": 100, "labourer": 70, "herder": 30, "fisher": 22, "forester": 18,
             "weaver": 12, "smith": 8, "carpenter": 8, "trader": 6, "miner": 6,
             "sailor": 6, "soldier": 5, "healer": 4, "scribe": 3, "priest": 2,
+            "hearth-keeper": 4, "path-finder": 3, "fence-builder": 3, "beast-handler": 2, "singer": 3,
         }),
         modifiers: [
             (when: People("sepat"),       mult: { "smith": 6.0, "miner": 4.0, "carpenter": 2.0, "farmer": 0.4 }),
@@ -114,7 +115,7 @@ Charts(
     // ---- craft affinity (rare; "none" dominates) ----
     // Ref: craft_production_chains — Arkit→word, Väylä→current, Laakso→still, Sepät/Ahjo→forge, Metsik→root
     craft_affinity: ConditionalTable(
-        base: WeightedTable(entries: { "none": 100, "word": 2, "current": 2, "still": 2, "forge": 2, "root": 2 }),
+        base: WeightedTable(entries: { "none": 100, "word": 2, "current": 2, "still": 2, "forge": 2, "root": 2, "tanner": 1, "rope_maker": 1, "charcoal_burner": 1, "falconer": 1, "salt_miner": 1, "reed_weaver": 1 }),
         modifiers: [
             (when: People("arkit"),  mult: { "word": 6.0 }),
             (when: People("vayla"),  mult: { "current": 6.0 }),

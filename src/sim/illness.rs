@@ -50,6 +50,11 @@ fn pick_disease(rng: &mut SeedRng, terrain: Terrain) -> Disease {
         (Disease::Sprain, Disease::Sprain.contraction_probability(terrain)),
         (Disease::Exhaustion, Disease::Exhaustion.contraction_probability(terrain)),
         (Disease::Plague, Disease::Plague.contraction_probability(terrain)),
+        (Disease::WinterCough, Disease::WinterCough.contraction_probability(terrain)),
+        (Disease::MarshFever, Disease::MarshFever.contraction_probability(terrain)),
+        (Disease::BloodAche, Disease::BloodAche.contraction_probability(terrain)),
+        (Disease::ForgeBlindness, Disease::ForgeBlindness.contraction_probability(terrain)),
+        (Disease::ChildbirthComplication, Disease::ChildbirthComplication.contraction_probability(terrain)),
     ];
     let total: f64 = weights.iter().map(|(_, w)| w).sum();
     let mut roll = rng.gen_range(10000) as f64 / 10000.0 * total;

@@ -125,6 +125,12 @@ fn craft_flavor(craft: &str) -> &'static str {
         "word" => "ink-stained fingers",
         "current" => "salt-crusted hands",
         "loom" => "thread-wrapped fingers",
+        "tanner" => "leather-scented hands",
+        "rope_maker" => "hemp-fibre grip",
+        "charcoal_burner" => "soot-stained palms",
+        "falconer" => "glove-softened grip",
+        "salt_miner" => "crystal-grit hands",
+        "reed_weaver" => "reed-split fingers",
         _ => "calloused hands",
     }
 }
@@ -151,6 +157,11 @@ fn profession_flavor(profession: &str) -> &'static str {
         "baker" => "flour-dusted",
         "guard" => "armor-weary",
         "innkeep" => "hearth-warm",
+        "hearth-keeper" => "fire-tended",
+        "path-finder" => "horizon-eyed",
+        "fence-builder" => "post-scarred",
+        "beast-handler" => "callously calm",
+        "singer" => "song-threaded",
         _ => "steady-eyed",
     }
 }
