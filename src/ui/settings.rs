@@ -22,7 +22,7 @@ impl Default for AppSettings {
             llm_endpoint: "http://localhost:11434/v1".into(),
             llm_model: "llama3".into(),
             monochrome: false,
-            language: crate::i18n::DEFAULT_LOCALE.into(),
+            language: "en".into(),
             audio_enabled: false,
             audio_volume: 0.5,
         }

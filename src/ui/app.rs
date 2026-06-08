@@ -2425,15 +2425,6 @@ impl App {
                         });
                         self.save_settings();
                     }
-                    crossterm::event::KeyCode::Char('g') => {
-                        self.language = if self.language == "en" {
-                            "fi".into()
-                        } else {
-                            "en".into()
-                        };
-                        self.status_msg = Some(format!("Language: {}", self.language));
-                        self.save_settings();
-                    }
                     crossterm::event::KeyCode::Char('a') => {
                         self.audio_enabled = !self.audio_enabled;
                         self.status_msg = Some(if self.audio_enabled {

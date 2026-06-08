@@ -1,7 +1,6 @@
 pub mod audio;
 pub mod charts;
 pub mod gen;
-pub mod i18n;
 pub mod llm;
 pub mod model;
 pub mod rng;
