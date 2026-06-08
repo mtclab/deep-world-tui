@@ -721,6 +721,68 @@ fn draw_location_screen(
             }
             lines.push(Line::from(""));
         }
+
+        if let Some(ref ps) = app.player_start {
+            if !ps.companions.is_empty() {
+                lines.push(Line::from(Span::styled(
+                    " Companions",
+                    Style::default()
+                        .fg(theme.archive_red())
+                        .add_modifier(Modifier::BOLD),
+                )));
+                lines.push(Line::from(""));
+                for c in &ps.companions {
+                    let state = if !c.is_alive() {
+                        "gone"
+                    } else if c.is_starving() {
+                        "starving"
+                    } else if c.is_exhausted() {
+                        "exhausted"
+                    } else if c.food_need > 40.0 || c.rest_need > 40.0 {
+                        "weary"
+                    } else {
+                        "hardy"
+                    };
+                    lines.push(Line::from(vec![
+                        Span::styled(
+                            format!("  {} ", c.animal.name()),
+                            Style::default()
+                                .fg(theme.warm_brown())
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            format!("\"{}\" — ", c.name),
+                            Style::default().fg(theme.ink()),
+                        ),
+                        Span::styled(
+                            state.to_string(),
+                            Style::default().fg(theme.need_color(if state == "hardy" {
+                                1.0
+                            } else if state == "weary" {
+                                0.5
+                            } else {
+                                0.2
+                            })),
+                        ),
+                    ]));
+                }
+                lines.push(Line::from(""));
+            }
+        }
+
+        if let Some(s) = &settlement {
+            if s.allows_companions() {
+                if let Some(ref ps) = app.player_start {
+                    if ps.companions.len() < 3 {
+                        lines.push(Line::from(Span::styled(
+                            " The yards hold animals for adoption.",
+                            Style::default().fg(theme.dark_brown()),
+                        )));
+                        lines.push(Line::from(""));
+                    }
+                }
+            }
+        }
     }
 
     let para = Paragraph::new(lines)
@@ -750,6 +812,13 @@ fn draw_location_screen(
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" service  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[a]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" adopt  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc/Q]",
             Style::default()
