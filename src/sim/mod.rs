@@ -69,6 +69,8 @@ pub struct SimState {
     pub quests: Vec<crate::model::Quest>,
     #[serde(default)]
     pub discoveries: crate::model::DiscoveryStore,
+    #[serde(default)]
+    pub memorials: Vec<crate::model::memorial::Memorial>,
 }
 
 impl SimState {
@@ -97,6 +99,7 @@ impl SimState {
             npc_memories: std::collections::HashMap::new(),
             quests: Vec::new(),
             discoveries,
+            memorials: vec![],
         }
     }
 
