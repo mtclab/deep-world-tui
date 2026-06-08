@@ -1,4 +1,4 @@
-use crate::model::{Need, PeopleKind, Person};
+use crate::model::{Need, PeopleKind, Person, Weather};
 use crate::rng::SeedRng;
 
 pub mod craft_hooks;
@@ -448,6 +448,24 @@ pub fn voice_line_situation_biased(
     }
 }
 
+/// Weather-specific encounter flavor text for journal entries.
+/// These lines are added to the encounter log when weather affects encounters.
+pub fn weather_encounter_flavor(weather: Weather) -> &'static str {
+    match weather {
+        Weather::Storm => "The storm drove you into an old pilgrim's shelter. Rain hammered the walls.",
+        Weather::Rain => "Rain fell in silver sheets. Shapes moved in the downpour — friend or foe, you could not tell.",
+        Weather::Fog => "Through the fog, shapes moved just beyond sight. The world shrank to a few paces.",
+        Weather::Whiteout => "The whiteout swallowed everything. You staggered, clutching at shadows for direction.",
+        Weather::Thunderhead => "Thunder growled over the ridgeline. The air crackled with the taste of lightning.",
+        Weather::SeaSquall => "The squall hit like a fist. Salt and spray blinded you until you found the lee of a stone wall.",
+        Weather::Heatwave => "The heat pressed like a hand on your chest. Every step cost twice the breath.",
+        Weather::Snow => "Snow hushed the world. Your footsteps filled behind you, erasing the path as you walked.",
+        Weather::DryLightning => "Lightning split the dry sky. No rain — just fire above and dust below.",
+        Weather::Clear => "The road stretched clear under wide skies. Good travelling weather.",
+        Weather::Cloudy => "Grey clouds blanketed the sky. The light was flat, the air still.",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -722,5 +740,25 @@ mod tests {
             !line.contains("plainly") && !line.contains("half-smile"),
             "earnest+devious conflict should cancel flavor: {line}"
         );
+    }
+
+    #[test]
+    fn weather_encounter_flavor_all_variants() {
+        for w in [
+            Weather::Storm,
+            Weather::Rain,
+            Weather::Fog,
+            Weather::Whiteout,
+            Weather::Thunderhead,
+            Weather::SeaSquall,
+            Weather::Heatwave,
+            Weather::Snow,
+            Weather::DryLightning,
+            Weather::Clear,
+            Weather::Cloudy,
+        ] {
+            let flavor = weather_encounter_flavor(w);
+            assert!(!flavor.is_empty(), "flavor for {:?} must not be empty", w);
+        }
     }
 }
