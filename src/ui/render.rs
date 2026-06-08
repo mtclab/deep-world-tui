@@ -110,10 +110,9 @@ fn draw_status_bar(f: &mut Frame, app: &App) {
     };
     let season = Season::from_day(app.clock.day);
     let season_name = match season {
-        Season::Spring => "Spring",
-        Season::Summer => "Summer",
-        Season::Autumn => "Autumn",
-        Season::Winter => "Winter",
+        Season::Thaw => "Thaw",
+        Season::Green => "Green",
+        Season::Frost => "Frost",
     };
     let day = app.clock.day;
 
