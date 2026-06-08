@@ -2612,6 +2612,21 @@ pub struct Settlement {
     pub services: Vec<SettlementService>,
 }
 
+impl Settlement {
+    pub fn allows_companions(&self) -> bool {
+        matches!(self.size.as_str(), "village" | "town" | "city")
+    }
+
+    pub fn companion_capacity(&self) -> usize {
+        match self.size.as_str() {
+            "village" => 1,
+            "town" => 2,
+            "city" => 3,
+            _ => 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Need {
     Food,
@@ -2973,6 +2988,32 @@ pub struct PlayerStart {
     pub accepted: bool,
     #[serde(default)]
     pub inventory: Inventory,
+    #[serde(default)]
+    pub companions: Vec<Companion>,
+}
+
+impl PlayerStart {
+    pub fn adopt_companion(&mut self, animal: Animal, name: String, tick: u64) {
+        let c = Companion::new(animal, name, tick);
+        self.companions.push(c);
+    }
+
+    pub fn has_companion_kind(&self, kind: Animal) -> bool {
+        self.companions.iter().any(|c| c.animal == kind)
+    }
+
+    pub fn total_carry_bonus(&self) -> u32 {
+        self.companions
+            .iter()
+            .map(|c| c.animal.carry_capacity_bonus())
+            .sum()
+    }
+
+    pub fn has_hound(&self) -> bool {
+        self.companions
+            .iter()
+            .any(|c| matches!(c.animal, Animal::Dog | Animal::Hound))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -3061,9 +3102,12 @@ impl QuestType {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Animal {
     Dog,
+    Hound,
     Horse,
+    Donkey,
     Ox,
     Falcon,
+    Crow,
     Goat,
     CaveLurker,
     RiverEel,
@@ -3079,9 +3123,12 @@ impl Animal {
     pub fn name(self) -> &'static str {
         match self {
             Animal::Dog => "dog",
+            Animal::Hound => "hound",
             Animal::Horse => "horse",
+            Animal::Donkey => "donkey",
             Animal::Ox => "ox",
             Animal::Falcon => "falcon",
+            Animal::Crow => "crow",
             Animal::Goat => "goat",
             Animal::CaveLurker => "cave_lurker",
             Animal::RiverEel => "river_eel",
@@ -3097,9 +3144,12 @@ impl Animal {
     pub fn description(self) -> &'static str {
         match self {
             Animal::Dog => "loyal guardian and keen-nosed gatherer",
+            Animal::Hound => "faithful hound, warns of danger",
             Animal::Horse => "swift mount for distant roads",
+            Animal::Donkey => "sturdy carrier, lightens the load",
             Animal::Ox => "strong back for heavy loads",
             Animal::Falcon => "sharp-eyed scout from the sky",
+            Animal::Crow => "bird of the road, bearer of rumors",
             Animal::Goat => "patient provider of milk",
             Animal::CaveLurker => "silent shadow that knows the deep paths",
             Animal::RiverEel => "slippery hunter of shallows and weirs",
@@ -3114,7 +3164,7 @@ impl Animal {
 
     pub fn gathering_bonus(self) -> f64 {
         match self {
-            Animal::Dog => 0.15,
+            Animal::Dog | Animal::Hound => 0.15,
             _ => 0.0,
         }
     }
@@ -3129,13 +3179,14 @@ impl Animal {
     pub fn carry_capacity_bonus(self) -> u32 {
         match self {
             Animal::Ox => 10,
+            Animal::Donkey => 8,
             _ => 0,
         }
     }
 
     pub fn scouting_bonus(self) -> f64 {
         match self {
-            Animal::Falcon => 0.2,
+            Animal::Falcon | Animal::Crow => 0.2,
             _ => 0.0,
         }
     }
@@ -3151,9 +3202,12 @@ impl Animal {
     pub fn cost(self) -> u32 {
         match self {
             Animal::Dog => 8,
+            Animal::Hound => 10,
             Animal::Horse => 25,
+            Animal::Donkey => 12,
             Animal::Ox => 15,
             Animal::Falcon => 12,
+            Animal::Crow => 5,
             Animal::Goat => 6,
             Animal::CaveLurker => 18,
             Animal::RiverEel => 4,
@@ -3168,9 +3222,8 @@ impl Animal {
 
     pub fn food_per_tick(self) -> u32 {
         match self {
-            Animal::Dog => 1,
-            Animal::Horse => 2,
-            Animal::Ox => 2,
+            Animal::Dog | Animal::Hound | Animal::Crow => 1,
+            Animal::Horse | Animal::Ox | Animal::Donkey => 2,
             Animal::Falcon => 1,
             Animal::Goat => 1,
             Animal::CaveLurker => 1,
@@ -3186,9 +3239,8 @@ impl Animal {
 
     pub fn rest_per_tick(self) -> u32 {
         match self {
-            Animal::Dog => 1,
-            Animal::Horse => 2,
-            Animal::Ox => 2,
+            Animal::Dog | Animal::Hound | Animal::Crow => 1,
+            Animal::Horse | Animal::Ox | Animal::Donkey => 2,
             Animal::Falcon => 1,
             Animal::Goat => 1,
             Animal::CaveLurker => 1,
@@ -4023,6 +4075,7 @@ mod tests {
             ],
             accepted: false,
             inventory: Inventory::default(),
+            companions: vec![],
         };
         roundtrip(&ps);
     }
