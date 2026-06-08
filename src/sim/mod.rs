@@ -5,6 +5,7 @@ use crate::model::{Need, World};
 pub mod collapse_log;
 pub mod effects;
 pub mod illness;
+pub mod migration;
 pub mod needs_dependent;
 pub mod params;
 pub mod relationships;
@@ -129,6 +130,7 @@ pub fn sim_tick(sim: &mut SimState) {
     reputation::spread_reputation(&mut sim.reputation, &sim.world, 1.0);
     sim.relationships.tick_converge(1.0);
     tick_npc_illness(sim, current_tick);
+    migration::tick_migration(sim, current_tick);
 }
 
 fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {
