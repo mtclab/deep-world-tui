@@ -11,6 +11,7 @@ pub struct AppSettings {
     pub llm_model: String,
     pub monochrome: bool,
     pub high_contrast: bool,
+    pub reduced_motion: bool,
     pub language: String,
     pub audio_enabled: bool,
     pub audio_volume: f32,
@@ -24,6 +25,7 @@ impl Default for AppSettings {
             llm_model: "llama3".into(),
             monochrome: false,
             high_contrast: false,
+            reduced_motion: false,
             language: "en".into(),
             audio_enabled: false,
             audio_volume: 0.5,
@@ -73,6 +75,7 @@ mod tests {
             llm_model: "test-model".into(),
             monochrome: true,
             high_contrast: true,
+            reduced_motion: true,
             language: "fi".into(),
             audio_enabled: true,
             audio_volume: 0.42,
@@ -84,6 +87,7 @@ mod tests {
         assert_eq!(s.llm_model, s2.llm_model);
         assert_eq!(s.monochrome, s2.monochrome);
         assert_eq!(s.high_contrast, s2.high_contrast);
+        assert_eq!(s.reduced_motion, s2.reduced_motion);
         assert_eq!(s.language, s2.language);
         assert_eq!(s.audio_enabled, s2.audio_enabled);
         assert!((s.audio_volume - s2.audio_volume).abs() < 1e-6);

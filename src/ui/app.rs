@@ -96,6 +96,7 @@ pub struct App {
     pub llm_model: String,
     pub monochrome: bool,
     pub high_contrast: bool,
+    pub reduced_motion: bool,
     pub language: String,
     pub audio_enabled: bool,
     pub audio_volume: f32,
@@ -108,6 +109,8 @@ pub struct App {
     pub hint_tracker: HintTracker,
     pub milestones: crate::sim::milestones::MilestoneTracker,
     pub elder: bool,
+    pub tick_count: u64,
+    pub flash_frames: u8,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -136,6 +139,7 @@ impl App {
             llm_model: settings.llm_model,
             monochrome: settings.monochrome,
             high_contrast: settings.high_contrast,
+            reduced_motion: settings.reduced_motion,
             language: settings.language,
             audio_enabled: settings.audio_enabled,
             audio_volume: settings.audio_volume,
@@ -149,6 +153,8 @@ impl App {
             hint_tracker: HintTracker::default(),
             milestones: crate::sim::milestones::MilestoneTracker::new(),
             elder: false,
+            tick_count: 0,
+            flash_frames: 0,
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -162,6 +168,7 @@ impl App {
             llm_model: self.llm_model.clone(),
             monochrome: self.monochrome,
             high_contrast: self.high_contrast,
+            reduced_motion: self.reduced_motion,
             language: self.language.clone(),
             audio_enabled: self.audio_enabled,
             audio_volume: self.audio_volume,
@@ -1104,6 +1111,7 @@ impl App {
             self.encounters_had += 1;
             self.fire_hint(hints::HINT_FIRST_ENCOUNTER);
             self.screen = Screen::Encounter;
+            self.trigger_flash();
         }
     }
 
@@ -2836,6 +2844,19 @@ impl App {
         };
         crate::audio::play(event, cfg);
     }
+    pub fn pre_draw(&mut self) {
+        self.tick_count = self.tick_count.wrapping_add(1);
+        if self.flash_frames > 0 {
+            self.flash_frames -= 1;
+        }
+    }
+
+    pub fn trigger_flash(&mut self) {
+        if !self.reduced_motion {
+            self.flash_frames = 3;
+        }
+    }
+
     pub fn handle_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Key(key) => match self.screen {
@@ -3405,6 +3426,15 @@ impl App {
                             "High contrast mode on".into()
                         } else {
                             "Standard contrast mode on".into()
+                        });
+                        self.save_settings();
+                    }
+                    crossterm::event::KeyCode::Char('p') => {
+                        self.reduced_motion = !self.reduced_motion;
+                        self.status_msg = Some(if self.reduced_motion {
+                            "Reduced motion on".into()
+                        } else {
+                            "Animations enabled".into()
                         });
                         self.save_settings();
                     }

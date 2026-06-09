@@ -56,6 +56,7 @@ fn main() -> Result<()> {
 
 fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, app: &mut App) -> Result<()> {
     while app.running {
+        app.pre_draw();
         terminal.draw(|f| deep_world_tui::ui::render::draw(f, app))?;
 
         let timeout = Duration::from_millis(app.tick_interval);
