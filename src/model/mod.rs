@@ -127,6 +127,65 @@ impl TerrainMap {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum QualityTier {
+    #[default]
+    Sturdy,
+    Rough,
+    Fine,
+    Masterwork,
+}
+
+impl QualityTier {
+    pub fn label(self) -> &'static str {
+        match self {
+            QualityTier::Rough => "rough",
+            QualityTier::Sturdy => "sturdy",
+            QualityTier::Fine => "fine",
+            QualityTier::Masterwork => "masterwork",
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            QualityTier::Rough => "Worn and serviceable, but barely.",
+            QualityTier::Sturdy => "Solid work. Dependable enough.",
+            QualityTier::Fine => "Well-crafted. A pleasure to hold.",
+            QualityTier::Masterwork => "Flawless. The maker's skill is unmistakable.",
+        }
+    }
+
+    pub fn gather_multiplier(self) -> f64 {
+        match self {
+            QualityTier::Rough => 0.7,
+            QualityTier::Sturdy => 1.0,
+            QualityTier::Fine => 1.3,
+            QualityTier::Masterwork => 1.6,
+        }
+    }
+
+    pub fn degrade_rate(self) -> f64 {
+        match self {
+            QualityTier::Rough => 0.15,
+            QualityTier::Sturdy => 0.10,
+            QualityTier::Fine => 0.07,
+            QualityTier::Masterwork => 0.04,
+        }
+    }
+
+    pub fn from_durability(dur: f64) -> Self {
+        if dur >= 0.95 {
+            QualityTier::Masterwork
+        } else if dur >= 0.7 {
+            QualityTier::Fine
+        } else if dur >= 0.35 {
+            QualityTier::Sturdy
+        } else {
+            QualityTier::Rough
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ItemType {
     Food,
@@ -301,13 +360,31 @@ impl Inventory {
         }
     }
 
+    pub fn use_tool(&mut self, item: ItemType) {
+        if self.has(item) {
+            let quality = self.quality(item);
+            self.decay(item, quality.degrade_rate());
+        }
+    }
+
+    pub fn quality(&self, item: ItemType) -> QualityTier {
+        QualityTier::from_durability(self.durability(item))
+    }
+
     pub fn repair_cost(&self, item: ItemType) -> u32 {
         let d = self.durability(item);
         if d >= 1.0 {
             return 0;
         }
+        let quality = QualityTier::from_durability(d);
         let base = item.base_price();
-        ((1.0 - d) * base as f64 * 2.0).ceil() as u32
+        let multiplier = match quality {
+            QualityTier::Rough => 1.5,
+            QualityTier::Sturdy => 1.0,
+            QualityTier::Fine => 0.8,
+            QualityTier::Masterwork => 2.0,
+        };
+        ((1.0 - d) * base as f64 * 2.0 * multiplier).ceil() as u32
     }
 
     pub fn repair(&mut self, item: ItemType) -> u32 {
