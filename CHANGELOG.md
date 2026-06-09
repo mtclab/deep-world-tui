@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.3
+
+- **#222 Death scene enrichment** — DeathCause enum (Starvation, Exposure, Exhaustion, Wounds, Unknown) with cause-specific flavor text. Elder death ceremony header. Memorial stats now show settlements visited and quests completed. `settlements_visited`/`quests_completed` counters in MilestoneTracker.
+- **#223 Encounter variety** — 4 rare encounter types (GodShrine, AncientRuin, HermitCamp, TravelingBard) at 3% base chance. 3 seasonal encounters (SpringBloom, HarvestMarket, WinterSurvivor). Settlements excluded from random encounters. `Encounter::roll` now takes `day` param for season.
+
 ## v0.2.2
 
 - **#211 Audio feature-gate stub** — Split `audio` (hound, pure Rust WAV synthesis) from `audio-playback` (rodio, needs ALSA). `cargo build --features audio` works without ALSA.
