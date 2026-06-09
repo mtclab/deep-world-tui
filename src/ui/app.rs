@@ -1172,6 +1172,18 @@ impl App {
             self.fire_hint(hints::HINT_FIRST_ENCOUNTER);
             self.screen = Screen::Encounter;
             self.trigger_flash();
+            if let Some(ref enc) = self.encounter {
+                let sound = match enc.kind {
+                    crate::model::EncounterKind::Storm => crate::audio::SoundEvent::Weather,
+                    crate::model::EncounterKind::Bandit | crate::model::EncounterKind::Wildlife => {
+                        crate::audio::SoundEvent::Combat
+                    }
+                    crate::model::EncounterKind::HarvestMarket
+                    | crate::model::EncounterKind::MerchantCaravan => crate::audio::SoundEvent::Trade,
+                    _ => crate::audio::SoundEvent::UiClick,
+                };
+                self.play_sound(sound);
+            }
         }
     }
 
@@ -2642,6 +2654,7 @@ impl App {
         }
 
         self.fire_hint(hints::HINT_FIRST_REST);
+        self.play_sound(crate::audio::SoundEvent::Ambient);
     }
 
     pub fn clock_str(&self) -> String {
@@ -2942,6 +2955,11 @@ impl App {
     }
 
     pub fn handle_event(&mut self, event: AppEvent) {
+        if let AppEvent::Key(key) = &event {
+            if key.code == crossterm::event::KeyCode::Esc {
+                self.play_sound(crate::audio::SoundEvent::UiCancel);
+            }
+        }
         match event {
             AppEvent::Key(key) => match self.screen {
                 Screen::TitleScreen => match key.code {
