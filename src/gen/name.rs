@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn load_all_six_grammar_files() {
-        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let charts = crate::charts::load_charts().unwrap();
         for people in &["metsik", "arkit", "vayla", "laakso", "sepat", "ahjo"] {
             let grammar = load_grammar(people, &charts);
             assert!(
@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn each_grammar_has_min_roots_and_suffixes() {
-        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let charts = crate::charts::load_charts().unwrap();
         for people in &["metsik", "arkit", "vayla", "laakso", "sepat", "ahjo"] {
             let grammar = load_grammar(people, &charts).unwrap();
             assert!(
@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn generate_deterministic() {
-        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let charts = crate::charts::load_charts().unwrap();
         let mut a = SeedRng::new(42);
         let mut b = SeedRng::new(42);
         for _ in 0..20 {
@@ -128,7 +128,7 @@ mod tests {
 
     #[test]
     fn generate_produces_nontrivial_names() {
-        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let charts = crate::charts::load_charts().unwrap();
         let mut rng = SeedRng::new(77);
         let mut seen = std::collections::HashSet::new();
         for _ in 0..100 {
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn grammar_roundtrip() {
-        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let charts = crate::charts::load_charts().unwrap();
         let grammar = load_grammar("metsik", &charts).unwrap();
         let ser = ron::ser::to_string(&grammar).unwrap();
         let de: NameGrammar = ron::from_str(&ser).unwrap();
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn generated_names_are_capitalized() {
-        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let charts = crate::charts::load_charts().unwrap();
         let mut rng = SeedRng::new(42);
         for _ in 0..50 {
             let name = generate_name(&mut rng, "metsik", "f", &charts).unwrap();
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn within_people_uniqueness() {
-        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let charts = crate::charts::load_charts().unwrap();
         for people in &["metsik", "arkit", "vayla", "laakso", "sepat", "ahjo"] {
             let mut rng = SeedRng::new(42);
             let mut seen = std::collections::HashSet::new();
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn different_peoples_produce_distinct_name_sets() {
-        let charts = crate::charts::load_charts("data/charts.ron").unwrap();
+        let charts = crate::charts::load_charts().unwrap();
         let mut metsik_names = std::collections::HashSet::new();
         let mut rng = SeedRng::new(42);
         for _ in 0..200 {

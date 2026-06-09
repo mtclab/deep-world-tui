@@ -263,11 +263,7 @@ mod tests {
     use crate::model::Inventory;
 
     fn make_regions() -> Vec<Region> {
-        crate::gen::world::generate_world(
-            42,
-            &crate::charts::load_charts("data/charts.ron").unwrap(),
-        )
-        .regions
+        crate::gen::world::generate_world(42, &crate::charts::load_charts().unwrap()).regions
     }
 
     #[test]

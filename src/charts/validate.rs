@@ -151,13 +151,13 @@ mod tests {
 
     #[test]
     fn validate_starter_charts_passes() {
-        let charts = load_charts("data/charts.ron").unwrap();
+        let charts = load_charts().unwrap();
         assert!(validate_charts(&charts).is_ok());
     }
 
     #[test]
     fn validate_catches_unknown_people_condition() {
-        let mut charts = load_charts("data/charts.ron").unwrap();
+        let mut charts = load_charts().unwrap();
         charts.profession.modifiers.push(crate::charts::Modifier {
             when: Condition::People("nonexistent_people".into()),
             mult: HashMap::new(),
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn validate_catches_unknown_modifier_outcome() {
-        let mut charts = load_charts("data/charts.ron").unwrap();
+        let mut charts = load_charts().unwrap();
         let mut mult = HashMap::new();
         mult.insert("nonexistent_prof".into(), 2.0);
         charts.profession.modifiers.push(crate::charts::Modifier {
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn validate_catches_zero_weight() {
-        let mut charts = load_charts("data/charts.ron").unwrap();
+        let mut charts = load_charts().unwrap();
         charts.region.entries.insert("zero_region".into(), 0);
         let errors = validate_charts(&charts).unwrap_err();
         assert!(errors
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn validate_catches_missing_name_grammar() {
-        let mut charts = load_charts("data/charts.ron").unwrap();
+        let mut charts = load_charts().unwrap();
         charts.people.entries.insert("new_people".into(), 10);
         let errors = validate_charts(&charts).unwrap_err();
         assert!(errors
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn validate_starter_charts_no_god_names() {
-        let charts = load_charts("data/charts.ron").unwrap();
+        let charts = load_charts().unwrap();
         let result = validate_charts(&charts);
         if let Err(errors) = &result {
             for e in errors {
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn validate_catches_god_name_in_people() {
-        let mut charts = load_charts("data/charts.ron").unwrap();
+        let mut charts = load_charts().unwrap();
         charts.people.entries.insert("Oltzed".into(), 10);
         charts
             .name_grammars

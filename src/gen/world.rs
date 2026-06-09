@@ -422,7 +422,7 @@ mod tests {
     use crate::charts;
 
     fn make_world(seed: u64) -> World {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         generate_world(seed, &charts)
     }
 
@@ -484,7 +484,7 @@ mod tests {
     #[test]
     fn generate_world_region_types_valid() {
         let world = make_world(42);
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         for region in &world.regions {
             assert!(
                 charts.region.entries.contains_key(&region.region_type),
@@ -497,7 +497,7 @@ mod tests {
     #[test]
     fn generate_world_settlement_sizes_valid() {
         let world = make_world(42);
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         for region in &world.regions {
             for settlement in &region.settlements {
                 assert!(
@@ -549,7 +549,7 @@ mod tests {
     #[test]
     fn generate_world_persons_have_valid_fields() {
         let world = make_world(42);
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         for region in &world.regions {
             for settlement in &region.settlements {
                 for person in &settlement.people {
@@ -733,7 +733,7 @@ mod tests {
 
     #[test]
     fn determinism_world_partial_eq() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let w1 = generate_world(42, &charts);
         let w2 = generate_world(42, &charts);
         assert_eq!(w1, w2, "same-seed worlds must be deeply equal");
@@ -741,7 +741,7 @@ mod tests {
 
     #[test]
     fn determinism_person_partial_eq() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng1 = crate::rng::SeedRng::new(42);
         let mut rng2 = crate::rng::SeedRng::new(42);
         let p1 = crate::gen::person::generate_person(&mut rng1, &charts);
@@ -751,7 +751,7 @@ mod tests {
 
     #[test]
     fn determinism_name_sequence() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng1 = crate::rng::SeedRng::new(77);
         let mut rng2 = crate::rng::SeedRng::new(77);
         for _ in 0..50 {
@@ -763,7 +763,7 @@ mod tests {
 
     #[test]
     fn determinism_after_forking() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let _intermediate = generate_world(42, &charts);
         let w1 = generate_world(99, &charts);
         let w2 = generate_world(99, &charts);
@@ -775,7 +775,7 @@ mod tests {
 
     #[test]
     fn different_seed_produces_different_person() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng1 = crate::rng::SeedRng::new(42);
         let mut rng2 = crate::rng::SeedRng::new(99);
         let p1 = crate::gen::person::generate_person(&mut rng1, &charts);
@@ -788,7 +788,7 @@ mod tests {
 
     #[test]
     fn terrain_map_has_correct_dimensions() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let w = generate_world(42, &charts);
         for region in &w.regions {
             assert_eq!(region.terrain.width, 40, "terrain width must be 40");
@@ -803,7 +803,7 @@ mod tests {
 
     #[test]
     fn terrain_has_settlements_and_roads() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let w = generate_world(42, &charts);
         for region in &w.regions {
             let settle_count = region
@@ -830,7 +830,7 @@ mod tests {
 
     #[test]
     fn terrain_river_valley_has_water() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let w = generate_world(42, &charts);
         for region in &w.regions {
             if region.region_type == "river_valley" {
@@ -847,7 +847,7 @@ mod tests {
 
     #[test]
     fn terrain_deterministic() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let w1 = generate_world(42, &charts);
         let w2 = generate_world(42, &charts);
         for (r1, r2) in w1.regions.iter().zip(w2.regions.iter()) {
@@ -860,7 +860,7 @@ mod tests {
 
     #[test]
     fn world_has_region_grid_cols() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let w = generate_world(42, &charts);
         assert!(w.region_cols > 0, "region_cols must be > 0");
         let rows = w.regions.len().div_ceil(w.region_cols);
@@ -872,7 +872,7 @@ mod tests {
 
     #[test]
     fn region_neighbors_consistent() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let w = generate_world(42, &charts);
         let cols = w.region_cols;
         for (i, region) in w.regions.iter().enumerate() {
@@ -908,7 +908,7 @@ mod tests {
 
     #[test]
     fn edge_regions_have_no_out_of_bounds_neighbors() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let w = generate_world(42, &charts);
         let cols = w.region_cols;
         for (i, region) in w.regions.iter().enumerate() {
@@ -931,7 +931,7 @@ mod tests {
 
     #[test]
     fn seamless_edges_match_neighbors() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let w = generate_world(42, &charts);
         for i in 0..w.regions.len() {
             if let Some(ni) = w.regions[i].neighbors.north {

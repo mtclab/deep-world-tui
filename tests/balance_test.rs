@@ -122,7 +122,7 @@ fn simulate_gather(rng: &mut deep_world_tui::rng::SeedRng) -> Vec<ItemType> {
 
 #[test]
 fn ai_survival_reasonable() {
-    let charts = load_charts("data/charts.ron").expect("charts should load");
+    let charts = load_charts().expect("charts should load");
     let mut survived = 0u32;
     for seed in 1..=15u64 {
         let result = run_seed(seed, &charts);

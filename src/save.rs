@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn save_load_roundtrip() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let sim = SimState::new(42, charts);
         let data = SaveData {
             sim,
@@ -343,7 +343,7 @@ mod tests {
 
     #[test]
     fn compact_save_is_smaller_than_full() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let sim = SimState::new(42, charts);
         let full_data = SaveData {
             sim,
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn restore_from_compact_regenerates_world() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let compact = CompactSave {
             seed: 99,
             player_choices: vec![],
@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn restore_deterministic_from_same_seed() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let compact = CompactSave {
             seed: 77,
             player_choices: vec![],

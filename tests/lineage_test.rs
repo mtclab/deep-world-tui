@@ -10,7 +10,7 @@ use deep_world_tui::sim::milestones::MilestoneTracker;
 use deep_world_tui::sim::SimState;
 
 fn load_charts() -> charts::Charts {
-    charts::load_charts("data/charts.ron").expect("charts should load from data/charts.ron")
+    charts::load_charts().expect("charts should load from data/charts.ron")
 }
 
 #[allow(deprecated)]

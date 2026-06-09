@@ -33,7 +33,7 @@ fn main() -> Result<()> {
             .as_secs()
     });
 
-    let charts = load_charts("data/charts.ron")?;
+    let charts = load_charts()?;
     let mut app = App::new(seed, charts);
 
     enable_raw_mode()?;

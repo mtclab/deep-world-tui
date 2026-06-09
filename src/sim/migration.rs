@@ -411,7 +411,7 @@ mod tests {
     use crate::sim::SimState;
 
     fn make_sim(seed: u64) -> SimState {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         SimState::new(seed, charts)
     }
 

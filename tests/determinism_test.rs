@@ -20,7 +20,7 @@ fn collect_region_names(sim: &SimState) -> Vec<String> {
 
 #[test]
 fn same_seed_produces_identical_world() {
-    let charts = load_charts("data/charts.ron").expect("charts should load");
+    let charts = load_charts().expect("charts should load");
     let seed = 12345u64;
     let mut a = SimState::new(seed, charts.clone());
     let mut b = SimState::new(seed, charts.clone());
@@ -35,7 +35,7 @@ fn same_seed_produces_identical_world() {
 
 #[test]
 fn different_seeds_produce_different_worlds() {
-    let charts = load_charts("data/charts.ron").expect("charts should load");
+    let charts = load_charts().expect("charts should load");
     let a = SimState::new(11111, charts.clone());
     let b = SimState::new(99999, charts.clone());
     assert_ne!(collect_region_names(&a), collect_region_names(&b));
@@ -73,7 +73,7 @@ fn rng_fork_for_same_domain_same_sequence() {
 
 #[test]
 fn replay_100_ticks_deterministic() {
-    let charts = load_charts("data/charts.ron").expect("charts should load");
+    let charts = load_charts().expect("charts should load");
     let seed = 77777u64;
     let mut run1 = SimState::new(seed, charts.clone());
     let mut run2 = SimState::new(seed, charts.clone());

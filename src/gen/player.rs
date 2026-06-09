@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn generate_player_start_populated() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng = SeedRng::new(42);
         let ps = generate_player_start(&mut rng, &charts);
         assert!(!ps.person.id.is_empty());
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn reroll_changes_person() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng = SeedRng::new(42);
         let mut ps = generate_player_start(&mut rng, &charts);
         let _original_name = ps.person.name.clone();
@@ -95,7 +95,7 @@ mod tests {
 
     #[test]
     fn reroll_deterministic() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut a = SeedRng::new(42);
         let mut b = SeedRng::new(42);
         let mut psa = generate_player_start(&mut a, &charts);
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn apply_swap_profession() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng = SeedRng::new(42);
         let mut ps = generate_player_start(&mut rng, &charts);
         ps.apply_adjustment(Adjustment::SwapProfession("trader".into()));
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn apply_set_craft() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng = SeedRng::new(42);
         let mut ps = generate_player_start(&mut rng, &charts);
         ps.apply_adjustment(Adjustment::SetCraft(CraftAffinity::Current));
@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn apply_cut_household_tie() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng = SeedRng::new(42);
         let mut ps = generate_player_start(&mut rng, &charts);
         ps.person.has_spouse = true;

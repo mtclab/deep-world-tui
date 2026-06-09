@@ -13,7 +13,7 @@ use deep_world_tui::voice::Situation;
 /// Full pipeline integration test:
 /// seed → charts → world → player → NPC → sim tick → voice → save/load round-trip
 fn load_charts() -> charts::Charts {
-    charts::load_charts("data/charts.ron").expect("charts should load from data/charts.ron")
+    charts::load_charts().expect("charts should load from data/charts.ron")
 }
 
 #[test]

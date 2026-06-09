@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn generate_person_all_fields_populated() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng = SeedRng::new(42);
         let p = generate_person(&mut rng, &charts);
         assert!(!p.id.is_empty(), "id empty");
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn generate_person_fields_reference_valid_chart_keys() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng = SeedRng::new(42);
         let p = generate_person(&mut rng, &charts);
         assert!(
@@ -300,7 +300,7 @@ mod tests {
 
     #[test]
     fn generate_person_deterministic() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut a = SeedRng::new(42);
         let mut b = SeedRng::new(42);
         let pa = generate_person(&mut a, &charts);
@@ -314,14 +314,14 @@ mod tests {
 
     #[test]
     fn generate_person_no_thread_rng() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng = SeedRng::new(123);
         let _ = generate_person(&mut rng, &charts);
     }
 
     #[test]
     fn generate_multiple_people_deterministic() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut a = SeedRng::new(99);
         let mut b = SeedRng::new(99);
         for _ in 0..10 {
@@ -333,7 +333,7 @@ mod tests {
     }
 
     fn generate_n(n: usize, seed: u64) -> (Vec<Person>, crate::charts::Charts) {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut rng = SeedRng::new(seed);
         let people: Vec<Person> = (0..n).map(|_| generate_person(&mut rng, &charts)).collect();
         (people, charts)

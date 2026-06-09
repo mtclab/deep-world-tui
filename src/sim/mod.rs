@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn tick_needs_food_highest_decay() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut world = generate_world(42, &charts);
         let food_before = world.regions[0].settlements[0].people[0]
             .needs
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn tick_needs_exact_values() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut world = generate_world(42, &charts);
         for region in &mut world.regions {
             for settlement in &mut region.settlements {
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn tick_needs_clamped_at_zero() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut world = generate_world(42, &charts);
         for _ in 0..200 {
             tick_needs(&mut world, 1.0);
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn tick_needs_10_ticks_food_below_half() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut world = generate_world(42, &charts);
         for region in &mut world.regions {
             for settlement in &mut region.settlements {
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn tick_deterministic() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut a = generate_world(42, &charts);
         let mut b = generate_world(42, &charts);
         for _ in 0..5 {
@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn tick_increments_tick_counter() {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         let mut world = generate_world(42, &charts);
         assert_eq!(world.tick, 0);
         tick(&mut world);
@@ -466,7 +466,7 @@ mod tests {
     }
 
     fn make_sim(seed: u64) -> SimState {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         SimState::new(seed, charts)
     }
 
@@ -577,7 +577,7 @@ mod determinism_tests {
     use crate::sim::effects::{Change, Effect};
 
     fn make_sim(seed: u64) -> SimState {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         SimState::new(seed, charts)
     }
 

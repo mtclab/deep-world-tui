@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn sample_deterministic_same_seed() {
-        let charts = load::load_charts("data/charts.ron").unwrap();
+        let charts = load::load_charts().unwrap();
         let mut a = SeedRng::new(42);
         let mut b = SeedRng::new(42);
         for _ in 0..50 {
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn sample_people_distribution_covers_all_keys() {
-        let charts = load::load_charts("data/charts.ron").unwrap();
+        let charts = load::load_charts().unwrap();
         let mut rng = SeedRng::new(77);
         let mut seen = std::collections::HashSet::new();
         for _ in 0..10_000 {
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn sample_people_distribution_sane_ratios() {
-        let charts = load::load_charts("data/charts.ron").unwrap();
+        let charts = load::load_charts().unwrap();
         let mut rng = SeedRng::new(99);
         let mut counts = HashMap::new();
         let n = 10_000usize;
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn resolve_and_sample_deterministic() {
-        let charts = load::load_charts("data/charts.ron").unwrap();
+        let charts = load::load_charts().unwrap();
         let mut a = SeedRng::new(42);
         let mut b = SeedRng::new(42);
         for _ in 0..50 {
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn resolve_modifier_only_matches_context() {
-        let charts = load::load_charts("data/charts.ron").unwrap();
+        let charts = load::load_charts().unwrap();
         let sepat = charts
             .profession
             .resolve("sepat", "river_valley", "low", "hamlet");
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn resolve_and_sample_sepat_boosts_smith() {
-        let charts = load::load_charts("data/charts.ron").unwrap();
+        let charts = load::load_charts().unwrap();
         let n = 10_000usize;
         let mut counts = HashMap::new();
 
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn resolve_and_sample_no_profession_dominance() {
-        let charts = load::load_charts("data/charts.ron").unwrap();
+        let charts = load::load_charts().unwrap();
         let n = 10_000usize;
         let mut rng = SeedRng::new(88);
         let mut counts = HashMap::new();

@@ -46,7 +46,7 @@ mod tests {
 
     #[allow(deprecated)]
     fn make_save(version: u32) -> SaveData {
-        let charts = charts::load_charts("data/charts.ron").unwrap();
+        let charts = charts::load_charts().unwrap();
         SaveData {
             sim: SimState::new(42, charts),
             player_start: None,

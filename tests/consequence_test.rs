@@ -7,7 +7,7 @@ use deep_world_tui::sim::relationships::RelationshipTracker;
 use deep_world_tui::sim::SimState;
 
 fn load_charts() -> charts::Charts {
-    charts::load_charts("data/charts.ron").expect("charts should load")
+    charts::load_charts().expect("charts should load")
 }
 
 #[test]

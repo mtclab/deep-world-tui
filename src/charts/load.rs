@@ -1,11 +1,10 @@
 use crate::charts::Charts;
 use anyhow::Result;
-use std::fs;
 
-/// Load charts from a RON file.
-pub fn load_charts(path: &str) -> Result<Charts> {
-    let content = fs::read_to_string(path)?;
-    let charts: Charts = ron::from_str(&content)?;
+const CHARTS_RON: &str = include_str!("../../data/charts.ron");
+
+pub fn load_charts() -> Result<Charts> {
+    let charts: Charts = ron::from_str(CHARTS_RON)?;
     Ok(charts)
 }
 
@@ -15,7 +14,7 @@ mod tests {
 
     #[test]
     fn load_starter_charts() {
-        let charts = load_charts("data/charts.ron").expect("charts.rons must parse");
+        let charts = load_charts().expect("charts.ron must parse");
         assert!(!charts.people.entries.is_empty());
         assert!(!charts.region.entries.is_empty());
         assert!(charts.people.entries.contains_key("metsik"));
@@ -24,7 +23,7 @@ mod tests {
 
     #[test]
     fn chart_integrity_people_keys() {
-        let charts = load_charts("data/charts.ron").unwrap();
+        let charts = load_charts().unwrap();
         for modifier in &charts.profession.modifiers {
             if let crate::charts::Condition::People(p) = &modifier.when {
                 assert!(
@@ -38,7 +37,7 @@ mod tests {
 
     #[test]
     fn roundtrip_serde() {
-        let original = load_charts("data/charts.ron").unwrap();
+        let original = load_charts().unwrap();
         let ser = ron::ser::to_string_pretty(&original, ron::ser::PrettyConfig::default()).unwrap();
         let roundtripped: Charts = ron::from_str(&ser).unwrap();
         assert_eq!(original.people.entries, roundtripped.people.entries);
@@ -80,7 +79,7 @@ mod tests {
 
     #[test]
     fn all_fields_have_min_two_entries() {
-        let charts = load_charts("data/charts.ron").unwrap();
+        let charts = load_charts().unwrap();
         assert!(
             charts.people.entries.len() >= 2,
             "people has {} entries, need ≥2",

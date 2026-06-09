@@ -11,7 +11,7 @@ fn main() -> anyhow::Result<()> {
         .nth(1)
         .and_then(|s| s.parse().ok())
         .unwrap_or(42);
-    let charts = load_charts("data/charts.ron").expect("Failed to load data/charts.ron");
+    let charts = load_charts().expect("Failed to load data/charts.ron");
     let mut app = App::new(seed, charts);
     app.generate_player();
     app.accept_player();
