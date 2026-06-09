@@ -2281,6 +2281,7 @@ pub enum EncounterKind {
     SpringBloom,
     HarvestMarket,
     WinterSurvivor,
+    MerchantCaravan,
 }
 
 impl EncounterKind {
@@ -2297,6 +2298,7 @@ impl EncounterKind {
             EncounterKind::SpringBloom => "The thaw has come. Flowers push through the last frost, and the air tastes of renewal.",
             EncounterKind::HarvestMarket => "A market sprawls across the square — traders, food, noise, color, life.",
             EncounterKind::WinterSurvivor => "A huddled figure in the snow. They hold out a hand, half-frozen, half-hoping.",
+            EncounterKind::MerchantCaravan => "Wagons rumble past on the trade road. Merchants call out their wares and wave you closer.",
         }
     }
 
@@ -2320,6 +2322,7 @@ impl EncounterKind {
             EncounterKind::SpringBloom
                 | EncounterKind::HarvestMarket
                 | EncounterKind::WinterSurvivor
+                | EncounterKind::MerchantCaravan
         )
     }
 
@@ -2344,6 +2347,7 @@ impl EncounterKind {
             EncounterKind::SpringBloom => vec![EncounterAction::Talk, EncounterAction::Calm],
             EncounterKind::HarvestMarket => vec![EncounterAction::Trade, EncounterAction::Talk],
             EncounterKind::WinterSurvivor => vec![EncounterAction::Calm, EncounterAction::Trade],
+            EncounterKind::MerchantCaravan => vec![EncounterAction::Trade, EncounterAction::Talk],
         }
     }
 }
@@ -2503,6 +2507,22 @@ impl Encounter {
                 });
             }
             _ => {}
+        }
+
+        // Merchant caravans on roads, season-dependent
+        let caravan_val = (hash.wrapping_mul(65537)) % 100;
+        if matches!(terrain, Terrain::Road | Terrain::Grass | Terrain::Coast) {
+            let caravan_chance: u32 = match season {
+                Season::Green => 10,
+                Season::Thaw => 7,
+                Season::Frost => 4,
+            };
+            if caravan_val < caravan_chance as u64 {
+                return Some(Encounter {
+                    kind: EncounterKind::MerchantCaravan,
+                    terrain,
+                });
+            }
         }
 
         let (mut threshold, mut kind): (u32, EncounterKind) = match terrain {
@@ -2878,6 +2898,106 @@ impl Settlement {
             "city" => 3,
             _ => 0,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TradeEventType {
+    CaravanArrival,
+    MarketDay,
+    Shortage,
+    Surplus,
+}
+
+impl TradeEventType {
+    pub fn flavor(self) -> &'static str {
+        match self {
+            TradeEventType::CaravanArrival => "Wagons roll in from distant roads. New goods appear on the shelves.",
+            TradeEventType::MarketDay => "The square fills with stalls and shouting vendors. Prices shift with the crowd.",
+            TradeEventType::Shortage => "The shelves grow thin. What remains costs more.",
+            TradeEventType::Surplus => "Bountiful goods line every corner. Prices ease.",
+        }
+    }
+
+    pub fn price_modifier(self) -> f64 {
+        match self {
+            TradeEventType::CaravanArrival => 0.85,
+            TradeEventType::MarketDay => 0.9,
+            TradeEventType::Shortage => 1.3,
+            TradeEventType::Surplus => 0.75,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradeEvent {
+    pub kind: TradeEventType,
+    pub settlement_id: String,
+    pub day: u32,
+    pub duration_days: u32,
+}
+
+impl TradeEvent {
+    pub fn is_active(&self, current_day: u32) -> bool {
+        current_day >= self.day && current_day < self.day + self.duration_days
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TradeRouteState {
+    pub events: Vec<TradeEvent>,
+}
+
+impl TradeRouteState {
+    pub fn generate_seasonal(&mut self, day: u32, settlement_ids: &[String]) {
+        let season = Season::from_day(day);
+        let events = match season {
+            Season::Thaw => vec![
+                (TradeEventType::CaravanArrival, 0.12),
+                (TradeEventType::MarketDay, 0.08),
+            ],
+            Season::Green => vec![
+                (TradeEventType::CaravanArrival, 0.15),
+                (TradeEventType::Surplus, 0.10),
+                (TradeEventType::MarketDay, 0.12),
+            ],
+            Season::Frost => vec![
+                (TradeEventType::Shortage, 0.15),
+                (TradeEventType::CaravanArrival, 0.06),
+            ],
+        };
+        for sid in settlement_ids {
+            for (kind, chance) in &events {
+                let seed_hash = (day as u64)
+                    .wrapping_mul(0x517cc1b727220a95)
+                    .wrapping_add(sid.bytes().fold(0u64, |a, b| a.wrapping_add(b as u64)));
+                let roll = (seed_hash >> 32) as f64 / u32::MAX as f64;
+                if roll < *chance {
+                    self.events.push(TradeEvent {
+                        kind: *kind,
+                        settlement_id: sid.clone(),
+                        day,
+                        duration_days: match kind {
+                            TradeEventType::CaravanArrival => 3,
+                            TradeEventType::MarketDay => 2,
+                            TradeEventType::Shortage => 5,
+                            TradeEventType::Surplus => 4,
+                        },
+                    });
+                }
+            }
+        }
+        self.events.retain(|e| e.day + e.duration_days > day.saturating_sub(7));
+    }
+
+    pub fn price_modifier_for(&self, settlement_id: &str, day: u32) -> f64 {
+        let mut mod_stack = 1.0;
+        for event in &self.events {
+            if event.settlement_id == settlement_id && event.is_active(day) {
+                mod_stack *= event.kind.price_modifier();
+            }
+        }
+        mod_stack
     }
 }
 
@@ -5770,5 +5890,60 @@ mod death_cause_test {
         assert!(!DeathCause::Exhaustion.flavor().is_empty());
         assert!(!DeathCause::Wounds.flavor().is_empty());
         assert!(!DeathCause::Unknown.flavor().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod trade_route_test {
+    use super::*;
+
+    #[test]
+    fn trade_event_is_active() {
+        let event = TradeEvent {
+            kind: TradeEventType::CaravanArrival,
+            settlement_id: "s1".into(),
+            day: 10,
+            duration_days: 3,
+        };
+        assert!(event.is_active(10));
+        assert!(event.is_active(12));
+        assert!(!event.is_active(13));
+        assert!(!event.is_active(9));
+    }
+
+    #[test]
+    fn trade_event_price_modifiers() {
+        assert!(TradeEventType::CaravanArrival.price_modifier() < 1.0);
+        assert!(TradeEventType::MarketDay.price_modifier() < 1.0);
+        assert!(TradeEventType::Shortage.price_modifier() > 1.0);
+        assert!(TradeEventType::Surplus.price_modifier() < 1.0);
+    }
+
+    #[test]
+    fn trade_route_state_modifiers() {
+        let mut state = TradeRouteState::default();
+        state.events.push(TradeEvent {
+            kind: TradeEventType::CaravanArrival,
+            settlement_id: "s1".into(),
+            day: 5,
+            duration_days: 3,
+        });
+        assert!(state.price_modifier_for("s1", 5) < 1.0);
+        assert!((state.price_modifier_for("s1", 8) - 1.0).abs() < f64::EPSILON);
+        assert!((state.price_modifier_for("s2", 5) - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn trade_route_seasonal_generation_cleans_old() {
+        let mut state = TradeRouteState::default();
+        state.generate_seasonal(100, &[]);
+        assert!(state.events.iter().all(|e| e.day >= 93));
+    }
+
+    #[test]
+    fn encounter_kind_merchant_caravan_not_hostile() {
+        assert!(!EncounterKind::MerchantCaravan.is_hostile());
+        assert!(!EncounterKind::MerchantCaravan.is_rare());
+        assert!(EncounterKind::MerchantCaravan.is_seasonal());
     }
 }

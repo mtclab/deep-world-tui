@@ -2899,6 +2899,7 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
             crate::model::EncounterKind::SpringBloom => "❀ Spring Bloom",
             crate::model::EncounterKind::HarvestMarket => "🏪 Harvest Market",
             crate::model::EncounterKind::WinterSurvivor => "❄ Winter Survivor",
+            crate::model::EncounterKind::MerchantCaravan => "🐪 Merchant Caravan",
         };
         lines.push(Line::from(Span::styled(
             format!("  Kind: {}", kind_str),

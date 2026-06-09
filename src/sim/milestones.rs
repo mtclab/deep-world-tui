@@ -16,6 +16,51 @@ pub enum MilestoneKind {
     FirstDeath,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum CampaignArc {
+    Stranger,
+    Settled,
+    Known,
+    Elder,
+    Legend,
+}
+
+impl CampaignArc {
+    pub fn from_milestones(tracker: &MilestoneTracker) -> Self {
+        if tracker.has(MilestoneKind::ElderAchieved) && tracker.settlements_visited >= 5 {
+            CampaignArc::Legend
+        } else if tracker.has(MilestoneKind::ElderAchieved) {
+            CampaignArc::Elder
+        } else if tracker.has(MilestoneKind::FirstQuestCompleted) {
+            CampaignArc::Known
+        } else if tracker.has(MilestoneKind::FirstSettlement) {
+            CampaignArc::Settled
+        } else {
+            CampaignArc::Stranger
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            CampaignArc::Stranger => "Stranger",
+            CampaignArc::Settled => "Settled",
+            CampaignArc::Known => "Known",
+            CampaignArc::Elder => "Elder",
+            CampaignArc::Legend => "Legend",
+        }
+    }
+
+    pub fn arc_text(self) -> &'static str {
+        match self {
+            CampaignArc::Stranger => "The world does not know you yet. Every path is untrodden.",
+            CampaignArc::Settled => "You have found a place. Now it begins to matter what you do here.",
+            CampaignArc::Known => "Your name carries weight. Choices have consequences beyond yourself.",
+            CampaignArc::Elder => "Time has worn you wise. The young seek your counsel.",
+            CampaignArc::Legend => "Your story is told around fires you will never see. You are legend.",
+        }
+    }
+}
+
 impl MilestoneKind {
     pub fn journal_text(self) -> String {
         match self {
@@ -90,51 +135,6 @@ impl MilestoneKind {
         match self {
             MilestoneKind::PeopleEnding { .. } => crate::sim::journal::Voice::Dream,
             _ => crate::sim::journal::Voice::Travel,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum CampaignArc {
-    Stranger,
-    Settled,
-    Known,
-    Elder,
-    Legend,
-}
-
-impl CampaignArc {
-    pub fn from_milestones(tracker: &MilestoneTracker) -> Self {
-        if tracker.has(MilestoneKind::ElderAchieved) && tracker.settlements_visited >= 5 {
-            CampaignArc::Legend
-        } else if tracker.has(MilestoneKind::ElderAchieved) {
-            CampaignArc::Elder
-        } else if tracker.has(MilestoneKind::FirstQuestCompleted) {
-            CampaignArc::Known
-        } else if tracker.has(MilestoneKind::FirstSettlement) {
-            CampaignArc::Settled
-        } else {
-            CampaignArc::Stranger
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            CampaignArc::Stranger => "Stranger",
-            CampaignArc::Settled => "Settled",
-            CampaignArc::Known => "Known",
-            CampaignArc::Elder => "Elder",
-            CampaignArc::Legend => "Legend",
-        }
-    }
-
-    pub fn arc_text(self) -> &'static str {
-        match self {
-            CampaignArc::Stranger => "The world does not know you yet. Every path is untrodden.",
-            CampaignArc::Settled => "You have found a place. Now it begins to matter what you do here.",
-            CampaignArc::Known => "Your name carries weight. Choices have consequences beyond yourself.",
-            CampaignArc::Elder => "Time has worn you wise. The young seek your counsel.",
-            CampaignArc::Legend => "Your story is told around fires you will never see. You are legend.",
         }
     }
 }
