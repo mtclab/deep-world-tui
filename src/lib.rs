@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod charts;
+pub mod config;
 pub mod gen;
 pub mod llm;
 pub mod model;
