@@ -27,6 +27,7 @@ audio = ["rodio", "hound"]
 [dependencies.reqwest]
 version = "0.12"
 optional = true
+default-features = false
 features = ["json", "blocking", "rustls-tls"]
 
 [dependencies.serde_json]

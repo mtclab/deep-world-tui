@@ -18,7 +18,7 @@ pub fn narrate(_person: &Person, _prompt: &str) -> Option<String> {
     #[cfg(feature = "llm")]
     {
         crate::llm::call_ollama("http://localhost:11434", "deep-world", _prompt, 30)
-            .map(crate::llm::strip_numbers)
+            .map(|s| crate::llm::strip_numbers(&s))
     }
     #[cfg(not(feature = "llm"))]
     {
@@ -139,7 +139,7 @@ pub fn call_ollama(endpoint: &str, model: &str, prompt: &str, timeout_secs: u64)
 
 #[cfg(feature = "llm")]
 pub fn narrate_with_llm(endpoint: &str, model: &str, context: &str) -> Option<String> {
-    call_ollama(endpoint, model, context, 30).map(strip_numbers)
+    call_ollama(endpoint, model, context, 30).map(|s| strip_numbers(&s))
 }
 
 #[cfg(test)]
