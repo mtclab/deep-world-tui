@@ -119,6 +119,10 @@ pub struct App {
 impl App {
     pub fn new(seed: u64, charts: Charts) -> Self {
         let settings = crate::ui::AppSettings::load();
+        let user_config = crate::config::load();
+        let monochrome = settings.monochrome || user_config.display.monochrome;
+        let high_contrast = settings.high_contrast || user_config.display.high_contrast;
+        let reduced_motion = settings.reduced_motion || user_config.display.reduced_motion;
         let player_rng = SeedRng::new(seed);
         App {
             sim: None,
@@ -137,9 +141,9 @@ impl App {
             llm_enabled: settings.llm_enabled,
             llm_endpoint: settings.llm_endpoint,
             llm_model: settings.llm_model,
-            monochrome: settings.monochrome,
-            high_contrast: settings.high_contrast,
-            reduced_motion: settings.reduced_motion,
+            monochrome,
+            high_contrast,
+            reduced_motion,
             language: settings.language,
             audio_enabled: settings.audio_enabled,
             audio_volume: settings.audio_volume,

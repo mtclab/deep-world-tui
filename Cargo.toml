@@ -18,6 +18,8 @@ ron = "0.10"
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 indexmap = { version = "2", features = ["serde"] }
+toml = "0.8"
+dirs = "6"
 
 [features]
 default = []
