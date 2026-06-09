@@ -6,6 +6,7 @@ use crate::model::{GameClock, GodAffinity, InterPeopleBias, PlayerPos, PlayerSta
 use crate::save_migrations::CURRENT_SAVE_VERSION;
 use crate::sim::collapse_log::CollapseEvent;
 use crate::sim::hints::HintTracker;
+use crate::sim::milestones::MilestoneTracker;
 use crate::sim::SimState;
 
 const SAVES_DIR: &str = "saves";
@@ -33,6 +34,7 @@ pub struct LineageRecord {
     pub tick: u64,
 }
 
+#[allow(dead_code)]
 fn current_save_version() -> u32 {
     CURRENT_SAVE_VERSION
 }
@@ -56,7 +58,9 @@ pub struct SaveData {
     pub collapse_log: Vec<CollapseEvent>,
     #[serde(default)]
     pub lineage: Vec<LineageRecord>,
-    #[serde(default = "current_save_version")]
+    #[serde(default)]
+    pub milestones: MilestoneTracker,
+    #[serde(default)]
     pub version: u32,
     #[serde(default = "default_true")]
     pub first_run: bool,
@@ -232,6 +236,7 @@ pub fn restore_from_compact(
         collapses_had: 0,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
+        milestones: MilestoneTracker::new(),
         version: CURRENT_SAVE_VERSION,
         first_run: true,
         hint_tracker: HintTracker::default(),
@@ -260,6 +265,7 @@ mod tests {
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
+            milestones: MilestoneTracker::new(),
             version: CURRENT_SAVE_VERSION,
             first_run: true,
             hint_tracker: HintTracker::default(),
@@ -344,6 +350,7 @@ mod tests {
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
+            milestones: MilestoneTracker::new(),
             version: CURRENT_SAVE_VERSION,
             first_run: true,
             hint_tracker: HintTracker::default(),

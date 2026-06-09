@@ -10,8 +10,10 @@ pub mod hints;
 pub mod illness;
 pub mod journal;
 pub mod migration;
+pub mod milestones;
 pub mod needs_dependent;
 pub mod params;
+pub mod quest_gen;
 pub mod relationships;
 pub mod reputation;
 pub mod rest;
@@ -71,6 +73,8 @@ pub struct SimState {
     #[serde(default)]
     pub quests: Vec<crate::model::Quest>,
     #[serde(default)]
+    pub aided_npcs: Vec<String>,
+    #[serde(default)]
     pub discoveries: crate::model::DiscoveryStore,
     #[serde(default)]
     pub memorials: Vec<crate::model::memorial::Memorial>,
@@ -106,6 +110,7 @@ impl SimState {
             params: SimParams::default(),
             npc_memories: indexmap::IndexMap::new(),
             quests: Vec::new(),
+            aided_npcs: Vec::new(),
             discoveries,
             memorials: vec![],
             structures: Vec::new(),

@@ -7,6 +7,7 @@ use deep_world_tui::model::{
 use deep_world_tui::save::{self, SaveData};
 use deep_world_tui::save_migrations::CURRENT_SAVE_VERSION;
 use deep_world_tui::sim::SimState;
+use deep_world_tui::sim::milestones::MilestoneTracker;
 
 fn load_charts() -> charts::Charts {
     charts::load_charts("data/charts.ron").expect("charts should load")
@@ -26,6 +27,7 @@ fn make_save(version: u32) -> SaveData {
         collapses_had: 0,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
+        milestones: MilestoneTracker::new(),
         version,
         first_run: true,
         hint_tracker: HintTracker::default(),
@@ -87,6 +89,7 @@ fn roundtrip_preserves_all_fields() {
         collapses_had: 2,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
+        milestones: MilestoneTracker::new(),
         version: CURRENT_SAVE_VERSION,
         first_run: true,
         hint_tracker: HintTracker::default(),

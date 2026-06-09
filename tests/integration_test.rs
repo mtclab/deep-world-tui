@@ -113,6 +113,7 @@ fn full_pipeline_seed_generate_enter_talk() {
         collapses_had: 0,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
+        milestones: deep_world_tui::sim::milestones::MilestoneTracker::new(),
         version: CURRENT_SAVE_VERSION,
         first_run: true,
         hint_tracker: HintTracker::default(),

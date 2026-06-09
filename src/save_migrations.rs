@@ -1,11 +1,16 @@
 use crate::save::SaveData;
 
-pub const CURRENT_SAVE_VERSION: u32 = 1;
+pub const CURRENT_SAVE_VERSION: u32 = 2;
 
 fn migrate_v0_to_v1(data: &mut SaveData) {
     data.collapse_log = std::mem::take(&mut data.collapse_log);
     data.lineage = std::mem::take(&mut data.lineage);
     data.version = 1;
+}
+
+fn migrate_v1_to_v2(data: &mut SaveData) {
+    data.milestones = crate::sim::milestones::MilestoneTracker::new();
+    data.version = 2;
 }
 
 pub fn migrate(data: &mut SaveData) -> Result<(), String> {
@@ -18,8 +23,7 @@ pub fn migrate(data: &mut SaveData) -> Result<(), String> {
     while data.version < CURRENT_SAVE_VERSION {
         match data.version {
             0 => migrate_v0_to_v1(data),
-            // Future migrations go here:
-            // 1 => migrate_v1_to_v2(data),
+            1 => migrate_v1_to_v2(data),
             v => return Err(format!("Unknown migration step from v{}", v)),
         }
     }
@@ -47,6 +51,7 @@ mod tests {
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
+            milestones: crate::sim::milestones::MilestoneTracker::new(),
             version,
             first_run: true,
             hint_tracker: crate::sim::hints::HintTracker::default(),

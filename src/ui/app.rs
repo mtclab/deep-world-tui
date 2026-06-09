@@ -106,6 +106,8 @@ pub struct App {
     pub save_entries: Vec<crate::save::SaveEntry>,
     pub first_run: bool,
     pub hint_tracker: HintTracker,
+    pub milestones: crate::sim::milestones::MilestoneTracker,
+    pub elder: bool,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -145,6 +147,8 @@ impl App {
             save_entries: Vec::new(),
             first_run: true,
             hint_tracker: HintTracker::default(),
+            milestones: crate::sim::milestones::MilestoneTracker::new(),
+            elder: false,
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -184,9 +188,19 @@ impl App {
     pub fn accept_player(&mut self) {
         if let Some(mut ps) = self.player_start.take() {
             ps.accepted = true;
-            self.player_start = Some(ps);
+            let pk = PeopleKind::from_name(&ps.person.people);
+            self.inter_people_bias = InterPeopleBias::new(pk);
             let sim = SimState::new(self.seed, self.charts.clone());
             self.sim = Some(sim);
+            if let Some(ref mut sim) = self.sim {
+                let quests = crate::sim::quest_gen::generate_initial_quests(
+                    self.seed,
+                    pk,
+                    &sim.world.regions,
+                );
+                sim.quests = quests;
+            }
+            self.player_start = Some(ps);
             self.screen = Screen::World;
         }
     }
@@ -350,6 +364,7 @@ impl App {
                 collapses_had: self.collapses_had,
                 collapse_log: self.collapse_log.clone(),
                 lineage: self.lineage.clone(),
+                milestones: self.milestones.clone(),
                 version: save_migrations::CURRENT_SAVE_VERSION,
                 first_run: self.first_run,
                 hint_tracker: self.hint_tracker.clone(),
@@ -378,6 +393,8 @@ impl App {
                 self.collapse_log = data.collapse_log;
                 self.lineage = data.lineage;
                 self.hint_tracker = data.hint_tracker;
+                self.milestones = data.milestones;
+                self.elder = self.milestones.has(crate::sim::milestones::MilestoneKind::ElderAchieved);
                 if last_collapse_died {
                     self.continue_as_npc();
                 } else {
@@ -507,6 +524,7 @@ impl App {
                 if let Some(god) = PeopleKind::from_name(&person.people).patron_god() {
                     self.god_affinity.adjust(god, 0.01);
                 }
+                self.check_quests_on_aid(&person_id);
             }
         }
     }
@@ -598,6 +616,7 @@ impl App {
                 if let Some(god) = PeopleKind::from_name(&person.people).patron_god() {
                     self.god_affinity.adjust(god, 0.01);
                 }
+                self.check_quests_on_aid(&person_id);
             }
         }
     }
@@ -743,6 +762,7 @@ impl App {
             self.advance_clock_hour();
             self.fire_hint(hints::HINT_FIRST_GATHER);
             self.play_sound(crate::audio::SoundEvent::Gather);
+            self.check_quests_on_gather();
             let msg = format!("Gathered {} {} (1h, {})", count, item.name(), season);
             self.status_msg = Some(if let Some(b) = boon_msg {
                 format!("{}. {}", msg, b)
@@ -1034,6 +1054,8 @@ impl App {
             }
             self.status_msg = Some(event.flavor(a, b));
         }
+        self.check_milestones();
+        self.check_quests_on_tick();
         self.check_collapse();
     }
 
@@ -1103,6 +1125,131 @@ impl App {
                 }
             }
         }
+    }
+
+    fn check_quests_on_tick(&mut self) {
+        let current_day = self.clock.day;
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+
+        let inventory = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.clone())
+            .unwrap_or_default();
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let current_settlement_id = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                let region = sim.world.regions.get(pos.region_idx)?;
+                region.settlements.first().map(|s| s.id.clone())
+            })
+            .unwrap_or_default();
+        let local_rep = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                sim.reputation
+                    .get_entry(&player_id, &current_settlement_id)
+                    .map(|e| e.reputation.local)
+            })
+            .unwrap_or(0.5);
+        let aided_npcs = self
+            .sim
+            .as_ref()
+            .map(|s| s.aided_npcs.clone())
+            .unwrap_or_default();
+
+        let quest_snapshot = self
+            .sim
+            .as_ref()
+            .map(|s| s.quests.clone())
+            .unwrap_or_default();
+
+        let result = crate::sim::quest_gen::check_quests(
+            &quest_snapshot,
+            &inventory,
+            region_idx,
+            &aided_npcs,
+            local_rep,
+            current_day,
+        );
+
+        if result.completed.is_empty() && result.expired.is_empty() {
+            return;
+        }
+
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+
+        if let Some(ref mut sim) = self.sim {
+            for _ in &result.completed {
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Travel,
+                    "I did what was asked. The world shifts, just a little.".into(),
+                );
+            }
+            for _ in &result.expired {
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Travel,
+                    "What was asked of me fades. The moment has passed.".into(),
+                );
+            }
+
+            for &idx in &result.completed {
+                if let Some(quest) = quest_snapshot.get(idx) {
+                    if let Some(ref mut ps) = self.player_start {
+                        crate::sim::quest_gen::apply_quest_reward(
+                            &quest.reward,
+                            &mut ps.inventory,
+                            &mut sim.reputation,
+                            &player_id,
+                            &current_settlement_id,
+                        );
+                    }
+                }
+            }
+
+            let mut to_remove: Vec<usize> = result.completed;
+            to_remove.extend(&result.expired);
+            to_remove.sort_unstable();
+            to_remove.dedup();
+            to_remove.sort_unstable_by(|a, b| b.cmp(a));
+            for &idx in &to_remove {
+                if idx < sim.quests.len() {
+                    sim.quests.remove(idx);
+                }
+            }
+        }
+    }
+
+    fn check_quests_on_travel(&mut self, region_idx: usize) {
+        let _ = region_idx;
+        self.check_quests_on_tick();
+    }
+
+    fn check_quests_on_gather(&mut self) {
+        self.check_quests_on_tick();
+    }
+
+    fn check_quests_on_aid(&mut self, npc_id: &str) {
+        if let Some(ref mut sim) = self.sim {
+            if !sim.aided_npcs.contains(&npc_id.to_string()) {
+                sim.aided_npcs.push(npc_id.to_string());
+            }
+        }
+        self.check_quests_on_tick();
+    }
+
+    #[allow(dead_code)]
+    fn check_quests_apply_result(&mut self, _result: crate::sim::quest_gen::QuestCheckResult) {
+        self.check_quests_on_tick();
     }
 
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
@@ -1590,6 +1737,88 @@ impl App {
         self.screen = Screen::Map { region_idx, px, py };
     }
 
+    pub fn check_milestones(&mut self) {
+        use crate::sim::milestones::{MilestoneKind, core_peoples, faction_key};
+
+        let day = self.clock.day;
+        let fired = self.milestones.check_day_milestones(day);
+        for kind in &fired {
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(tick, kind.voice(), kind.journal_text());
+            }
+        }
+
+        if !self.elder && self.milestones.check_elder(day) {
+            self.elder = true;
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(tick, MilestoneKind::ElderAchieved.voice(), MilestoneKind::ElderAchieved.journal_text());
+            }
+        }
+
+        let has_player_structure = self.sim.as_ref().is_some_and(|sim| {
+            sim.structures.iter().any(|s| !s.is_npc_built)
+        });
+        if has_player_structure && !self.milestones.has(MilestoneKind::FirstStructureBuilt) {
+            self.milestones.record(MilestoneKind::FirstStructureBuilt, day);
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(tick, MilestoneKind::FirstStructureBuilt.voice(), MilestoneKind::FirstStructureBuilt.journal_text());
+            }
+        }
+
+        if let Some(ref ps) = self.player_start {
+            if !ps.companions.is_empty() && !self.milestones.has(MilestoneKind::FirstCompanionAdopted) {
+                self.milestones.record(MilestoneKind::FirstCompanionAdopted, day);
+                if let Some(ref mut sim) = self.sim {
+                    let tick = sim.world.tick;
+                    sim.log(tick, MilestoneKind::FirstCompanionAdopted.voice(), MilestoneKind::FirstCompanionAdopted.journal_text());
+                }
+            }
+        }
+
+        let people_endings_to_fire: Vec<PeopleKind> = {
+            let player_id = match self.player_start {
+                Some(ref ps) => ps.person.id.clone(),
+                None => String::new(),
+            };
+            if player_id.is_empty() {
+                Vec::new()
+            } else if let Some(ref sim) = self.sim {
+                core_peoples().iter()
+                    .copied()
+                    .filter(|&people| {
+                        let kind = MilestoneKind::PeopleEnding { people };
+                        if self.milestones.has(kind) {
+                            return false;
+                        }
+                        let fk = faction_key(people);
+                        let total: f64 = sim.reputation.entries.values()
+                            .filter(|e| e.person_id == player_id)
+                            .map(|e| e.reputation.by_faction.get(fk).copied().unwrap_or(0.5))
+                            .sum::<f64>();
+                        let count = sim.reputation.entries.values()
+                            .filter(|e| e.person_id == player_id)
+                            .count();
+                        count > 0 && total / count as f64 >= 0.9
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        };
+
+        for people in people_endings_to_fire {
+            let kind = MilestoneKind::PeopleEnding { people };
+            self.milestones.record(kind, day);
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(tick, kind.voice(), kind.journal_text());
+            }
+        }
+    }
+
     pub fn check_collapse(&mut self) {
         if self.vitals.hunger > 0.0 && self.vitals.energy > 0.0 {
             return;
@@ -1729,6 +1958,7 @@ impl App {
                     collapses_had: self.collapses_had,
                     collapse_log: self.collapse_log.clone(),
                     lineage: self.lineage.clone(),
+                    milestones: self.milestones.clone(),
                     version: save_migrations::CURRENT_SAVE_VERSION,
                     first_run: self.first_run,
                     hint_tracker: self.hint_tracker.clone(),
@@ -2354,6 +2584,7 @@ impl App {
                 self.check_encounter(terrain);
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
+                self.check_quests_on_travel(region_idx);
                 if self.encounter.is_none() {
                     self.screen = Screen::Map { region_idx, px, py };
                 }

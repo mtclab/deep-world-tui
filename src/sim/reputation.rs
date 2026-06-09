@@ -63,6 +63,15 @@ impl ReputationStore {
             .unwrap_or(BASELINE)
     }
 
+    pub fn get_entry(&self, person_id: &str, settlement: &str) -> Option<&ReputationEntry> {
+        let key = reputation_key(person_id, settlement);
+        self.entries.get(&key)
+    }
+
+    pub fn adjust_settlement(&mut self, person_id: &str, settlement: &str, delta: f64) {
+        self.adjust_local(person_id, settlement, delta);
+    }
+
     pub fn get_with_faction(&self, person_id: &str, settlement: &str, faction: &str) -> f64 {
         let key = reputation_key(person_id, settlement);
         self.entries

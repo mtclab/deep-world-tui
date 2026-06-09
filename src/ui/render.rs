@@ -1347,7 +1347,7 @@ fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
 
     let mut lines: Vec<Line> = Vec::new();
     if let Some(ref sim) = app.sim {
-        if sim.journal.is_empty() {
+        if sim.journal.is_empty() && sim.quests.is_empty() {
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
                 " The Archive holds no records yet.",
@@ -1377,6 +1377,25 @@ fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
                     ),
                     Span::styled(entry.text.clone(), Style::default().fg(color)),
                 ]));
+            }
+            if !sim.quests.is_empty() {
+                lines.push(Line::from(""));
+                lines.push(Line::from(Span::styled(
+                    " What weighs on me:",
+                    Style::default()
+                        .fg(theme.archive_red())
+                        .add_modifier(Modifier::BOLD),
+                )));
+                for quest in &sim.quests {
+                    lines.push(Line::from(Span::styled(
+                        format!(" {}", quest.description),
+                        Style::default().fg(theme.warm_brown()),
+                    )));
+                    lines.push(Line::from(Span::styled(
+                        format!("   {}", quest.progress_hint()),
+                        Style::default().fg(theme.dark_brown()),
+                    )));
+                }
             }
         }
     }
@@ -2981,6 +3000,8 @@ fn draw_collapse_screen(f: &mut Frame, app: &App) {
 }
 
 fn draw_game_over_screen(f: &mut Frame, app: &App) {
+    use crate::sim::milestones::{legacy_summary, faction_key};
+
     let theme = Theme {
         monochrome: app.monochrome,
     };
@@ -3052,6 +3073,67 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
             ),
             Style::default().fg(theme.dark_brown()),
         )));
+    }
+
+    let structures_built = app.sim.as_ref().map_or(0, |s| {
+        s.structures.iter().filter(|st| !st.is_npc_built).count()
+    });
+    let has_companion = app.player_start.as_ref().is_some_and(|ps| !ps.companions.is_empty());
+    let sim_ref = app.sim.as_ref();
+    let player_id = app.player_start.as_ref().map(|ps| ps.person.id.clone());
+    let legacy_lines = legacy_summary(
+        &app.milestones,
+        structures_built,
+        has_companion,
+        |people: crate::model::PeopleKind| {
+            let fk = faction_key(people);
+            let pid = match &player_id {
+                Some(id) => id.as_str(),
+                None => return 0.5,
+            };
+            let sim = match &sim_ref {
+                Some(s) => s,
+                None => return 0.5,
+            };
+            let total: f64 = sim.reputation.entries.values()
+                .filter(|e| e.person_id == pid)
+                .map(|e| e.reputation.by_faction.get(fk).copied().unwrap_or(0.5))
+                .sum::<f64>();
+            let count = sim.reputation.entries.values()
+                .filter(|e| e.person_id == pid)
+                .count();
+            if count > 0 { total / count as f64 } else { 0.5 }
+        },
+    );
+    if !legacy_lines.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  Legacy:",
+            Style::default()
+                .fg(theme.ink())
+                .add_modifier(Modifier::BOLD),
+        )));
+        for ll in &legacy_lines {
+            lines.push(Line::from(Span::styled(
+                format!("  {}", ll),
+                Style::default().fg(theme.dark_brown()),
+            )));
+        }
+    }
+    if !legacy_lines.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  Legacy:",
+            Style::default()
+                .fg(theme.ink())
+                .add_modifier(Modifier::BOLD),
+        )));
+        for ll in &legacy_lines {
+            lines.push(Line::from(Span::styled(
+                format!("  {}", ll),
+                Style::default().fg(theme.dark_brown()),
+            )));
+        }
     }
 
     let para = Paragraph::new(lines).style(Style::default().bg(theme.paper()));
