@@ -1059,6 +1059,28 @@ impl App {
             self.status_msg = Some(event.flavor(a, b));
         }
         self.check_milestones();
+        if self.elder {
+            let elder_settlement_id = self
+                .sim
+                .as_ref()
+                .and_then(|s| {
+                    let pos = self.player_pos?;
+                    let region = s.world.regions.get(pos.region_idx)?;
+                    region.settlements.first().map(|s| s.id.clone())
+                })
+                .unwrap_or_default();
+            let elder_player_id = self
+                .player_start
+                .as_ref()
+                .map(|ps| ps.person.id.clone())
+                .unwrap_or_default();
+            if let Some(ref mut sim) = self.sim {
+                if !elder_player_id.is_empty() && !elder_settlement_id.is_empty() {
+                    sim.reputation
+                        .adjust_settlement(&elder_player_id, &elder_settlement_id, 0.005);
+                }
+            }
+        }
         self.check_quests_on_tick();
         self.check_collapse();
     }
@@ -1494,7 +1516,8 @@ impl App {
                 0.0
             }
         });
-        let talk_success = people_bias_mod + trust_bonus > -0.20;
+        let elder_talk_bonus = if self.elder { 0.10 } else { 0.0 };
+        let talk_success = people_bias_mod + trust_bonus + elder_talk_bonus > -0.20;
         let trade_bonus = people_bias_mod + trust_bonus > 0.05;
         let msg = match action {
             EncounterAction::Flee => {
@@ -1539,6 +1562,8 @@ impl App {
             EncounterAction::Talk => {
                 if !talk_success {
                     "They turned away coldly. No wisdom shared.".into()
+                } else if self.elder && enc_mod.talk + elder_talk_bonus > 0.08 {
+                    "An elder speaks. Even the hostile listen. Wisdom flows freely.".into()
                 } else if enc_mod.talk > 0.03 {
                     "The traveler warmed to you quickly. Wisdom flows freely.".into()
                 } else if enc_mod.talk < -0.02 {

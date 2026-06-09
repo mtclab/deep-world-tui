@@ -448,6 +448,36 @@ pub fn voice_line_situation_biased(
     }
 }
 
+#[cfg(feature = "llm")]
+pub fn voice_line_maybe_llm(
+    person: &Person,
+    situation: Situation,
+    player_people: PeopleKind,
+    llm_enabled: bool,
+    llm_endpoint: &str,
+    llm_model: &str,
+) -> String {
+    let template = voice_line_situation_biased(person, situation, player_people);
+    if !llm_enabled {
+        return template;
+    }
+    let context =
+        crate::llm::build_flavor_context(situation, "", "", &player_people.name().to_lowercase());
+    llm_voice_line(llm_endpoint, llm_model, &context).unwrap_or(template)
+}
+
+#[cfg(not(feature = "llm"))]
+pub fn voice_line_maybe_llm(
+    person: &Person,
+    situation: Situation,
+    player_people: PeopleKind,
+    _llm_enabled: bool,
+    _llm_endpoint: &str,
+    _llm_model: &str,
+) -> String {
+    voice_line_situation_biased(person, situation, player_people)
+}
+
 /// Weather-specific encounter flavor text for journal entries.
 /// These lines are added to the encounter log when weather affects encounters.
 pub fn weather_encounter_flavor(weather: Weather) -> &'static str {
