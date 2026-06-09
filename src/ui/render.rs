@@ -21,7 +21,10 @@ fn need_bar(val: f64, width: usize) -> String {
 const STATUS_HEIGHT: u16 = 3;
 
 pub fn draw(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let area = f.area();
     f.render_widget(
         Block::default().style(Style::default().bg(theme.paper())),
@@ -102,7 +105,10 @@ pub fn draw(f: &mut Frame, app: &App) {
 }
 
 fn draw_status_bar(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let area = f.area();
     let status_top = area.height.saturating_sub(STATUS_HEIGHT);
     let status_area = Rect {
@@ -201,7 +207,10 @@ fn draw_status_bar(f: &mut Frame, app: &App) {
 }
 
 fn draw_title_screen(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -279,7 +288,10 @@ fn draw_title_screen(f: &mut Frame, app: &App) {
 }
 
 fn draw_save_browser_screen(f: &mut Frame, app: &App, scroll: u16, delete_confirm: Option<usize>) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -402,7 +414,10 @@ fn draw_save_browser_screen(f: &mut Frame, app: &App, scroll: u16, delete_confir
 }
 
 fn draw_character_creation(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -562,7 +577,10 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
 }
 
 fn draw_world_screen(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -753,7 +771,10 @@ fn draw_location_screen(
     settlement_idx: usize,
     scroll: u16,
 ) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1063,7 +1084,10 @@ fn draw_npc_screen(
     person_idx: usize,
     scroll: u16,
 ) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1310,7 +1334,10 @@ fn draw_npc_screen(
 }
 
 fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1411,7 +1438,10 @@ fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
 }
 
 fn draw_encounter_log_screen(f: &mut Frame, app: &App, scroll: u16) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1505,7 +1535,10 @@ fn draw_talk_screen(
     person_idx: usize,
     scroll: u16,
 ) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1681,7 +1714,10 @@ fn draw_talk_screen(
 }
 
 fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -1805,7 +1841,10 @@ fn terrain_color_at(terrain: Terrain, dark: bool) -> Color {
 }
 
 fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: usize) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2078,7 +2117,10 @@ fn region_type_glyph(region_type: &str) -> char {
 }
 
 fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2288,7 +2330,10 @@ fn draw_overmap_screen(f: &mut Frame, app: &App, current_region: usize) {
 }
 
 fn draw_inventory_screen(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2525,7 +2570,10 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
 }
 
 fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2620,7 +2668,10 @@ fn draw_craft_screen(f: &mut Frame, app: &App, scroll: u16) {
 }
 
 fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2739,7 +2790,10 @@ fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
 }
 
 fn draw_encounter_screen(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2853,7 +2907,10 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
 }
 
 fn draw_collapse_screen(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2970,7 +3027,10 @@ fn draw_collapse_screen(f: &mut Frame, app: &App) {
 fn draw_game_over_screen(f: &mut Frame, app: &App) {
     use crate::sim::milestones::{faction_key, legacy_summary};
 
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -3124,7 +3184,10 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
 }
 
 fn draw_help_screen(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let area = f.area();
     let text = vec![
         Line::from(Span::styled(
@@ -3200,7 +3263,10 @@ fn draw_help_screen(f: &mut Frame, app: &App) {
 }
 
 fn draw_settings_screen(f: &mut Frame, app: &App) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let area = f.area();
     let llm_status = if app.llm_enabled {
         "ON  (persona prompts from LLM)"
@@ -3247,7 +3313,10 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
-        Line::from(format!("   Status: {}", if app.high_contrast { "on" } else { "off" })),
+        Line::from(format!(
+            "   Status: {}",
+            if app.high_contrast { "on" } else { "off" }
+        )),
         Line::from("   [h] Toggle high contrast mode"),
         Line::from(""),
         Line::from(Span::styled(
@@ -3287,7 +3356,10 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
 }
 
 pub fn render_minimap(f: &mut Frame, app: &App, area: Rect) {
-    let theme = Theme { monochrome: app.monochrome, high_contrast: app.high_contrast };
+    let theme = Theme {
+        monochrome: app.monochrome,
+        high_contrast: app.high_contrast,
+    };
     let region = match app.sim.as_ref().and_then(|s| s.world.regions.first()) {
         Some(r) => r,
         None => return,
@@ -3454,7 +3526,10 @@ mod minimap_tests {
 
     #[test]
     fn terrain_glyphs_distinct() {
-        let theme = Theme { monochrome: false, high_contrast: false };
+        let theme = Theme {
+            monochrome: false,
+            high_contrast: false,
+        };
         let grass = glyph_color(Terrain::Grass, &theme);
         let water = glyph_color(Terrain::Water, &theme);
         let mountain = glyph_color(Terrain::Mountain, &theme);
@@ -3466,14 +3541,20 @@ mod minimap_tests {
 
     #[test]
     fn dominant_people_color_falls_back_to_red() {
-        let theme = Theme { monochrome: false, high_contrast: false };
+        let theme = Theme {
+            monochrome: false,
+            high_contrast: false,
+        };
         let color = dominant_people_color(&[], &theme);
         assert_eq!(color, theme.archive_red());
     }
 
     #[test]
     fn dominant_people_color_picks_majority() {
-        let theme = Theme { monochrome: false, high_contrast: false };
+        let theme = Theme {
+            monochrome: false,
+            high_contrast: false,
+        };
         let settlements = vec![Settlement {
             id: "a".into(),
             name: "A".into(),
@@ -3494,7 +3575,10 @@ mod minimap_tests {
 
     #[test]
     fn dominant_people_color_handles_unknown_people() {
-        let theme = Theme { monochrome: false, high_contrast: false };
+        let theme = Theme {
+            monochrome: false,
+            high_contrast: false,
+        };
         let settlements = vec![Settlement {
             id: "a".into(),
             name: "A".into(),

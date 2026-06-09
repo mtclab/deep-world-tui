@@ -134,9 +134,9 @@ impl App {
             llm_enabled: settings.llm_enabled,
             llm_endpoint: settings.llm_endpoint,
             llm_model: settings.llm_model,
-             monochrome: settings.monochrome,
-             high_contrast: settings.high_contrast,
-             language: settings.language,
+            monochrome: settings.monochrome,
+            high_contrast: settings.high_contrast,
+            language: settings.language,
             audio_enabled: settings.audio_enabled,
             audio_volume: settings.audio_volume,
             previous_screen: None,
@@ -145,8 +145,8 @@ impl App {
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
-             save_entries: Vec::new(),
-             hint_tracker: HintTracker::default(),
+            save_entries: Vec::new(),
+            hint_tracker: HintTracker::default(),
             milestones: crate::sim::milestones::MilestoneTracker::new(),
             elder: false,
             seed,
@@ -160,9 +160,9 @@ impl App {
             llm_enabled: self.llm_enabled,
             llm_endpoint: self.llm_endpoint.clone(),
             llm_model: self.llm_model.clone(),
-             monochrome: self.monochrome,
-             high_contrast: self.high_contrast,
-             language: self.language.clone(),
+            monochrome: self.monochrome,
+            high_contrast: self.high_contrast,
+            language: self.language.clone(),
             audio_enabled: self.audio_enabled,
             audio_volume: self.audio_volume,
         };
@@ -367,9 +367,9 @@ impl App {
                 collapse_log: self.collapse_log.clone(),
                 lineage: self.lineage.clone(),
                 milestones: self.milestones.clone(),
-                 version: save_migrations::CURRENT_SAVE_VERSION,
-                 first_run: false,
-                 hint_tracker: self.hint_tracker.clone(),
+                version: save_migrations::CURRENT_SAVE_VERSION,
+                first_run: false,
+                hint_tracker: self.hint_tracker.clone(),
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -380,9 +380,9 @@ impl App {
 
     pub fn load_game(&mut self) {
         match save::load_game("save.ron") {
-             Ok(data) => {
-                 let last_collapse_died = data.collapse_log.last().map(|c| c.died).unwrap_or(false);
-                 self.sim = Some(data.sim);
+            Ok(data) => {
+                let last_collapse_died = data.collapse_log.last().map(|c| c.died).unwrap_or(false);
+                self.sim = Some(data.sim);
                 self.player_start = data.player_start;
                 self.clock = data.clock;
                 self.vitals = data.vitals;
