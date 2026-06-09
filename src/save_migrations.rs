@@ -13,6 +13,13 @@ fn migrate_v1_to_v2(data: &mut SaveData) {
     data.version = 2;
 }
 
+#[allow(dead_code)]
+fn migrate_v2_to_v3(data: &mut SaveData) {
+    // Future: add new fields here when v3 format is defined.
+    // All new fields must use #[serde(default)] in SaveData.
+    data.version = 3;
+}
+
 pub fn migrate(data: &mut SaveData) -> Result<(), String> {
     if data.version > CURRENT_SAVE_VERSION {
         return Err(format!(
@@ -67,6 +74,13 @@ mod tests {
     }
 
     #[test]
+    fn v1_migrates_to_current() {
+        let mut data = make_save(1);
+        migrate(&mut data).unwrap();
+        assert_eq!(data.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
     fn current_version_is_noop() {
         let mut data = make_save(CURRENT_SAVE_VERSION);
         migrate(&mut data).unwrap();
@@ -78,5 +92,36 @@ mod tests {
         let mut data = make_save(999);
         let err = migrate(&mut data).unwrap_err();
         assert!(err.contains("newer version"));
+    }
+
+    #[test]
+    fn v2_roundtrip_through_ron() {
+        let data = make_save(CURRENT_SAVE_VERSION);
+        let ron_str = ron::ser::to_string_pretty(&data, ron::ser::PrettyConfig::default()).unwrap();
+        let mut loaded: SaveData = ron::from_str(&ron_str).unwrap();
+        assert_eq!(loaded.version, CURRENT_SAVE_VERSION);
+        migrate(&mut loaded).unwrap();
+        assert_eq!(loaded.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn v2_fixture_loads_and_migrates() {
+        #[allow(deprecated)]
+        let data = make_save(2);
+        let ron_str = ron::ser::to_string_pretty(&data, ron::ser::PrettyConfig::default()).unwrap();
+        let mut loaded: SaveData = ron::from_str(&ron_str).unwrap();
+        migrate(&mut loaded).unwrap();
+        assert_eq!(loaded.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn migration_preserves_data() {
+        let mut data = make_save(0);
+        data.encounters_had = 7;
+        data.collapses_had = 3;
+        migrate(&mut data).unwrap();
+        assert_eq!(data.version, CURRENT_SAVE_VERSION);
+        assert_eq!(data.encounters_had, 7);
+        assert_eq!(data.collapses_had, 3);
     }
 }

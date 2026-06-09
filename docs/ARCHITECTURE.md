@@ -64,6 +64,16 @@ tests/               // cargo tests (headless): determinism, distributions, sim 
 or a full serde snapshot. Single-player, local file. Deterministic regen from seed
 means saves can be small.
 
+### Save Versioning Policy
+
+- `CURRENT_SAVE_VERSION` in `save_migrations.rs` tracks the format version.
+- Every field addition to `SaveData` **must** use `#[serde(default)]` so old
+  saves deserialize without error.
+- Add a `migrate_vN_to_vN+1()` function for each version bump; register it in
+  the `match` in `migrate()`.
+- Saves from newer versions are rejected at load time with a clear error message.
+- Test every migration step: v0→v1, v1→v2, … and vN round-trip through RON.
+
 ## Test strategy (gate — see AGENTS.md)
 
 - `cargo build` clean, `cargo clippy -- -D warnings`, `cargo fmt --check`.
