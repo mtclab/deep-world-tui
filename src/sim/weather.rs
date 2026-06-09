@@ -2,6 +2,23 @@ use crate::model::{Terrain, Weather};
 
 const BASE_MINUTES_PER_KM: u32 = 30;
 
+/// Weather travel-time multiplier (1.0 = clear, higher = slower).
+pub fn travel_hours_multiplier(weather: Weather) -> f64 {
+    match weather {
+        Weather::Clear => 1.0,
+        Weather::Cloudy => 1.0,
+        Weather::Rain => 1.3,
+        Weather::Storm => 1.8,
+        Weather::Snow => 1.6,
+        Weather::Fog => 1.1,
+        Weather::Heatwave => 1.2,
+        Weather::Whiteout => 2.5,
+        Weather::Thunderhead => 1.5,
+        Weather::DryLightning => 1.1,
+        Weather::SeaSquall => 2.0,
+    }
+}
+
 /// Compute travel time in minutes for a given distance, weather, and terrain.
 ///
 /// Returns 0 if forced shelter is triggered (no progress made).
@@ -486,6 +503,26 @@ mod tests {
         assert!(forced_shelter(Weather::SeaSquall, 0.29));
         assert!(!forced_shelter(Weather::SeaSquall, 0.30));
         assert!(!forced_shelter(Weather::SeaSquall, 0.31));
+    }
+
+    #[test]
+    fn travel_hours_multiplier_ranges() {
+        assert_eq!(travel_hours_multiplier(Weather::Clear), 1.0);
+        assert_eq!(travel_hours_multiplier(Weather::Cloudy), 1.0);
+        assert!(travel_hours_multiplier(Weather::Rain) > 1.0);
+        assert!(travel_hours_multiplier(Weather::Storm) > 1.5);
+        assert!(travel_hours_multiplier(Weather::Whiteout) > 2.0);
+        assert!(travel_hours_multiplier(Weather::SeaSquall) > 1.5);
+        let all = [
+            Weather::Clear, Weather::Cloudy, Weather::Rain, Weather::Storm,
+            Weather::Snow, Weather::Fog, Weather::Heatwave, Weather::Whiteout,
+            Weather::Thunderhead, Weather::DryLightning, Weather::SeaSquall,
+        ];
+        for w in &all {
+            let m = travel_hours_multiplier(*w);
+            assert!(m >= 1.0, "{:?} multiplier {} < 1.0", w, m);
+            assert!(m <= 3.0, "{:?} multiplier {} > 3.0", w, m);
+        }
     }
 
     #[test]

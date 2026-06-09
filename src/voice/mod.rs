@@ -493,7 +493,7 @@ mod tests {
             schedule: NpcSchedule::default(),
             illnesses: Vec::new(),
             relations: vec![],
-        wants: vec![],
+            wants: vec![],
         }
     }
 

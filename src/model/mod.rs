@@ -559,7 +559,19 @@ impl Weather {
         let roll = rng.gen_range(1000);
 
         // Regional bias
-        let (clear_w, cloudy_w, rain_w, storm_w, snow_w, fog_w, heat_w, whiteout_w, thunder_w, dryltn_w, sqall_w) = match terrain {
+        let (
+            clear_w,
+            cloudy_w,
+            rain_w,
+            storm_w,
+            snow_w,
+            fog_w,
+            heat_w,
+            whiteout_w,
+            thunder_w,
+            dryltn_w,
+            sqall_w,
+        ) = match terrain {
             Terrain::Coast => (120, 200, 180, 80, 30, 150, 40, 10, 40, 20, 130),
             Terrain::Mountain => (160, 180, 120, 120, 120, 80, 30, 60, 60, 30, 10),
             Terrain::Forest => (120, 240, 220, 80, 40, 80, 40, 10, 40, 20, 10),
@@ -569,7 +581,17 @@ impl Weather {
             _ => (160, 200, 160, 80, 80, 80, 40, 20, 30, 20, 20),
         };
 
-        let total = clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w + whiteout_w + thunder_w + dryltn_w + sqall_w;
+        let total = clear_w
+            + cloudy_w
+            + rain_w
+            + storm_w
+            + snow_w
+            + fog_w
+            + heat_w
+            + whiteout_w
+            + thunder_w
+            + dryltn_w
+            + sqall_w;
         let roll = roll % total;
 
         if roll < clear_w {
@@ -586,11 +608,34 @@ impl Weather {
             Weather::Fog
         } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w {
             Weather::Heatwave
-        } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w + whiteout_w {
+        } else if roll
+            < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w + whiteout_w
+        {
             Weather::Whiteout
-        } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w + whiteout_w + thunder_w {
+        } else if roll
+            < clear_w
+                + cloudy_w
+                + rain_w
+                + storm_w
+                + snow_w
+                + fog_w
+                + heat_w
+                + whiteout_w
+                + thunder_w
+        {
             Weather::Thunderhead
-        } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w + whiteout_w + thunder_w + dryltn_w {
+        } else if roll
+            < clear_w
+                + cloudy_w
+                + rain_w
+                + storm_w
+                + snow_w
+                + fog_w
+                + heat_w
+                + whiteout_w
+                + thunder_w
+                + dryltn_w
+        {
             Weather::DryLightning
         } else {
             Weather::SeaSquall
@@ -2435,7 +2480,11 @@ impl World {
 
     pub fn tick_npc_wants(&mut self, current_tick: u64, ticks_per_day: u64) {
         let day = (current_tick / ticks_per_day.max(1)) as u32;
-        let season = if day == 0 { Season::Thaw } else { Season::from_day(day) };
+        let season = if day == 0 {
+            Season::Thaw
+        } else {
+            Season::from_day(day)
+        };
         let is_frost = matches!(season, Season::Frost);
         for region in &mut self.regions {
             for settlement in &mut region.settlements {
@@ -3903,7 +3952,7 @@ mod tests {
             schedule: NpcSchedule::default(),
             illnesses: Vec::new(),
             relations: vec![],
-        wants: vec![],
+            wants: vec![],
         };
         roundtrip(&person);
     }
@@ -4274,13 +4323,19 @@ mod tests {
     fn item_type_gather() {
         assert_eq!(ItemType::gather_from(Terrain::Grass), Some(ItemType::Herb));
         assert_eq!(ItemType::gather_from(Terrain::Forest), Some(ItemType::Wood));
-        assert_eq!(ItemType::gather_from(Terrain::Mountain), Some(ItemType::Stone));
+        assert_eq!(
+            ItemType::gather_from(Terrain::Mountain),
+            Some(ItemType::Stone)
+        );
         assert_eq!(
             ItemType::gather_from(Terrain::Settlement),
             Some(ItemType::Coin)
         );
         assert_eq!(ItemType::gather_from(Terrain::Water), Some(ItemType::Water));
-        assert_eq!(ItemType::gather_from(Terrain::Swamp), Some(ItemType::Branches));
+        assert_eq!(
+            ItemType::gather_from(Terrain::Swamp),
+            Some(ItemType::Branches)
+        );
         assert_eq!(ItemType::gather_from(Terrain::Sand), Some(ItemType::Tinder));
     }
 
@@ -4448,7 +4503,7 @@ mod tests {
         };
         assert_eq!(hungry.hunger_label(), "hungry");
         assert_eq!(hungry.thirst_label(), "thirsty");
-         assert_eq!(hungry.energy_label(), "tired");
+        assert_eq!(hungry.energy_label(), "tired");
     }
 
     #[test]
@@ -5289,8 +5344,14 @@ mod tests {
     fn weather_generate_produces_all_variants() {
         use std::collections::HashSet;
         let terrains = [
-            Terrain::Grass, Terrain::Coast, Terrain::Mountain, Terrain::Forest,
-            Terrain::Swamp, Terrain::DeepDesert, Terrain::Sand, Terrain::Tundra,
+            Terrain::Grass,
+            Terrain::Coast,
+            Terrain::Mountain,
+            Terrain::Forest,
+            Terrain::Swamp,
+            Terrain::DeepDesert,
+            Terrain::Sand,
+            Terrain::Tundra,
             Terrain::Road,
         ];
         let mut seen: HashSet<Weather> = HashSet::new();
@@ -5306,10 +5367,21 @@ mod tests {
             }
         }
         let missing: Vec<_> = [
-            Weather::Clear, Weather::Cloudy, Weather::Rain, Weather::Storm,
-            Weather::Snow, Weather::Fog, Weather::Heatwave, Weather::Whiteout,
-            Weather::Thunderhead, Weather::DryLightning, Weather::SeaSquall,
-        ].into_iter().filter(|w| !seen.contains(w)).collect();
+            Weather::Clear,
+            Weather::Cloudy,
+            Weather::Rain,
+            Weather::Storm,
+            Weather::Snow,
+            Weather::Fog,
+            Weather::Heatwave,
+            Weather::Whiteout,
+            Weather::Thunderhead,
+            Weather::DryLightning,
+            Weather::SeaSquall,
+        ]
+        .into_iter()
+        .filter(|w| !seen.contains(w))
+        .collect();
         panic!("Weather::generate never produced: {:?}", missing);
     }
 

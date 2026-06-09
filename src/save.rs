@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
 use crate::model::{GameClock, GodAffinity, InterPeopleBias, PlayerPos, PlayerStart, PlayerVitals};
 use crate::save_migrations::CURRENT_SAVE_VERSION;
@@ -103,12 +104,86 @@ pub fn save_lineage(data: &SaveData, seed: u64) -> Result<(), String> {
 }
 
 pub fn load_game(filename: &str) -> Result<SaveData, String> {
+    load_game_file(filename)
+}
+
+pub fn load_game_file(filename: &str) -> Result<SaveData, String> {
     let path = sanitize_save_path(filename)?;
     let contents = fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
     let mut data: SaveData =
         ron::from_str(&contents).map_err(|e| format!("Failed to deserialize: {}", e))?;
     crate::save_migrations::migrate(&mut data)?;
     Ok(data)
+}
+
+#[derive(Debug, Clone)]
+pub struct SaveEntry {
+    pub filename: String,
+    pub character_name: Option<String>,
+    pub people: Option<String>,
+    pub day: u32,
+    pub timestamp: Option<u64>,
+}
+
+pub fn saves_dir_list() -> Vec<SaveEntry> {
+    let dir = Path::new(SAVES_DIR);
+    if !dir.exists() {
+        return Vec::new();
+    }
+    let mut entries: Vec<SaveEntry> = Vec::new();
+    let Ok(files) = fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    for file in files.flatten() {
+        let path = file.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("ron") {
+            continue;
+        }
+        let filename = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+        let mtime = file
+            .metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+        match load_game_file(&filename) {
+            Ok(data) => {
+                let name = data.player_start.as_ref().map(|ps| ps.person.name.clone());
+                let people = data
+                    .player_start
+                    .as_ref()
+                    .map(|ps| ps.person.people.to_string());
+                let day = data.clock.day;
+                entries.push(SaveEntry {
+                    filename,
+                    character_name: name,
+                    people,
+                    day,
+                    timestamp: mtime,
+                });
+            }
+            Err(_) => {
+                entries.push(SaveEntry {
+                    filename,
+                    character_name: None,
+                    people: None,
+                    day: 0,
+                    timestamp: mtime,
+                });
+            }
+        }
+    }
+    entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp));
+    entries
+}
+
+pub fn delete_save(filename: &str) -> Result<(), String> {
+    let path = sanitize_save_path(filename)?;
+    fs::remove_file(&path).map_err(|e| format!("Failed to delete save: {}", e))
 }
 
 pub fn save_compact(data: &CompactSave, filename: &str) -> Result<(), String> {
@@ -328,7 +403,10 @@ mod tests {
         let result = sanitize_save_path("../../etc/passwd");
         assert!(result.is_err(), "path traversal with .. should be blocked");
         let result2 = sanitize_save_path("../secret.key");
-        assert!(result2.is_err(), "parent directory traversal should be blocked");
+        assert!(
+            result2.is_err(),
+            "parent directory traversal should be blocked"
+        );
         let result3 = sanitize_save_path("/etc/shadow");
         assert!(result3.is_err(), "absolute path should be blocked");
         let ok = sanitize_save_path("my_save.ron");
