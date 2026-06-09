@@ -95,6 +95,7 @@ pub struct App {
     pub llm_endpoint: String,
     pub llm_model: String,
     pub monochrome: bool,
+    pub high_contrast: bool,
     pub language: String,
     pub audio_enabled: bool,
     pub audio_volume: f32,
@@ -133,8 +134,9 @@ impl App {
             llm_enabled: settings.llm_enabled,
             llm_endpoint: settings.llm_endpoint,
             llm_model: settings.llm_model,
-            monochrome: settings.monochrome,
-            language: settings.language,
+             monochrome: settings.monochrome,
+             high_contrast: settings.high_contrast,
+             language: settings.language,
             audio_enabled: settings.audio_enabled,
             audio_volume: settings.audio_volume,
             previous_screen: None,
@@ -158,8 +160,9 @@ impl App {
             llm_enabled: self.llm_enabled,
             llm_endpoint: self.llm_endpoint.clone(),
             llm_model: self.llm_model.clone(),
-            monochrome: self.monochrome,
-            language: self.language.clone(),
+             monochrome: self.monochrome,
+             high_contrast: self.high_contrast,
+             language: self.language.clone(),
             audio_enabled: self.audio_enabled,
             audio_volume: self.audio_volume,
         };
@@ -3393,6 +3396,15 @@ impl App {
                             "Monochrome mode on".into()
                         } else {
                             "Full color mode on".into()
+                        });
+                        self.save_settings();
+                    }
+                    crossterm::event::KeyCode::Char('h') => {
+                        self.high_contrast = !self.high_contrast;
+                        self.status_msg = Some(if self.high_contrast {
+                            "High contrast mode on".into()
+                        } else {
+                            "Standard contrast mode on".into()
                         });
                         self.save_settings();
                     }
