@@ -1428,6 +1428,36 @@ impl PeopleKind {
         }
     }
 
+    pub fn name(self) -> &'static str {
+        match self {
+            PeopleKind::Metsik => "Metsik",
+            PeopleKind::Arkit => "Arkit",
+            PeopleKind::Vayla => "Väylä",
+            PeopleKind::Laakso => "Laakso",
+            PeopleKind::Sepat => "Sepät",
+            PeopleKind::Ahjo => "Ahjo",
+            PeopleKind::Varhaiset => "Varhaiset",
+            PeopleKind::Metsareunat => "Metsäreunat",
+            PeopleKind::Porokansa => "Porokansa",
+            PeopleKind::Koskimetsa => "Koskimetsä",
+            PeopleKind::Muistikansa => "Muistikansa",
+            PeopleKind::Taulukansa => "Taulukansa",
+            PeopleKind::Kirjakansa => "Kirjakansa",
+            PeopleKind::Takovaki => "Takoväki",
+            PeopleKind::Rantavaki => "Rantaväki",
+            PeopleKind::Saarivaki => "Saariväki",
+            PeopleKind::Hiekkakavelijat => "Hiekkakävelijät",
+            PeopleKind::Haramaki => "Härämäki",
+            PeopleKind::Jamavaki => "Jämäväki",
+            PeopleKind::Pohjavaki => "Pohjaväki",
+            PeopleKind::Tzakhar => "Tzäkhar",
+            PeopleKind::Merak => "Mëräk",
+            PeopleKind::Shear => "She'ar",
+            PeopleKind::Hal => "Häl",
+            PeopleKind::Khor => "Khör",
+        }
+    }
+
     pub fn patron_god(self) -> Option<GodName> {
         match self {
             PeopleKind::Metsik => Some(GodName::Keuru),
