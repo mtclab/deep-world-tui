@@ -3091,10 +3091,22 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
     ])
     .split(f.area());
 
+    let is_elder = app
+        .milestones
+        .has(crate::sim::milestones::MilestoneKind::ElderAchieved);
+    let header_text = if is_elder {
+        " A life fulfilled"
+    } else {
+        " You have perished"
+    };
     let header = Paragraph::new(Line::from(vec![Span::styled(
-        " You have perished",
+        header_text,
         Style::default()
-            .fg(theme.archive_red())
+            .fg(if is_elder {
+                theme.warm_brown()
+            } else {
+                theme.archive_red()
+            })
             .add_modifier(Modifier::BOLD),
     )]))
     .block(Block::default().borders(Borders::BOTTOM));
@@ -3110,10 +3122,17 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         )));
         lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(
-            "  But this time, you did not wake.",
-            Style::default().fg(theme.need_color(0.0)),
-        )));
+        if is_elder {
+            lines.push(Line::from(Span::styled(
+                "  A long journey reaches its end. The world remembers.",
+                Style::default().fg(theme.warm_brown()),
+            )));
+        } else {
+            lines.push(Line::from(Span::styled(
+                "  But this time, you did not wake.",
+                Style::default().fg(theme.need_color(0.0)),
+            )));
+        }
         if let Some(god) = collapse.rescued_by {
             lines.push(Line::from(Span::styled(
                 format!("  Even {} could not reach you this time.", god.label()),
@@ -3121,12 +3140,23 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
             )));
         }
     }
+    if let Some(cause) = app.death_cause {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            format!("  {}", cause.flavor()),
+            Style::default()
+                .fg(theme.dark_brown())
+                .add_modifier(Modifier::ITALIC),
+        )));
+    }
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         "  The world continues without you.",
         Style::default().fg(theme.dark_brown()),
     )));
     lines.push(Line::from(""));
+    let settlements = app.milestones.settlements_visited;
+    let quests = app.milestones.quests_completed;
     lines.push(Line::from(Span::styled(
         format!(
             "  Days survived: {}  |  Encounters: {}  |  Collapses: {}",
@@ -3134,6 +3164,15 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
         ),
         Style::default().fg(theme.dark_brown()),
     )));
+    if settlements > 0 || quests > 0 {
+        lines.push(Line::from(Span::styled(
+            format!(
+                "  Settlements visited: {}  |  Quests completed: {}",
+                settlements, quests,
+            ),
+            Style::default().fg(theme.dark_brown()),
+        )));
+    }
     if app.god_affinity.oltzed != 0.0
         || app.god_affinity.keuru != 0.0
         || app.god_affinity.sampsa != 0.0

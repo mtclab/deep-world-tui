@@ -2043,6 +2043,51 @@ impl CollapseOutcome {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DeathCause {
+    Starvation,
+    Exposure,
+    Exhaustion,
+    Wounds,
+    Unknown,
+}
+
+impl DeathCause {
+    pub fn from_collapse_and_vitals(outcome: CollapseOutcome, vitals: PlayerVitals) -> Self {
+        if vitals.hunger <= 0.0 {
+            DeathCause::Starvation
+        } else if vitals.thirst <= 0.0 {
+            DeathCause::Exposure
+        } else if vitals.energy <= 0.05 {
+            DeathCause::Exhaustion
+        } else if outcome.is_hostile() {
+            DeathCause::Wounds
+        } else {
+            DeathCause::Unknown
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            DeathCause::Starvation => "Hunger gnawed at your resolve until there was nothing left. The land has claimed another wanderer.",
+            DeathCause::Exposure => "The elements exacted their toll. Your body could endure no more.",
+            DeathCause::Exhaustion => "Your strength gave way. Even the will to rise has its limit.",
+            DeathCause::Wounds => "Your wounds proved too great. The wilds are not forgiving.",
+            DeathCause::Unknown => "The end came quietly. The world holds its breath.",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            DeathCause::Starvation => "starvation",
+            DeathCause::Exposure => "exposure",
+            DeathCause::Exhaustion => "exhaustion",
+            DeathCause::Wounds => "wounds",
+            DeathCause::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Collapse {
     pub outcome: CollapseOutcome,
     pub died: bool,
@@ -5565,5 +5610,70 @@ mod tests {
         let last = log.iter().next_back().map(|e| e.day);
         assert_eq!(first, Some(15));
         assert_eq!(last, Some(34));
+    }
+}
+
+#[cfg(test)]
+mod death_cause_test {
+    use super::*;
+
+    #[test]
+    fn starvation_when_hunger_zero() {
+        let vitals = PlayerVitals {
+            hunger: 0.0,
+            thirst: 0.5,
+            energy: 0.8,
+        };
+        let cause = DeathCause::from_collapse_and_vitals(CollapseOutcome::Ditch, vitals);
+        assert_eq!(cause, DeathCause::Starvation);
+    }
+
+    #[test]
+    fn exposure_when_thirst_zero() {
+        let vitals = PlayerVitals {
+            hunger: 0.5,
+            thirst: 0.0,
+            energy: 0.8,
+        };
+        let cause = DeathCause::from_collapse_and_vitals(CollapseOutcome::Ditch, vitals);
+        assert_eq!(cause, DeathCause::Exposure);
+    }
+
+    #[test]
+    fn exhaustion_when_energy_zero() {
+        let vitals = PlayerVitals {
+            hunger: 0.5,
+            thirst: 0.5,
+            energy: 0.01,
+        };
+        let cause = DeathCause::from_collapse_and_vitals(CollapseOutcome::Ditch, vitals);
+        assert_eq!(cause, DeathCause::Exhaustion);
+    }
+
+    #[test]
+    fn wounds_from_hostile_collapse() {
+        let vitals = PlayerVitals {
+            hunger: 0.8,
+            thirst: 0.8,
+            energy: 0.8,
+        };
+        let cause = DeathCause::from_collapse_and_vitals(CollapseOutcome::HostileBeast, vitals);
+        assert_eq!(cause, DeathCause::Wounds);
+    }
+
+    #[test]
+    fn unknown_from_safe_collapse() {
+        let vitals = PlayerVitals { hunger: 0.8, thirst: 0.8, energy: 0.8 };
+        let cause = DeathCause::from_collapse_and_vitals(CollapseOutcome::StrangerHut, vitals);
+        assert_eq!(cause, DeathCause::Unknown);
+    }
+
+    #[test]
+    fn death_cause_flavors() {
+        assert!(!DeathCause::Starvation.flavor().is_empty());
+        assert!(!DeathCause::Exposure.flavor().is_empty());
+        assert!(!DeathCause::Exhaustion.flavor().is_empty());
+        assert!(!DeathCause::Wounds.flavor().is_empty());
+        assert!(!DeathCause::Unknown.flavor().is_empty());
     }
 }
