@@ -104,7 +104,6 @@ pub struct App {
     pub collapse_log: Vec<CollapseEvent>,
     pub lineage: Vec<LineageRecord>,
     pub save_entries: Vec<crate::save::SaveEntry>,
-    pub first_run: bool,
     pub hint_tracker: HintTracker,
     pub milestones: crate::sim::milestones::MilestoneTracker,
     pub elder: bool,
@@ -144,9 +143,8 @@ impl App {
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
-            save_entries: Vec::new(),
-            first_run: true,
-            hint_tracker: HintTracker::default(),
+             save_entries: Vec::new(),
+             hint_tracker: HintTracker::default(),
             milestones: crate::sim::milestones::MilestoneTracker::new(),
             elder: false,
             seed,
@@ -350,6 +348,7 @@ impl App {
         self.screen = Screen::World;
     }
 
+    #[allow(deprecated)]
     pub fn save_game(&mut self) {
         if let Some(ref sim) = self.sim {
             let data = SaveData {
@@ -365,9 +364,9 @@ impl App {
                 collapse_log: self.collapse_log.clone(),
                 lineage: self.lineage.clone(),
                 milestones: self.milestones.clone(),
-                version: save_migrations::CURRENT_SAVE_VERSION,
-                first_run: self.first_run,
-                hint_tracker: self.hint_tracker.clone(),
+                 version: save_migrations::CURRENT_SAVE_VERSION,
+                 first_run: false,
+                 hint_tracker: self.hint_tracker.clone(),
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -378,10 +377,9 @@ impl App {
 
     pub fn load_game(&mut self) {
         match save::load_game("save.ron") {
-            Ok(mut data) => {
-                let last_collapse_died = data.collapse_log.last().map(|c| c.died).unwrap_or(false);
-                data.first_run = false;
-                self.sim = Some(data.sim);
+             Ok(data) => {
+                 let last_collapse_died = data.collapse_log.last().map(|c| c.died).unwrap_or(false);
+                 self.sim = Some(data.sim);
                 self.player_start = data.player_start;
                 self.clock = data.clock;
                 self.vitals = data.vitals;
@@ -1873,6 +1871,7 @@ impl App {
         }
     }
 
+    #[allow(deprecated)]
     pub fn check_collapse(&mut self) {
         if self.vitals.hunger > 0.0 && self.vitals.energy > 0.0 {
             return;
@@ -2014,7 +2013,7 @@ impl App {
                     lineage: self.lineage.clone(),
                     milestones: self.milestones.clone(),
                     version: save_migrations::CURRENT_SAVE_VERSION,
-                    first_run: self.first_run,
+                    first_run: false,
                     hint_tracker: self.hint_tracker.clone(),
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
@@ -2047,7 +2046,6 @@ impl App {
         self.status_msg = None;
         self.running = true;
         self.lineage.clear();
-        self.first_run = true;
         self.hint_tracker = HintTracker::default();
     }
 
@@ -2906,7 +2904,6 @@ impl App {
                                         self.elder = self.milestones.has(
                                             crate::sim::milestones::MilestoneKind::ElderAchieved,
                                         );
-                                        self.first_run = false;
                                         if last_collapse_died {
                                             self.continue_as_npc();
                                         }

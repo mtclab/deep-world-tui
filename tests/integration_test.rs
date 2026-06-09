@@ -101,6 +101,7 @@ fn full_pipeline_seed_generate_enter_talk() {
     );
 
     // 8. Save/load round-trip
+    #[allow(deprecated)]
     let data = SaveData {
         sim: SimState::new(seed, charts.clone()),
         player_start: Some(player_start.clone()),

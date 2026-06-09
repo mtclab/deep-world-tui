@@ -63,6 +63,7 @@ pub struct SaveData {
     #[serde(default)]
     pub version: u32,
     #[serde(default = "default_true")]
+    #[deprecated = "unused — hint_tracker controls onboarding; kept for save compat"]
     pub first_run: bool,
     #[serde(default)]
     pub hint_tracker: HintTracker,
@@ -216,6 +217,7 @@ pub fn load_compact(filename: &str) -> Result<CompactSave, String> {
     ron::from_str(&contents).map_err(|e| format!("Failed to deserialize compact: {}", e))
 }
 
+#[allow(deprecated)]
 pub fn restore_from_compact(
     compact: &CompactSave,
     charts: &crate::charts::Charts,
@@ -244,6 +246,7 @@ pub fn restore_from_compact(
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::charts;
