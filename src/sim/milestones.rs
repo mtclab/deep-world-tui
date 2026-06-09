@@ -5,12 +5,60 @@ use serde::{Deserialize, Serialize};
 pub enum MilestoneKind {
     Survived30Days,
     Survived100Days,
-    Survived365Days,
     Survived300Days,
+    Survived365Days,
     FirstStructureBuilt,
     FirstCompanionAdopted,
     PeopleEnding { people: PeopleKind },
     ElderAchieved,
+    FirstSettlement,
+    FirstQuestCompleted,
+    FirstDeath,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum CampaignArc {
+    Stranger,
+    Settled,
+    Known,
+    Elder,
+    Legend,
+}
+
+impl CampaignArc {
+    pub fn from_milestones(tracker: &MilestoneTracker) -> Self {
+        if tracker.has(MilestoneKind::ElderAchieved) && tracker.settlements_visited >= 5 {
+            CampaignArc::Legend
+        } else if tracker.has(MilestoneKind::ElderAchieved) {
+            CampaignArc::Elder
+        } else if tracker.has(MilestoneKind::FirstQuestCompleted) {
+            CampaignArc::Known
+        } else if tracker.has(MilestoneKind::FirstSettlement) {
+            CampaignArc::Settled
+        } else {
+            CampaignArc::Stranger
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            CampaignArc::Stranger => "Stranger",
+            CampaignArc::Settled => "Settled",
+            CampaignArc::Known => "Known",
+            CampaignArc::Elder => "Elder",
+            CampaignArc::Legend => "Legend",
+        }
+    }
+
+    pub fn arc_text(self) -> &'static str {
+        match self {
+            CampaignArc::Stranger => "The world does not know you yet. Every path is untrodden.",
+            CampaignArc::Settled => "You have found a place. Now it begins to matter what you do here.",
+            CampaignArc::Known => "Your name carries weight. Choices have consequences beyond yourself.",
+            CampaignArc::Elder => "Time has worn you wise. The young seek your counsel.",
+            CampaignArc::Legend => "Your story is told around fires you will never see. You are legend.",
+        }
+    }
 }
 
 impl MilestoneKind {
@@ -70,6 +118,15 @@ impl MilestoneKind {
             }
             MilestoneKind::ElderAchieved => {
                 "I have walked this world longer than most dare dream. The young ones seek my counsel. I am elder.".into()
+            }
+            MilestoneKind::FirstSettlement => {
+                "I found settlement. Someone else's fire, someone else's walls. I step closer.".into()
+            }
+            MilestoneKind::FirstQuestCompleted => {
+                "I fulfilled a promise. The world takes note — I am not just passing through.".into()
+            }
+            MilestoneKind::FirstDeath => {
+                "The world did not end. It merely paused, and then continued without me. I remember still.".into()
             }
         }
     }
@@ -132,6 +189,34 @@ impl MilestoneTracker {
     pub fn check_elder(&mut self, day: u32) -> bool {
         if day >= 300 && !self.has(MilestoneKind::ElderAchieved) {
             self.record(MilestoneKind::ElderAchieved, day);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn check_first_settlement(&mut self, day: u32) -> bool {
+        if self.settlements_visited >= 1 && !self.has(MilestoneKind::FirstSettlement) {
+            self.record(MilestoneKind::FirstSettlement, day);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn record_quest_completed(&mut self, day: u32) -> bool {
+        self.quests_completed += 1;
+        if self.quests_completed == 1 && !self.has(MilestoneKind::FirstQuestCompleted) {
+            self.record(MilestoneKind::FirstQuestCompleted, day);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn record_death(&mut self, day: u32) -> bool {
+        if !self.has(MilestoneKind::FirstDeath) {
+            self.record(MilestoneKind::FirstDeath, day);
             true
         } else {
             false
@@ -311,5 +396,58 @@ mod tests {
             .voice(),
             crate::sim::journal::Voice::Dream
         );
+    }
+
+    #[test]
+    fn first_settlement_milestone() {
+        let mut tracker = MilestoneTracker::new();
+        assert!(!tracker.has(MilestoneKind::FirstSettlement));
+        tracker.settlements_visited = 1;
+        assert!(tracker.check_first_settlement(5));
+        assert!(tracker.has(MilestoneKind::FirstSettlement));
+        assert!(!tracker.check_first_settlement(5));
+    }
+
+    #[test]
+    fn first_quest_milestone() {
+        let mut tracker = MilestoneTracker::new();
+        assert!(tracker.record_quest_completed(10));
+        assert!(tracker.has(MilestoneKind::FirstQuestCompleted));
+        assert_eq!(tracker.quests_completed, 1);
+        assert!(!tracker.record_quest_completed(20));
+        assert_eq!(tracker.quests_completed, 2);
+    }
+
+    #[test]
+    fn first_death_milestone() {
+        let mut tracker = MilestoneTracker::new();
+        assert!(tracker.record_death(50));
+        assert!(tracker.has(MilestoneKind::FirstDeath));
+        assert!(!tracker.record_death(100));
+    }
+
+    #[test]
+    fn campaign_arc_progression() {
+        let mut tracker = MilestoneTracker::new();
+        assert_eq!(CampaignArc::from_milestones(&tracker), CampaignArc::Stranger);
+
+        tracker.settlements_visited = 1;
+        tracker.check_first_settlement(5);
+        assert_eq!(CampaignArc::from_milestones(&tracker), CampaignArc::Settled);
+
+        tracker.record_quest_completed(10);
+        assert_eq!(CampaignArc::from_milestones(&tracker), CampaignArc::Known);
+
+        tracker.check_elder(300);
+        assert_eq!(CampaignArc::from_milestones(&tracker), CampaignArc::Elder);
+
+        tracker.settlements_visited = 5;
+        assert_eq!(CampaignArc::from_milestones(&tracker), CampaignArc::Legend);
+    }
+
+    #[test]
+    fn campaign_arc_labels() {
+        assert_eq!(CampaignArc::Stranger.label(), "Stranger");
+        assert_eq!(CampaignArc::Legend.label(), "Legend");
     }
 }
