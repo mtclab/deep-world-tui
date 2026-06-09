@@ -9,10 +9,42 @@ Siblings: [`deep-world-archive`](https://github.com/mtclab/deep-world-archive) (
 CRPG), [`deep-world-godot`](https://github.com/mtclab/deep-world-godot) (open-world).
 Source world: [`deep-world-history`](https://github.com/mtclab/deep-world-history).
 
-## Status
+## Play
 
-**Design + handoff stage.** No code yet — the design is specced and the build is
-broken into issues for implementation. See `docs/` and the issues.
+Download the latest release for your platform:
+
+| Platform | File |
+|----------|------|
+| Linux (x86_64) | `deep-world-tui-x86_64-linux` |
+| Windows (x86_64) | `deep-world-tui-x86_64-windows.exe` |
+
+[All releases](https://github.com/mtclab/deep-world-tui/releases)
+
+### Linux
+
+```bash
+chmod +x deep-world-tui-x86_64-linux
+./deep-world-tui-x86_64-linux              # random seed each run
+./deep-world-tui-x86_64-linux --seed 1234  # deterministic world
+```
+
+### Windows
+
+```
+deep-world-tui-x86_64-windows.exe              :: random seed
+deep-world-tui-x86_64-windows.exe --seed 1234  :: deterministic world
+```
+
+### From source
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && . "$HOME/.cargo/env"
+cargo run -- --seed 1234
+cargo test
+cargo run --no-default-features  # no LLM (default play is LLM-off anyway)
+```
+
+## Docs
 
 - `docs/DESIGN.md` — vision + pillars
 - `docs/GENERATION.md` — the possibility-chart engine (the heart)
@@ -20,15 +52,6 @@ broken into issues for implementation. See `docs/` and the issues.
 - `docs/ARCHITECTURE.md` — Rust crate layout + build order + tests
 - `data/charts.ron` — starter lore-grounded charts
 - `AGENTS.md` — build/verify/canon rules for contributors
-
-## Build (once scaffolded — see issue #1)
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && . "$HOME/.cargo/env"
-cargo run -- --seed 1234        # generate + play a world
-cargo test                      # determinism + distribution + sim tests
-cargo run --no-default-features  # no LLM (default play is LLM-off anyway)
-```
 
 ## License
 
