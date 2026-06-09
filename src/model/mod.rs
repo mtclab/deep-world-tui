@@ -111,6 +111,50 @@ pub struct TerrainMap {
     pub tiles: Vec<Terrain>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExploredMap {
+    width: usize,
+    height: usize,
+    tiles: Vec<bool>,
+}
+
+impl ExploredMap {
+    pub fn new(width: usize, height: usize) -> Self {
+        ExploredMap {
+            width,
+            height,
+            tiles: vec![false; width * height],
+        }
+    }
+
+    pub fn is_explored(&self, x: usize, y: usize) -> bool {
+        if x < self.width && y < self.height {
+            self.tiles[y * self.width + x]
+        } else {
+            false
+        }
+    }
+
+    pub fn reveal(&mut self, cx: usize, cy: usize, radius: usize) {
+        let r = radius as isize;
+        for dy in -r..=r {
+            for dx in -r..=r {
+                if dx * dx + dy * dy <= r * r {
+                    let x = (cx as isize + dx) as usize;
+                    let y = (cy as isize + dy) as usize;
+                    if x < self.width && y < self.height {
+                        self.tiles[y * self.width + x] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn reveal_radius_for_elder(elder: bool) -> usize {
+        if elder { 5 } else { 3 }
+    }
+}
+
 impl TerrainMap {
     pub fn get(&self, x: usize, y: usize) -> Option<Terrain> {
         if x < self.width && y < self.height {
@@ -5770,5 +5814,45 @@ mod death_cause_test {
         assert!(!DeathCause::Exhaustion.flavor().is_empty());
         assert!(!DeathCause::Wounds.flavor().is_empty());
         assert!(!DeathCause::Unknown.flavor().is_empty());
+    }
+
+    #[test]
+    fn explored_map_new_all_unexplored() {
+        let map = ExploredMap::new(10, 10);
+        assert!(!map.is_explored(5, 5));
+        assert!(!map.is_explored(0, 0));
+    }
+
+    #[test]
+    fn explored_map_reveal_center() {
+        let mut map = ExploredMap::new(10, 10);
+        map.reveal(5, 5, 2);
+        assert!(map.is_explored(5, 5));
+        assert!(map.is_explored(5, 4));
+        assert!(map.is_explored(5, 6));
+        assert!(map.is_explored(4, 5));
+        assert!(map.is_explored(6, 5));
+        assert!(!map.is_explored(0, 0));
+    }
+
+    #[test]
+    fn explored_map_reveal_radius_elder() {
+        assert_eq!(ExploredMap::reveal_radius_for_elder(false), 3);
+        assert_eq!(ExploredMap::reveal_radius_for_elder(true), 5);
+    }
+
+    #[test]
+    fn explored_map_reveal_clamps_edges() {
+        let mut map = ExploredMap::new(10, 10);
+        map.reveal(0, 0, 2);
+        assert!(map.is_explored(0, 0));
+        assert!(map.is_explored(1, 0));
+        assert!(map.is_explored(0, 1));
+    }
+
+    #[test]
+    fn explored_map_out_of_bounds() {
+        let map = ExploredMap::new(5, 5);
+        assert!(!map.is_explored(10, 10));
     }
 }

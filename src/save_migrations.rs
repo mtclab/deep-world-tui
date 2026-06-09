@@ -60,6 +60,7 @@ mod tests {
             collapse_log: Vec::new(),
             lineage: Vec::new(),
             milestones: crate::sim::milestones::MilestoneTracker::new(),
+            explored: Vec::new(),
             version,
             first_run: true,
             hint_tracker: crate::sim::hints::HintTracker::default(),

@@ -2041,12 +2041,20 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                             Style::default().fg(theme.archive_red()),
                         ));
                     } else if let Some(terrain) = tiles.get(my * map_w + mx) {
-                        let is_memorial = app.sim.as_ref().is_some_and(|sim| {
+                        let is_explored = app.explored.get(region_idx)
+                            .map(|e| e.is_explored(mx, my))
+                            .unwrap_or(true);
+                        let is_memorial = is_explored && app.sim.as_ref().is_some_and(|sim| {
                             sim.memorials
                                 .iter()
                                 .any(|m| m.at_position(region_idx, mx as u32, my as u32))
                         });
-                        if is_memorial {
+                        if !is_explored {
+                            spans.push(Span::styled(
+                                "░".to_string(),
+                                Style::default().fg(theme.dark_brown()),
+                            ));
+                        } else if is_memorial {
                             spans.push(Span::styled(
                                 crate::model::memorial::Memorial::glyph().to_string(),
                                 Style::default().fg(theme.archive_red()),
@@ -3502,18 +3510,21 @@ pub fn render_minimap(f: &mut Frame, app: &App, area: Rect) {
                 break;
             }
             let terrain = region.terrain.tiles[idx];
-            let is_settlement = matches!(terrain, Terrain::Settlement);
-            let glyph = if is_settlement {
-                '█'
+            let is_explored = app.explored.first()
+                .map(|e| e.is_explored(x, y))
+                .unwrap_or(true);
+            if !is_explored {
+                spans.push(Span::styled("░".to_string(), Style::default().fg(theme.dark_brown())));
             } else {
-                terrain.glyph()
-            };
-            let color = if is_settlement {
-                dominant_people_color(&region.settlements, &theme)
-            } else {
-                glyph_color(terrain, &theme)
-            };
-            spans.push(Span::styled(glyph.to_string(), Style::default().fg(color)));
+                let is_settlement = matches!(terrain, Terrain::Settlement);
+                let glyph = if is_settlement { '█' } else { terrain.glyph() };
+                let color = if is_settlement {
+                    dominant_people_color(&region.settlements, &theme)
+                } else {
+                    glyph_color(terrain, &theme)
+                };
+                spans.push(Span::styled(glyph.to_string(), Style::default().fg(color)));
+            }
         }
         lines.push(Line::from(spans));
     }
