@@ -4,6 +4,28 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-09
+
+Major feature release: full gameplay loop, AI-driven balance harness, LLM narrator integration.
+
+### Added
+
+- **Title screen** (#192) — `[N]ew`, `[L]oad`, `[Q]uit`, `[?]` help
+- **Save browser** (#200) — scrollable list, delete confirmation, load restores milestones/hints/elder
+- **Weather & forced shelter** (#193) — `forced_shelter()`, `travel_hours_multiplier()` wired
+- **Quest system** (#194) — 5 quest types, progress tracking, rewards, deadline expiry
+- **Onboarding hints** (#195) — `HintTracker` with 6 first-time hints
+- **Endgame & milestones** (#196) — `MilestoneTracker`, legacy display, elder achievement
+- **Balance harness v2** (#208) — AI-driven VirtualPlayer, 15 seeds × 600 ticks, 3 test assertions
+- **LLM narrator** (#197) — `call_ollama()`, `strip_numbers()`, FNV-1a cache + rate limit, feature-gated
+- **Quest tracking fixes** (#205) — `check_quests()` writes progress back, relationship rewards applied
+- **UI bug fixes** (#206) — forced shelter sets status_msg, save browser restores all state, duplicate legacy block removed
+- **LLM wiring & elder gameplay** (#207) — `voice_line_maybe_llm()` in talk screen, elder +0.005 rep/day & +0.10 talk bonus
+
+### Changed
+
+- Balance harness rewritten: SimState removed, pure vitals/Inventory simulation (0.13s vs 46s)
+
 ## [0.1.1] - 2026-06-09
 
 Patch release: 20 feature merges, 3 critical bug fixes, 2 hardening fixes.
