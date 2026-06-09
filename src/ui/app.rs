@@ -17,6 +17,11 @@ use super::event::AppEvent;
 
 #[derive(Clone)]
 pub enum Screen {
+    TitleScreen,
+    SaveBrowser {
+        scroll: u16,
+        delete_confirm: Option<usize>,
+    },
     CharacterCreation,
     World,
     Map {
@@ -96,6 +101,7 @@ pub struct App {
     pub collapses_had: u32,
     pub collapse_log: Vec<CollapseEvent>,
     pub lineage: Vec<LineageRecord>,
+    pub save_entries: Vec<crate::save::SaveEntry>,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -110,7 +116,7 @@ impl App {
             player_start: None,
             running: true,
             tick_interval: 100,
-            screen: Screen::CharacterCreation,
+            screen: Screen::TitleScreen,
             status_msg: None,
             player_pos: None,
             clock: GameClock::default(),
@@ -132,6 +138,7 @@ impl App {
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
+            save_entries: Vec::new(),
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -2271,6 +2278,29 @@ enum MoveResult {
 
 impl App {
     pub fn move_player(&mut self, dx: i32, dy: i32) {
+        let weather = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                let region = sim.world.regions.get(pos.region_idx)?;
+                let terrain = region.terrain.get(pos.px, pos.py)?;
+                Some(Weather::generate(sim.world.seed, sim.world.tick, terrain))
+            });
+        if let Some(w) = weather {
+            if let Some(ref mut rng) = self.player_rng {
+                if crate::sim::weather::forced_shelter(w, rng.gen_f64()) {
+                    let flavor = crate::sim::weather::weather_travel_flavor(w, true);
+                    if let Some(ref mut sim) = self.sim {
+                        sim.log(sim.world.tick, crate::sim::journal::Voice::Travel, flavor.to_string());
+                    }
+                    return;
+                }
+            }
+        }
+        let weather_mult = weather
+            .map(crate::sim::weather::travel_hours_multiplier)
+            .unwrap_or(1.0);
         let result = self.compute_move(dx, dy);
         match result {
             Some(MoveResult::EdgeTransition { region_idx, px, py }) => {
@@ -2296,7 +2326,7 @@ impl App {
                         0
                     }
                 });
-                let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
+                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32 + bias_mod).max(1) as u32;
                 self.advance_clock(hours);
                 self.log_travel(terrain);
                 self.check_encounter(terrain);
@@ -2328,7 +2358,7 @@ impl App {
                         0
                     }
                 });
-                let hours = (terrain.travel_hours() as i32 + bias_mod).max(1) as u32;
+                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32 + bias_mod).max(1) as u32;
                 self.advance_clock(hours);
                 self.log_travel(terrain);
                 self.check_encounter(terrain);
@@ -2478,6 +2508,116 @@ impl App {
     pub fn handle_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::Key(key) => match self.screen {
+                Screen::TitleScreen => match key.code {
+                    crossterm::event::KeyCode::Char('n') => {
+                        self.screen = Screen::CharacterCreation;
+                    }
+                    crossterm::event::KeyCode::Char('l') => {
+                        self.save_entries = crate::save::saves_dir_list();
+                        self.screen = Screen::SaveBrowser {
+                            scroll: 0,
+                            delete_confirm: None,
+                        };
+                    }
+                    crossterm::event::KeyCode::Char('?') => {
+                        self.previous_screen = Some(Screen::TitleScreen);
+                        self.screen = Screen::Help;
+                    }
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.running = false;
+                    }
+                    _ => {}
+                },
+                Screen::SaveBrowser {
+                    ref scroll,
+                    ref delete_confirm,
+                } => {
+                    let scroll_val = *scroll;
+                    let confirm_val = *delete_confirm;
+                    match key.code {
+                        crossterm::event::KeyCode::Char('j') | crossterm::event::KeyCode::Down => {
+                            let max_scroll = self.save_entries.len().saturating_sub(1) as u16;
+                            self.screen = Screen::SaveBrowser {
+                                scroll: scroll_val
+                                    .min(max_scroll)
+                                    .saturating_add(1)
+                                    .min(max_scroll),
+                                delete_confirm: confirm_val,
+                            };
+                        }
+                        crossterm::event::KeyCode::Char('k') | crossterm::event::KeyCode::Up => {
+                            self.screen = Screen::SaveBrowser {
+                                scroll: scroll_val.saturating_sub(1),
+                                delete_confirm: confirm_val,
+                            };
+                        }
+                        crossterm::event::KeyCode::Enter => {
+                            if let Some(entry) = self.save_entries.get(scroll_val as usize) {
+                                match crate::save::load_game_file(&entry.filename) {
+                                    Ok(data) => {
+                                        let last_collapse_died = data
+                                            .collapse_log
+                                            .last()
+                                            .map(|c| c.died)
+                                            .unwrap_or(false);
+                                        self.sim = Some(data.sim);
+                                        self.player_start = data.player_start;
+                                        self.clock = data.clock;
+                                        self.vitals = data.vitals;
+                                        self.player_pos = data.player_pos;
+                                        self.god_affinity = data.god_affinity;
+                                        self.inter_people_bias = data.inter_people_bias;
+                                        self.encounters_had = data.encounters_had;
+                                        self.collapses_had = data.collapses_had;
+                                        self.collapse_log = data.collapse_log;
+                                        self.lineage = data.lineage;
+                                        if last_collapse_died {
+                                            self.continue_as_npc();
+                                        }
+                                        self.screen = Screen::World;
+                                    }
+                                    Err(e) => {
+                                        self.status_msg = Some(format!("Load failed: {}", e));
+                                    }
+                                }
+                            }
+                        }
+                        crossterm::event::KeyCode::Char('d') => {
+                            if let Some(idx) = confirm_val {
+                                if idx == scroll_val as usize {
+                                    if let Some(entry) = self.save_entries.get(idx) {
+                                        let _ = crate::save::delete_save(&entry.filename);
+                                    }
+                                    self.save_entries = crate::save::saves_dir_list();
+                                    let new_scroll =
+                                        if scroll_val as usize >= self.save_entries.len() {
+                                            self.save_entries.len().saturating_sub(1) as u16
+                                        } else {
+                                            scroll_val
+                                        };
+                                    self.screen = Screen::SaveBrowser {
+                                        scroll: new_scroll,
+                                        delete_confirm: None,
+                                    };
+                                } else {
+                                    self.screen = Screen::SaveBrowser {
+                                        scroll: scroll_val,
+                                        delete_confirm: Some(scroll_val as usize),
+                                    };
+                                }
+                            } else if !self.save_entries.is_empty() {
+                                self.screen = Screen::SaveBrowser {
+                                    scroll: scroll_val,
+                                    delete_confirm: Some(scroll_val as usize),
+                                };
+                            }
+                        }
+                        crossterm::event::KeyCode::Esc => {
+                            self.screen = Screen::TitleScreen;
+                        }
+                        _ => {}
+                    }
+                }
                 Screen::CharacterCreation => match key.code {
                     crossterm::event::KeyCode::Char('r') => {
                         self.reroll_player();
@@ -2489,7 +2629,7 @@ impl App {
                         self.accept_player();
                     }
                     crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.running = false;
+                        self.screen = Screen::TitleScreen;
                     }
                     _ => {}
                 },

@@ -30,6 +30,13 @@ pub fn draw(f: &mut Frame, app: &App) {
         area,
     );
     match app.screen {
+        Screen::TitleScreen => draw_title_screen(f, app),
+        Screen::SaveBrowser {
+            scroll,
+            delete_confirm,
+        } => {
+            draw_save_browser_screen(f, app, scroll, delete_confirm);
+        }
         Screen::CharacterCreation => draw_character_creation(f, app),
         Screen::World => draw_world_screen(f, app),
         Screen::WorldAlerts { scroll } => draw_alerts_screen(f, app, scroll),
@@ -195,6 +202,211 @@ fn draw_status_bar(f: &mut Frame, app: &App) {
             Paragraph::new(line).block(Block::default().style(Style::default().bg(theme.paper())));
         f.render_widget(status, status_area);
     }
+}
+
+fn draw_title_screen(f: &mut Frame, app: &App) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let title = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " THE DEEP WORLD",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(" v{}", env!("CARGO_PKG_VERSION")),
+            Style::default().fg(theme.dark_brown()),
+        ),
+    ]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(title, chunks[0]);
+
+    let flavor_lines = [
+        " The Archive watches from beyond the mountain. The forge-smoke",
+        " rises. The forest remembers. Your steps have not yet been written.",
+        "",
+        " A threshold of fates stands before you, unwalked.",
+    ];
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(""));
+    for line in &flavor_lines {
+        lines.push(Line::from(Span::styled(
+            *line,
+            Style::default().fg(theme.warm_brown()),
+        )));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(""));
+
+    let para = Paragraph::new(lines).wrap(Wrap { trim: false });
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [N]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" New Game  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[L]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" Load Game  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[?]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" Controls  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[Q]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" Quit", Style::default().fg(theme.dark_brown())),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
+}
+
+fn draw_save_browser_screen(f: &mut Frame, app: &App, scroll: u16, delete_confirm: Option<usize>) {
+    let theme = Theme {
+        monochrome: app.monochrome,
+    };
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .split(f.area());
+
+    let title = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " Deep World",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" — Save Archives", Style::default().fg(theme.warm_brown())),
+    ]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    f.render_widget(title, chunks[0]);
+
+    let mut lines: Vec<Line> = Vec::new();
+    if app.save_entries.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            " The Archive holds no records of past journeys.",
+            Style::default().fg(theme.warm_brown()),
+        )));
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            " Begin a new story, and it shall be remembered.",
+            Style::default().fg(theme.dark_brown()),
+        )));
+    } else {
+        lines.push(Line::from(""));
+        for (i, entry) in app.save_entries.iter().enumerate() {
+            let cursor = if (i as u16) == scroll { " >" } else { "  " };
+            if let (Some(name), Some(people)) = (&entry.character_name, &entry.people) {
+                let pk = crate::model::PeopleKind::from_name(people);
+                let desc = format!(
+                    "A {} wanderer, {} days into the deep",
+                    pk.label(),
+                    entry.day
+                );
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("{}[{}] ", cursor, i + 1),
+                        Style::default()
+                            .fg(theme.archive_red())
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{} ", name),
+                        Style::default()
+                            .fg(theme.ink())
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(desc, Style::default().fg(theme.dark_brown())),
+                ]));
+            } else {
+                let desc = format!("An unknown traveler, {} days in", entry.day);
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("{}[{}] ", cursor, i + 1),
+                        Style::default()
+                            .fg(theme.archive_red())
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(entry.filename.clone(), Style::default().fg(theme.ink())),
+                    Span::styled(
+                        format!(" — {}", desc),
+                        Style::default().fg(theme.dark_brown()),
+                    ),
+                ]));
+            }
+            if delete_confirm == Some(i) {
+                lines.push(Line::from(Span::styled(
+                    "     Erase this record? Press D again to confirm.",
+                    Style::default().fg(theme.need_color(0.0)),
+                )));
+            }
+        }
+    }
+
+    let para = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll, 0));
+    f.render_widget(para, chunks[1]);
+
+    let help = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " [Enter]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" load  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[D]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" delete  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            " [↑↓]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" select  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[Esc]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" back", Style::default().fg(theme.dark_brown())),
+    ]))
+    .block(Block::default().borders(Borders::TOP));
+    f.render_widget(help, chunks[2]);
 }
 
 fn draw_character_creation(f: &mut Frame, app: &App) {
@@ -3129,7 +3341,7 @@ mod minimap_tests {
             schedule: Default::default(),
             illnesses: Vec::new(),
             relations: vec![],
-        wants: vec![],
+            wants: vec![],
         }
     }
 
