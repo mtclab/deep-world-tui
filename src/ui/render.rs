@@ -95,10 +95,9 @@ pub fn draw(f: &mut Frame, app: &App) {
             draw_save_browser_screen(f, app, scroll, delete_confirm);
         }
         Screen::CharacterCreation => draw_character_creation(f, app),
-        Screen::World { region_idx, px, py } => {
-            draw_map_screen(f, app, region_idx, px, py);
+        Screen::World { region_idx } => {
+            draw_map_screen(f, app, region_idx);
         }
-        Screen::WorldAlerts { scroll } => draw_alerts_screen(f, app, scroll),
         Screen::Location {
             region_idx,
             settlement_idx,
@@ -644,205 +643,6 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" reroll  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[Q]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" quit", Style::default().fg(theme.dark_brown())),
-    ]))
-    .block(Block::default().borders(Borders::TOP));
-    f.render_widget(help, chunks[2]);
-}
-
-#[allow(dead_code)]
-fn draw_world_screen(f: &mut Frame, app: &App) {
-    let theme = Theme {
-        monochrome: app.monochrome,
-        high_contrast: app.high_contrast,
-    };
-    let chunks = Layout::vertical([
-        Constraint::Length(3),
-        Constraint::Min(0),
-        Constraint::Length(3),
-    ])
-    .split(f.area());
-
-    let title = Paragraph::new(Line::from(vec![
-        Span::styled(
-            " Deep World",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(
-            " — Archive of Ahjorath",
-            Style::default().fg(theme.warm_brown()),
-        ),
-    ]))
-    .block(Block::default().borders(Borders::BOTTOM));
-    f.render_widget(title, chunks[0]);
-
-    let mut lines: Vec<Line> = Vec::new();
-    if let Some(ref sim) = app.sim {
-        let world = &sim.world;
-        let phase = app.clock.time_of_day();
-        let phase_text = phase.one_word();
-        let phase_label = if app.clock.day % 30 == 1 {
-            format!("{} — the season turns", phase_text)
-        } else {
-            phase_text.to_string()
-        };
-        lines.push(Line::from(Span::styled(
-            format!(" {}", phase_label),
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        )));
-        lines.push(Line::from(""));
-
-        let settlements = app.settlement_list();
-        for (ri, region) in world.regions.iter().enumerate() {
-            lines.push(Line::from(Span::styled(
-                format!(" {} [{}]", region.name, region.region_type),
-                Style::default()
-                    .fg(theme.region_color(&region.region_type))
-                    .add_modifier(Modifier::BOLD),
-            )));
-            for (si, settlement) in region.settlements.iter().enumerate() {
-                let idx = settlements
-                    .iter()
-                    .position(|(r, s, _)| *r == ri && *s == si);
-                let key_label = idx.map(|i| format!("{}", i + 1)).unwrap_or_default();
-                let size_label = match settlement.population {
-                    p if p >= 1000 => "city",
-                    p if p >= 400 => "town",
-                    p if p >= 100 => "village",
-                    _ => "hamlet",
-                };
-                if key_label.is_empty() {
-                    lines.push(Line::from(Span::styled(
-                        format!(
-                            "   {} ({}, pop {})",
-                            settlement.name, size_label, settlement.population
-                        ),
-                        Style::default().fg(theme.dark_brown()),
-                    )));
-                } else {
-                    lines.push(Line::from(vec![
-                        Span::styled(
-                            format!("  [{}]", key_label),
-                            Style::default()
-                                .fg(theme.archive_red())
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(
-                            format!(
-                                " {} ({}, pop {})",
-                                settlement.name, size_label, settlement.population
-                            ),
-                            Style::default().fg(theme.dark_brown()),
-                        ),
-                    ]));
-                }
-            }
-            if ri < world.regions.len() - 1 {
-                lines.push(Line::from(""));
-            }
-        }
-
-        if let Some(pos) = app.player_pos {
-            if let Some(disc) =
-                sim.discoveries
-                    .at_position(pos.region_idx, pos.px as u32, pos.py as u32)
-            {
-                lines.push(Line::from(""));
-                lines.push(Line::from(vec![
-                    Span::styled(
-                        format!(" {} ", disc.kind.glyph()),
-                        Style::default()
-                            .fg(theme.archive_red())
-                            .add_modifier(Modifier::ITALIC),
-                    ),
-                    Span::styled(
-                        disc.kind.observe_text(),
-                        Style::default()
-                            .fg(theme.warm_brown())
-                            .add_modifier(Modifier::ITALIC),
-                    ),
-                ]));
-            }
-        }
-    }
-
-    if let Some(ref msg) = app.status_msg {
-        lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(
-            format!(" {}", msg),
-            Style::default().fg(theme.warm_brown()),
-        )));
-    }
-
-    if app.perf_slow_frames > 0 {
-        lines.push(Line::from(Span::styled(
-            format!(
-                " ⚡{} slow frames ({}μs last render)",
-                app.perf_slow_frames, app.perf_last_render_us
-            ),
-            Style::default().fg(theme.dark_brown()),
-        )));
-    }
-
-    let para = Paragraph::new(lines).wrap(Wrap { trim: false });
-    f.render_widget(para, chunks[1]);
-
-    let help = Paragraph::new(Line::from(vec![
-        Span::styled(
-            " [1-9]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(
-            " enter settlement  ",
-            Style::default().fg(theme.dark_brown()),
-        ),
-        Span::styled(
-            "[Space]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" step  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[A]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" x10  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[J]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" journal  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[S]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" save  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[L]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" load  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Q]",
             Style::default()
@@ -1804,99 +1604,6 @@ fn draw_talk_screen(
     f.render_widget(help, chunks[2]);
 }
 
-fn draw_alerts_screen(f: &mut Frame, app: &App, scroll: u16) {
-    let theme = Theme {
-        monochrome: app.monochrome,
-        high_contrast: app.high_contrast,
-    };
-    let chunks = Layout::vertical([
-        Constraint::Length(3),
-        Constraint::Min(0),
-        Constraint::Length(3),
-    ])
-    .split(f.area());
-
-    let title = Paragraph::new(Line::from(vec![
-        Span::styled(
-            " Deep World",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" — Need Alerts", Style::default().fg(theme.warm_brown())),
-    ]))
-    .block(Block::default().borders(Borders::BOTTOM));
-    f.render_widget(title, chunks[0]);
-
-    let critical = app.critical_need_people();
-    let mut lines: Vec<Line> = Vec::new();
-
-    if critical.is_empty() {
-        lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(
-            " No critical needs. The Archive rests.",
-            Style::default().fg(theme.warm_brown()),
-        )));
-    } else {
-        lines.push(Line::from(Span::styled(
-            format!(" {} people in dire need", critical.len()),
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        )));
-        lines.push(Line::from(""));
-        for (name, settlement, profession, need, val) in &critical {
-            let bar = need_bar(*val, 8);
-            lines.push(Line::from(vec![
-                Span::styled(format!(" {} ", name), Style::default().fg(theme.ink())),
-                Span::styled(
-                    format!("({}) ", settlement),
-                    Style::default().fg(theme.dark_brown()),
-                ),
-                Span::styled(
-                    format!("{}, ", profession),
-                    Style::default().fg(theme.dark_brown()),
-                ),
-                Span::styled(
-                    format!("{:?} ", need),
-                    Style::default()
-                        .fg(theme.need_color(*val))
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(bar, Style::default().fg(theme.need_color(*val))),
-                Span::styled(
-                    format!(" {:.0}%", val * 100.0),
-                    Style::default().fg(theme.need_color(*val)),
-                ),
-            ]));
-        }
-    }
-
-    let para = Paragraph::new(lines)
-        .wrap(Wrap { trim: false })
-        .scroll((scroll, 0));
-    f.render_widget(para, chunks[1]);
-
-    let help = Paragraph::new(Line::from(vec![
-        Span::styled(
-            " [Esc/Q]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" back  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[↑↓]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" scroll", Style::default().fg(theme.dark_brown())),
-    ]))
-    .block(Block::default().borders(Borders::TOP));
-    f.render_widget(help, chunks[2]);
-}
-
 fn terrain_color(terrain: Terrain) -> Color {
     match terrain {
         Terrain::Grass => Color::Rgb(0x6b, 0x8e, 0x4a),
@@ -1931,11 +1638,13 @@ fn terrain_color_at(terrain: Terrain, dark: bool) -> Color {
     }
 }
 
-fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: usize) {
+fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
     let theme = Theme {
         monochrome: app.monochrome,
         high_contrast: app.high_contrast,
     };
+    let px = app.player_pos.map(|p| p.px).unwrap_or(20);
+    let py = app.player_pos.map(|p| p.py).unwrap_or(10);
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -2150,7 +1859,16 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
 
     let coord = format!(" ({},{}) {}", px, py, terrain_name);
 
-    let help = Paragraph::new(Line::from(vec![
+    let status_line = if let Some(ref msg) = app.status_msg {
+        Line::from(Span::styled(
+            format!(" ⚠ {}", msg),
+            Style::default().fg(theme.archive_red()),
+        ))
+    } else {
+        Line::from("")
+    };
+
+    let help_line = Line::from(vec![
         Span::styled(
             " [hjkl/↑↓←→]",
             Style::default()
@@ -2201,8 +1919,9 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
         ),
         Span::styled(" back", Style::default().fg(theme.dark_brown())),
         Span::styled(coord, Style::default().fg(theme.dark_brown())),
-    ]))
-    .block(Block::default().borders(Borders::TOP));
+    ]);
+    let help =
+        Paragraph::new(vec![status_line, help_line]).block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 

@@ -27,17 +27,12 @@ pub enum Screen {
     CharacterCreation,
     World {
         region_idx: usize,
-        px: usize,
-        py: usize,
     },
     Overmap {
         region_idx: usize,
     },
     Inventory,
     Craft {
-        scroll: u16,
-    },
-    WorldAlerts {
         scroll: u16,
     },
     Location {
@@ -227,15 +222,7 @@ impl App {
                     .collect();
             }
             self.player_start = Some(ps);
-            self.screen = Screen::World {
-                region_idx: self.player_pos.map(|p| p.region_idx).unwrap_or(0),
-                px: self.player_pos.map(|p| p.px).unwrap_or(0),
-                py: self.player_pos.map(|p| p.py).unwrap_or(0),
-            };
-            // Reveal starting area
-            if let Some(pos) = self.player_pos {
-                self.reveal_around(pos.region_idx, pos.px, pos.py);
-            }
+            self.enter_map(0);
         }
     }
 
@@ -678,14 +665,6 @@ impl App {
         }
     }
 
-    pub fn enter_alerts(&mut self) {
-        self.screen = Screen::WorldAlerts { scroll: 0 };
-    }
-
-    pub fn exit_alerts(&mut self) {
-        self.screen = self.world_screen();
-    }
-
     pub fn reveal_around(&mut self, region_idx: usize, px: usize, py: usize) {
         let radius = crate::model::ExploredMap::reveal_radius_for_elder(self.elder);
         if region_idx < self.explored.len() {
@@ -704,7 +683,8 @@ impl App {
             self.find_settlement_pos(region_idx)
         };
         self.player_pos = Some(PlayerPos { region_idx, px, py });
-        self.screen = Screen::World { region_idx, px, py };
+        self.reveal_around(region_idx, px, py);
+        self.screen = Screen::World { region_idx };
     }
 
     fn find_settlement_pos(&self, region_idx: usize) -> (usize, usize) {
@@ -728,21 +708,13 @@ impl App {
     }
 
     fn world_screen(&self) -> Screen {
-        let pos = self.player_pos.unwrap_or(PlayerPos {
-            region_idx: 0,
-            px: 20,
-            py: 10,
-        });
-        Screen::World {
-            region_idx: pos.region_idx,
-            px: pos.px,
-            py: pos.py,
-        }
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        Screen::World { region_idx }
     }
 
     pub fn enter_overmap(&mut self) {
         let region_idx = match &self.screen {
-            Screen::World { region_idx, .. } => *region_idx,
+            Screen::World { region_idx } => *region_idx,
             _ => 0,
         };
         self.screen = Screen::Overmap { region_idx };
@@ -750,9 +722,7 @@ impl App {
 
     pub fn exit_overmap(&mut self) {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
-        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
-        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::World { region_idx, px, py };
+        self.screen = Screen::World { region_idx };
     }
 
     pub fn gather(&mut self) {
@@ -857,9 +827,7 @@ impl App {
 
     pub fn exit_inventory(&mut self) {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
-        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
-        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::World { region_idx, px, py };
+        self.screen = Screen::World { region_idx };
     }
 
     pub fn enter_craft(&mut self) {
@@ -868,9 +836,7 @@ impl App {
 
     pub fn exit_craft(&mut self) {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
-        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
-        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::World { region_idx, px, py };
+        self.screen = Screen::World { region_idx };
     }
 
     pub fn open_encounter_log(&mut self) {
@@ -940,9 +906,7 @@ impl App {
 
     pub fn exit_market(&mut self) {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
-        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
-        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::World { region_idx, px, py };
+        self.screen = Screen::World { region_idx };
     }
 
     pub fn current_settlement_people(&self) -> Option<PeopleKind> {
@@ -1877,9 +1841,7 @@ impl App {
         };
         self.status_msg = Some(msg_with_witness);
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
-        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
-        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::World { region_idx, px, py };
+        self.screen = Screen::World { region_idx };
     }
 
     pub fn check_milestones(&mut self) {
@@ -2152,9 +2114,7 @@ impl App {
         self.vitals.hunger = 0.4;
         self.vitals.energy = 0.5;
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
-        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
-        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::World { region_idx, px, py };
+        self.screen = Screen::World { region_idx };
     }
 
     pub fn restart_game(&mut self) {
@@ -2352,9 +2312,7 @@ impl App {
 
         // Continue on Map screen
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
-        let px = self.player_pos.map(|p| p.px).unwrap_or(20);
-        let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::World { region_idx, px, py };
+        self.screen = Screen::World { region_idx };
     }
 
     pub fn use_service(&mut self, service: SettlementService) {
@@ -2780,7 +2738,7 @@ impl App {
                 self.check_discovery(region_idx, px, py);
                 self.check_quests_on_travel(region_idx);
                 if self.encounter.is_none() {
-                    self.screen = Screen::World { region_idx, px, py };
+                    self.screen = Screen::World { region_idx };
                 }
             }
             Some(MoveResult::Step { region_idx, px, py }) => {
@@ -2815,7 +2773,7 @@ impl App {
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
                 if self.encounter.is_none() {
-                    self.screen = Screen::World { region_idx, px, py };
+                    self.screen = Screen::World { region_idx };
                 }
             }
             Some(MoveResult::Blocked { msg }) => {
@@ -3123,11 +3081,7 @@ impl App {
                     }
                     _ => {}
                 },
-                Screen::World {
-                    region_idx,
-                    px: _,
-                    py: _,
-                } => match key.code {
+                Screen::World { region_idx } => match key.code {
                     crossterm::event::KeyCode::Char('h') | crossterm::event::KeyCode::Left => {
                         self.move_player(-1, 0);
                     }
@@ -3139,6 +3093,9 @@ impl App {
                     }
                     crossterm::event::KeyCode::Char('j') | crossterm::event::KeyCode::Down => {
                         self.move_player(0, 1);
+                    }
+                    crossterm::event::KeyCode::Char('w') | crossterm::event::KeyCode::Char('.') => {
+                        self.advance_clock(1);
                     }
                     crossterm::event::KeyCode::Enter => {
                         if let Some((ri, si)) = self.player_on_settlement() {
@@ -3179,9 +3136,6 @@ impl App {
                     crossterm::event::KeyCode::Char('m') => {
                         self.enter_journal();
                     }
-                    crossterm::event::KeyCode::Char('!') => {
-                        self.enter_alerts();
-                    }
                     crossterm::event::KeyCode::Char('H') => {
                         self.open_encounter_log();
                     }
@@ -3208,7 +3162,7 @@ impl App {
                         self.screen = Screen::Settings;
                     }
                     crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.running = false;
+                        self.screen = Screen::TitleScreen;
                     }
                     _ => {}
                 },
@@ -3255,11 +3209,7 @@ impl App {
                         }
                     }
                     crossterm::event::KeyCode::Enter => {
-                        self.screen = Screen::World {
-                            region_idx,
-                            px: 20,
-                            py: 10,
-                        };
+                        self.screen = Screen::World { region_idx };
                     }
                     _ => {}
                 },
@@ -3347,18 +3297,6 @@ impl App {
                     }
                     crossterm::event::KeyCode::Char('t') => {
                         self.enter_talk(region_idx, settlement_idx, person_idx);
-                    }
-                    crossterm::event::KeyCode::Down => {
-                        *scroll = scroll.saturating_add(1);
-                    }
-                    crossterm::event::KeyCode::Up => {
-                        *scroll = scroll.saturating_sub(1);
-                    }
-                    _ => {}
-                },
-                Screen::WorldAlerts { ref mut scroll } => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.exit_alerts();
                     }
                     crossterm::event::KeyCode::Down => {
                         *scroll = scroll.saturating_add(1);
