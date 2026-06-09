@@ -2855,16 +2855,22 @@ impl App {
             if let Some(ref sim) = self.sim {
                 if let Some(region) = sim.world.regions.get(pos.region_idx) {
                     if region.terrain.get(pos.px, pos.py) == Some(Terrain::Settlement) {
-                        let mut idx = 0;
-                        for (si, _sett) in region.settlements.iter().enumerate() {
-                            let spacing = 40 / region.settlements.len().max(1);
-                            let sx = (spacing / 2 + si * spacing).min(39);
-                            if sx == pos.px {
-                                idx = si;
-                                break;
+                        let mut settle_positions: Vec<(usize, usize)> = Vec::new();
+                        for (i, &t) in region.terrain.tiles.iter().enumerate() {
+                            if t == Terrain::Settlement {
+                                let sx = i % region.terrain.width;
+                                let sy = i / region.terrain.width;
+                                settle_positions.push((sx, sy));
                             }
                         }
-                        return Some((pos.region_idx, idx));
+                        settle_positions.sort_by_key(|(x, _)| *x);
+                        if let Some(idx) = settle_positions
+                            .iter()
+                            .position(|&(sx, sy)| sx == pos.px && sy == pos.py)
+                        {
+                            return Some((pos.region_idx, idx.min(region.settlements.len() - 1)));
+                        }
+                        return Some((pos.region_idx, 0));
                     }
                 }
             }
