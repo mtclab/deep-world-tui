@@ -1,4 +1,5 @@
 use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Result;
 use clap::Parser;
@@ -56,8 +57,14 @@ fn main() -> Result<()> {
 
 fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, app: &mut App) -> Result<()> {
     while app.running {
+        let render_start = Instant::now();
         app.pre_draw();
         terminal.draw(|f| deep_world_tui::ui::render::draw(f, app))?;
+        let render_us = render_start.elapsed().as_micros() as u64;
+        app.perf_last_render_us = render_us;
+        if render_us > 33_000 {
+            app.perf_slow_frames = app.perf_slow_frames.saturating_add(1);
+        }
 
         let timeout = Duration::from_millis(app.tick_interval);
         if let Some(event) = deep_world_tui::ui::event::poll(timeout) {
