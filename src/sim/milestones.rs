@@ -91,6 +91,8 @@ pub struct Milestone {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MilestoneTracker {
     pub milestones: Vec<Milestone>,
+    pub settlements_visited: u32,
+    pub quests_completed: u32,
 }
 
 impl MilestoneTracker {

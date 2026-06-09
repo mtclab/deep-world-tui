@@ -2,10 +2,10 @@ use crate::charts::Charts;
 use crate::gen::companion::settlement_companions;
 use crate::gen::player::generate_player_start;
 use crate::model::{
-    craft_recipes, Collapse, Encounter, EncounterAction, EncounterLog, EncounterLogEntry,
-    FestivalKind, GameClock, GodAffinity, GodName, InterPeopleBias, Inventory, ItemType, Need,
-    PeopleKind, PlayerPos, PlayerStart, PlayerVitals, Settlement, SettlementService, TensionEvent,
-    Terrain, Weather, WitnessLevel,
+    craft_recipes, Collapse, CollapseOutcome, DeathCause, Encounter, EncounterAction, EncounterLog,
+    EncounterLogEntry, FestivalKind, GameClock, GodAffinity, GodName, InterPeopleBias, Inventory,
+    ItemType, Need, PeopleKind, PlayerPos, PlayerStart, PlayerVitals, Settlement,
+    SettlementService, TensionEvent, Terrain, Weather, WitnessLevel,
 };
 use crate::rng::SeedRng;
 use crate::save::{self, LineageRecord, SaveData};
@@ -86,9 +86,9 @@ pub struct App {
     pub player_pos: Option<PlayerPos>,
     pub clock: GameClock,
     pub vitals: PlayerVitals,
-    pub encounter: Option<Encounter>,
-    pub encounter_log: EncounterLog,
     pub collapse: Option<Collapse>,
+    pub death_cause: Option<DeathCause>,
+    pub encounter: Option<Encounter>,
     pub god_affinity: GodAffinity,
     pub inter_people_bias: InterPeopleBias,
     pub llm_enabled: bool,
@@ -102,6 +102,7 @@ pub struct App {
     pub audio_volume: f32,
     pub previous_screen: Option<Screen>,
     pub encounters_had: u32,
+    pub encounter_log: EncounterLog,
     pub collapses_had: u32,
     pub collapse_log: Vec<CollapseEvent>,
     pub lineage: Vec<LineageRecord>,
@@ -136,6 +137,7 @@ impl App {
             vitals: PlayerVitals::default(),
             encounter: None,
             collapse: None,
+            death_cause: None,
             god_affinity: GodAffinity::new(),
             inter_people_bias: InterPeopleBias::default(),
             llm_enabled: settings.llm_enabled,
@@ -230,6 +232,7 @@ impl App {
     }
 
     pub fn enter_settlement(&mut self, region_idx: usize, settlement_idx: usize) {
+        self.milestones.settlements_visited += 1;
         if let Some(npc_people) = self.current_settlement_people() {
             let bias = self.inter_people_bias.effective_bias(npc_people)
                 + self.clock.season().bias_modifier();
@@ -2010,6 +2013,11 @@ impl App {
             }
         }
         if died {
+            let outcome = self
+                .collapse
+                .map(|c| c.outcome)
+                .unwrap_or(CollapseOutcome::Ditch);
+            self.death_cause = Some(DeathCause::from_collapse_and_vitals(outcome, self.vitals));
             if self.player_start.is_some() {
                 let save_data = SaveData {
                     sim: self
@@ -2053,6 +2061,7 @@ impl App {
         self.sim = None;
         self.player_start = None;
         self.collapse = None;
+        self.death_cause = None;
         self.encounter = None;
         self.clock = GameClock::default();
         self.vitals = PlayerVitals::default();
