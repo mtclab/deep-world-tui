@@ -17,13 +17,8 @@ const RATE_LIMIT_SECS: u64 = 2;
 pub fn narrate(_person: &Person, _prompt: &str) -> Option<String> {
     #[cfg(feature = "llm")]
     {
-        crate::llm::call_ollama(
-            "http://localhost:11434",
-            "deep-world",
-            _prompt,
-            30,
-        )
-        .map(crate::llm::strip_numbers)
+        crate::llm::call_ollama("http://localhost:11434", "deep-world", _prompt, 30)
+            .map(crate::llm::strip_numbers)
     }
     #[cfg(not(feature = "llm"))]
     {
@@ -103,12 +98,7 @@ pub fn strip_numbers(text: &str) -> String {
 }
 
 #[cfg(feature = "llm")]
-pub fn call_ollama(
-    endpoint: &str,
-    model: &str,
-    prompt: &str,
-    timeout_secs: u64,
-) -> Option<String> {
+pub fn call_ollama(endpoint: &str, model: &str, prompt: &str, timeout_secs: u64) -> Option<String> {
     {
         let mut last = LAST_CALL.lock().ok()?;
         if let Some(prev) = *last {
@@ -297,7 +287,11 @@ mod tests {
     fn build_flavor_context_is_number_free() {
         let ctx = build_flavor_context(Situation::Greeting, "forest", "rain", "metsik");
         for c in ctx.chars() {
-            assert!(!c.is_ascii_digit(), "context must not contain digits: found '{}'", c);
+            assert!(
+                !c.is_ascii_digit(),
+                "context must not contain digits: found '{}'",
+                c
+            );
         }
     }
 

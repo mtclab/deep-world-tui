@@ -3136,21 +3136,6 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
             )));
         }
     }
-    if !legacy_lines.is_empty() {
-        lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(
-            "  Legacy:",
-            Style::default()
-                .fg(theme.ink())
-                .add_modifier(Modifier::BOLD),
-        )));
-        for ll in &legacy_lines {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", ll),
-                Style::default().fg(theme.dark_brown()),
-            )));
-        }
-    }
 
     let para = Paragraph::new(lines).style(Style::default().bg(theme.paper()));
     f.render_widget(para, chunks[1]);

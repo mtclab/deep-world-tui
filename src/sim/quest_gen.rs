@@ -169,7 +169,7 @@ pub struct QuestCheckResult {
 }
 
 pub fn check_quests(
-    quests: &[Quest],
+    quests: &mut [Quest],
     inventory: &crate::model::Inventory,
     current_region_idx: usize,
     aided_npcs: &[String],
@@ -179,7 +179,7 @@ pub fn check_quests(
     let mut completed = Vec::new();
     let mut expired = Vec::new();
 
-    for (i, quest) in quests.iter().enumerate() {
+    for (i, quest) in quests.iter_mut().enumerate() {
         if quest.is_complete() {
             continue;
         }
@@ -218,6 +218,8 @@ pub fn check_quests(
             }
         };
 
+        quest.progress = progress;
+
         if progress >= quest.target {
             completed.push(i);
         }
@@ -232,6 +234,8 @@ pub fn apply_quest_reward(
     reputation: &mut crate::sim::reputation::ReputationStore,
     player_id: &str,
     current_settlement: &str,
+    relationships: &mut crate::sim::relationships::RelationshipTracker,
+    tick: u64,
 ) {
     match reward {
         QuestReward::Reputation { amount } => {
@@ -240,11 +244,15 @@ pub fn apply_quest_reward(
         QuestReward::Items { item, count } => {
             inventory.add(*item, *count);
         }
-        QuestReward::Relationship {
-            npc_id: _,
-            delta: _,
-        } => {
-            // Relationship deltas are applied via the relationship tracker in the caller
+        QuestReward::Relationship { npc_id, delta } => {
+            relationships.update_relationship(
+                player_id,
+                npc_id,
+                "quest fulfilled",
+                tick,
+                *delta,
+                *delta * 0.5,
+            );
         }
     }
 }
@@ -302,7 +310,7 @@ mod tests {
     fn fetch_item_completes_when_inventory_sufficient() {
         let mut inv = Inventory::default();
         inv.add(ItemType::Herb, 3);
-        let quests = vec![Quest {
+        let mut quests = vec![Quest {
             kind: QuestKind::FetchItem {
                 item: ItemType::Herb,
                 count: 3,
@@ -314,13 +322,14 @@ mod tests {
             deadline_day: 30,
             assigned_day: 1,
         }];
-        let result = check_quests(&quests, &inv, 0, &[], 0.5, 5);
+        let result = check_quests(&mut quests, &inv, 0, &[], 0.5, 5);
         assert_eq!(result.completed.len(), 1);
+        assert_eq!(quests[0].progress, 3);
     }
 
     #[test]
     fn quest_expires_past_deadline() {
-        let quests = vec![Quest {
+        let mut quests = vec![Quest {
             kind: QuestKind::VisitRegion { region_idx: 5 },
             description: "test".into(),
             reward: QuestReward::Items {
@@ -333,14 +342,14 @@ mod tests {
             assigned_day: 1,
         }];
         let inv = Inventory::default();
-        let result = check_quests(&quests, &inv, 0, &[], 0.5, 15);
+        let result = check_quests(&mut quests, &inv, 0, &[], 0.5, 15);
         assert_eq!(result.expired.len(), 1);
         assert!(result.completed.is_empty());
     }
 
     #[test]
     fn survive_days_tracks_progress() {
-        let quests = vec![Quest {
+        let mut quests = vec![Quest {
             kind: QuestKind::SurviveDays { days: 5 },
             description: "test".into(),
             reward: QuestReward::Reputation { amount: 0.2 },
@@ -350,11 +359,37 @@ mod tests {
             assigned_day: 1,
         }];
         let inv = Inventory::default();
-        let result = check_quests(&quests, &inv, 0, &[], 0.5, 6);
+        let result = check_quests(&mut quests, &inv, 0, &[], 0.5, 6);
         assert_eq!(
             result.completed.len(),
             1,
             "after 5 days (day 6 from start), survive 5 days should complete"
+        );
+        assert_eq!(quests[0].progress, 5);
+    }
+
+    #[test]
+    fn progress_updates_on_partial_fetch() {
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Herb, 1);
+        let mut quests = vec![Quest {
+            kind: QuestKind::FetchItem {
+                item: ItemType::Herb,
+                count: 3,
+            },
+            description: "test".into(),
+            reward: QuestReward::Reputation { amount: 0.1 },
+            progress: 0,
+            target: 3,
+            deadline_day: 30,
+            assigned_day: 1,
+        }];
+        let result = check_quests(&mut quests, &inv, 0, &[], 0.5, 5);
+        assert!(result.completed.is_empty());
+        assert_eq!(quests[0].progress, 1);
+        assert_eq!(
+            quests[0].progress_hint(),
+            "I have begun, but there is far to go."
         );
     }
 }

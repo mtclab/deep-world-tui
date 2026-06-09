@@ -8,7 +8,7 @@ pub mod quest;
 pub mod relation;
 
 pub use discovery::{Discovery, DiscoveryKind, DiscoveryStore};
-pub use quest::{LegacyQuest, Quest, QuestKind, QuestReward, QuestType};
+pub use quest::{Quest, QuestKind, QuestReward};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Terrain {
@@ -5253,58 +5253,6 @@ mod tests {
         .filter(|w| !seen.contains(w))
         .collect();
         panic!("Weather::generate never produced: {:?}", missing);
-    }
-
-    #[test]
-    fn quest_generation_deterministic() {
-        let q1 = LegacyQuest::generate(42, "npc-1".into(), "Test NPC".into(), 100);
-        let q2 = LegacyQuest::generate(42, "npc-1".into(), "Test NPC".into(), 100);
-        assert_eq!(q1.id, q2.id);
-        assert_eq!(q1.quest_type, q2.quest_type);
-        assert_eq!(q1.description, q2.description);
-        assert_eq!(q1.reward_coins, q2.reward_coins);
-    }
-
-    #[test]
-    fn quest_types_variety() {
-        let mut types = std::collections::HashSet::new();
-        for seed in 0..20 {
-            let q = LegacyQuest::generate(seed, "npc-1".into(), "Test NPC".into(), 100);
-            types.insert(q.quest_type);
-        }
-        assert!(
-            types.len() >= 3,
-            "should generate at least 3 different quest types"
-        );
-    }
-
-    #[test]
-    fn quest_progress_tracking() {
-        let mut q = LegacyQuest::generate(42, "npc-1".into(), "Test NPC".into(), 100);
-        assert!(!q.is_complete());
-        q.advance_progress(1);
-        if q.target_count > 1 {
-            assert!(!q.is_complete());
-        }
-        q.advance_progress(q.target_count);
-        assert!(q.is_complete());
-        assert!(q.completed);
-    }
-
-    #[test]
-    fn quest_deadline_in_future() {
-        let q = LegacyQuest::generate(42, "npc-1".into(), "Test NPC".into(), 100);
-        assert!(q.deadline_tick > 100);
-        assert!(q.deadline_tick <= 100 + 48 + 72); // max 5 days
-    }
-
-    #[test]
-    fn quest_rewards_positive() {
-        for seed in 0..10 {
-            let q = LegacyQuest::generate(seed, "npc-1".into(), "Test NPC".into(), 100);
-            assert!(q.reward_coins >= 3);
-            assert!(q.reward_reputation > 0.0);
-        }
     }
 
     #[test]

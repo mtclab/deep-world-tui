@@ -942,6 +942,7 @@ impl App {
                 ps.inventory.add(item, 1);
                 self.advance_clock_hour();
                 self.fire_hint(hints::HINT_FIRST_TRADE);
+                self.check_quests_on_tick();
                 self.status_msg =
                     Some(format!("Bought 1 {} for {} coins (1h)", item.name(), price));
                 self.god_affinity.adjust(GodName::Masa, 0.02);
@@ -969,6 +970,7 @@ impl App {
                 ps.inventory.add(ItemType::Coin, price);
                 self.advance_clock_hour();
                 self.fire_hint(hints::HINT_FIRST_TRADE);
+                self.check_quests_on_tick();
                 self.status_msg = Some(format!("Sold 1 {} for {} coins (1h)", item.name(), price));
                 self.god_affinity.adjust(GodName::Masa, 0.01);
             } else {
@@ -1167,14 +1169,12 @@ impl App {
             .map(|s| s.aided_npcs.clone())
             .unwrap_or_default();
 
-        let quest_snapshot = self
-            .sim
-            .as_ref()
-            .map(|s| s.quests.clone())
-            .unwrap_or_default();
+        if self.sim.is_none() {
+            return;
+        }
 
         let result = crate::sim::quest_gen::check_quests(
-            &quest_snapshot,
+            &mut self.sim.as_mut().unwrap().quests,
             &inventory,
             region_idx,
             &aided_npcs,
@@ -1187,6 +1187,12 @@ impl App {
         }
 
         let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+
+        let completed_rewards: Vec<crate::model::quest::QuestReward> = result
+            .completed
+            .iter()
+            .filter_map(|&idx| self.sim.as_ref()?.quests.get(idx).map(|q| q.reward.clone()))
+            .collect();
 
         if let Some(ref mut sim) = self.sim {
             for _ in &result.completed {
@@ -1204,20 +1210,6 @@ impl App {
                 );
             }
 
-            for &idx in &result.completed {
-                if let Some(quest) = quest_snapshot.get(idx) {
-                    if let Some(ref mut ps) = self.player_start {
-                        crate::sim::quest_gen::apply_quest_reward(
-                            &quest.reward,
-                            &mut ps.inventory,
-                            &mut sim.reputation,
-                            &player_id,
-                            &current_settlement_id,
-                        );
-                    }
-                }
-            }
-
             let mut to_remove: Vec<usize> = result.completed;
             to_remove.extend(&result.expired);
             to_remove.sort_unstable();
@@ -1226,6 +1218,22 @@ impl App {
             for &idx in &to_remove {
                 if idx < sim.quests.len() {
                     sim.quests.remove(idx);
+                }
+            }
+        }
+
+        for reward in completed_rewards {
+            if let Some(ref mut ps) = self.player_start {
+                if let Some(ref mut sim) = self.sim {
+                    crate::sim::quest_gen::apply_quest_reward(
+                        &reward,
+                        &mut ps.inventory,
+                        &mut sim.reputation,
+                        &player_id,
+                        &current_settlement_id,
+                        &mut sim.relationships,
+                        sim.world.tick,
+                    );
                 }
             }
         }
@@ -1246,11 +1254,6 @@ impl App {
                 sim.aided_npcs.push(npc_id.to_string());
             }
         }
-        self.check_quests_on_tick();
-    }
-
-    #[allow(dead_code)]
-    fn check_quests_apply_result(&mut self, _result: crate::sim::quest_gen::QuestCheckResult) {
         self.check_quests_on_tick();
     }
 
@@ -2573,6 +2576,7 @@ impl App {
                             flavor.to_string(),
                         );
                     }
+                    self.status_msg = Some(flavor.to_string());
                     return;
                 }
             }
@@ -2872,6 +2876,12 @@ impl App {
                                         self.collapses_had = data.collapses_had;
                                         self.collapse_log = data.collapse_log;
                                         self.lineage = data.lineage;
+                                        self.milestones = data.milestones;
+                                        self.hint_tracker = data.hint_tracker;
+                                        self.elder = self.milestones.has(
+                                            crate::sim::milestones::MilestoneKind::ElderAchieved,
+                                        );
+                                        self.first_run = false;
                                         if last_collapse_died {
                                             self.continue_as_npc();
                                         }
