@@ -2281,7 +2281,6 @@ pub enum EncounterKind {
     SpringBloom,
     HarvestMarket,
     WinterSurvivor,
-    MerchantCaravan,
 }
 
 impl EncounterKind {
@@ -2298,7 +2297,6 @@ impl EncounterKind {
             EncounterKind::SpringBloom => "The thaw has come. Flowers push through the last frost, and the air tastes of renewal.",
             EncounterKind::HarvestMarket => "A market sprawls across the square — traders, food, noise, color, life.",
             EncounterKind::WinterSurvivor => "A huddled figure in the snow. They hold out a hand, half-frozen, half-hoping.",
-            EncounterKind::MerchantCaravan => "Wagons rumble past on the trade road. Merchants call out their wares and wave you closer.",
         }
     }
 
@@ -2322,7 +2320,6 @@ impl EncounterKind {
             EncounterKind::SpringBloom
                 | EncounterKind::HarvestMarket
                 | EncounterKind::WinterSurvivor
-                | EncounterKind::MerchantCaravan
         )
     }
 
@@ -2347,7 +2344,6 @@ impl EncounterKind {
             EncounterKind::SpringBloom => vec![EncounterAction::Talk, EncounterAction::Calm],
             EncounterKind::HarvestMarket => vec![EncounterAction::Trade, EncounterAction::Talk],
             EncounterKind::WinterSurvivor => vec![EncounterAction::Calm, EncounterAction::Trade],
-            EncounterKind::MerchantCaravan => vec![EncounterAction::Trade, EncounterAction::Talk],
         }
     }
 }
@@ -2507,22 +2503,6 @@ impl Encounter {
                 });
             }
             _ => {}
-        }
-
-        // Merchant caravans on roads, season-dependent
-        let caravan_val = (hash.wrapping_mul(65537)) % 100;
-        if matches!(terrain, Terrain::Road | Terrain::Grass | Terrain::Coast) {
-            let caravan_chance: u32 = match season {
-                Season::Green => 10,
-                Season::Thaw => 7,
-                Season::Frost => 4,
-            };
-            if caravan_val < caravan_chance as u64 {
-                return Some(Encounter {
-                    kind: EncounterKind::MerchantCaravan,
-                    terrain,
-                });
-            }
         }
 
         let (mut threshold, mut kind): (u32, EncounterKind) = match terrain {
@@ -2873,6 +2853,149 @@ impl SettlementService {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Faction {
+    Crafters,
+    Traders,
+    Elders,
+}
+
+impl Faction {
+    pub fn label(self) -> &'static str {
+        match self {
+            Faction::Crafters => "Crafters",
+            Faction::Traders => "Traders",
+            Faction::Elders => "Elders",
+        }
+    }
+
+    pub fn god(self) -> GodName {
+        match self {
+            Faction::Crafters => GodName::Oltzed,
+            Faction::Traders => GodName::Masa,
+            Faction::Elders => GodName::Sampsa,
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            Faction::Crafters => "The forges burn late. Hands shape the world.",
+            Faction::Traders => "Coin changes hands. Roads bind the settlements.",
+            Faction::Elders => "Memory outlives the young. The archive endures.",
+        }
+    }
+
+    pub fn all() -> &'static [Faction] {
+        &[Faction::Crafters, Faction::Traders, Faction::Elders]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LeadershipEvent {
+    Election,
+    Dispute,
+    Festival,
+}
+
+impl LeadershipEvent {
+    pub fn label(self) -> &'static str {
+        match self {
+            LeadershipEvent::Election => "Election",
+            LeadershipEvent::Dispute => "Dispute",
+            LeadershipEvent::Festival => "Festival",
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            LeadershipEvent::Election => "Voices rise in the square. A new voice will speak for the settlement.",
+            LeadershipEvent::Dispute => "Harsh words at the gate. Two factions cannot agree. Eyes turn to you.",
+            LeadershipEvent::Festival => "Drums and firelight. The settlement celebrates its bonds — or forgets its fractures.",
+        }
+    }
+
+    pub fn standing_shift(self) -> f64 {
+        match self {
+            LeadershipEvent::Election => 0.05,
+            LeadershipEvent::Dispute => -0.10,
+            LeadershipEvent::Festival => 0.08,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct SettlementPolitics {
+    pub crafter_standing: f64,
+    pub trader_standing: f64,
+    pub elder_standing: f64,
+    pub last_event: Option<LeadershipEvent>,
+}
+
+impl SettlementPolitics {
+    pub fn new() -> Self {
+        Self {
+            crafter_standing: 0.5,
+            trader_standing: 0.5,
+            elder_standing: 0.5,
+            last_event: None,
+        }
+    }
+
+    pub fn standing(&self, faction: Faction) -> f64 {
+        match faction {
+            Faction::Crafters => self.crafter_standing,
+            Faction::Traders => self.trader_standing,
+            Faction::Elders => self.elder_standing,
+        }
+    }
+
+    pub fn adjust(&mut self, faction: Faction, delta: f64) {
+        let val = (self.standing(faction) + delta).clamp(0.0, 1.0);
+        match faction {
+            Faction::Crafters => self.crafter_standing = val,
+            Faction::Traders => self.trader_standing = val,
+            Faction::Elders => self.elder_standing = val,
+        }
+    }
+
+    pub fn dominant_faction(&self) -> Faction {
+        if self.crafter_standing >= self.trader_standing && self.crafter_standing >= self.elder_standing {
+            Faction::Crafters
+        } else if self.trader_standing >= self.elder_standing {
+            Faction::Traders
+        } else {
+            Faction::Elders
+        }
+    }
+
+    pub fn price_modifier(&self) -> f64 {
+        let dominant = self.dominant_faction();
+        match dominant {
+            Faction::Traders => 0.85,
+            Faction::Crafters => 0.95,
+            Faction::Elders => 1.05,
+        }
+    }
+
+    pub fn roll_leadership_event(&mut self, seed: u64) -> Option<LeadershipEvent> {
+        let val = (seed.wrapping_mul(2654435761) >> 48) as u32 % 100;
+        let event = if val < 15 {
+            Some(LeadershipEvent::Election)
+        } else if val < 25 {
+            Some(LeadershipEvent::Dispute)
+        } else if val < 35 {
+            Some(LeadershipEvent::Festival)
+        } else {
+            None
+        };
+        if let Some(e) = event {
+            self.adjust(self.dominant_faction(), e.standing_shift());
+            self.last_event = Some(e);
+        }
+        event
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settlement {
     pub id: String,
@@ -2884,6 +3007,8 @@ pub struct Settlement {
     pub people: Vec<Person>,
     #[serde(default)]
     pub services: Vec<SettlementService>,
+    #[serde(default)]
+    pub politics: SettlementPolitics,
 }
 
 impl Settlement {
@@ -2898,106 +3023,6 @@ impl Settlement {
             "city" => 3,
             _ => 0,
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TradeEventType {
-    CaravanArrival,
-    MarketDay,
-    Shortage,
-    Surplus,
-}
-
-impl TradeEventType {
-    pub fn flavor(self) -> &'static str {
-        match self {
-            TradeEventType::CaravanArrival => "Wagons roll in from distant roads. New goods appear on the shelves.",
-            TradeEventType::MarketDay => "The square fills with stalls and shouting vendors. Prices shift with the crowd.",
-            TradeEventType::Shortage => "The shelves grow thin. What remains costs more.",
-            TradeEventType::Surplus => "Bountiful goods line every corner. Prices ease.",
-        }
-    }
-
-    pub fn price_modifier(self) -> f64 {
-        match self {
-            TradeEventType::CaravanArrival => 0.85,
-            TradeEventType::MarketDay => 0.9,
-            TradeEventType::Shortage => 1.3,
-            TradeEventType::Surplus => 0.75,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TradeEvent {
-    pub kind: TradeEventType,
-    pub settlement_id: String,
-    pub day: u32,
-    pub duration_days: u32,
-}
-
-impl TradeEvent {
-    pub fn is_active(&self, current_day: u32) -> bool {
-        current_day >= self.day && current_day < self.day + self.duration_days
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct TradeRouteState {
-    pub events: Vec<TradeEvent>,
-}
-
-impl TradeRouteState {
-    pub fn generate_seasonal(&mut self, day: u32, settlement_ids: &[String]) {
-        let season = Season::from_day(day);
-        let events = match season {
-            Season::Thaw => vec![
-                (TradeEventType::CaravanArrival, 0.12),
-                (TradeEventType::MarketDay, 0.08),
-            ],
-            Season::Green => vec![
-                (TradeEventType::CaravanArrival, 0.15),
-                (TradeEventType::Surplus, 0.10),
-                (TradeEventType::MarketDay, 0.12),
-            ],
-            Season::Frost => vec![
-                (TradeEventType::Shortage, 0.15),
-                (TradeEventType::CaravanArrival, 0.06),
-            ],
-        };
-        for sid in settlement_ids {
-            for (kind, chance) in &events {
-                let seed_hash = (day as u64)
-                    .wrapping_mul(0x517cc1b727220a95)
-                    .wrapping_add(sid.bytes().fold(0u64, |a, b| a.wrapping_add(b as u64)));
-                let roll = (seed_hash >> 32) as f64 / u32::MAX as f64;
-                if roll < *chance {
-                    self.events.push(TradeEvent {
-                        kind: *kind,
-                        settlement_id: sid.clone(),
-                        day,
-                        duration_days: match kind {
-                            TradeEventType::CaravanArrival => 3,
-                            TradeEventType::MarketDay => 2,
-                            TradeEventType::Shortage => 5,
-                            TradeEventType::Surplus => 4,
-                        },
-                    });
-                }
-            }
-        }
-        self.events.retain(|e| e.day + e.duration_days > day.saturating_sub(7));
-    }
-
-    pub fn price_modifier_for(&self, settlement_id: &str, day: u32) -> f64 {
-        let mut mod_stack = 1.0;
-        for event in &self.events {
-            if event.settlement_id == settlement_id && event.is_active(day) {
-                mod_stack *= event.kind.price_modifier();
-            }
-        }
-        mod_stack
     }
 }
 
@@ -4124,6 +4149,7 @@ mod tests {
             description: "A test village".into(),
             people: vec![],
             services: vec![],
+            politics: SettlementPolitics::new(),
         };
         roundtrip(&s);
     }
@@ -4189,6 +4215,7 @@ mod tests {
                     })
                     .collect(),
                 services: vec![],
+                politics: SettlementPolitics::new(),
             }],
         };
         world.regions.push(region);
@@ -5894,56 +5921,54 @@ mod death_cause_test {
 }
 
 #[cfg(test)]
-mod trade_route_test {
+mod settlement_politics_test {
     use super::*;
 
     #[test]
-    fn trade_event_is_active() {
-        let event = TradeEvent {
-            kind: TradeEventType::CaravanArrival,
-            settlement_id: "s1".into(),
-            day: 10,
-            duration_days: 3,
-        };
-        assert!(event.is_active(10));
-        assert!(event.is_active(12));
-        assert!(!event.is_active(13));
-        assert!(!event.is_active(9));
+    fn faction_labels() {
+        assert_eq!(Faction::Crafters.label(), "Crafters");
+        assert_eq!(Faction::Traders.label(), "Traders");
+        assert_eq!(Faction::Elders.label(), "Elders");
     }
 
     #[test]
-    fn trade_event_price_modifiers() {
-        assert!(TradeEventType::CaravanArrival.price_modifier() < 1.0);
-        assert!(TradeEventType::MarketDay.price_modifier() < 1.0);
-        assert!(TradeEventType::Shortage.price_modifier() > 1.0);
-        assert!(TradeEventType::Surplus.price_modifier() < 1.0);
+    fn politics_adjust_clamps() {
+        let mut p = SettlementPolitics::new();
+        p.adjust(Faction::Crafters, 0.3);
+        assert!(p.crafter_standing > 0.5);
+        p.adjust(Faction::Crafters, 10.0);
+        assert!((p.crafter_standing - 1.0).abs() < f64::EPSILON);
+        p.adjust(Faction::Crafters, -20.0);
+        assert!(p.crafter_standing.abs() < f64::EPSILON);
     }
 
     #[test]
-    fn trade_route_state_modifiers() {
-        let mut state = TradeRouteState::default();
-        state.events.push(TradeEvent {
-            kind: TradeEventType::CaravanArrival,
-            settlement_id: "s1".into(),
-            day: 5,
-            duration_days: 3,
-        });
-        assert!(state.price_modifier_for("s1", 5) < 1.0);
-        assert!((state.price_modifier_for("s1", 8) - 1.0).abs() < f64::EPSILON);
-        assert!((state.price_modifier_for("s2", 5) - 1.0).abs() < f64::EPSILON);
+    fn dominant_faction() {
+        let mut p = SettlementPolitics::new();
+        p.trader_standing = 0.9;
+        p.crafter_standing = 0.5;
+        p.elder_standing = 0.3;
+        assert_eq!(p.dominant_faction(), Faction::Traders);
     }
 
     #[test]
-    fn trade_route_seasonal_generation_cleans_old() {
-        let mut state = TradeRouteState::default();
-        state.generate_seasonal(100, &[]);
-        assert!(state.events.iter().all(|e| e.day >= 93));
+    fn trader_dominant_reduces_prices() {
+        let mut p = SettlementPolitics::new();
+        p.trader_standing = 0.9;
+        assert!(p.price_modifier() < 1.0);
     }
 
     #[test]
-    fn encounter_kind_merchant_caravan_not_hostile() {
-        assert!(!EncounterKind::MerchantCaravan.is_hostile());
-        assert!(!EncounterKind::MerchantCaravan.is_rare());
-        assert!(EncounterKind::MerchantCaravan.is_seasonal());
+    fn elder_dominant_increases_prices() {
+        let mut p = SettlementPolitics::new();
+        p.elder_standing = 0.9;
+        assert!(p.price_modifier() > 1.0);
+    }
+
+    #[test]
+    fn leadership_event_none_at_high_roll() {
+        let mut p = SettlementPolitics::new();
+        let result = p.roll_leadership_event(0xFFFFFFFFFFFFFFFF);
+        assert!(result.is_none());
     }
 }

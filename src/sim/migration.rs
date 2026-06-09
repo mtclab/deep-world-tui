@@ -651,6 +651,7 @@ mod tests {
             description: String::new(),
             people: vec![person],
             services: vec![crate::model::SettlementService::Forge],
+            politics: crate::model::SettlementPolitics::new(),
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(
@@ -679,6 +680,7 @@ mod tests {
             description: String::new(),
             people,
             services: vec![crate::model::SettlementService::Forge],
+            politics: crate::model::SettlementPolitics::new(),
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(

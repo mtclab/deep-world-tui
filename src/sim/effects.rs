@@ -308,6 +308,7 @@ mod tests {
                         },
                     ],
                     services: vec![],
+                    politics: crate::model::SettlementPolitics::new(),
                 }],
             }],
             charts_version: "0.1.0".into(),
@@ -431,6 +432,7 @@ mod tests {
                             ..Default::default()
                         }],
                         services: vec![],
+                    politics: crate::model::SettlementPolitics::new(),
                     }],
                 },
                 crate::model::Region {
@@ -451,6 +453,7 @@ mod tests {
                         description: String::new(),
                         people: vec![],
                         services: vec![],
+                    politics: crate::model::SettlementPolitics::new(),
                     }],
                 },
             ],

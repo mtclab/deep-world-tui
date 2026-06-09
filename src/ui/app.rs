@@ -109,7 +109,6 @@ pub struct App {
     pub save_entries: Vec<crate::save::SaveEntry>,
     pub hint_tracker: HintTracker,
     pub milestones: crate::sim::milestones::MilestoneTracker,
-    pub trade_routes: crate::model::TradeRouteState,
     pub elder: bool,
     pub tick_count: u64,
     pub flash_frames: u8,
@@ -159,7 +158,6 @@ impl App {
             save_entries: Vec::new(),
             hint_tracker: HintTracker::default(),
             milestones: crate::sim::milestones::MilestoneTracker::new(),
-            trade_routes: crate::model::TradeRouteState::default(),
             elder: false,
             tick_count: 0,
             flash_frames: 0,
@@ -235,7 +233,21 @@ impl App {
 
     pub fn enter_settlement(&mut self, region_idx: usize, settlement_idx: usize) {
         self.milestones.settlements_visited += 1;
-        let _ = self.milestones.check_first_settlement(self.clock.day);
+
+        // Roll leadership events for the settlement
+        if let Some(ref mut sim) = self.sim {
+            if let Some(pos) = self.player_pos {
+                if let Some(region) = sim.world.regions.get_mut(pos.region_idx) {
+                    if let Some(settlement) = region.settlements.get_mut(settlement_idx) {
+                        let seed = self.seed.wrapping_add(self.clock.day as u64).wrapping_add(settlement_idx as u64);
+                        if let Some(event) = settlement.politics.roll_leadership_event(seed) {
+                            self.status_msg = Some(event.flavor().to_string());
+                        }
+                    }
+                }
+            }
+        }
+
         if let Some(npc_people) = self.current_settlement_people() {
             let bias = self.inter_people_bias.effective_bias(npc_people)
                 + self.clock.season().bias_modifier();
@@ -953,8 +965,8 @@ impl App {
             .map(|sp| self.inter_people_bias.price_modifier(sp))
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
-        let trade_mod = self.trade_route_price_modifier();
-        let modifier = inter_mod * rep_mod * trade_mod;
+        let pol_mod = self.politics_price_modifier();
+        let modifier = inter_mod * rep_mod * pol_mod;
         let price = ((base_price as f64 * modifier).ceil() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(ItemType::Coin, price) {
@@ -982,8 +994,8 @@ impl App {
             .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
-        let trade_mod = self.trade_route_price_modifier();
-        let modifier = inter_mod * rep_mod * trade_mod;
+        let pol_mod = self.politics_price_modifier();
+        let modifier = inter_mod * rep_mod * pol_mod;
         let price = ((base_price as f64 * modifier).floor() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(item, 1) {
@@ -1013,11 +1025,11 @@ impl App {
         rep
     }
 
-    pub fn trade_route_price_modifier(&self) -> f64 {
+    pub fn politics_price_modifier(&self) -> f64 {
         if let (Some(ref sim), Some(pos)) = (&self.sim, self.player_pos) {
             if let Some(region) = sim.world.regions.get(pos.region_idx) {
                 if let Some(settlement) = region.settlements.first() {
-                    return self.trade_routes.price_modifier_for(&settlement.id, self.clock.day);
+                    return settlement.politics.price_modifier();
                 }
             }
         }
@@ -1031,8 +1043,7 @@ impl App {
             .map(|sp| self.inter_people_bias.price_modifier(sp))
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
-        let trade_mod = self.trade_route_price_modifier();
-        let m = inter_mod * rep_mod * trade_mod;
+        let m = inter_mod * rep_mod;
         ((base as f64 * m).ceil() as u32).max(1)
     }
 
@@ -1043,8 +1054,7 @@ impl App {
             .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
-        let trade_mod = self.trade_route_price_modifier();
-        let m = inter_mod * rep_mod * trade_mod;
+        let m = inter_mod * rep_mod;
         ((base as f64 * m).floor() as u32).max(1)
     }
 
@@ -1092,7 +1102,6 @@ impl App {
             self.status_msg = Some(event.flavor(a, b));
         }
         self.check_milestones();
-        self.generate_trade_events();
         if self.elder {
             let elder_settlement_id = self
                 .sim
@@ -1908,22 +1917,6 @@ impl App {
                 sim.log(tick, kind.voice(), kind.journal_text());
             }
         }
-    }
-
-    pub fn generate_trade_events(&mut self) {
-        let day = self.clock.day;
-        let settlement_ids: Vec<String> = self
-            .sim
-            .as_ref()
-            .map(|s| {
-                s.world
-                    .regions
-                    .iter()
-                    .flat_map(|r| r.settlements.iter().map(|sett| sett.id.clone()))
-                    .collect()
-            })
-            .unwrap_or_default();
-        self.trade_routes.generate_seasonal(day, &settlement_ids);
     }
 
     #[allow(deprecated)]

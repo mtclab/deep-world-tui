@@ -3621,6 +3621,7 @@ mod minimap_tests {
                 description: String::new(),
                 people: vec![],
                 services: vec![],
+                politics: crate::model::SettlementPolitics::new(),
             }],
             terrain: TerrainMap {
                 width: 2,
@@ -3692,6 +3693,7 @@ mod minimap_tests {
                 test_person("p3", "Metsik"),
             ],
             services: vec![],
+            politics: crate::model::SettlementPolitics::new(),
         }];
         let color = dominant_people_color(&settlements, &theme);
         assert_eq!(color, theme.warm_brown());
@@ -3712,6 +3714,7 @@ mod minimap_tests {
             description: String::new(),
             people: vec![test_person("p1", "Unknown")],
             services: vec![],
+            politics: crate::model::SettlementPolitics::new(),
         }];
         let color = dominant_people_color(&settlements, &theme);
         assert_eq!(color, theme.archive_red());
