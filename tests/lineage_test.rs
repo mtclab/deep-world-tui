@@ -13,6 +13,7 @@ fn load_charts() -> charts::Charts {
     charts::load_charts("data/charts.ron").expect("charts should load from data/charts.ron")
 }
 
+#[allow(deprecated)]
 fn make_save_data(seed: u64, charts: &charts::Charts) -> SaveData {
     let mut rng = SeedRng::new(seed);
     let player_start = deep_world_tui::gen::player::generate_player_start(&mut rng, charts);

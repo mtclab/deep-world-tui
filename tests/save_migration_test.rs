@@ -13,6 +13,7 @@ fn load_charts() -> charts::Charts {
     charts::load_charts("data/charts.ron").expect("charts should load")
 }
 
+#[allow(deprecated)]
 fn make_save(version: u32) -> SaveData {
     let charts = load_charts();
     SaveData {
@@ -71,6 +72,7 @@ fn future_version_returns_error() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn roundtrip_preserves_all_fields() {
     let charts = load_charts();
     let data = SaveData {

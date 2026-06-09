@@ -37,6 +37,7 @@ mod tests {
     use crate::model::{GameClock, GodAffinity, InterPeopleBias, PeopleKind, PlayerVitals};
     use crate::sim::SimState;
 
+    #[allow(deprecated)]
     fn make_save(version: u32) -> SaveData {
         let charts = charts::load_charts("data/charts.ron").unwrap();
         SaveData {
