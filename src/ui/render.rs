@@ -786,7 +786,10 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
 
     if app.perf_slow_frames > 0 {
         lines.push(Line::from(Span::styled(
-            format!(" ⚡{} slow frames ({}μs last render)", app.perf_slow_frames, app.perf_last_render_us),
+            format!(
+                " ⚡{} slow frames ({}μs last render)",
+                app.perf_slow_frames, app.perf_last_render_us
+            ),
             Style::default().fg(theme.dark_brown()),
         )));
     }
@@ -2048,14 +2051,17 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize, px: usize, py: u
                             Style::default().fg(theme.archive_red()),
                         ));
                     } else if let Some(terrain) = tiles.get(my * map_w + mx) {
-                        let is_explored = app.explored.get(region_idx)
+                        let is_explored = app
+                            .explored
+                            .get(region_idx)
                             .map(|e| e.is_explored(mx, my))
                             .unwrap_or(true);
-                        let is_memorial = is_explored && app.sim.as_ref().is_some_and(|sim| {
-                            sim.memorials
-                                .iter()
-                                .any(|m| m.at_position(region_idx, mx as u32, my as u32))
-                        });
+                        let is_memorial = is_explored
+                            && app.sim.as_ref().is_some_and(|sim| {
+                                sim.memorials
+                                    .iter()
+                                    .any(|m| m.at_position(region_idx, mx as u32, my as u32))
+                            });
                         if !is_explored {
                             spans.push(Span::styled(
                                 "░".to_string(),
@@ -2482,26 +2488,30 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
             ItemType::Thatch => Color::Rgb(0xaa, 0x9a, 0x4a),
             ItemType::Glass => Color::Rgb(0x8a, 0xc2, 0xca),
         };
-         let dur = inv.durability(*item);
-         let quality = crate::model::QualityTier::from_durability(dur);
-         let dur_bar = if count > 0 && dur < 1.0 {
-             let dur_color = if dur > 0.5 {
-                 Color::Green
-             } else if dur > 0.25 {
-                 Color::Yellow
-             } else {
-                 Color::Red
-             };
-             let filled = (dur * 10.0).round() as usize;
-             let quality_str = format!(" {}", quality.label());
-             let dur_str = format!(" [{}{}]{quality_str}", "█".repeat(filled), "░".repeat(10 - filled));
-             Span::styled(dur_str, Style::default().fg(dur_color))
-         } else if count > 0 && quality != crate::model::QualityTier::Sturdy {
-             let quality_str = format!(" ({})", quality.label());
-             Span::styled(quality_str, Style::default().fg(Color::Cyan))
-         } else {
-             Span::raw("")
-         };
+        let dur = inv.durability(*item);
+        let quality = crate::model::QualityTier::from_durability(dur);
+        let dur_bar = if count > 0 && dur < 1.0 {
+            let dur_color = if dur > 0.5 {
+                Color::Green
+            } else if dur > 0.25 {
+                Color::Yellow
+            } else {
+                Color::Red
+            };
+            let filled = (dur * 10.0).round() as usize;
+            let quality_str = format!(" {}", quality.label());
+            let dur_str = format!(
+                " [{}{}]{quality_str}",
+                "█".repeat(filled),
+                "░".repeat(10 - filled)
+            );
+            Span::styled(dur_str, Style::default().fg(dur_color))
+        } else if count > 0 && quality != crate::model::QualityTier::Sturdy {
+            let quality_str = format!(" ({})", quality.label());
+            Span::styled(quality_str, Style::default().fg(Color::Cyan))
+        } else {
+            Span::raw("")
+        };
         lines.push(Line::from(vec![
             Span::styled(
                 format!("  {:6}", item.name()),
@@ -3523,14 +3533,23 @@ pub fn render_minimap(f: &mut Frame, app: &App, area: Rect) {
                 break;
             }
             let terrain = region.terrain.tiles[idx];
-            let is_explored = app.explored.first()
+            let is_explored = app
+                .explored
+                .first()
                 .map(|e| e.is_explored(x, y))
                 .unwrap_or(true);
             if !is_explored {
-                spans.push(Span::styled("░".to_string(), Style::default().fg(theme.dark_brown())));
+                spans.push(Span::styled(
+                    "░".to_string(),
+                    Style::default().fg(theme.dark_brown()),
+                ));
             } else {
                 let is_settlement = matches!(terrain, Terrain::Settlement);
-                let glyph = if is_settlement { '█' } else { terrain.glyph() };
+                let glyph = if is_settlement {
+                    '█'
+                } else {
+                    terrain.glyph()
+                };
                 let color = if is_settlement {
                     dominant_people_color(&region.settlements, &theme)
                 } else {

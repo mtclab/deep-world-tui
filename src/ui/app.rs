@@ -220,9 +220,12 @@ impl App {
                 );
                 sim.quests = quests;
                 // Initialize explored maps for each region
-                self.explored = sim.world.regions.iter().map(|r| {
-                    crate::model::ExploredMap::new(r.terrain.width, r.terrain.height)
-                }).collect();
+                self.explored = sim
+                    .world
+                    .regions
+                    .iter()
+                    .map(|r| crate::model::ExploredMap::new(r.terrain.width, r.terrain.height))
+                    .collect();
             }
             self.player_start = Some(ps);
             self.screen = Screen::World;
@@ -253,7 +256,10 @@ impl App {
             if let Some(pos) = self.player_pos {
                 if let Some(region) = sim.world.regions.get_mut(pos.region_idx) {
                     if let Some(settlement) = region.settlements.get_mut(settlement_idx) {
-                        let seed = self.seed.wrapping_add(self.clock.day as u64).wrapping_add(settlement_idx as u64);
+                        let seed = self
+                            .seed
+                            .wrapping_add(self.clock.day as u64)
+                            .wrapping_add(settlement_idx as u64);
                         if let Some(event) = settlement.politics.roll_leadership_event(seed) {
                             self.status_msg = Some(event.flavor().to_string());
                         }
@@ -1179,7 +1185,9 @@ impl App {
                         crate::audio::SoundEvent::Combat
                     }
                     crate::model::EncounterKind::HarvestMarket
-                    | crate::model::EncounterKind::MerchantCaravan => crate::audio::SoundEvent::Trade,
+                    | crate::model::EncounterKind::MerchantCaravan => {
+                        crate::audio::SoundEvent::Trade
+                    }
                     _ => crate::audio::SoundEvent::UiClick,
                 };
                 self.play_sound(sound);
@@ -1598,12 +1606,14 @@ impl App {
             }
         });
         let elder_talk_bonus = if self.elder { 0.10 } else { 0.0 };
-        let companion_mood_bonus: f64 = self.player_start
+        let companion_mood_bonus: f64 = self
+            .player_start
             .as_ref()
             .and_then(|ps| ps.companions.first())
             .map(|c| c.mood().encounter_bonus())
             .unwrap_or(0.0);
-        let talk_success = people_bias_mod + trust_bonus + elder_talk_bonus + companion_mood_bonus > -0.20;
+        let talk_success =
+            people_bias_mod + trust_bonus + elder_talk_bonus + companion_mood_bonus > -0.20;
         let trade_bonus = people_bias_mod + trust_bonus + companion_mood_bonus > 0.05;
         let msg = match action {
             EncounterAction::Flee => {
@@ -2565,7 +2575,9 @@ impl App {
         if let Some(ref mut ps) = self.player_start {
             for companion in &mut ps.companions {
                 companion.rest(1.0);
-                let action_seed = self.seed.wrapping_add((self.clock.day as u64 * 24 + self.clock.hour as u64) * 137);
+                let action_seed = self
+                    .seed
+                    .wrapping_add((self.clock.day as u64 * 24 + self.clock.hour as u64) * 137);
                 if let Some(action) = companion.autonomous_action(action_seed) {
                     let flavor = companion.apply_action(action);
                     self.status_msg = Some(format!("{} {}", companion.name, flavor));

@@ -88,7 +88,7 @@ mod tests {
                     description: String::new(),
                     people: vec![parent, child],
                     services: vec![],
-                        politics: crate::model::SettlementPolitics::new(),
+                    politics: crate::model::SettlementPolitics::new(),
                 }],
             }],
             charts_version: "0.1.0".into(),

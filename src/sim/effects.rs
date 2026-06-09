@@ -432,7 +432,7 @@ mod tests {
                             ..Default::default()
                         }],
                         services: vec![],
-                    politics: crate::model::SettlementPolitics::new(),
+                        politics: crate::model::SettlementPolitics::new(),
                     }],
                 },
                 crate::model::Region {
@@ -453,7 +453,7 @@ mod tests {
                         description: String::new(),
                         people: vec![],
                         services: vec![],
-                    politics: crate::model::SettlementPolitics::new(),
+                        politics: crate::model::SettlementPolitics::new(),
                     }],
                 },
             ],

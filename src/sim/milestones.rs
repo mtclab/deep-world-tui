@@ -53,10 +53,16 @@ impl CampaignArc {
     pub fn arc_text(self) -> &'static str {
         match self {
             CampaignArc::Stranger => "The world does not know you yet. Every path is untrodden.",
-            CampaignArc::Settled => "You have found a place. Now it begins to matter what you do here.",
-            CampaignArc::Known => "Your name carries weight. Choices have consequences beyond yourself.",
+            CampaignArc::Settled => {
+                "You have found a place. Now it begins to matter what you do here."
+            }
+            CampaignArc::Known => {
+                "Your name carries weight. Choices have consequences beyond yourself."
+            }
             CampaignArc::Elder => "Time has worn you wise. The young seek your counsel.",
-            CampaignArc::Legend => "Your story is told around fires you will never see. You are legend.",
+            CampaignArc::Legend => {
+                "Your story is told around fires you will never see. You are legend."
+            }
         }
     }
 }
@@ -429,7 +435,10 @@ mod tests {
     #[test]
     fn campaign_arc_progression() {
         let mut tracker = MilestoneTracker::new();
-        assert_eq!(CampaignArc::from_milestones(&tracker), CampaignArc::Stranger);
+        assert_eq!(
+            CampaignArc::from_milestones(&tracker),
+            CampaignArc::Stranger
+        );
 
         tracker.settlements_visited = 1;
         tracker.check_first_settlement(5);

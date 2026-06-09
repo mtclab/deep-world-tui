@@ -151,7 +151,11 @@ impl ExploredMap {
     }
 
     pub fn reveal_radius_for_elder(elder: bool) -> usize {
-        if elder { 5 } else { 3 }
+        if elder {
+            5
+        } else {
+            3
+        }
     }
 }
 
@@ -3083,7 +3087,9 @@ impl SettlementPolitics {
     }
 
     pub fn dominant_faction(&self) -> Faction {
-        if self.crafter_standing >= self.trader_standing && self.crafter_standing >= self.elder_standing {
+        if self.crafter_standing >= self.trader_standing
+            && self.crafter_standing >= self.elder_standing
+        {
             Faction::Crafters
         } else if self.trader_standing >= self.elder_standing {
             Faction::Traders
@@ -3778,7 +3784,9 @@ impl CompanionMood {
     pub fn flavor(self) -> &'static str {
         match self {
             CompanionMood::Content => "Your companion pads along quietly, at ease.",
-            CompanionMood::Restless => "Your companion paces, sniffing the wind. Something is on their mind.",
+            CompanionMood::Restless => {
+                "Your companion paces, sniffing the wind. Something is on their mind."
+            }
             CompanionMood::Unhappy => "Your companion hangs back, refusing to meet your eyes.",
         }
     }
@@ -3812,7 +3820,9 @@ impl CompanionAction {
         match self {
             CompanionAction::Hunt => "returned from the hunt with game in their jaws.",
             CompanionAction::Gather => "came back carrying something useful in their mouth.",
-            CompanionAction::Scout => "circled back after checking the path ahead. The way seems clear.",
+            CompanionAction::Scout => {
+                "circled back after checking the path ahead. The way seems clear."
+            }
         }
     }
 }

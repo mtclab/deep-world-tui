@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="logo.png" alt="Deep World TUI" width="128" height="128">
+</div>
+
 # deep-world-tui
 
 A terminal **procedural life-RPG** in the Deep World (Rust + ratatui). Nothing is

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="depth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c9a959"/>
+      <stop offset="100%" stop-color="#5a3e1b"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5e6b8"/>
+      <stop offset="100%" stop-color="#c9a959"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="32" fill="#1a120b"/>
+  <rect x="16" y="16" width="224" height="224" rx="24" fill="none" stroke="#5a3e1b" stroke-width="2"/>
+  <rect x="24" y="24" width="208" height="208" rx="20" fill="none" stroke="#3a2a14" stroke-width="1"/>
+  <g fill="url(#glow)" font-family="monospace" text-anchor="middle" dominant-baseline="central">
+    <text x="128" y="72" font-size="52" font-weight="bold" letter-spacing="8">DW</text>
+  </g>
+  <g stroke="url(#depth)" stroke-width="3" fill="none" stroke-linecap="round">
+    <path d="M 64 100 L 64 180"/>
+    <path d="M 64 100 L 96 100"/>
+    <path d="M 64 180 L 96 180"/>
+    <path d="M 192 100 L 192 180"/>
+    <path d="M 160 100 L 192 100"/>
+    <path d="M 160 180 L 192 180"/>
+  </g>
+  <g fill="url(#glow)" font-family="monospace" text-anchor="middle" dominant-baseline="central" font-size="13" letter-spacing="4">
+    <text x="128" y="128">▓▒░</text>
+    <text x="128" y="148">░▒▓</text>
+    <text x="128" y="168">▓▒░</text>
+  </g>
+  <g stroke="url(#depth)" stroke-width="2" fill="none" stroke-linecap="round">
+    <path d="M 88 200 Q 128 210 168 200"/>
+  </g>
+  <g fill="#5a3e1b" font-family="monospace" text-anchor="middle" dominant-baseline="central" font-size="11" letter-spacing="2">
+    <text x="128" y="216">TUI</text>
+  </g>
+</svg>
