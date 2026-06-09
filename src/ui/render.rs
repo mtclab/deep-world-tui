@@ -473,9 +473,18 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
             format!("   People        {}", p.people),
             Style::default().fg(theme.ink()),
         )));
+        let npc_pk = crate::model::PeopleKind::from_name(&p.people);
+        lines.push(Line::from(Span::styled(
+            format!("     {}", crate::sim::hints::people_flavor(npc_pk)),
+            Style::default().fg(theme.dark_brown()),
+        )));
         lines.push(Line::from(Span::styled(
             format!("   Profession    {}", p.profession),
             Style::default().fg(theme.ink()),
+        )));
+        lines.push(Line::from(Span::styled(
+            format!("     {}", crate::sim::hints::profession_flavor(&p.profession)),
+            Style::default().fg(theme.dark_brown()),
         )));
         lines.push(Line::from(Span::styled(
             format!("   Craft         {}", p.craft_affinity),
