@@ -4,93 +4,85 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.1] - 2026-06-09
 
-### Phase 3 — Rest quality by location
+Patch release: 20 feature merges, 3 critical bug fixes, 2 hardening fixes.
 
-- **#144** Rest quality by location: `RestQuality` enum with 5 tiers
-  (OutInCold, Campfire, LeanTo, SettlementFloor, Inn). Recovery rates and
-  encounter risk vary monotonically per tier. `App::rest()` reads location
-  context and applies quality-appropriate stamina/morale/energy recovery and
-  encounter risk. DeepNight forces OutInCold tier. Journal flavor per tier,
-  no numbers/labels/bars exposed. God-prayer encounter preserved on top.
+### Fixed
 
-### Phase 3 — Discoveries & landmarks
-
-- **#138** Discoveries & landmarks: one-shot permanent world features discovered
-  while exploring. `DiscoveryKind` enum (StandingStone, Wreck, StrangeTree, Cairn,
-  Spring, BurningTree, SleepingBear, SunkenVillage, ErredMarker, FrostShrine,
-  WhisperingPool, BoneCircle). 1-3 per region, deterministic via seed fork.
-  First observation fires once (immutable), journal entry + status message.
-  World screen shows discovery text when standing on a discovery tile.
-
-### Phase 2 — Hunger & thirst core loop
-
-- **#143** `PlayerVitals` gains `thirst: f64` (0.0–1.0, baseline 1.0). Thirst
-  decays at 0.06/h (faster than hunger at 0.05/h — water runs out first).
-  Auto-drinks `ItemType::Water` when thirst ≤ 0.3 (restores +0.4).
-  `ItemType::Water` added (price 1, gatherable from Coast/Water terrain).
-  `is_dehydrated()`, `thirst_label()` (quenched/thirsty/parched/dehydrated).
-  Inventory screen shows water item. 6 new unit tests.
-
-### Phase 2 — Three-season world cycle
-
-- **#146** `Season` enum: Thaw / Green / Frost (3 seasons, 90-day year). Each
-  season is 30 in-game days. `from_day` uses `(day-1) % 90` for correct
-  boundary alignment (days 1–30 Thaw, 31–60 Green, 61–90 Frost). Gather
-  multiplier: Thaw 1.0×, Green 1.2×, Frost 0.3×. Need decay: Frost 1.3×,
-  others 1.0×. Bias modifier: Green +0.05, Frost −0.05. Festival chance:
-  Green 30, Thaw 10, Frost 0. `YEAR_DAYS = 90` constant. Status bar shows
-  season name. 9 unit tests.
-
-### Phase 2 — Time-of-day rules (continued)
-
-- **#145** Extend `TimeOfDay` to 7 phases: Dawn, Morning, Noon, Afternoon, Dusk,
-  Night, DeepNight. `from_hour` boundaries: 5–6 Dawn, 7–10 Morning, 11–13
-  Noon, 14–17 Afternoon, 18–20 Dusk, 21–23 Night, 0–4 DeepNight. Added
-  `is_dark` (Night + DeepNight), `blocks_services` (Night + DeepNight),
-  `one_word` (period-ended flavor labels). World-screen footer shows one-word
-  phase label instead of tick number. `use_service` refuses at Night/DeepNight
-  with journal line "The door is shut. I sleep." `rest()` at DeepNight shows
-  "Dreams are strange in the deep night. I wake restless." 11 new unit tests.
-
-### Phase 2 — God-prayer mini encounter (#141)
-
-- **#141** God-prayer mini-encounter. When the player rests in a settlement
-  whose dominant people has a patron (Metsik→Keuru, Sepät/Ahjo→Oltzed,
-  Arkit→Sampsa, Väylä/Mëräk→Masa, Laakso/Tzäkhar/She'ar→Kukri, Häl→Keuru,
-  Khör→Sampsa), a sensory first-person dream line is deterministically
-  appended to the journal on roughly one rest in four. The line is pure
-  flavor: no god name, no people name, no number. Implementation lives in
-  `src/sim/god.rs` and is wired into `App::rest()`.
-
-### Phase 2 — Indirect bond descriptors (#137)
-
-- **#137** NPC bond % no longer leaks to the player in inter-NPC relationship lines. The `→/← other {:?} str=XX% trust=YY%` line is replaced with `→/← other — bond_descriptor. regard_descriptor.` using the existing `bond_descriptor()` function from `sim::relationships`. The `BondCategory` import is removed from `render.rs`.
-  - 387 tests pass.
-
-### Phase 2 — Indirect reputation signals (#135)
-
-- **#135** Player deduces reputation from world's reactions; game never prints a number, label, or bar.
-  - `sim::signals` module: `ReputationBand` (Hostile / Cold / Neutral / Warm / Revered), `EngagementLevel` (Refuses / Reluctant / Neutral / Willing / Eager), body-language strings keyed off FNV-1a hash of person id.
-  - `reputation_price_modifier` layers multiplicatively on top of `inter_people_bias`; rep 0.0 → 1.5× (worst price), rep 1.0 → 0.6× (best price).
-  - `App::reputation_in_current_settlement`, `quote_buy_price`, `quote_sell_price`, `npc_will_engage` added; `buy_item` / `sell_item` / `use_service` use the quote helpers.
-  - `EncounterKind::can_have_outside_help()` introduced; deterministic 1-2% seed-rolled intervention: at rep ≥ 0.7 a passing trader intervenes in `Bandit` / `Wildlife` encounters; at rep ≤ 0.25 the attacker cuts and runs. Single `Voice::Travel` journal entry per intervention.
-  - 17 unit tests including 4 leak-guard tests asserting no `Refuses` / `Warm` / `reputation` / `level=` token ever leaks from any band across the full rep range.
-  - 383 tests pass (366 baseline + 17 signals).
+- **Weather::generate** produced only 7 of 11 variants. Whiteout, Thunderhead,
+  DryLightning, and SeaSquall were unreachable due to missing weights in the
+  terrain match. All 11 variants now have terrain-specific probabilities.
+- **Season::from_day(0)** panicked on u32 underflow `(0 - 1) % 90`. Day 0 now
+  returns `Season::Thaw`.
+- **SeedRng::fork_for** ignored the parent seed — `splitmix64(domain_hash)`
+  produced identical sub-RNGs regardless of seed. Now mixes seed via
+  `splitmix64(seed ^ domain_hash)`.
+- **save.rs path traversal**: filenames containing `/`, `\`, or `..` are now
+  rejected. All saves forced to the `saves/` directory.
+- **HashMap → IndexMap** in sim/reputation, sim/relationships, sim/npc_memories,
+  sim/needs_dependent, and model/Inventory for deterministic iteration order
+  across process restarts.
 
 ### Added
-- #127 Illness/disease balance pass
-- `Person.illnesses: Vec<ActiveDisease>` field (serde default)
-- `sim/illness.rs`: illness contraction per tick based on health, shelter, healer presence
-- Low health (<0.5 Food need) increases illness probability
-- Low shelter (Safety <0.3) → 1.5× illness rate
-- Missing healer → 1.5× illness rate
-- Cap: max 30% of settlement ill, max 2 diseases per person
-- `illness::apply_illness_effects()` removes recovered diseases each tick
-- `illness::illness_productivity_modifier()` returns 0.7× for ill NPCs
-- `illness::settlement_has_healer()` checks for Temple/Shrine services or healer/herbalist profession
-- Wired into `sim_tick` via `tick_npc_illness()`
+
+- **#127** Illness/disease balance pass — `ActiveDisease`, illness contraction per
+  tick based on health/shelter/healer, recovery tick, productivity modifier.
+- **#128** Personality-driven gossip flavor — NPC trait adjectives flavor
+  encounter dialogue.
+- **#129** Expand charts — weather weights, animals, diseases, professions, crafts.
+- **#124** Weather affects travel speed and encounter chance —
+  `travel_time_minutes`, `forced_shelter`, `encounter_rate_modifier`.
+- **#131** Death rebalance with playtest harness — `CollapseEvent`,
+  `CollapseStats`, 10-seed playtest, death rate 0.5–2.0%.
+- **#126** NPC migration between settlements — `tick_migration()`, job-seeking,
+  marriage, flight (threshold 0.15).
+- **#133** Death scene lineage save & continue-as-NPC — `LineageRecord`,
+  `save_lineage()`, continues as a new NPC in the same settlement.
+- **#123** Save format migration helper — `save_migrations.rs`, `version` field
+  on `SaveData`, `CURRENT_SAVE_VERSION = 1`.
+- **#130** Swedish locale removed — deleted `src/i18n.rs`, `data/locales/`,
+  language cycling keybinding. `language` field kept as no-op.
+- **#135** Indirect reputation signals — `ReputationBand`, `EngagementLevel`,
+  body language, `reputation_price_modifier`, outside help at high rep.
+- **#137** Bond descriptors — replaced % display with organic flavor in
+  inter-NPC relationship lines.
+- **#141** God-prayer mini encounter — sensory dream on rest in patron
+  settlement, 5 canonical gods.
+- **#145** Time-of-day rules — 7 `TimeOfDay` phases, `blocks_services()`,
+  DeepNight forced `OutInCold` rest, dream flavor.
+- **#146** Seasons — Thaw/Green/Frost, 90-day year, gather/decay/bias modifiers.
+- **#143** Hunger & thirst core loop — `PlayerVitals.thirst`, `ItemType::Water`,
+  auto-drink threshold, dehydration labels.
+- **#138** Discoveries & landmarks — 12 `DiscoveryKind` variants, one-shot
+  permanent features, journal + world-screen display.
+- **#144** Rest quality by location — 5-tier `RestQuality`, recovery/encounter
+  risk per tier, DeepNight override.
+- **#139** Voice journal entries — `Voice` enum (Encounter/Travel/Rest/Dream/
+  Scar/Rumor), per-voice color rendering.
+- **#140** Inter-NPC relationships — `RelationKind`, `InterNpcRelation`,
+  relationship decay in sim tick.
+- **#142** Death memorials — `Memorial` struct, ⚰ glyph on map,
+  recovery-region bonus.
+- **#147** NPC goal-driven daily behavior — `WantKind`, `NpcWant`, wants tick.
+- **#148** Companion adoption — Animal `Hound/Donkey/Crow`, `[a]` key, rest/decay.
+- **#149** Camping structures — 8-tier `BuildKind`, `Structure`, `BuildSite`,
+  `[b]` key, camp materials.
+
+### Statistics
+
+- **541 tests** (513 unit + 10 playtest + 4 consequence + 8 lineage + 4
+  migration + 2 integration), all green.
+- **24,300+ lines** of Rust across 46 source files.
+- **`cargo clippy --all-targets -- -D warnings`**, `cargo build`, `cargo test`
+  all green on default and `--no-default-features`.
+
+### Breaking Changes
+
+- **Save format bumped to v1**. Old saves (version 0) auto-migrate on load.
+- **`SeedRng::fork_for` output changed** due to seed-mixing fix. Worlds
+  generated before this release produce different sub-RNGs for the same domain.
+  Existing save files will regenerate correctly from their own seed.
 
 ## [0.1.0] - 2026-06-07
 
@@ -229,5 +221,5 @@ cargo test --features audio    # with synthesized audio tests
 cargo test --no-default-features
 ```
 
-[Unreleased]: https://github.com/mtclab/deep-world-tui/compare/v0.1.0...HEAD
+[0.1.1]: https://github.com/mtclab/deep-world-tui/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mtclab/deep-world-tui/releases/tag/v0.1.0
