@@ -4,6 +4,26 @@ All notable changes to **Deep World TUI** are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-06-09
+
+Patch release: dead code removal, build fixes, determinism audit, accessibility theme.
+
+### Added
+
+- **High-contrast theme** (#210) — white-on-black mode for accessibility, `[h]` toggle in settings
+- **Determinism audit** (#225) — 5 replay/reproducibility tests, no hidden entropy found
+
+### Fixed
+
+- **LLM-only build broken** (#227) — `reqwest` pulled `openssl-sys` without ALSA; added `default-features = false` + `rustls-tls`
+- **`strip_numbers` type mismatch** (#227) — `.map()` closure fixed to take `&str`
+- **`PeopleKind::name()` missing** (#227) — added endonym method (Metsik, Väylä, Tzäkhar, etc.)
+
+### Changed
+
+- **Removed `App.first_run`** (#226) — written everywhere but never read; `HintTracker` controls onboarding
+- **`SaveData.first_run`** deprecated — kept for backward compat, no gameplay effect
+
 ## [0.2.0] - 2026-06-09
 
 Major feature release: full gameplay loop, AI-driven balance harness, LLM narrator integration.
