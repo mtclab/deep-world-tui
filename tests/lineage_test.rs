@@ -5,6 +5,7 @@ use deep_world_tui::model::{
 use deep_world_tui::rng::SeedRng;
 use deep_world_tui::save::{self, LineageRecord, SaveData};
 use deep_world_tui::save_migrations::CURRENT_SAVE_VERSION;
+use deep_world_tui::sim::hints::HintTracker;
 use deep_world_tui::sim::SimState;
 
 fn load_charts() -> charts::Charts {
@@ -31,6 +32,8 @@ fn make_save_data(seed: u64, charts: &charts::Charts) -> SaveData {
         collapse_log: Vec::new(),
         lineage: Vec::new(),
         version: CURRENT_SAVE_VERSION,
+        first_run: true,
+        hint_tracker: HintTracker::default(),
     }
 }
 

@@ -5,6 +5,7 @@ use std::time::UNIX_EPOCH;
 use crate::model::{GameClock, GodAffinity, InterPeopleBias, PlayerPos, PlayerStart, PlayerVitals};
 use crate::save_migrations::CURRENT_SAVE_VERSION;
 use crate::sim::collapse_log::CollapseEvent;
+use crate::sim::hints::HintTracker;
 use crate::sim::SimState;
 
 const SAVES_DIR: &str = "saves";
@@ -36,6 +37,10 @@ fn current_save_version() -> u32 {
     CURRENT_SAVE_VERSION
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct SaveData {
     pub sim: SimState,
@@ -53,6 +58,10 @@ pub struct SaveData {
     pub lineage: Vec<LineageRecord>,
     #[serde(default = "current_save_version")]
     pub version: u32,
+    #[serde(default = "default_true")]
+    pub first_run: bool,
+    #[serde(default)]
+    pub hint_tracker: HintTracker,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -224,6 +233,8 @@ pub fn restore_from_compact(
         collapse_log: Vec::new(),
         lineage: Vec::new(),
         version: CURRENT_SAVE_VERSION,
+        first_run: true,
+        hint_tracker: HintTracker::default(),
     })
 }
 
@@ -250,6 +261,8 @@ mod tests {
             collapse_log: Vec::new(),
             lineage: Vec::new(),
             version: CURRENT_SAVE_VERSION,
+            first_run: true,
+            hint_tracker: HintTracker::default(),
         };
         save_game(&data, "test_save.ron").expect("save should succeed");
         let loaded = load_game("test_save.ron").expect("load should succeed");
@@ -332,6 +345,8 @@ mod tests {
             collapse_log: Vec::new(),
             lineage: Vec::new(),
             version: CURRENT_SAVE_VERSION,
+            first_run: true,
+            hint_tracker: HintTracker::default(),
         };
         let compact_data = CompactSave {
             seed: 42,

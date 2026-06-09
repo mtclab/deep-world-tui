@@ -11,6 +11,8 @@ use crate::rng::SeedRng;
 use crate::save::{self, LineageRecord, SaveData};
 use crate::save_migrations;
 use crate::sim::collapse_log::CollapseEvent;
+use crate::sim::hints;
+use crate::sim::hints::HintTracker;
 use crate::sim::SimState;
 
 use super::event::AppEvent;
@@ -102,6 +104,8 @@ pub struct App {
     pub collapse_log: Vec<CollapseEvent>,
     pub lineage: Vec<LineageRecord>,
     pub save_entries: Vec<crate::save::SaveEntry>,
+    pub first_run: bool,
+    pub hint_tracker: HintTracker,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -139,6 +143,8 @@ impl App {
             collapse_log: Vec::new(),
             lineage: Vec::new(),
             save_entries: Vec::new(),
+            first_run: true,
+            hint_tracker: HintTracker::default(),
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -345,6 +351,8 @@ impl App {
                 collapse_log: self.collapse_log.clone(),
                 lineage: self.lineage.clone(),
                 version: save_migrations::CURRENT_SAVE_VERSION,
+                first_run: self.first_run,
+                hint_tracker: self.hint_tracker.clone(),
             };
             match save::save_game(&data, "save.ron") {
                 Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
@@ -355,8 +363,9 @@ impl App {
 
     pub fn load_game(&mut self) {
         match save::load_game("save.ron") {
-            Ok(data) => {
+            Ok(mut data) => {
                 let last_collapse_died = data.collapse_log.last().map(|c| c.died).unwrap_or(false);
+                data.first_run = false;
                 self.sim = Some(data.sim);
                 self.player_start = data.player_start;
                 self.clock = data.clock;
@@ -368,6 +377,7 @@ impl App {
                 self.collapses_had = data.collapses_had;
                 self.collapse_log = data.collapse_log;
                 self.lineage = data.lineage;
+                self.hint_tracker = data.hint_tracker;
                 if last_collapse_died {
                     self.continue_as_npc();
                 } else {
@@ -731,6 +741,7 @@ impl App {
                 }
             }
             self.advance_clock_hour();
+            self.fire_hint(hints::HINT_FIRST_GATHER);
             self.play_sound(crate::audio::SoundEvent::Gather);
             let msg = format!("Gathered {} {} (1h, {})", count, item.name(), season);
             self.status_msg = Some(if let Some(b) = boon_msg {
@@ -908,6 +919,7 @@ impl App {
             if ps.inventory.remove(ItemType::Coin, price) {
                 ps.inventory.add(item, 1);
                 self.advance_clock_hour();
+                self.fire_hint(hints::HINT_FIRST_TRADE);
                 self.status_msg =
                     Some(format!("Bought 1 {} for {} coins (1h)", item.name(), price));
                 self.god_affinity.adjust(GodName::Masa, 0.02);
@@ -934,6 +946,7 @@ impl App {
             if ps.inventory.remove(item, 1) {
                 ps.inventory.add(ItemType::Coin, price);
                 self.advance_clock_hour();
+                self.fire_hint(hints::HINT_FIRST_TRADE);
                 self.status_msg = Some(format!("Sold 1 {} for {} coins (1h)", item.name(), price));
                 self.god_affinity.adjust(GodName::Masa, 0.01);
             } else {
@@ -1040,6 +1053,7 @@ impl App {
         if let Some(enc) = Encounter::roll_biased(terrain, self.clock.hour, self.seed, pp) {
             self.encounter = Some(enc);
             self.encounters_had += 1;
+            self.fire_hint(hints::HINT_FIRST_ENCOUNTER);
             self.screen = Screen::Encounter;
         }
     }
@@ -1245,6 +1259,7 @@ impl App {
                 region.structures.push(structure.clone());
             }
             sim.structures.push(structure);
+            self.fire_hint(hints::HINT_FIRST_STRUCTURE);
             self.status_msg = Some(format!("Built {}!", kind.label()));
         } else {
             let site = crate::sim::structures::BuildSite {
@@ -1662,6 +1677,7 @@ impl App {
         });
         self.collapse = Some(collapse);
         self.collapses_had += 1;
+        self.fire_hint(hints::HINT_FIRST_COLLAPSE);
         if let Some(ref mut sim) = self.sim {
             let voice_text = if died {
                 "I collapsed. The dark took me.".into()
@@ -1714,6 +1730,8 @@ impl App {
                     collapse_log: self.collapse_log.clone(),
                     lineage: self.lineage.clone(),
                     version: save_migrations::CURRENT_SAVE_VERSION,
+                    first_run: self.first_run,
+                    hint_tracker: self.hint_tracker.clone(),
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }
@@ -1745,6 +1763,8 @@ impl App {
         self.status_msg = None;
         self.running = true;
         self.lineage.clear();
+        self.first_run = true;
+        self.hint_tracker = HintTracker::default();
     }
 
     fn find_related_npc(&self, dead_person: &crate::model::Person) -> Option<usize> {
@@ -2245,6 +2265,8 @@ impl App {
                 sim.log(sim.world.tick, crate::sim::journal::Voice::Dream, text);
             }
         }
+
+        self.fire_hint(hints::HINT_FIRST_REST);
     }
 
     pub fn clock_str(&self) -> String {
@@ -2495,6 +2517,23 @@ impl App {
         }
         out.sort_by(|a, b| a.4.partial_cmp(&b.4).unwrap_or(std::cmp::Ordering::Equal));
         out
+    }
+
+    fn fire_hint(&mut self, hint_id: &str) {
+        if !self.hint_tracker.should_show(hint_id) {
+            return;
+        }
+        if let Some(text) = hints::hint_text(hint_id) {
+            self.hint_tracker.mark_shown(hint_id);
+            if let Some(ref mut sim) = self.sim {
+                use crate::sim::journal::Voice;
+                let voice = match hint_id {
+                    hints::HINT_FIRST_ENCOUNTER | hints::HINT_FIRST_COLLAPSE => Voice::Encounter,
+                    _ => Voice::Travel,
+                };
+                sim.log(sim.world.tick, voice, text.to_string());
+            }
+        }
     }
 
     /// Best-effort sound playback; no-op if audio disabled.

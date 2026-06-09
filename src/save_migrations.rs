@@ -48,6 +48,8 @@ mod tests {
             collapse_log: Vec::new(),
             lineage: Vec::new(),
             version,
+            first_run: true,
+            hint_tracker: crate::sim::hints::HintTracker::default(),
         }
     }
 

@@ -1,3 +1,5 @@
+use deep_world_tui::sim::hints::HintTracker;
+
 use deep_world_tui::charts;
 use deep_world_tui::model::{
     GameClock, GodAffinity, InterPeopleBias, PeopleKind, PlayerPos, PlayerVitals,
@@ -25,6 +27,8 @@ fn make_save(version: u32) -> SaveData {
         collapse_log: Vec::new(),
         lineage: Vec::new(),
         version,
+        first_run: true,
+        hint_tracker: HintTracker::default(),
     }
 }
 
@@ -84,6 +88,8 @@ fn roundtrip_preserves_all_fields() {
         collapse_log: Vec::new(),
         lineage: Vec::new(),
         version: CURRENT_SAVE_VERSION,
+        first_run: true,
+        hint_tracker: HintTracker::default(),
     };
 
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");
