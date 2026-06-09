@@ -27,12 +27,14 @@ pub fn fnv1a_hash(s: &str) -> u64 {
 /// derivation. No thread_rng/time/entropy in gen/ or sim/.
 pub struct SeedRng {
     rng: ChaCha8Rng,
+    seed: u64,
 }
 
 impl SeedRng {
     pub fn new(seed: u64) -> Self {
         Self {
             rng: ChaCha8Rng::seed_from_u64(seed),
+            seed,
         }
     }
 
@@ -51,7 +53,7 @@ impl SeedRng {
     /// This is the preferred method for isolating subsystems (world gen, NPC gen, sim).
     pub fn fork_for(&self, domain: &str) -> Self {
         let domain_hash = fnv1a_hash(domain);
-        let sub_seed = splitmix64(domain_hash);
+        let sub_seed = splitmix64(self.seed ^ domain_hash);
         Self::new(sub_seed)
     }
 

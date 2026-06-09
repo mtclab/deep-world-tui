@@ -115,12 +115,8 @@ fn full_pipeline_seed_generate_enter_talk() {
         version: CURRENT_SAVE_VERSION,
     };
 
-    let dir = tempfile::tempdir().expect("temp dir should create");
-    let path = dir.path().join("integration_save.ron");
-    let path_str = path.to_str().expect("path should be valid utf8");
-
-    save::save_game(&data, path_str).expect("save should succeed");
-    let loaded = save::load_game(path_str).expect("load should succeed");
+    save::save_game(&data, "integration_save.ron").expect("save should succeed");
+    let loaded = save::load_game("integration_save.ron").expect("load should succeed");
 
     assert_eq!(
         data.sim.world.tick, loaded.sim.world.tick,

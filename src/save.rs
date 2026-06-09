@@ -1,10 +1,26 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::model::{GameClock, GodAffinity, InterPeopleBias, PlayerPos, PlayerStart, PlayerVitals};
 use crate::save_migrations::CURRENT_SAVE_VERSION;
 use crate::sim::collapse_log::CollapseEvent;
 use crate::sim::SimState;
+
+const SAVES_DIR: &str = "saves";
+
+fn sanitize_save_path(filename: &str) -> Result<PathBuf, String> {
+    if filename.contains('/') || filename.contains('\\') || filename.contains("..") {
+        return Err(format!("Path traversal blocked: {}", filename));
+    }
+    let path = Path::new(filename);
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| format!("Invalid filename: {}", filename))?;
+    if file_name.is_empty() {
+        return Err(format!("Empty filename: {}", filename));
+    }
+    Ok(PathBuf::from(SAVES_DIR).join(file_name))
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct LineageRecord {
@@ -72,23 +88,23 @@ pub struct CompactSave {
 }
 
 pub fn save_game(data: &SaveData, filename: &str) -> Result<(), String> {
-    let path = Path::new(filename);
+    let path = sanitize_save_path(filename)?;
     let ron_string = ron::ser::to_string_pretty(data, ron::ser::PrettyConfig::default())
         .map_err(|e| format!("Failed to serialize: {}", e))?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    fs::write(path, ron_string).map_err(|e| format!("Failed to write file: {}", e))
+    fs::write(&path, ron_string).map_err(|e| format!("Failed to write file: {}", e))
 }
 
 pub fn save_lineage(data: &SaveData, seed: u64) -> Result<(), String> {
-    let filename = format!("saves/lineage_{}.ron", seed);
+    let filename = format!("lineage_{}.ron", seed);
     save_game(data, &filename)
 }
 
 pub fn load_game(filename: &str) -> Result<SaveData, String> {
-    let path = Path::new(filename);
-    let contents = fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
+    let path = sanitize_save_path(filename)?;
+    let contents = fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
     let mut data: SaveData =
         ron::from_str(&contents).map_err(|e| format!("Failed to deserialize: {}", e))?;
     crate::save_migrations::migrate(&mut data)?;
@@ -96,19 +112,19 @@ pub fn load_game(filename: &str) -> Result<SaveData, String> {
 }
 
 pub fn save_compact(data: &CompactSave, filename: &str) -> Result<(), String> {
-    let path = Path::new(filename);
+    let path = sanitize_save_path(filename)?;
     let ron_string = ron::ser::to_string_pretty(data, ron::ser::PrettyConfig::default())
         .map_err(|e| format!("Failed to serialize compact: {}", e))?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    fs::write(path, ron_string).map_err(|e| format!("Failed to write compact: {}", e))
+    fs::write(&path, ron_string).map_err(|e| format!("Failed to write compact: {}", e))
 }
 
 pub fn load_compact(filename: &str) -> Result<CompactSave, String> {
-    let path = Path::new(filename);
+    let path = sanitize_save_path(filename)?;
     let contents =
-        fs::read_to_string(path).map_err(|e| format!("Failed to read compact: {}", e))?;
+        fs::read_to_string(&path).map_err(|e| format!("Failed to read compact: {}", e))?;
     ron::from_str(&contents).map_err(|e| format!("Failed to deserialize compact: {}", e))
 }
 
@@ -144,9 +160,6 @@ mod tests {
 
     #[test]
     fn save_load_roundtrip() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("save.ron");
-        let path_str = path.to_str().unwrap();
         let charts = charts::load_charts("data/charts.ron").unwrap();
         let sim = SimState::new(42, charts);
         let data = SaveData {
@@ -163,8 +176,8 @@ mod tests {
             lineage: Vec::new(),
             version: CURRENT_SAVE_VERSION,
         };
-        save_game(&data, path_str).expect("save should succeed");
-        let loaded = load_game(path_str).expect("load should succeed");
+        save_game(&data, "test_save.ron").expect("save should succeed");
+        let loaded = load_game("test_save.ron").expect("load should succeed");
         assert_eq!(
             data.sim.world.tick, loaded.sim.world.tick,
             "tick should match"
@@ -175,19 +188,17 @@ mod tests {
             loaded.sim.world.regions.len(),
             "region count should match"
         );
+        let _ = std::fs::remove_file("saves/test_save.ron");
     }
 
     #[test]
     fn load_nonexistent_file() {
-        let result = load_game("/tmp/deep-world-tui-nonexistent.ron");
+        let result = load_game("nonexistent_test_file.ron");
         assert!(result.is_err(), "loading nonexistent file should fail");
     }
 
     #[test]
     fn compact_save_load_roundtrip() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("compact.ron");
-        let path_str = path.to_str().unwrap();
         let choices = vec![
             PlayerChoice::TravelTo {
                 region_idx: 0,
@@ -215,16 +226,17 @@ mod tests {
             player_choices: choices.clone(),
             tick: 42,
         };
-        save_compact(&data, path_str).expect("compact save should succeed");
-        let loaded = load_compact(path_str).expect("compact load should succeed");
+        save_compact(&data, "test_compact.ron").expect("compact save should succeed");
+        let loaded = load_compact("test_compact.ron").expect("compact load should succeed");
         assert_eq!(loaded.seed, 12345);
         assert_eq!(loaded.tick, 42);
         assert_eq!(loaded.player_choices, choices);
+        let _ = std::fs::remove_file("saves/test_compact.ron");
     }
 
     #[test]
     fn compact_load_nonexistent_file() {
-        let result = load_compact("/tmp/deep-world-tui-nonexistent-compact.ron");
+        let result = load_compact("nonexistent_compact.ron");
         assert!(result.is_err(), "loading nonexistent compact should fail");
     }
 
@@ -309,5 +321,18 @@ mod tests {
         assert_eq!(r1.sim.world.tick, r2.sim.world.tick);
         assert_eq!(r1.sim.world.regions.len(), r2.sim.world.regions.len());
         assert_eq!(r1.sim.world.regions[0].name, r2.sim.world.regions[0].name);
+    }
+
+    #[test]
+    fn path_traversal_blocked() {
+        let result = sanitize_save_path("../../etc/passwd");
+        assert!(result.is_err(), "path traversal with .. should be blocked");
+        let result2 = sanitize_save_path("../secret.key");
+        assert!(result2.is_err(), "parent directory traversal should be blocked");
+        let result3 = sanitize_save_path("/etc/shadow");
+        assert!(result3.is_err(), "absolute path should be blocked");
+        let ok = sanitize_save_path("my_save.ron");
+        assert!(ok.is_ok(), "plain filename should be allowed");
+        assert_eq!(ok.unwrap(), PathBuf::from("saves/my_save.ron"));
     }
 }

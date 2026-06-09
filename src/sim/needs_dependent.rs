@@ -10,8 +10,8 @@ pub struct Obligation {
 }
 
 pub fn propagate_dependent_needs(world: &mut World, obligations: &[Obligation]) {
-    let mut extra_decay: std::collections::HashMap<String, Vec<(Need, f64)>> =
-        std::collections::HashMap::new();
+    let mut extra_decay: indexmap::IndexMap<String, Vec<(Need, f64)>> =
+        indexmap::IndexMap::new();
     for obl in obligations {
         let caregiver = find_person(world, &obl.caregiver_id);
         let caregiver_val = caregiver

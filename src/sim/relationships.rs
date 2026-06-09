@@ -1,6 +1,6 @@
 use crate::model::{PeopleKind, Relationship, RelationshipEvent, RelationshipKind};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 const TRUST_BASELINE: f64 = 0.5;
 const TRUST_CONVERGENCE_RATE: f64 = 0.005;
@@ -89,7 +89,7 @@ fn fnv_hash(s: &str) -> u32 {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RelationshipTracker {
-    pub relationships: HashMap<(String, String), Relationship>,
+    pub relationships: IndexMap<(String, String), Relationship>,
 }
 
 impl RelationshipTracker {

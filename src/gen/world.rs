@@ -3,7 +3,7 @@ use crate::model::{Region, Settlement, SettlementService, Terrain, TerrainMap, W
 use crate::rng::SeedRng;
 
 pub fn generate_world(seed: u64, charts: &Charts) -> World {
-    let world_rng = SeedRng::new(seed).fork_for(&format!("world:{}", seed));
+    let world_rng = SeedRng::new(seed).fork_for("world");
     let mut rng = world_rng;
 
     let n_regions_str = charts
@@ -14,7 +14,7 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
 
     let mut regions = Vec::with_capacity(n_regions);
     for ri in 0..n_regions {
-        let region_rng = SeedRng::new(seed).fork_for(&format!("world:{}:region:{}", seed, ri));
+        let region_rng = SeedRng::new(seed).fork_for(&format!("world:region:{}", ri));
         let region = generate_region(region_rng, ri, charts);
         regions.push(region);
     }

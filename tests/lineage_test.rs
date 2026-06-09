@@ -65,12 +65,8 @@ fn savedata_with_lineage_roundtrips() {
         tick: 50,
     });
 
-    let dir = tempfile::tempdir().expect("temp dir should create");
-    let path = dir.path().join("lineage_roundtrip.ron");
-    let path_str = path.to_str().expect("path valid");
-
-    save::save_game(&data, path_str).expect("save should succeed");
-    let loaded = save::load_game(path_str).expect("load should succeed");
+    save::save_game(&data, "lineage_roundtrip.ron").expect("save should succeed");
+    let loaded = save::load_game("lineage_roundtrip.ron").expect("load should succeed");
 
     assert_eq!(loaded.lineage.len(), 1, "should have one lineage record");
     assert_eq!(loaded.lineage[0].predecessor_name, "First Hero");
@@ -85,12 +81,8 @@ fn savedata_without_lineage_loads_empty() {
     let charts = load_charts();
     let data = make_save_data(77, &charts);
 
-    let dir = tempfile::tempdir().expect("temp dir should create");
-    let path = dir.path().join("no_lineage.ron");
-    let path_str = path.to_str().expect("path valid");
-
-    save::save_game(&data, path_str).expect("save should succeed");
-    let loaded = save::load_game(path_str).expect("load should succeed");
+    save::save_game(&data, "no_lineage.ron").expect("save should succeed");
+    let loaded = save::load_game("no_lineage.ron").expect("load should succeed");
 
     assert!(loaded.lineage.is_empty(), "lineage should default to empty");
 }
@@ -110,7 +102,7 @@ fn lineage_save_file_created_on_death() {
     let result = save::save_lineage(&data, 123);
     assert!(result.is_ok(), "save_lineage should succeed");
 
-    let loaded = save::load_game("saves/lineage_123.ron");
+    let loaded = save::load_game("lineage_123.ron");
     assert!(loaded.is_ok(), "lineage file should be loadable");
     let loaded = loaded.expect("loaded");
     assert_eq!(loaded.lineage.len(), 1);
@@ -200,12 +192,8 @@ fn multiple_lineage_records_accumulate() {
         tick: 200,
     });
 
-    let dir = tempfile::tempdir().expect("temp dir");
-    let path = dir.path().join("multi_lineage.ron");
-    let path_str = path.to_str().unwrap();
-
-    save::save_game(&data, path_str).expect("save should work");
-    let loaded = save::load_game(path_str).expect("load should work");
+    save::save_game(&data, "multi_lineage.ron").expect("save should work");
+    let loaded = save::load_game("multi_lineage.ron").expect("load should work");
 
     assert_eq!(loaded.lineage.len(), 2, "should have two lineage records");
     assert_eq!(loaded.lineage[0].predecessor_name, "First");

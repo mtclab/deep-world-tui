@@ -1,6 +1,6 @@
 use crate::model::World;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 const BASELINE: f64 = 0.5;
 const LOCAL_DECAY_RATE: f64 = 0.01;
@@ -10,14 +10,14 @@ const SPREAD_RATE: f64 = 0.02;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Reputation {
     pub local: f64,
-    pub by_faction: HashMap<String, f64>,
+    pub by_faction: IndexMap<String, f64>,
 }
 
 impl Default for Reputation {
     fn default() -> Self {
         Reputation {
             local: BASELINE,
-            by_faction: HashMap::new(),
+            by_faction: IndexMap::new(),
         }
     }
 }
@@ -47,7 +47,7 @@ pub struct ReputationEntry {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ReputationStore {
-    pub entries: HashMap<String, ReputationEntry>,
+    pub entries: IndexMap<String, ReputationEntry>,
 }
 
 impl ReputationStore {
@@ -131,11 +131,11 @@ fn reputation_key(person_id: &str, settlement: &str) -> String {
 }
 
 pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
-    let mut updates: Vec<(String, f64, HashMap<String, f64>)> = Vec::new();
-    let mut spread_acc: HashMap<String, f64> = HashMap::new();
+    let mut updates: Vec<(String, f64, IndexMap<String, f64>)> = Vec::new();
+    let mut spread_acc: IndexMap<String, f64> = IndexMap::new();
     for (key, entry) in &store.entries {
         let local_decayed = decay_toward(entry.reputation.local, BASELINE, LOCAL_DECAY_RATE * dt);
-        let mut faction_decayed = HashMap::new();
+        let mut faction_decayed = IndexMap::new();
         for (faction, val) in &entry.reputation.by_faction {
             faction_decayed.insert(
                 faction.clone(),

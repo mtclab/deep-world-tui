@@ -221,9 +221,10 @@ impl ItemType {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct Inventory {
-    pub items: std::collections::HashMap<ItemType, u32>,
+    pub items: indexmap::IndexMap<ItemType, u32>,
+    pub coins: u32,
     #[serde(default = "default_durability")]
-    pub durability: std::collections::HashMap<ItemType, f64>,
+    pub durability: indexmap::IndexMap<ItemType, f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -271,8 +272,8 @@ impl NpcMemory {
     }
 }
 
-fn default_durability() -> std::collections::HashMap<ItemType, f64> {
-    std::collections::HashMap::new()
+fn default_durability() -> indexmap::IndexMap<ItemType, f64> {
+    indexmap::IndexMap::new()
 }
 
 impl Inventory {
@@ -324,7 +325,7 @@ impl Inventory {
         let current = self.get(item);
         if current >= count {
             if count == current {
-                self.items.remove(&item);
+                self.items.swap_remove(&item);
             } else {
                 *self.items.get_mut(&item).unwrap() -= count;
             }
@@ -484,7 +485,10 @@ pub enum Season {
 
 impl Season {
     pub fn from_day(day: u32) -> Self {
-        let day_in_year = (day - 1) % 90;
+        if day == 0 {
+            return Season::Thaw;
+        }
+        let day_in_year = (day - 1) % Self::YEAR_DAYS;
         match day_in_year {
             0..=29 => Season::Thaw,
             30..=59 => Season::Green,
@@ -534,7 +538,7 @@ impl Season {
     pub const YEAR_DAYS: u32 = 90;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Weather {
     Clear,
     Cloudy,
@@ -555,17 +559,17 @@ impl Weather {
         let roll = rng.gen_range(1000);
 
         // Regional bias
-        let (clear_w, cloudy_w, rain_w, storm_w, snow_w, fog_w, heat_w) = match terrain {
-            Terrain::Coast => (150, 250, 200, 100, 50, 200, 50),
-            Terrain::Mountain => (200, 200, 150, 150, 150, 100, 50),
-            Terrain::Forest => (150, 300, 250, 100, 50, 100, 50),
-            Terrain::Swamp => (100, 200, 250, 100, 50, 250, 50),
-            Terrain::DeepDesert | Terrain::Sand => (300, 200, 50, 50, 0, 50, 350),
-            Terrain::Tundra => (150, 200, 100, 100, 350, 50, 50),
-            _ => (200, 250, 200, 100, 100, 100, 50),
+        let (clear_w, cloudy_w, rain_w, storm_w, snow_w, fog_w, heat_w, whiteout_w, thunder_w, dryltn_w, sqall_w) = match terrain {
+            Terrain::Coast => (120, 200, 180, 80, 30, 150, 40, 10, 40, 20, 130),
+            Terrain::Mountain => (160, 180, 120, 120, 120, 80, 30, 60, 60, 30, 10),
+            Terrain::Forest => (120, 240, 220, 80, 40, 80, 40, 10, 40, 20, 10),
+            Terrain::Swamp => (80, 180, 220, 80, 30, 200, 30, 5, 30, 15, 10),
+            Terrain::DeepDesert | Terrain::Sand => (250, 150, 30, 30, 0, 30, 300, 0, 10, 80, 20),
+            Terrain::Tundra => (120, 160, 80, 80, 280, 40, 30, 120, 40, 10, 10),
+            _ => (160, 200, 160, 80, 80, 80, 40, 20, 30, 20, 20),
         };
 
-        let total = clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w;
+        let total = clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w + whiteout_w + thunder_w + dryltn_w + sqall_w;
         let roll = roll % total;
 
         if roll < clear_w {
@@ -580,8 +584,16 @@ impl Weather {
             Weather::Snow
         } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w {
             Weather::Fog
-        } else {
+        } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w {
             Weather::Heatwave
+        } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w + whiteout_w {
+            Weather::Whiteout
+        } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w + whiteout_w + thunder_w {
+            Weather::Thunderhead
+        } else if roll < clear_w + cloudy_w + rain_w + storm_w + snow_w + fog_w + heat_w + whiteout_w + thunder_w + dryltn_w {
+            Weather::DryLightning
+        } else {
+            Weather::SeaSquall
         }
     }
 
@@ -4584,6 +4596,7 @@ mod tests {
 
     #[test]
     fn season_cycle() {
+        assert_eq!(Season::from_day(0), Season::Thaw);
         assert_eq!(Season::from_day(1), Season::Thaw);
         assert_eq!(Season::from_day(30), Season::Thaw);
         assert_eq!(Season::from_day(31), Season::Green);
@@ -5230,6 +5243,10 @@ mod tests {
             Weather::Snow,
             Weather::Fog,
             Weather::Heatwave,
+            Weather::Whiteout,
+            Weather::Thunderhead,
+            Weather::DryLightning,
+            Weather::SeaSquall,
         ];
         for w in weathers {
             assert!(w.gather_modifier() > 0.0 && w.gather_modifier() <= 1.0);
@@ -5266,6 +5283,34 @@ mod tests {
             "desert should have significant heatwave: {}",
             heat_count
         );
+    }
+
+    #[test]
+    fn weather_generate_produces_all_variants() {
+        use std::collections::HashSet;
+        let terrains = [
+            Terrain::Grass, Terrain::Coast, Terrain::Mountain, Terrain::Forest,
+            Terrain::Swamp, Terrain::DeepDesert, Terrain::Sand, Terrain::Tundra,
+            Terrain::Road,
+        ];
+        let mut seen: HashSet<Weather> = HashSet::new();
+        for seed in 0..50u64 {
+            for tick in 0..200u64 {
+                for &terrain in &terrains {
+                    let w = Weather::generate(seed, tick, terrain);
+                    seen.insert(w);
+                    if seen.len() == 11 {
+                        return;
+                    }
+                }
+            }
+        }
+        let missing: Vec<_> = [
+            Weather::Clear, Weather::Cloudy, Weather::Rain, Weather::Storm,
+            Weather::Snow, Weather::Fog, Weather::Heatwave, Weather::Whiteout,
+            Weather::Thunderhead, Weather::DryLightning, Weather::SeaSquall,
+        ].into_iter().filter(|w| !seen.contains(w)).collect();
+        panic!("Weather::generate never produced: {:?}", missing);
     }
 
     #[test]

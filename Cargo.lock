@@ -281,6 +281,7 @@ dependencies = [
  "clap",
  "crossterm",
  "hound",
+ "indexmap",
  "rand",
  "rand_chacha",
  "ratatui",
