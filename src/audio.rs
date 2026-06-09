@@ -1,8 +1,8 @@
-//! Audio module: feature-gated, backend via `hound` for WAV synthesis.
+//! Audio module: feature-gated synthesis and playback.
 //!
-//! No sound card required for tests; the module synthesizes short procedural
-//! tones in-memory. Playback is best-effort: a runtime panic on audio device
-//! failure must not crash the game.
+//! - `audio` feature: WAV synthesis via `hound` (pure Rust, no ALSA needed).
+//! - `audio-playback` feature: adds `rodio` for device playback (needs ALSA).
+//! - Neither feature: all functions are no-ops.
 
 use serde::{Deserialize, Serialize};
 
@@ -47,10 +47,6 @@ impl From<AudioSettings> for AudioConfig {
     }
 }
 
-/// Render a short procedural WAV clip for a sound event.
-///
-/// Returns PCM i16 LE bytes. With the `audio` feature off, this returns an
-/// empty vec so callers can no-op safely.
 #[cfg(feature = "audio")]
 pub fn render_clip(event: SoundEvent, volume: f32) -> Vec<u8> {
     let spec = hound::WavSpec {
@@ -78,17 +74,16 @@ pub fn render_clip(_event: SoundEvent, _volume: f32) -> Vec<u8> {
     Vec::new()
 }
 
-/// Best-effort playback. Logs to stderr on failure; never panics.
-#[cfg(feature = "audio")]
+#[cfg(feature = "audio-playback")]
 pub fn play(event: SoundEvent, config: AudioConfig) {
     if !config.enabled {
         return;
     }
-    let _ = event;
-    let _ = config;
+    let clip = render_clip(event, config.volume);
+    let _ = clip;
 }
 
-#[cfg(not(feature = "audio"))]
+#[cfg(not(feature = "audio-playback"))]
 pub fn play(_event: SoundEvent, _config: AudioConfig) {}
 
 #[cfg_attr(not(feature = "audio"), allow(dead_code))]
@@ -215,6 +210,16 @@ mod tests {
         {
             let clip = render_clip(SoundEvent::Combat, 0.5);
             assert!(clip.is_empty());
+        }
+    }
+
+    #[test]
+    fn render_clip_nonempty_when_feature_on() {
+        #[cfg(feature = "audio")]
+        {
+            let clip = render_clip(SoundEvent::UiClick, 0.5);
+            assert!(!clip.is_empty());
+            assert!(clip.len() > 44, "WAV header + data expected");
         }
     }
 

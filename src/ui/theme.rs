@@ -112,27 +112,51 @@ impl Theme {
     }
 
     pub fn archive_red(&self) -> Color {
-        if self.high_contrast { HC_RED } else { ARCHIVE_RED }
+        if self.high_contrast {
+            HC_RED
+        } else {
+            ARCHIVE_RED
+        }
     }
 
     pub fn ink(&self) -> Color {
-        if self.high_contrast { HC_INK } else { INK }
+        if self.high_contrast {
+            HC_INK
+        } else {
+            INK
+        }
     }
 
     pub fn dark_ink(&self) -> Color {
-        if self.high_contrast { HC_DIM } else { DARK_INK }
+        if self.high_contrast {
+            HC_DIM
+        } else {
+            DARK_INK
+        }
     }
 
     pub fn warm_brown(&self) -> Color {
-        if self.high_contrast { HC_INK } else { WARM_BROWN }
+        if self.high_contrast {
+            HC_INK
+        } else {
+            WARM_BROWN
+        }
     }
 
     pub fn dark_brown(&self) -> Color {
-        if self.high_contrast { HC_DIM } else { DARK_BROWN }
+        if self.high_contrast {
+            HC_DIM
+        } else {
+            DARK_BROWN
+        }
     }
 
     pub fn paper(&self) -> Color {
-        if self.high_contrast { HC_BG } else { PAPER }
+        if self.high_contrast {
+            HC_BG
+        } else {
+            PAPER
+        }
     }
 }
 
@@ -142,7 +166,10 @@ mod tests {
 
     #[test]
     fn monochrome_returns_ink_for_all_people() {
-        let theme = Theme { monochrome: true, high_contrast: false };
+        let theme = Theme {
+            monochrome: true,
+            high_contrast: false,
+        };
         for people in [
             PeopleKind::Metsik,
             PeopleKind::Arkit,
@@ -156,7 +183,10 @@ mod tests {
 
     #[test]
     fn monochrome_returns_ink_for_all_regions() {
-        let theme = Theme { monochrome: true, high_contrast: false };
+        let theme = Theme {
+            monochrome: true,
+            high_contrast: false,
+        };
         for rt in ["river_valley", "coast", "forest", "upland"] {
             assert_eq!(theme.region_color(rt), DARK_INK);
         }
@@ -164,7 +194,10 @@ mod tests {
 
     #[test]
     fn monochrome_need_colors_use_only_ink_shades() {
-        let theme = Theme { monochrome: true, high_contrast: false };
+        let theme = Theme {
+            monochrome: true,
+            high_contrast: false,
+        };
         assert_eq!(theme.need_color(0.8), INK);
         assert_eq!(theme.need_color(0.5), DARK_INK);
         assert_eq!(theme.need_color(0.1), ARCHIVE_RED);
@@ -201,13 +234,19 @@ mod tests {
 
     #[test]
     fn high_contrast_returns_white_for_people() {
-        let theme = Theme { monochrome: false, high_contrast: true };
+        let theme = Theme {
+            monochrome: false,
+            high_contrast: true,
+        };
         assert_eq!(theme.people_color(PeopleKind::Metsik), HC_INK);
     }
 
     #[test]
     fn high_contrast_need_colors_use_white_and_red() {
-        let theme = Theme { monochrome: false, high_contrast: true };
+        let theme = Theme {
+            monochrome: false,
+            high_contrast: true,
+        };
         assert_eq!(theme.need_color(0.8), HC_INK);
         assert_eq!(theme.need_color(0.5), HC_DIM);
         assert_eq!(theme.need_color(0.1), HC_RED);
