@@ -18,6 +18,54 @@ fn need_bar(val: f64, width: usize) -> String {
     format!("{}{}", "█".repeat(filled), "░".repeat(empty))
 }
 
+fn stance_label(bias: f64) -> &'static str {
+    if bias > 0.05 {
+        "++ ally"
+    } else if bias > -0.05 {
+        "~  neutral"
+    } else if bias > -0.15 {
+        "-  wary"
+    } else {
+        "-- hostile"
+    }
+}
+
+fn stance_color(bias: f64, theme: &Theme) -> Color {
+    if bias > 0.05 {
+        theme.need_color(1.0)
+    } else if bias < -0.05 {
+        theme.need_color(0.0)
+    } else {
+        theme.dark_brown()
+    }
+}
+
+fn reputation_label(val: f64) -> &'static str {
+    if val > 0.6 {
+        "++ favored"
+    } else if val > 0.3 {
+        "+  pleased"
+    } else if val > 0.0 {
+        "   noticed"
+    } else if val == 0.0 {
+        "?  unknown"
+    } else if val > -0.3 {
+        "-  wary"
+    } else if val > -0.6 {
+        "-- displeased"
+    } else {
+        "--- angered"
+    }
+}
+
+fn focus_cursor(is_selected: bool) -> &'static str {
+    if is_selected {
+        "▸"
+    } else {
+        " "
+    }
+}
+
 const STATUS_HEIGHT: u16 = 3;
 
 pub fn draw(f: &mut Frame, app: &App) {
@@ -326,7 +374,7 @@ fn draw_save_browser_screen(f: &mut Frame, app: &App, scroll: u16, delete_confir
     } else {
         lines.push(Line::from(""));
         for (i, entry) in app.save_entries.iter().enumerate() {
-            let cursor = if (i as u16) == scroll { " >" } else { "  " };
+            let cursor = focus_cursor((i as u16) == scroll);
             if let (Some(name), Some(people)) = (&entry.character_name, &entry.people) {
                 let pk = crate::model::PeopleKind::from_name(people);
                 let desc = format!(
@@ -454,22 +502,8 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
         )));
         let npc_pk = crate::model::PeopleKind::from_name(&p.people);
         let bias = app.inter_people_bias.player_people.bias_toward(npc_pk);
-        let stance = if bias > 0.05 {
-            "ally"
-        } else if bias > -0.05 {
-            "neutral"
-        } else if bias > -0.15 {
-            "wary"
-        } else {
-            "hostile"
-        };
-        let stance_color = if bias > 0.05 {
-            theme.need_color(1.0)
-        } else if bias < -0.05 {
-            theme.need_color(0.0)
-        } else {
-            theme.dark_brown()
-        };
+        let stance = stance_label(bias);
+        let stance_color = stance_color(bias, &theme);
         lines.push(Line::from(vec![
             Span::styled("   Toward you    ", Style::default().fg(theme.ink())),
             Span::styled(stance, Style::default().fg(stance_color)),
@@ -2521,21 +2555,7 @@ fn draw_inventory_screen(f: &mut Frame, app: &App) {
         (crate::model::GodName::Kukri, app.god_affinity.kukri),
     ];
     for (god, val) in &gods {
-        let label = if *val > 0.6 {
-            "favored"
-        } else if *val > 0.3 {
-            "pleased"
-        } else if *val > 0.0 {
-            "noticed"
-        } else if *val == 0.0 {
-            "unknown"
-        } else if *val > -0.3 {
-            "wary"
-        } else if *val > -0.6 {
-            "displeased"
-        } else {
-            "angered"
-        };
+        let label = reputation_label(*val);
         let color = if *val > 0.0 {
             theme.need_color(1.0)
         } else if *val < 0.0 {
@@ -2833,22 +2853,8 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
         if let Some(npc_people) = app.current_settlement_people() {
             let bias = app.inter_people_bias.player_people.bias_toward(npc_people)
                 + app.clock.season().bias_modifier();
-            let stance = if bias > 0.05 {
-                "ally"
-            } else if bias > -0.05 {
-                "neutral"
-            } else if bias > -0.15 {
-                "wary"
-            } else {
-                "hostile"
-            };
-            let stance_color = if bias > 0.05 {
-                theme.need_color(1.0)
-            } else if bias < -0.05 {
-                theme.need_color(0.0)
-            } else {
-                theme.dark_brown()
-            };
+            let stance = stance_label(bias);
+            let stance_color = stance_color(bias, &theme);
             lines.push(Line::from(vec![
                 Span::styled("  Local stance: ", Style::default().fg(theme.warm_brown())),
                 Span::styled(stance, Style::default().fg(stance_color)),
@@ -3252,6 +3258,18 @@ fn draw_help_screen(f: &mut Frame, app: &App) {
         Line::from("   ?                This help screen"),
         Line::from("   ,                Settings"),
         Line::from("   Q/Esc            Quit"),
+        Line::from(""),
+        Line::from(Span::styled(
+            " Accessibility",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from("   All screens fully keyboard-navigable (no mouse needed)"),
+        Line::from("   Stance symbols: ++ ally, ~ neutral, - wary, -- hostile"),
+        Line::from("   ▸ marks selected item in scrollable lists"),
+        Line::from("   [h] High contrast mode (white on black, settings screen)"),
+        Line::from("   Color never the sole signal; symbols/markers always present"),
     ];
     let paragraph = Paragraph::new(text).block(
         Block::default()
@@ -3591,5 +3609,45 @@ mod minimap_tests {
         }];
         let color = dominant_people_color(&settlements, &theme);
         assert_eq!(color, theme.archive_red());
+    }
+}
+
+#[cfg(test)]
+mod accessibility_tests {
+    use super::*;
+
+    #[test]
+    fn stance_label_contains_symbol() {
+        assert!(stance_label(0.1).starts_with("++"));
+        assert!(stance_label(0.0).starts_with("~"));
+        assert!(stance_label(-0.1).starts_with("-"));
+        assert!(stance_label(-0.2).starts_with("--"));
+    }
+
+    #[test]
+    fn reputation_label_contains_symbol() {
+        assert!(reputation_label(0.7).starts_with("++"));
+        assert!(reputation_label(0.0).starts_with("?"));
+        assert!(reputation_label(-0.5).starts_with("--"));
+        assert!(reputation_label(-0.8).starts_with("---"));
+    }
+
+    #[test]
+    fn focus_cursor_visible_on_selected() {
+        assert_eq!(focus_cursor(true), "▸");
+        assert_eq!(focus_cursor(false), " ");
+    }
+
+    #[test]
+    fn stance_color_varies_with_bias() {
+        let theme = Theme {
+            monochrome: false,
+            high_contrast: false,
+        };
+        let ally_color = stance_color(0.1, &theme);
+        let hostile_color = stance_color(-0.2, &theme);
+        let neutral_color = stance_color(0.0, &theme);
+        assert_ne!(ally_color, hostile_color);
+        assert_eq!(neutral_color, theme.dark_brown());
     }
 }
