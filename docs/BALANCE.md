@@ -1,5 +1,13 @@
 # Balance Parameters
 
+## AI Playtest Harness (v2)
+
+The balance test suite includes an AI-driven harness:
+- 15 seeds, 600 ticks (~25 days) per run
+- AI gathers, eats, rests based on vitals thresholds
+- Starting inventory: 3 food, 1 herb
+- Assertions: AI survives ≥5/15 seeds, starvation kills within 500 ticks
+
 ## Vital Decay Rates (per hour)
 
 | Vital | Base Rate | Frost Multiplier | Thaw/Green |
