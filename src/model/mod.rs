@@ -2402,6 +2402,7 @@ pub enum EncounterKind {
     SpringBloom,
     HarvestMarket,
     WinterSurvivor,
+    MerchantCaravan,
 }
 
 impl EncounterKind {
@@ -2418,6 +2419,7 @@ impl EncounterKind {
             EncounterKind::SpringBloom => "The thaw has come. Flowers push through the last frost, and the air tastes of renewal.",
             EncounterKind::HarvestMarket => "A market sprawls across the square — traders, food, noise, color, life.",
             EncounterKind::WinterSurvivor => "A huddled figure in the snow. They hold out a hand, half-frozen, half-hoping.",
+            EncounterKind::MerchantCaravan => "A merchant caravan moves slowly along the road, pack animals laden with goods.",
         }
     }
 
@@ -2465,6 +2467,7 @@ impl EncounterKind {
             EncounterKind::SpringBloom => vec![EncounterAction::Talk, EncounterAction::Calm],
             EncounterKind::HarvestMarket => vec![EncounterAction::Trade, EncounterAction::Talk],
             EncounterKind::WinterSurvivor => vec![EncounterAction::Calm, EncounterAction::Trade],
+            EncounterKind::MerchantCaravan => vec![EncounterAction::Trade, EncounterAction::Calm],
         }
     }
 }
