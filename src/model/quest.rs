@@ -283,7 +283,10 @@ mod tests {
             let q = LegacyQuest::generate(seed, "npc-1".into(), "Test NPC".into(), 100);
             types.insert(q.quest_type);
         }
-        assert!(types.len() >= 3, "should generate at least 3 different quest types");
+        assert!(
+            types.len() >= 3,
+            "should generate at least 3 different quest types"
+        );
     }
 
     #[test]
@@ -317,9 +320,14 @@ mod tests {
     #[test]
     fn quest_kind_serde_roundtrip() {
         let kinds = vec![
-            QuestKind::FetchItem { item: ItemType::Herb, count: 3 },
+            QuestKind::FetchItem {
+                item: ItemType::Herb,
+                count: 3,
+            },
             QuestKind::VisitRegion { region_idx: 2 },
-            QuestKind::AidNPC { npc_id: "abc".into() },
+            QuestKind::AidNPC {
+                npc_id: "abc".into(),
+            },
             QuestKind::ReachReputation { threshold: 0.7 },
             QuestKind::SurviveDays { days: 5 },
         ];

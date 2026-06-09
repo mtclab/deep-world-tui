@@ -6,8 +6,8 @@ use deep_world_tui::rng::SeedRng;
 use deep_world_tui::save::{self, LineageRecord, SaveData};
 use deep_world_tui::save_migrations::CURRENT_SAVE_VERSION;
 use deep_world_tui::sim::hints::HintTracker;
-use deep_world_tui::sim::SimState;
 use deep_world_tui::sim::milestones::MilestoneTracker;
+use deep_world_tui::sim::SimState;
 
 fn load_charts() -> charts::Charts {
     charts::load_charts("data/charts.ron").expect("charts should load from data/charts.ron")

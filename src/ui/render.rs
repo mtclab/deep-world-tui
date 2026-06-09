@@ -483,7 +483,10 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
             Style::default().fg(theme.ink()),
         )));
         lines.push(Line::from(Span::styled(
-            format!("     {}", crate::sim::hints::profession_flavor(&p.profession)),
+            format!(
+                "     {}",
+                crate::sim::hints::profession_flavor(&p.profession)
+            ),
             Style::default().fg(theme.dark_brown()),
         )));
         lines.push(Line::from(Span::styled(
@@ -3000,7 +3003,7 @@ fn draw_collapse_screen(f: &mut Frame, app: &App) {
 }
 
 fn draw_game_over_screen(f: &mut Frame, app: &App) {
-    use crate::sim::milestones::{legacy_summary, faction_key};
+    use crate::sim::milestones::{faction_key, legacy_summary};
 
     let theme = Theme {
         monochrome: app.monochrome,
@@ -3078,7 +3081,10 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
     let structures_built = app.sim.as_ref().map_or(0, |s| {
         s.structures.iter().filter(|st| !st.is_npc_built).count()
     });
-    let has_companion = app.player_start.as_ref().is_some_and(|ps| !ps.companions.is_empty());
+    let has_companion = app
+        .player_start
+        .as_ref()
+        .is_some_and(|ps| !ps.companions.is_empty());
     let sim_ref = app.sim.as_ref();
     let player_id = app.player_start.as_ref().map(|ps| ps.person.id.clone());
     let legacy_lines = legacy_summary(
@@ -3095,14 +3101,24 @@ fn draw_game_over_screen(f: &mut Frame, app: &App) {
                 Some(s) => s,
                 None => return 0.5,
             };
-            let total: f64 = sim.reputation.entries.values()
+            let total: f64 = sim
+                .reputation
+                .entries
+                .values()
                 .filter(|e| e.person_id == pid)
                 .map(|e| e.reputation.by_faction.get(fk).copied().unwrap_or(0.5))
                 .sum::<f64>();
-            let count = sim.reputation.entries.values()
+            let count = sim
+                .reputation
+                .entries
+                .values()
                 .filter(|e| e.person_id == pid)
                 .count();
-            if count > 0 { total / count as f64 } else { 0.5 }
+            if count > 0 {
+                total / count as f64
+            } else {
+                0.5
+            }
         },
     );
     if !legacy_lines.is_empty() {

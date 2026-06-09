@@ -394,7 +394,9 @@ impl App {
                 self.lineage = data.lineage;
                 self.hint_tracker = data.hint_tracker;
                 self.milestones = data.milestones;
-                self.elder = self.milestones.has(crate::sim::milestones::MilestoneKind::ElderAchieved);
+                self.elder = self
+                    .milestones
+                    .has(crate::sim::milestones::MilestoneKind::ElderAchieved);
                 if last_collapse_died {
                     self.continue_as_npc();
                 } else {
@@ -1738,7 +1740,7 @@ impl App {
     }
 
     pub fn check_milestones(&mut self) {
-        use crate::sim::milestones::{MilestoneKind, core_peoples, faction_key};
+        use crate::sim::milestones::{core_peoples, faction_key, MilestoneKind};
 
         let day = self.clock.day;
         let fired = self.milestones.check_day_milestones(day);
@@ -1753,27 +1755,44 @@ impl App {
             self.elder = true;
             if let Some(ref mut sim) = self.sim {
                 let tick = sim.world.tick;
-                sim.log(tick, MilestoneKind::ElderAchieved.voice(), MilestoneKind::ElderAchieved.journal_text());
+                sim.log(
+                    tick,
+                    MilestoneKind::ElderAchieved.voice(),
+                    MilestoneKind::ElderAchieved.journal_text(),
+                );
             }
         }
 
-        let has_player_structure = self.sim.as_ref().is_some_and(|sim| {
-            sim.structures.iter().any(|s| !s.is_npc_built)
-        });
+        let has_player_structure = self
+            .sim
+            .as_ref()
+            .is_some_and(|sim| sim.structures.iter().any(|s| !s.is_npc_built));
         if has_player_structure && !self.milestones.has(MilestoneKind::FirstStructureBuilt) {
-            self.milestones.record(MilestoneKind::FirstStructureBuilt, day);
+            self.milestones
+                .record(MilestoneKind::FirstStructureBuilt, day);
             if let Some(ref mut sim) = self.sim {
                 let tick = sim.world.tick;
-                sim.log(tick, MilestoneKind::FirstStructureBuilt.voice(), MilestoneKind::FirstStructureBuilt.journal_text());
+                sim.log(
+                    tick,
+                    MilestoneKind::FirstStructureBuilt.voice(),
+                    MilestoneKind::FirstStructureBuilt.journal_text(),
+                );
             }
         }
 
         if let Some(ref ps) = self.player_start {
-            if !ps.companions.is_empty() && !self.milestones.has(MilestoneKind::FirstCompanionAdopted) {
-                self.milestones.record(MilestoneKind::FirstCompanionAdopted, day);
+            if !ps.companions.is_empty()
+                && !self.milestones.has(MilestoneKind::FirstCompanionAdopted)
+            {
+                self.milestones
+                    .record(MilestoneKind::FirstCompanionAdopted, day);
                 if let Some(ref mut sim) = self.sim {
                     let tick = sim.world.tick;
-                    sim.log(tick, MilestoneKind::FirstCompanionAdopted.voice(), MilestoneKind::FirstCompanionAdopted.journal_text());
+                    sim.log(
+                        tick,
+                        MilestoneKind::FirstCompanionAdopted.voice(),
+                        MilestoneKind::FirstCompanionAdopted.journal_text(),
+                    );
                 }
             }
         }
@@ -1786,7 +1805,8 @@ impl App {
             if player_id.is_empty() {
                 Vec::new()
             } else if let Some(ref sim) = self.sim {
-                core_peoples().iter()
+                core_peoples()
+                    .iter()
                     .copied()
                     .filter(|&people| {
                         let kind = MilestoneKind::PeopleEnding { people };
@@ -1794,11 +1814,17 @@ impl App {
                             return false;
                         }
                         let fk = faction_key(people);
-                        let total: f64 = sim.reputation.entries.values()
+                        let total: f64 = sim
+                            .reputation
+                            .entries
+                            .values()
                             .filter(|e| e.person_id == player_id)
                             .map(|e| e.reputation.by_faction.get(fk).copied().unwrap_or(0.5))
                             .sum::<f64>();
-                        let count = sim.reputation.entries.values()
+                        let count = sim
+                            .reputation
+                            .entries
+                            .values()
                             .filter(|e| e.person_id == player_id)
                             .count();
                         count > 0 && total / count as f64 >= 0.9
@@ -2530,21 +2556,22 @@ enum MoveResult {
 
 impl App {
     pub fn move_player(&mut self, dx: i32, dy: i32) {
-        let weather = self
-            .sim
-            .as_ref()
-            .and_then(|sim| {
-                let pos = self.player_pos?;
-                let region = sim.world.regions.get(pos.region_idx)?;
-                let terrain = region.terrain.get(pos.px, pos.py)?;
-                Some(Weather::generate(sim.world.seed, sim.world.tick, terrain))
-            });
+        let weather = self.sim.as_ref().and_then(|sim| {
+            let pos = self.player_pos?;
+            let region = sim.world.regions.get(pos.region_idx)?;
+            let terrain = region.terrain.get(pos.px, pos.py)?;
+            Some(Weather::generate(sim.world.seed, sim.world.tick, terrain))
+        });
         if let Some(w) = weather {
             if let Some(ref mut rng) = self.player_rng {
                 if crate::sim::weather::forced_shelter(w, rng.gen_f64()) {
                     let flavor = crate::sim::weather::weather_travel_flavor(w, true);
                     if let Some(ref mut sim) = self.sim {
-                        sim.log(sim.world.tick, crate::sim::journal::Voice::Travel, flavor.to_string());
+                        sim.log(
+                            sim.world.tick,
+                            crate::sim::journal::Voice::Travel,
+                            flavor.to_string(),
+                        );
                     }
                     return;
                 }
@@ -2578,7 +2605,9 @@ impl App {
                         0
                     }
                 });
-                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32 + bias_mod).max(1) as u32;
+                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32
+                    + bias_mod)
+                    .max(1) as u32;
                 self.advance_clock(hours);
                 self.log_travel(terrain);
                 self.check_encounter(terrain);
@@ -2611,7 +2640,9 @@ impl App {
                         0
                     }
                 });
-                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32 + bias_mod).max(1) as u32;
+                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32
+                    + bias_mod)
+                    .max(1) as u32;
                 self.advance_clock(hours);
                 self.log_travel(terrain);
                 self.check_encounter(terrain);

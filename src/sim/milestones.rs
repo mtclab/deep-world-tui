@@ -214,7 +214,9 @@ mod tests {
         let mut tracker = MilestoneTracker::new();
         let fired = tracker.check_day_milestones(30);
         assert!(fired.contains(&MilestoneKind::Survived30Days));
-        assert!(!tracker.check_day_milestones(30).contains(&MilestoneKind::Survived30Days));
+        assert!(!tracker
+            .check_day_milestones(30)
+            .contains(&MilestoneKind::Survived30Days));
     }
 
     #[test]
@@ -222,8 +224,16 @@ mod tests {
         let mut tracker = MilestoneTracker::new();
         tracker.check_day_milestones(100);
         tracker.check_day_milestones(100);
-        let count30 = tracker.milestones.iter().filter(|m| m.kind == MilestoneKind::Survived30Days).count();
-        let count100 = tracker.milestones.iter().filter(|m| m.kind == MilestoneKind::Survived100Days).count();
+        let count30 = tracker
+            .milestones
+            .iter()
+            .filter(|m| m.kind == MilestoneKind::Survived30Days)
+            .count();
+        let count100 = tracker
+            .milestones
+            .iter()
+            .filter(|m| m.kind == MilestoneKind::Survived100Days)
+            .count();
         assert_eq!(count30, 1);
         assert_eq!(count100, 1);
     }
@@ -245,9 +255,18 @@ mod tests {
     #[test]
     fn people_ending_milestone() {
         let mut tracker = MilestoneTracker::new();
-        tracker.record(MilestoneKind::PeopleEnding { people: PeopleKind::Metsik }, 50);
-        assert!(tracker.has(MilestoneKind::PeopleEnding { people: PeopleKind::Metsik }));
-        assert!(!tracker.has(MilestoneKind::PeopleEnding { people: PeopleKind::Arkit }));
+        tracker.record(
+            MilestoneKind::PeopleEnding {
+                people: PeopleKind::Metsik,
+            },
+            50,
+        );
+        assert!(tracker.has(MilestoneKind::PeopleEnding {
+            people: PeopleKind::Metsik
+        }));
+        assert!(!tracker.has(MilestoneKind::PeopleEnding {
+            people: PeopleKind::Arkit
+        }));
     }
 
     #[test]
@@ -262,9 +281,15 @@ mod tests {
     fn legacy_summary_revered() {
         let tracker = MilestoneTracker::new();
         let lines = legacy_summary(&tracker, 0, false, |p| {
-            if p == PeopleKind::Metsik { 0.95 } else { 0.5 }
+            if p == PeopleKind::Metsik {
+                0.95
+            } else {
+                0.5
+            }
         });
-        assert!(lines.iter().any(|l| l.contains("Revered by") && l.contains("Metsik")));
+        assert!(lines
+            .iter()
+            .any(|l| l.contains("Revered by") && l.contains("Metsik")));
     }
 
     #[test]
@@ -278,7 +303,10 @@ mod tests {
     #[test]
     fn milestone_voice_dream_for_people_ending() {
         assert_eq!(
-            MilestoneKind::PeopleEnding { people: PeopleKind::Metsik }.voice(),
+            MilestoneKind::PeopleEnding {
+                people: PeopleKind::Metsik
+            }
+            .voice(),
             crate::sim::journal::Voice::Dream
         );
     }

@@ -6,8 +6,8 @@ use deep_world_tui::model::{
 };
 use deep_world_tui::save::{self, SaveData};
 use deep_world_tui::save_migrations::CURRENT_SAVE_VERSION;
-use deep_world_tui::sim::SimState;
 use deep_world_tui::sim::milestones::MilestoneTracker;
+use deep_world_tui::sim::SimState;
 
 fn load_charts() -> charts::Charts {
     charts::load_charts("data/charts.ron").expect("charts should load")

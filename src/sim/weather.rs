@@ -514,9 +514,17 @@ mod tests {
         assert!(travel_hours_multiplier(Weather::Whiteout) > 2.0);
         assert!(travel_hours_multiplier(Weather::SeaSquall) > 1.5);
         let all = [
-            Weather::Clear, Weather::Cloudy, Weather::Rain, Weather::Storm,
-            Weather::Snow, Weather::Fog, Weather::Heatwave, Weather::Whiteout,
-            Weather::Thunderhead, Weather::DryLightning, Weather::SeaSquall,
+            Weather::Clear,
+            Weather::Cloudy,
+            Weather::Rain,
+            Weather::Storm,
+            Weather::Snow,
+            Weather::Fog,
+            Weather::Heatwave,
+            Weather::Whiteout,
+            Weather::Thunderhead,
+            Weather::DryLightning,
+            Weather::SeaSquall,
         ];
         for w in &all {
             let m = travel_hours_multiplier(*w);

@@ -27,11 +27,17 @@ pub const HINT_FIRST_STRUCTURE: &str = "first_structure";
 
 pub fn hint_text(hint_id: &str) -> Option<&'static str> {
     match hint_id {
-        HINT_FIRST_GATHER => Some("I pick through what the land offers. Some places give more than others."),
-        HINT_FIRST_REST => Some("I find shelter and close my eyes. The deep world waits for no one."),
+        HINT_FIRST_GATHER => {
+            Some("I pick through what the land offers. Some places give more than others.")
+        }
+        HINT_FIRST_REST => {
+            Some("I find shelter and close my eyes. The deep world waits for no one.")
+        }
         HINT_FIRST_TRADE => Some("Coin changes hands. Trust is harder to trade."),
         HINT_FIRST_ENCOUNTER => Some("The world has teeth. I should be careful where I walk."),
-        HINT_FIRST_COLLAPSE => Some("I stumble. The ground rises to meet me. I must rest more, eat more."),
+        HINT_FIRST_COLLAPSE => {
+            Some("I stumble. The ground rises to meet me. I must rest more, eat more.")
+        }
         HINT_FIRST_STRUCTURE => Some("Shelter takes shape. The land rewards patience."),
         _ => None,
     }
@@ -142,12 +148,29 @@ mod tests {
 
     #[test]
     fn hint_text_no_forbidden_you() {
-        let ids = ["first_gather", "first_rest", "first_trade", "first_encounter", "first_collapse", "first_structure"];
+        let ids = [
+            "first_gather",
+            "first_rest",
+            "first_trade",
+            "first_encounter",
+            "first_collapse",
+            "first_structure",
+        ];
         for id in &ids {
             if let Some(text) = hint_text(id) {
                 let lower = text.to_lowercase();
-                assert!(!lower.contains(" you "), "Hint '{}' contains forbidden 'you': {}", id, text);
-                assert!(!lower.starts_with("you "), "Hint '{}' starts with 'you': {}", id, text);
+                assert!(
+                    !lower.contains(" you "),
+                    "Hint '{}' contains forbidden 'you': {}",
+                    id,
+                    text
+                );
+                assert!(
+                    !lower.starts_with("you "),
+                    "Hint '{}' starts with 'you': {}",
+                    id,
+                    text
+                );
             }
         }
     }

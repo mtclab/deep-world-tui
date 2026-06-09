@@ -113,7 +113,9 @@ pub fn generate_initial_quests(
                     .unwrap_or_else(|| "npc-0".into());
                 let deadline = current_day + 12 + rng.gen_range(8);
                 Quest {
-                    kind: QuestKind::AidNPC { npc_id: npc_id.clone() },
+                    kind: QuestKind::AidNPC {
+                        npc_id: npc_id.clone(),
+                    },
                     description: pick(&mut rng, AID_DESCRIPTIONS).into(),
                     reward: QuestReward::Relationship {
                         npc_id,
@@ -188,9 +190,7 @@ pub fn check_quests(
         }
 
         let progress = match &quest.kind {
-            QuestKind::FetchItem { item, count: _ } => {
-                inventory.get(*item).min(quest.target)
-            }
+            QuestKind::FetchItem { item, count: _ } => inventory.get(*item).min(quest.target),
             QuestKind::VisitRegion { region_idx } => {
                 if *region_idx == current_region_idx {
                     1
@@ -240,7 +240,10 @@ pub fn apply_quest_reward(
         QuestReward::Items { item, count } => {
             inventory.add(*item, *count);
         }
-        QuestReward::Relationship { npc_id: _, delta: _ } => {
+        QuestReward::Relationship {
+            npc_id: _,
+            delta: _,
+        } => {
             // Relationship deltas are applied via the relationship tracker in the caller
         }
     }
@@ -264,7 +267,11 @@ mod tests {
         let regions = make_regions();
         let quests = generate_initial_quests(42, PeopleKind::Metsik, &regions);
         assert!(!quests.is_empty(), "should produce at least 1 quest");
-        assert!(quests.len() <= 2, "should produce at most 2 quests, got {}", quests.len());
+        assert!(
+            quests.len() <= 2,
+            "should produce at most 2 quests, got {}",
+            quests.len()
+        );
     }
 
     #[test]
@@ -284,7 +291,11 @@ mod tests {
         let regions = make_regions();
         let a = generate_initial_quests(42, PeopleKind::Metsik, &regions);
         let b = generate_initial_quests(99, PeopleKind::Metsik, &regions);
-        assert_ne!(a.len(), b.len(), "different seeds should produce different quest counts or content");
+        assert_ne!(
+            a.len(),
+            b.len(),
+            "different seeds should produce different quest counts or content"
+        );
     }
 
     #[test]
@@ -292,7 +303,10 @@ mod tests {
         let mut inv = Inventory::default();
         inv.add(ItemType::Herb, 3);
         let quests = vec![Quest {
-            kind: QuestKind::FetchItem { item: ItemType::Herb, count: 3 },
+            kind: QuestKind::FetchItem {
+                item: ItemType::Herb,
+                count: 3,
+            },
             description: "test".into(),
             reward: QuestReward::Reputation { amount: 0.1 },
             progress: 0,
@@ -309,7 +323,10 @@ mod tests {
         let quests = vec![Quest {
             kind: QuestKind::VisitRegion { region_idx: 5 },
             description: "test".into(),
-            reward: QuestReward::Items { item: ItemType::Herb, count: 3 },
+            reward: QuestReward::Items {
+                item: ItemType::Herb,
+                count: 3,
+            },
             progress: 0,
             target: 1,
             deadline_day: 10,
@@ -334,6 +351,10 @@ mod tests {
         }];
         let inv = Inventory::default();
         let result = check_quests(&quests, &inv, 0, &[], 0.5, 6);
-        assert_eq!(result.completed.len(), 1, "after 5 days (day 6 from start), survive 5 days should complete");
+        assert_eq!(
+            result.completed.len(),
+            1,
+            "after 5 days (day 6 from start), survive 5 days should complete"
+        );
     }
 }
