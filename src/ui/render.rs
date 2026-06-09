@@ -1648,7 +1648,7 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
-        Constraint::Length(3),
+        Constraint::Length(4),
     ])
     .split(f.area());
 
@@ -1658,7 +1658,26 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
         .and_then(|sim| sim.world.regions.get(region_idx).map(|r| r.name.clone()))
         .unwrap_or_else(|| "Unknown".into());
 
-    let header = Paragraph::new(Line::from(vec![
+    let weather_span = if let (Some(ref sim), Some(pos)) = (&app.sim, app.player_pos) {
+        if let Some(terrain) = sim
+            .world
+            .regions
+            .get(pos.region_idx)
+            .and_then(|r| r.terrain.get(pos.px, pos.py))
+        {
+            let w = crate::model::Weather::generate(sim.world.seed, sim.world.tick, terrain);
+            Some(Span::styled(
+                format!(" {} ", w.glyph()),
+                Style::default().fg(theme.warm_brown()),
+            ))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let mut header_spans = vec![
         Span::styled(
             " Map — ",
             Style::default()
@@ -1671,17 +1690,22 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
                 .fg(theme.ink())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(
-            format!(
-                "  {}  {} {}",
-                app.clock_str(),
-                app.vitals.hunger_label(),
-                app.vitals.energy_label()
-            ),
-            Style::default().fg(theme.dark_ink()),
+    ];
+    if let Some(ws) = weather_span {
+        header_spans.push(ws);
+    }
+    header_spans.push(Span::styled(
+        format!(
+            "{}  {} {}",
+            app.clock_str(),
+            app.vitals.hunger_label(),
+            app.vitals.energy_label()
         ),
-    ]))
-    .block(Block::default().borders(Borders::BOTTOM));
+        Style::default().fg(theme.dark_ink()),
+    ));
+
+    let header =
+        Paragraph::new(Line::from(header_spans)).block(Block::default().borders(Borders::BOTTOM));
     f.render_widget(header, chunks[0]);
 
     let map_area = chunks[1];
@@ -1773,7 +1797,7 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
                             });
                         if !is_explored {
                             spans.push(Span::styled(
-                                "░".to_string(),
+                                "·".to_string(),
                                 Style::default().fg(theme.dark_brown()),
                             ));
                         } else if is_memorial {
@@ -1802,7 +1826,7 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
 
     let legend_lines = vec![
         Line::from(vec![
-            Span::styled("░", Style::default().fg(terrain_color(Terrain::Grass))),
+            Span::styled(",", Style::default().fg(terrain_color(Terrain::Grass))),
             Span::styled("Grass ", Style::default().fg(theme.dark_brown())),
             Span::styled("▓", Style::default().fg(terrain_color(Terrain::Forest))),
             Span::styled("Forest ", Style::default().fg(theme.dark_brown())),
@@ -1822,20 +1846,15 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
             Span::styled("Farm ", Style::default().fg(theme.dark_brown())),
             Span::styled("~", Style::default().fg(terrain_color(Terrain::Swamp))),
             Span::styled("Swmp ", Style::default().fg(theme.dark_brown())),
+            Span::styled("·", Style::default().fg(theme.dark_brown())),
+            Span::styled("Fog  ", Style::default().fg(theme.dark_brown())),
             Span::styled(
                 "@",
                 Style::default()
                     .fg(Color::White)
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled("You ", Style::default().fg(theme.dark_brown())),
-            Span::styled(
-                crate::model::memorial::Memorial::glyph().to_string(),
-                Style::default().fg(theme.archive_red()),
-            ),
-            Span::styled("Fall  ", Style::default().fg(theme.dark_brown())),
-            Span::styled("#", Style::default().fg(theme.archive_red())),
-            Span::styled("Bldg", Style::default().fg(theme.dark_brown())),
+            Span::styled("You", Style::default().fg(theme.dark_brown())),
         ]),
     ];
     let legend = Paragraph::new(legend_lines).block(
@@ -1875,53 +1894,97 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" move  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(" move ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[w]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" wait ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[g]",
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" gather  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(" gather ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[r]",
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" rest  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(" rest ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[i]",
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" inv  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(" inv ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[c]",
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" craft  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(" craft ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Enter]",
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" enter  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(" enter ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[?]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" help", Style::default().fg(theme.dark_brown())),
+    ]);
+    let help_line2 = Line::from(vec![
+        Span::styled(
+            " [s]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" save ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[m]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" journal ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[M]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" overmap ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[b]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" build ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc]",
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" back", Style::default().fg(theme.dark_brown())),
+        Span::styled(" title", Style::default().fg(theme.dark_brown())),
         Span::styled(coord, Style::default().fg(theme.dark_brown())),
     ]);
-    let help =
-        Paragraph::new(vec![status_line, help_line]).block(Block::default().borders(Borders::TOP));
+    let help = Paragraph::new(vec![status_line, help_line, help_line2])
+        .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }
 

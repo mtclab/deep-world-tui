@@ -30,7 +30,7 @@ pub enum Terrain {
 impl Terrain {
     pub fn glyph(self) -> char {
         match self {
-            Terrain::Grass => '░',
+            Terrain::Grass => ',',
             Terrain::Forest => '▓',
             Terrain::Water => '≈',
             Terrain::Mountain => '▲',
@@ -42,7 +42,7 @@ impl Terrain {
             Terrain::Coast => '≋',
             Terrain::Cave => '◉',
             Terrain::Tundra => '▒',
-            Terrain::DeepDesert => '░',
+            Terrain::DeepDesert => ':',
         }
     }
 
