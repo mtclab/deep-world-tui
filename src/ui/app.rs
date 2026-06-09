@@ -1563,8 +1563,13 @@ impl App {
             }
         });
         let elder_talk_bonus = if self.elder { 0.10 } else { 0.0 };
-        let talk_success = people_bias_mod + trust_bonus + elder_talk_bonus > -0.20;
-        let trade_bonus = people_bias_mod + trust_bonus > 0.05;
+        let companion_mood_bonus: f64 = self.player_start
+            .as_ref()
+            .and_then(|ps| ps.companions.first())
+            .map(|c| c.mood().encounter_bonus())
+            .unwrap_or(0.0);
+        let talk_success = people_bias_mod + trust_bonus + elder_talk_bonus + companion_mood_bonus > -0.20;
+        let trade_bonus = people_bias_mod + trust_bonus + companion_mood_bonus > 0.05;
         let msg = match action {
             EncounterAction::Flee => {
                 if enc_mod.flee > 0.05 {
@@ -2524,6 +2529,16 @@ impl App {
         if let Some(ref mut ps) = self.player_start {
             for companion in &mut ps.companions {
                 companion.rest(1.0);
+                let action_seed = self.seed.wrapping_add((self.clock.day as u64 * 24 + self.clock.hour as u64) * 137);
+                if let Some(action) = companion.autonomous_action(action_seed) {
+                    let flavor = companion.apply_action(action);
+                    self.status_msg = Some(format!("{} {}", companion.name, flavor));
+                }
+                // Companion eats from shared inventory when hungry
+                if companion.food_need > 50.0 && ps.inventory.has(crate::model::ItemType::Food) {
+                    ps.inventory.remove(crate::model::ItemType::Food, 1);
+                    companion.feed(0.5);
+                }
             }
         }
         let structure_bonus = match self.structure_at_player() {

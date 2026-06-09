@@ -3712,6 +3712,64 @@ impl Animal {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum CompanionMood {
+    Content,
+    Restless,
+    Unhappy,
+}
+
+impl CompanionMood {
+    pub fn label(self) -> &'static str {
+        match self {
+            CompanionMood::Content => "content",
+            CompanionMood::Restless => "restless",
+            CompanionMood::Unhappy => "unhappy",
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            CompanionMood::Content => "Your companion pads along quietly, at ease.",
+            CompanionMood::Restless => "Your companion paces, sniffing the wind. Something is on their mind.",
+            CompanionMood::Unhappy => "Your companion hangs back, refusing to meet your eyes.",
+        }
+    }
+
+    pub fn encounter_bonus(self) -> f64 {
+        match self {
+            CompanionMood::Content => 0.05,
+            CompanionMood::Restless => 0.0,
+            CompanionMood::Unhappy => -0.10,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum CompanionAction {
+    Hunt,
+    Gather,
+    Scout,
+}
+
+impl CompanionAction {
+    pub fn label(self) -> &'static str {
+        match self {
+            CompanionAction::Hunt => "hunted",
+            CompanionAction::Gather => "gathered",
+            CompanionAction::Scout => "scouted",
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            CompanionAction::Hunt => "returned from the hunt with game in their jaws.",
+            CompanionAction::Gather => "came back carrying something useful in their mouth.",
+            CompanionAction::Scout => "circled back after checking the path ahead. The way seems clear.",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Companion {
     pub animal: Animal,
@@ -3734,6 +3792,16 @@ impl Companion {
         }
     }
 
+    pub fn mood(&self) -> CompanionMood {
+        if self.food_need >= 70.0 || self.rest_need >= 70.0 || self.loyalty < 0.2 {
+            CompanionMood::Unhappy
+        } else if self.food_need >= 40.0 || self.rest_need >= 40.0 {
+            CompanionMood::Restless
+        } else {
+            CompanionMood::Content
+        }
+    }
+
     pub fn decay_needs(&mut self, ticks: u64) {
         self.food_need = (self.food_need + ticks as f64 * 0.5).min(100.0);
         self.rest_need = (self.rest_need + ticks as f64 * 0.3).min(100.0);
@@ -3741,6 +3809,7 @@ impl Companion {
 
     pub fn feed(&mut self, amount: f64) {
         self.food_need = (self.food_need - amount * 20.0).max(0.0);
+        self.loyalty = (self.loyalty + 0.03).min(1.0);
     }
 
     pub fn rest(&mut self, amount: f64) {
@@ -3757,6 +3826,38 @@ impl Companion {
 
     pub fn is_alive(&self) -> bool {
         !(self.food_need >= 100.0 || self.rest_need >= 100.0)
+    }
+
+    pub fn autonomous_action(&self, seed: u64) -> Option<CompanionAction> {
+        if self.mood() == CompanionMood::Unhappy {
+            return None;
+        }
+        let val = (seed.wrapping_mul(2654435761) >> 32) as u32 % 100;
+        if val < 15 {
+            Some(CompanionAction::Hunt)
+        } else if val < 30 {
+            Some(CompanionAction::Gather)
+        } else if val < 40 {
+            Some(CompanionAction::Scout)
+        } else {
+            None
+        }
+    }
+
+    pub fn apply_action(&mut self, action: CompanionAction) -> &'static str {
+        match action {
+            CompanionAction::Hunt => {
+                self.food_need = (self.food_need - 30.0).max(0.0);
+                self.loyalty = (self.loyalty + 0.02).min(1.0);
+            }
+            CompanionAction::Gather => {
+                self.food_need = (self.food_need - 15.0).max(0.0);
+            }
+            CompanionAction::Scout => {
+                self.rest_need = (self.rest_need + 10.0).min(100.0);
+            }
+        }
+        action.flavor()
     }
 }
 
@@ -5880,6 +5981,68 @@ mod tests {
         let mut companion = Companion::new(Animal::Dog, "Rex".into(), 100);
         companion.food_need = 100.0;
         assert!(!companion.is_alive());
+    }
+
+    #[test]
+    fn companion_mood_content() {
+        let companion = Companion::new(Animal::Dog, "Rex".into(), 100);
+        assert_eq!(companion.mood(), CompanionMood::Content);
+        assert!(companion.mood().encounter_bonus() > 0.0);
+    }
+
+    #[test]
+    fn companion_mood_restless() {
+        let mut companion = Companion::new(Animal::Dog, "Rex".into(), 100);
+        companion.food_need = 45.0;
+        assert_eq!(companion.mood(), CompanionMood::Restless);
+        assert_eq!(companion.mood().encounter_bonus(), 0.0);
+    }
+
+    #[test]
+    fn companion_mood_unhappy() {
+        let mut companion = Companion::new(Animal::Dog, "Rex".into(), 100);
+        companion.food_need = 75.0;
+        assert_eq!(companion.mood(), CompanionMood::Unhappy);
+        assert!(companion.mood().encounter_bonus() < 0.0);
+    }
+
+    #[test]
+    fn companion_mood_unhappy_low_loyalty() {
+        let mut companion = Companion::new(Animal::Dog, "Rex".into(), 100);
+        companion.loyalty = 0.1;
+        assert_eq!(companion.mood(), CompanionMood::Unhappy);
+    }
+
+    #[test]
+    fn companion_autonomous_action_deterministic() {
+        let companion = Companion::new(Animal::Dog, "Rex".into(), 100);
+        let a1 = companion.autonomous_action(42);
+        let a2 = companion.autonomous_action(42);
+        assert_eq!(a1, a2);
+    }
+
+    #[test]
+    fn companion_autonomous_action_unhappy_none() {
+        let mut companion = Companion::new(Animal::Dog, "Rex".into(), 100);
+        companion.food_need = 80.0;
+        assert!(companion.autonomous_action(42).is_none());
+    }
+
+    #[test]
+    fn companion_apply_hunt_action() {
+        let mut companion = Companion::new(Animal::Dog, "Rex".into(), 100);
+        companion.food_need = 50.0;
+        companion.apply_action(CompanionAction::Hunt);
+        assert!(companion.food_need < 50.0);
+        assert!(companion.loyalty > 0.5);
+    }
+
+    #[test]
+    fn companion_apply_scout_action() {
+        let mut companion = Companion::new(Animal::Dog, "Rex".into(), 100);
+        companion.rest_need = 10.0;
+        companion.apply_action(CompanionAction::Scout);
+        assert!(companion.rest_need > 10.0);
     }
 
     #[test]
