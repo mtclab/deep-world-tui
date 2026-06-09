@@ -25,8 +25,7 @@ pub enum Screen {
         delete_confirm: Option<usize>,
     },
     CharacterCreation,
-    World,
-    Map {
+    World {
         region_idx: usize,
         px: usize,
         py: usize,
@@ -228,7 +227,11 @@ impl App {
                     .collect();
             }
             self.player_start = Some(ps);
-            self.screen = Screen::World;
+            self.screen = Screen::World {
+                region_idx: self.player_pos.map(|p| p.region_idx).unwrap_or(0),
+                px: self.player_pos.map(|p| p.px).unwrap_or(0),
+                py: self.player_pos.map(|p| p.py).unwrap_or(0),
+            };
             // Reveal starting area
             if let Some(pos) = self.player_pos {
                 self.reveal_around(pos.region_idx, pos.px, pos.py);
@@ -346,7 +349,7 @@ impl App {
     }
 
     pub fn exit_settlement(&mut self) {
-        self.screen = Screen::World;
+        self.screen = self.world_screen();
     }
 
     pub fn current_settlement(&self) -> Option<&Settlement> {
@@ -397,7 +400,7 @@ impl App {
     }
 
     pub fn exit_journal(&mut self) {
-        self.screen = Screen::World;
+        self.screen = self.world_screen();
     }
 
     #[allow(deprecated)]
@@ -452,7 +455,7 @@ impl App {
                 if last_collapse_died {
                     self.continue_as_npc();
                 } else {
-                    self.screen = Screen::World;
+                    self.screen = self.world_screen();
                     self.status_msg = Some("Loaded from save.ron".into());
                 }
             }
@@ -680,7 +683,7 @@ impl App {
     }
 
     pub fn exit_alerts(&mut self) {
-        self.screen = Screen::World;
+        self.screen = self.world_screen();
     }
 
     pub fn reveal_around(&mut self, region_idx: usize, px: usize, py: usize) {
@@ -701,7 +704,7 @@ impl App {
             self.find_settlement_pos(region_idx)
         };
         self.player_pos = Some(PlayerPos { region_idx, px, py });
-        self.screen = Screen::Map { region_idx, px, py };
+        self.screen = Screen::World { region_idx, px, py };
     }
 
     fn find_settlement_pos(&self, region_idx: usize) -> (usize, usize) {
@@ -721,12 +724,25 @@ impl App {
     }
 
     pub fn exit_map(&mut self) {
-        self.screen = Screen::World;
+        self.screen = self.world_screen();
+    }
+
+    fn world_screen(&self) -> Screen {
+        let pos = self.player_pos.unwrap_or(PlayerPos {
+            region_idx: 0,
+            px: 20,
+            py: 10,
+        });
+        Screen::World {
+            region_idx: pos.region_idx,
+            px: pos.px,
+            py: pos.py,
+        }
     }
 
     pub fn enter_overmap(&mut self) {
         let region_idx = match &self.screen {
-            Screen::Map { region_idx, .. } => *region_idx,
+            Screen::World { region_idx, .. } => *region_idx,
             _ => 0,
         };
         self.screen = Screen::Overmap { region_idx };
@@ -736,7 +752,7 @@ impl App {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::Map { region_idx, px, py };
+        self.screen = Screen::World { region_idx, px, py };
     }
 
     pub fn gather(&mut self) {
@@ -843,7 +859,7 @@ impl App {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::Map { region_idx, px, py };
+        self.screen = Screen::World { region_idx, px, py };
     }
 
     pub fn enter_craft(&mut self) {
@@ -854,7 +870,7 @@ impl App {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::Map { region_idx, px, py };
+        self.screen = Screen::World { region_idx, px, py };
     }
 
     pub fn open_encounter_log(&mut self) {
@@ -863,7 +879,10 @@ impl App {
     }
 
     pub fn exit_encounter_log(&mut self) {
-        self.screen = self.previous_screen.clone().unwrap_or(Screen::World);
+        self.screen = self
+            .previous_screen
+            .clone()
+            .unwrap_or_else(|| self.world_screen());
     }
 
     pub fn craft_recipe(&mut self, recipe_idx: usize) {
@@ -923,7 +942,7 @@ impl App {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::Map { region_idx, px, py };
+        self.screen = Screen::World { region_idx, px, py };
     }
 
     pub fn current_settlement_people(&self) -> Option<PeopleKind> {
@@ -1860,7 +1879,7 @@ impl App {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::Map { region_idx, px, py };
+        self.screen = Screen::World { region_idx, px, py };
     }
 
     pub fn check_milestones(&mut self) {
@@ -2135,7 +2154,7 @@ impl App {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::Map { region_idx, px, py };
+        self.screen = Screen::World { region_idx, px, py };
     }
 
     pub fn restart_game(&mut self) {
@@ -2335,7 +2354,7 @@ impl App {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         let px = self.player_pos.map(|p| p.px).unwrap_or(20);
         let py = self.player_pos.map(|p| p.py).unwrap_or(10);
-        self.screen = Screen::Map { region_idx, px, py };
+        self.screen = Screen::World { region_idx, px, py };
     }
 
     pub fn use_service(&mut self, service: SettlementService) {
@@ -2761,7 +2780,7 @@ impl App {
                 self.check_discovery(region_idx, px, py);
                 self.check_quests_on_travel(region_idx);
                 if self.encounter.is_none() {
-                    self.screen = Screen::Map { region_idx, px, py };
+                    self.screen = Screen::World { region_idx, px, py };
                 }
             }
             Some(MoveResult::Step { region_idx, px, py }) => {
@@ -2796,7 +2815,7 @@ impl App {
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
                 if self.encounter.is_none() {
-                    self.screen = Screen::Map { region_idx, px, py };
+                    self.screen = Screen::World { region_idx, px, py };
                 }
             }
             Some(MoveResult::Blocked { msg }) => {
@@ -3045,7 +3064,7 @@ impl App {
                                         if last_collapse_died {
                                             self.continue_as_npc();
                                         }
-                                        self.screen = Screen::World;
+                                        self.screen = self.world_screen();
                                     }
                                     Err(e) => {
                                         self.status_msg = Some(format!("Load failed: {}", e));
@@ -3104,70 +3123,21 @@ impl App {
                     }
                     _ => {}
                 },
-                Screen::World => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.running = false;
-                    }
-                    crossterm::event::KeyCode::Char(' ') => {
-                        if let Some(ref mut sim) = self.sim {
-                            sim.step();
-                        }
-                    }
-                    crossterm::event::KeyCode::Char('a') => {
-                        if let Some(ref mut sim) = self.sim {
-                            for _ in 0..10 {
-                                sim.step();
-                            }
-                        }
-                    }
-                    crossterm::event::KeyCode::Char(c) if ('1'..='9').contains(&c) => {
-                        let idx = (c as usize) - ('1' as usize);
-                        let list = self.settlement_list();
-                        if let Some((ri, si, _)) = list.get(idx) {
-                            self.enter_settlement(*ri, *si);
-                        }
-                    }
-                    crossterm::event::KeyCode::Char('j') => {
-                        self.enter_journal();
-                    }
-                    crossterm::event::KeyCode::Char('s') => {
-                        self.save_game();
-                    }
-                    crossterm::event::KeyCode::Char('l') => {
-                        self.load_game();
-                    }
-                    crossterm::event::KeyCode::Char('!') => {
-                        self.enter_alerts();
-                    }
-                    crossterm::event::KeyCode::Char('m') => {
-                        self.enter_map(0);
-                    }
-                    _ => {}
-                },
-                Screen::Map {
+                Screen::World {
                     region_idx,
                     px: _,
                     py: _,
                 } => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.exit_map();
-                    }
                     crossterm::event::KeyCode::Char('h') | crossterm::event::KeyCode::Left => {
                         self.move_player(-1, 0);
                     }
-                    crossterm::event::KeyCode::Char('l') => {
+                    crossterm::event::KeyCode::Char('l') | crossterm::event::KeyCode::Right => {
                         self.move_player(1, 0);
                     }
                     crossterm::event::KeyCode::Char('k') | crossterm::event::KeyCode::Up => {
                         self.move_player(0, -1);
                     }
-                    crossterm::event::KeyCode::Char('j') => {
-                        self.move_player(0, 1);
-                    }
-                    crossterm::event::KeyCode::Right => {
-                        self.move_player(1, 0);
-                    }
-                    crossterm::event::KeyCode::Down => {
+                    crossterm::event::KeyCode::Char('j') | crossterm::event::KeyCode::Down => {
                         self.move_player(0, 1);
                     }
                     crossterm::event::KeyCode::Enter => {
@@ -3175,15 +3145,45 @@ impl App {
                             self.enter_settlement(ri, si);
                         }
                     }
+                    crossterm::event::KeyCode::Char(' ') => {
+                        if let Some(ref mut sim) = self.sim {
+                            sim.step();
+                        }
+                    }
                     crossterm::event::KeyCode::Char('a') => {
                         if let Some((ri, si)) = self.player_on_settlement() {
                             self.adopt_companion(ri, si);
                         }
                     }
-                    crossterm::event::KeyCode::Char(' ') => {
-                        if let Some(ref mut sim) = self.sim {
-                            sim.step();
-                        }
+                    crossterm::event::KeyCode::Char('g') => {
+                        self.gather();
+                    }
+                    crossterm::event::KeyCode::Char('r') => {
+                        self.rest();
+                    }
+                    crossterm::event::KeyCode::Char('i') => {
+                        self.enter_inventory();
+                    }
+                    crossterm::event::KeyCode::Char('c') => {
+                        self.enter_craft();
+                    }
+                    crossterm::event::KeyCode::Char('b') => {
+                        self.start_build();
+                    }
+                    crossterm::event::KeyCode::Char('s') => {
+                        self.save_game();
+                    }
+                    crossterm::event::KeyCode::Char('M') => {
+                        self.enter_overmap();
+                    }
+                    crossterm::event::KeyCode::Char('m') => {
+                        self.enter_journal();
+                    }
+                    crossterm::event::KeyCode::Char('!') => {
+                        self.enter_alerts();
+                    }
+                    crossterm::event::KeyCode::Char('H') => {
+                        self.open_encounter_log();
                     }
                     crossterm::event::KeyCode::Char(c @ '1'..='9') => {
                         let idx = (c as usize) - ('1' as usize);
@@ -3199,27 +3199,6 @@ impl App {
                             );
                         }
                     }
-                    crossterm::event::KeyCode::Char('M') => {
-                        self.enter_overmap();
-                    }
-                    crossterm::event::KeyCode::Char('i') => {
-                        self.enter_inventory();
-                    }
-                    crossterm::event::KeyCode::Char('g') => {
-                        self.gather();
-                    }
-                    crossterm::event::KeyCode::Char('r') => {
-                        self.rest();
-                    }
-                    crossterm::event::KeyCode::Char('c') => {
-                        self.enter_craft();
-                    }
-                    crossterm::event::KeyCode::Char('b') => {
-                        self.start_build();
-                    }
-                    crossterm::event::KeyCode::Char('H') => {
-                        self.open_encounter_log();
-                    }
                     crossterm::event::KeyCode::Char('?') => {
                         self.previous_screen = Some(self.screen.clone());
                         self.screen = Screen::Help;
@@ -3227,6 +3206,9 @@ impl App {
                     crossterm::event::KeyCode::Char(',') => {
                         self.previous_screen = Some(self.screen.clone());
                         self.screen = Screen::Settings;
+                    }
+                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
+                        self.running = false;
                     }
                     _ => {}
                 },
@@ -3273,7 +3255,7 @@ impl App {
                         }
                     }
                     crossterm::event::KeyCode::Enter => {
-                        self.screen = Screen::Map {
+                        self.screen = Screen::World {
                             region_idx,
                             px: 20,
                             py: 10,

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" width="960" height="640">
+  <style>
+    .bg { fill: #efe3dd; }
+    .title { fill: #7a2e1d; font-family: monospace; font-size: 28px; font-weight: bold; }
+    .ver { fill: #5a4a3a; font-family: monospace; font-size: 14px; }
+    .line { fill: #8b7355; font-family: monospace; font-size: 13px; }
+    .flavor { fill: #8b7355; font-family: monospace; font-size: 14px; }
+    .hint { fill: #6a5a4a; font-family: monospace; font-size: 13px; }
+    .key { fill: #7a2e1d; font-family: monospace; font-size: 14px; font-weight: bold; }
+    .menulabel { fill: #5a4a3a; font-family: monospace; font-size: 14px; }
+    .border { stroke: #8b7355; stroke-width: 1; fill: none; }
+  </style>
+  <rect class="bg" width="960" height="640" rx="8"/>
+  <rect class="border" x="4" y="4" width="952" height="632" rx="6"/>
+
+  <text class="title" x="480" y="50" text-anchor="middle">THE DEEP WORLD</text>
+  <text class="ver" x="860" y="50">v0.3.2</text>
+
+  <line x1="40" y1="70" x2="920" y2="70" stroke="#8b7355" stroke-width="1"/>
+
+  <text class="flavor" x="480" y="110" text-anchor="middle">The Archive watches from beyond the mountain. The forge-smoke</text>
+  <text class="flavor" x="480" y="132" text-anchor="middle">rises. The forest remembers. Your steps have not yet been written.</text>
+
+  <text class="flavor" x="480" y="170" text-anchor="middle">A threshold of fates stands before you, unwalked.</text>
+
+  <text class="line" x="480" y="250" text-anchor="middle">┌─────────────────────────────────────────────────┐</text>
+  <text class="line" x="480" y="270" text-anchor="middle">│  Region: The Thornvale  ·  Day 1  ·  Hour 6     │</text>
+  <text class="line" x="480" y="290" text-anchor="middle">│  ▓▓░░▓░▓▓▒░▓▓░░▒▓▒░▓▓░░░▒▓▓░░▓▓▒░▓▓░░▓▒░▓▓  │</text>
+  <text class="line" x="480" y="310" text-anchor="middle">│  █ Settlement: Ahsenka (Ahjo, crafters)        │</text>
+  <text class="line" x="480" y="330" text-anchor="middle">│  E: 95%  H: 88%  ·  Forest · Fog · Cool         │</text>
+  <text class="line" x="480" y="350" text-anchor="middle">└─────────────────────────────────────────────────┘</text>
+
+  <text class="line" x="480" y="390" text-anchor="middle">A traveler from Kuparinkylä nods as you pass.</text>
+
+  <text class="hint" x="480" y="440" text-anchor="middle">───── Thaw d1 ─────</text>
+
+  <text class="key" x="200" y="580">[N]</text><text class="menulabel" x="220" y="580">New Game</text>
+  <text class="key" x="340" y="580">[L]</text><text class="menulabel" x="360" y="580">Load Game</text>
+  <text class="key" x="500" y="580">[?]</text><text class="menulabel" x="520" y="580">Controls</text>
+  <text class="key" x="640" y="580">[Q]</text><text class="menulabel" x="660" y="580">Quit</text>
+
+  <text class="hint" x="480" y="615" text-anchor="middle">h/j/k/l or arrows to move · Enter to interact · ? for help</text>
+</svg>

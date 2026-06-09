@@ -95,7 +95,9 @@ pub fn draw(f: &mut Frame, app: &App) {
             draw_save_browser_screen(f, app, scroll, delete_confirm);
         }
         Screen::CharacterCreation => draw_character_creation(f, app),
-        Screen::World => draw_world_screen(f, app),
+        Screen::World { region_idx, px, py } => {
+            draw_map_screen(f, app, region_idx, px, py);
+        }
         Screen::WorldAlerts { scroll } => draw_alerts_screen(f, app, scroll),
         Screen::Location {
             region_idx,
@@ -125,9 +127,6 @@ pub fn draw(f: &mut Frame, app: &App) {
         }
         Screen::EncounterLog { scroll } => {
             draw_encounter_log_screen(f, app, scroll);
-        }
-        Screen::Map { region_idx, px, py } => {
-            draw_map_screen(f, app, region_idx, px, py);
         }
         Screen::Overmap { region_idx } => {
             draw_overmap_screen(f, app, region_idx);
@@ -657,6 +656,7 @@ fn draw_character_creation(f: &mut Frame, app: &App) {
     f.render_widget(help, chunks[2]);
 }
 
+#[allow(dead_code)]
 fn draw_world_screen(f: &mut Frame, app: &App) {
     let theme = Theme {
         monochrome: app.monochrome,
