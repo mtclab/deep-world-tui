@@ -66,6 +66,14 @@ fn focus_cursor(is_selected: bool) -> &'static str {
     }
 }
 
+fn pulse_style(base_color: Color, tick: u64, low: bool, reduced_motion: bool) -> Style {
+    if low && !reduced_motion && tick % 4 < 2 {
+        Style::default().fg(base_color).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(base_color)
+    }
+}
+
 const STATUS_HEIGHT: u16 = 3;
 
 pub fn draw(f: &mut Frame, app: &App) {
@@ -150,6 +158,19 @@ pub fn draw(f: &mut Frame, app: &App) {
         }
     }
     draw_status_bar(f, app);
+    if app.flash_frames > 0 && !app.reduced_motion {
+        let flash_color = if app.flash_frames % 2 == 1 {
+            theme.archive_red()
+        } else {
+            theme.ink()
+        };
+        f.render_widget(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(flash_color)),
+            f.area(),
+        );
+    }
 }
 
 fn draw_status_bar(f: &mut Frame, app: &App) {
@@ -210,15 +231,41 @@ fn draw_status_bar(f: &mut Frame, app: &App) {
             ),
         ]);
         let line2 = Line::from(vec![
-            Span::styled(" F:", Style::default().fg(theme.need_color(food))),
+            Span::styled(
+                " F:",
+                pulse_style(
+                    theme.need_color(food),
+                    app.tick_count,
+                    food < 0.3,
+                    app.reduced_motion,
+                ),
+            ),
             Span::styled(
                 format!("{:.0}% ", food * 100.0),
-                Style::default().fg(theme.need_color(food)),
+                pulse_style(
+                    theme.need_color(food),
+                    app.tick_count,
+                    food < 0.3,
+                    app.reduced_motion,
+                ),
             ),
-            Span::styled("E:", Style::default().fg(theme.need_color(energy))),
+            Span::styled(
+                "E:",
+                pulse_style(
+                    theme.need_color(energy),
+                    app.tick_count,
+                    energy < 0.3,
+                    app.reduced_motion,
+                ),
+            ),
             Span::styled(
                 format!("{:.0}% ", energy * 100.0),
-                Style::default().fg(theme.need_color(energy)),
+                pulse_style(
+                    theme.need_color(energy),
+                    app.tick_count,
+                    energy < 0.3,
+                    app.reduced_motion,
+                ),
             ),
             Span::styled("H:", Style::default().fg(theme.need_color(hunger))),
             Span::styled(
@@ -3338,6 +3385,18 @@ fn draw_settings_screen(f: &mut Frame, app: &App) {
         Line::from("   [h] Toggle high contrast mode"),
         Line::from(""),
         Line::from(Span::styled(
+            " Animations".to_string(),
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(format!(
+            "   Reduced motion: {}",
+            if app.reduced_motion { "on" } else { "off" }
+        )),
+        Line::from("   [p] Toggle reduced motion (disables animations)"),
+        Line::from(""),
+        Line::from(Span::styled(
             " Language".to_string(),
             Style::default()
                 .fg(theme.archive_red())
@@ -3649,5 +3708,28 @@ mod accessibility_tests {
         let neutral_color = stance_color(0.0, &theme);
         assert_ne!(ally_color, hostile_color);
         assert_eq!(neutral_color, theme.dark_brown());
+    }
+
+    #[test]
+    fn pulse_style_bold_when_low_and_animating() {
+        let color = Color::Red;
+        let style = pulse_style(color, 0, true, false);
+        assert!(style.add_modifier.contains(Modifier::BOLD));
+        let style_off = pulse_style(color, 2, true, false);
+        assert!(!style_off.add_modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn pulse_style_no_bold_when_reduced_motion() {
+        let color = Color::Red;
+        let style = pulse_style(color, 0, true, true);
+        assert!(!style.add_modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn pulse_style_no_bold_when_not_low() {
+        let color = Color::Red;
+        let style = pulse_style(color, 0, false, false);
+        assert!(!style.add_modifier.contains(Modifier::BOLD));
     }
 }
