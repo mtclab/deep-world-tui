@@ -784,6 +784,13 @@ fn draw_world_screen(f: &mut Frame, app: &App) {
         )));
     }
 
+    if app.perf_slow_frames > 0 {
+        lines.push(Line::from(Span::styled(
+            format!(" ⚡{} slow frames ({}μs last render)", app.perf_slow_frames, app.perf_last_render_us),
+            Style::default().fg(theme.dark_brown()),
+        )));
+    }
+
     let para = Paragraph::new(lines).wrap(Wrap { trim: false });
     f.render_widget(para, chunks[1]);
 
