@@ -241,6 +241,7 @@ mod tests {
                             ..Default::default()
                         }],
                         services: vec![],
+                        politics: crate::model::SettlementPolitics::new(),
                     },
                     crate::model::Settlement {
                         id: "s2".into(),
@@ -256,6 +257,7 @@ mod tests {
                             ..Default::default()
                         }],
                         services: vec![],
+                        politics: crate::model::SettlementPolitics::new(),
                     },
                 ],
             }],

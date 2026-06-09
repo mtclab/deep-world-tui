@@ -2853,6 +2853,149 @@ impl SettlementService {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Faction {
+    Crafters,
+    Traders,
+    Elders,
+}
+
+impl Faction {
+    pub fn label(self) -> &'static str {
+        match self {
+            Faction::Crafters => "Crafters",
+            Faction::Traders => "Traders",
+            Faction::Elders => "Elders",
+        }
+    }
+
+    pub fn god(self) -> GodName {
+        match self {
+            Faction::Crafters => GodName::Oltzed,
+            Faction::Traders => GodName::Masa,
+            Faction::Elders => GodName::Sampsa,
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            Faction::Crafters => "The forges burn late. Hands shape the world.",
+            Faction::Traders => "Coin changes hands. Roads bind the settlements.",
+            Faction::Elders => "Memory outlives the young. The archive endures.",
+        }
+    }
+
+    pub fn all() -> &'static [Faction] {
+        &[Faction::Crafters, Faction::Traders, Faction::Elders]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LeadershipEvent {
+    Election,
+    Dispute,
+    Festival,
+}
+
+impl LeadershipEvent {
+    pub fn label(self) -> &'static str {
+        match self {
+            LeadershipEvent::Election => "Election",
+            LeadershipEvent::Dispute => "Dispute",
+            LeadershipEvent::Festival => "Festival",
+        }
+    }
+
+    pub fn flavor(self) -> &'static str {
+        match self {
+            LeadershipEvent::Election => "Voices rise in the square. A new voice will speak for the settlement.",
+            LeadershipEvent::Dispute => "Harsh words at the gate. Two factions cannot agree. Eyes turn to you.",
+            LeadershipEvent::Festival => "Drums and firelight. The settlement celebrates its bonds — or forgets its fractures.",
+        }
+    }
+
+    pub fn standing_shift(self) -> f64 {
+        match self {
+            LeadershipEvent::Election => 0.05,
+            LeadershipEvent::Dispute => -0.10,
+            LeadershipEvent::Festival => 0.08,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct SettlementPolitics {
+    pub crafter_standing: f64,
+    pub trader_standing: f64,
+    pub elder_standing: f64,
+    pub last_event: Option<LeadershipEvent>,
+}
+
+impl SettlementPolitics {
+    pub fn new() -> Self {
+        Self {
+            crafter_standing: 0.5,
+            trader_standing: 0.5,
+            elder_standing: 0.5,
+            last_event: None,
+        }
+    }
+
+    pub fn standing(&self, faction: Faction) -> f64 {
+        match faction {
+            Faction::Crafters => self.crafter_standing,
+            Faction::Traders => self.trader_standing,
+            Faction::Elders => self.elder_standing,
+        }
+    }
+
+    pub fn adjust(&mut self, faction: Faction, delta: f64) {
+        let val = (self.standing(faction) + delta).clamp(0.0, 1.0);
+        match faction {
+            Faction::Crafters => self.crafter_standing = val,
+            Faction::Traders => self.trader_standing = val,
+            Faction::Elders => self.elder_standing = val,
+        }
+    }
+
+    pub fn dominant_faction(&self) -> Faction {
+        if self.crafter_standing >= self.trader_standing && self.crafter_standing >= self.elder_standing {
+            Faction::Crafters
+        } else if self.trader_standing >= self.elder_standing {
+            Faction::Traders
+        } else {
+            Faction::Elders
+        }
+    }
+
+    pub fn price_modifier(&self) -> f64 {
+        let dominant = self.dominant_faction();
+        match dominant {
+            Faction::Traders => 0.85,
+            Faction::Crafters => 0.95,
+            Faction::Elders => 1.05,
+        }
+    }
+
+    pub fn roll_leadership_event(&mut self, seed: u64) -> Option<LeadershipEvent> {
+        let val = (seed.wrapping_mul(2654435761) >> 48) as u32 % 100;
+        let event = if val < 15 {
+            Some(LeadershipEvent::Election)
+        } else if val < 25 {
+            Some(LeadershipEvent::Dispute)
+        } else if val < 35 {
+            Some(LeadershipEvent::Festival)
+        } else {
+            None
+        };
+        if let Some(e) = event {
+            self.adjust(self.dominant_faction(), e.standing_shift());
+            self.last_event = Some(e);
+        }
+        event
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settlement {
     pub id: String,
@@ -2864,6 +3007,8 @@ pub struct Settlement {
     pub people: Vec<Person>,
     #[serde(default)]
     pub services: Vec<SettlementService>,
+    #[serde(default)]
+    pub politics: SettlementPolitics,
 }
 
 impl Settlement {
@@ -4004,6 +4149,7 @@ mod tests {
             description: "A test village".into(),
             people: vec![],
             services: vec![],
+            politics: SettlementPolitics::new(),
         };
         roundtrip(&s);
     }
@@ -4069,6 +4215,7 @@ mod tests {
                     })
                     .collect(),
                 services: vec![],
+                politics: SettlementPolitics::new(),
             }],
         };
         world.regions.push(region);
@@ -5770,5 +5917,58 @@ mod death_cause_test {
         assert!(!DeathCause::Exhaustion.flavor().is_empty());
         assert!(!DeathCause::Wounds.flavor().is_empty());
         assert!(!DeathCause::Unknown.flavor().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod settlement_politics_test {
+    use super::*;
+
+    #[test]
+    fn faction_labels() {
+        assert_eq!(Faction::Crafters.label(), "Crafters");
+        assert_eq!(Faction::Traders.label(), "Traders");
+        assert_eq!(Faction::Elders.label(), "Elders");
+    }
+
+    #[test]
+    fn politics_adjust_clamps() {
+        let mut p = SettlementPolitics::new();
+        p.adjust(Faction::Crafters, 0.3);
+        assert!(p.crafter_standing > 0.5);
+        p.adjust(Faction::Crafters, 10.0);
+        assert!((p.crafter_standing - 1.0).abs() < f64::EPSILON);
+        p.adjust(Faction::Crafters, -20.0);
+        assert!(p.crafter_standing.abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn dominant_faction() {
+        let mut p = SettlementPolitics::new();
+        p.trader_standing = 0.9;
+        p.crafter_standing = 0.5;
+        p.elder_standing = 0.3;
+        assert_eq!(p.dominant_faction(), Faction::Traders);
+    }
+
+    #[test]
+    fn trader_dominant_reduces_prices() {
+        let mut p = SettlementPolitics::new();
+        p.trader_standing = 0.9;
+        assert!(p.price_modifier() < 1.0);
+    }
+
+    #[test]
+    fn elder_dominant_increases_prices() {
+        let mut p = SettlementPolitics::new();
+        p.elder_standing = 0.9;
+        assert!(p.price_modifier() > 1.0);
+    }
+
+    #[test]
+    fn leadership_event_none_at_high_roll() {
+        let mut p = SettlementPolitics::new();
+        let result = p.roll_leadership_event(0xFFFFFFFFFFFFFFFF);
+        assert!(result.is_none());
     }
 }

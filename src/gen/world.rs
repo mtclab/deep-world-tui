@@ -384,6 +384,7 @@ fn generate_settlement(
         description: String::new(),
         people,
         services: settlement_services(&size, &dominant_people),
+        politics: crate::model::SettlementPolitics::new(),
     }
 }
 

@@ -233,6 +233,21 @@ impl App {
 
     pub fn enter_settlement(&mut self, region_idx: usize, settlement_idx: usize) {
         self.milestones.settlements_visited += 1;
+
+        // Roll leadership events for the settlement
+        if let Some(ref mut sim) = self.sim {
+            if let Some(pos) = self.player_pos {
+                if let Some(region) = sim.world.regions.get_mut(pos.region_idx) {
+                    if let Some(settlement) = region.settlements.get_mut(settlement_idx) {
+                        let seed = self.seed.wrapping_add(self.clock.day as u64).wrapping_add(settlement_idx as u64);
+                        if let Some(event) = settlement.politics.roll_leadership_event(seed) {
+                            self.status_msg = Some(event.flavor().to_string());
+                        }
+                    }
+                }
+            }
+        }
+
         if let Some(npc_people) = self.current_settlement_people() {
             let bias = self.inter_people_bias.effective_bias(npc_people)
                 + self.clock.season().bias_modifier();
@@ -950,7 +965,8 @@ impl App {
             .map(|sp| self.inter_people_bias.price_modifier(sp))
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
-        let modifier = inter_mod * rep_mod;
+        let pol_mod = self.politics_price_modifier();
+        let modifier = inter_mod * rep_mod * pol_mod;
         let price = ((base_price as f64 * modifier).ceil() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(ItemType::Coin, price) {
@@ -978,7 +994,8 @@ impl App {
             .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
-        let modifier = inter_mod * rep_mod;
+        let pol_mod = self.politics_price_modifier();
+        let modifier = inter_mod * rep_mod * pol_mod;
         let price = ((base_price as f64 * modifier).floor() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(item, 1) {
@@ -1006,6 +1023,17 @@ impl App {
             }
         }
         rep
+    }
+
+    pub fn politics_price_modifier(&self) -> f64 {
+        if let (Some(ref sim), Some(pos)) = (&self.sim, self.player_pos) {
+            if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                if let Some(settlement) = region.settlements.first() {
+                    return settlement.politics.price_modifier();
+                }
+            }
+        }
+        1.0
     }
 
     pub fn quote_buy_price(&self, item: ItemType) -> u32 {
