@@ -1113,7 +1113,9 @@ impl App {
 
     pub fn check_encounter(&mut self, terrain: Terrain) {
         let pp = Some(self.inter_people_bias.player_people);
-        if let Some(enc) = Encounter::roll_biased(terrain, self.clock.hour, self.seed, pp) {
+        if let Some(enc) =
+            Encounter::roll_biased(terrain, self.clock.hour, self.clock.day, self.seed, pp)
+        {
             self.encounter = Some(enc);
             self.encounters_had += 1;
             self.fire_hint(hints::HINT_FIRST_ENCOUNTER);
