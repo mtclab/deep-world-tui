@@ -34,6 +34,7 @@ fn make_save_data(seed: u64, charts: &charts::Charts) -> SaveData {
         collapse_log: Vec::new(),
         lineage: Vec::new(),
         milestones: MilestoneTracker::new(),
+        explored: Vec::new(),
         version: CURRENT_SAVE_VERSION,
         first_run: true,
         hint_tracker: HintTracker::default(),

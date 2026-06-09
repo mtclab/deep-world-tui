@@ -61,6 +61,8 @@ pub struct SaveData {
     #[serde(default)]
     pub milestones: MilestoneTracker,
     #[serde(default)]
+    pub explored: Vec<crate::model::ExploredMap>,
+    #[serde(default)]
     pub version: u32,
     #[serde(default = "default_true")]
     #[deprecated = "unused — hint_tracker controls onboarding; kept for save compat"]
@@ -239,6 +241,7 @@ pub fn restore_from_compact(
         collapse_log: Vec::new(),
         lineage: Vec::new(),
         milestones: MilestoneTracker::new(),
+        explored: Vec::new(),
         version: CURRENT_SAVE_VERSION,
         first_run: true,
         hint_tracker: HintTracker::default(),
@@ -269,6 +272,7 @@ mod tests {
             collapse_log: Vec::new(),
             lineage: Vec::new(),
             milestones: MilestoneTracker::new(),
+            explored: Vec::new(),
             version: CURRENT_SAVE_VERSION,
             first_run: true,
             hint_tracker: HintTracker::default(),
@@ -354,6 +358,7 @@ mod tests {
             collapse_log: Vec::new(),
             lineage: Vec::new(),
             milestones: MilestoneTracker::new(),
+            explored: Vec::new(),
             version: CURRENT_SAVE_VERSION,
             first_run: true,
             hint_tracker: HintTracker::default(),

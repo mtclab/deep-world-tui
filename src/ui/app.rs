@@ -109,6 +109,7 @@ pub struct App {
     pub save_entries: Vec<crate::save::SaveEntry>,
     pub hint_tracker: HintTracker,
     pub milestones: crate::sim::milestones::MilestoneTracker,
+    pub explored: Vec<crate::model::ExploredMap>,
     pub elder: bool,
     pub tick_count: u64,
     pub flash_frames: u8,
@@ -158,6 +159,7 @@ impl App {
             save_entries: Vec::new(),
             hint_tracker: HintTracker::default(),
             milestones: crate::sim::milestones::MilestoneTracker::new(),
+            explored: Vec::new(),
             elder: false,
             tick_count: 0,
             flash_frames: 0,
@@ -213,9 +215,17 @@ impl App {
                     &sim.world.regions,
                 );
                 sim.quests = quests;
+                // Initialize explored maps for each region
+                self.explored = sim.world.regions.iter().map(|r| {
+                    crate::model::ExploredMap::new(r.terrain.width, r.terrain.height)
+                }).collect();
             }
             self.player_start = Some(ps);
             self.screen = Screen::World;
+            // Reveal starting area
+            if let Some(pos) = self.player_pos {
+                self.reveal_around(pos.region_idx, pos.px, pos.py);
+            }
         }
     }
 
@@ -396,6 +406,7 @@ impl App {
                 collapse_log: self.collapse_log.clone(),
                 lineage: self.lineage.clone(),
                 milestones: self.milestones.clone(),
+                explored: self.explored.clone(),
                 version: save_migrations::CURRENT_SAVE_VERSION,
                 first_run: false,
                 hint_tracker: self.hint_tracker.clone(),
@@ -423,6 +434,7 @@ impl App {
                 self.collapse_log = data.collapse_log;
                 self.lineage = data.lineage;
                 self.hint_tracker = data.hint_tracker;
+                self.explored = data.explored;
                 self.milestones = data.milestones;
                 self.elder = self
                     .milestones
@@ -659,6 +671,13 @@ impl App {
 
     pub fn exit_alerts(&mut self) {
         self.screen = Screen::World;
+    }
+
+    pub fn reveal_around(&mut self, region_idx: usize, px: usize, py: usize) {
+        let radius = crate::model::ExploredMap::reveal_radius_for_elder(self.elder);
+        if region_idx < self.explored.len() {
+            self.explored[region_idx].reveal(px, py, radius);
+        }
     }
 
     pub fn enter_map(&mut self, region_idx: usize) {
@@ -2070,6 +2089,7 @@ impl App {
                     collapse_log: self.collapse_log.clone(),
                     lineage: self.lineage.clone(),
                     milestones: self.milestones.clone(),
+                    explored: self.explored.clone(),
                     version: save_migrations::CURRENT_SAVE_VERSION,
                     first_run: false,
                     hint_tracker: self.hint_tracker.clone(),
@@ -2706,6 +2726,7 @@ impl App {
                     .max(1) as u32;
                 self.advance_clock(hours);
                 self.log_travel(terrain);
+                self.reveal_around(region_idx, px, py);
                 self.check_encounter(terrain);
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
@@ -2741,6 +2762,7 @@ impl App {
                     .max(1) as u32;
                 self.advance_clock(hours);
                 self.log_travel(terrain);
+                self.reveal_around(region_idx, px, py);
                 self.check_encounter(terrain);
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
