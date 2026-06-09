@@ -2274,6 +2274,13 @@ pub enum EncounterKind {
     Bandit,
     Traveler,
     Storm,
+    GodShrine,
+    AncientRuin,
+    HermitCamp,
+    TravelingBard,
+    SpringBloom,
+    HarvestMarket,
+    WinterSurvivor,
 }
 
 impl EncounterKind {
@@ -2283,11 +2290,37 @@ impl EncounterKind {
             EncounterKind::Bandit => "A bandit demands your coin!",
             EncounterKind::Traveler => "A friendly traveler shares news.",
             EncounterKind::Storm => "A sudden storm forces you to take shelter!",
+            EncounterKind::GodShrine => "A weathered shrine stands alone. The five carved figures watch silently.",
+            EncounterKind::AncientRuin => "Crumbling walls and faded murals — remnants of a forgotten age.",
+            EncounterKind::HermitCamp => "A lone figure tends a small fire, watching the road with knowing eyes.",
+            EncounterKind::TravelingBard => "Music drifts from the road. A bard with a cracked lute plays for coin and company.",
+            EncounterKind::SpringBloom => "The thaw has come. Flowers push through the last frost, and the air tastes of renewal.",
+            EncounterKind::HarvestMarket => "A market sprawls across the square — traders, food, noise, color, life.",
+            EncounterKind::WinterSurvivor => "A huddled figure in the snow. They hold out a hand, half-frozen, half-hoping.",
         }
     }
 
     pub fn is_hostile(self) -> bool {
         matches!(self, EncounterKind::Wildlife | EncounterKind::Bandit)
+    }
+
+    pub fn is_rare(self) -> bool {
+        matches!(
+            self,
+            EncounterKind::GodShrine
+                | EncounterKind::AncientRuin
+                | EncounterKind::HermitCamp
+                | EncounterKind::TravelingBard
+        )
+    }
+
+    pub fn is_seasonal(self) -> bool {
+        matches!(
+            self,
+            EncounterKind::SpringBloom
+                | EncounterKind::HarvestMarket
+                | EncounterKind::WinterSurvivor
+        )
     }
 
     pub fn can_have_outside_help(self) -> bool {
@@ -2304,6 +2337,13 @@ impl EncounterKind {
             ],
             EncounterKind::Traveler => vec![EncounterAction::Talk, EncounterAction::Trade],
             EncounterKind::Storm => vec![EncounterAction::Shelter, EncounterAction::PushThrough],
+            EncounterKind::GodShrine => vec![EncounterAction::Talk, EncounterAction::Calm],
+            EncounterKind::AncientRuin => vec![EncounterAction::Calm, EncounterAction::PushThrough],
+            EncounterKind::HermitCamp => vec![EncounterAction::Talk, EncounterAction::Trade],
+            EncounterKind::TravelingBard => vec![EncounterAction::Talk, EncounterAction::Trade],
+            EncounterKind::SpringBloom => vec![EncounterAction::Talk, EncounterAction::Calm],
+            EncounterKind::HarvestMarket => vec![EncounterAction::Trade, EncounterAction::Talk],
+            EncounterKind::WinterSurvivor => vec![EncounterAction::Calm, EncounterAction::Trade],
         }
     }
 }
@@ -2400,20 +2440,71 @@ pub struct Encounter {
 }
 
 impl Encounter {
-    pub fn roll(terrain: Terrain, hour: u32, seed: u64) -> Option<Self> {
-        Self::roll_biased(terrain, hour, seed, None)
+    pub fn roll(terrain: Terrain, hour: u32, day: u32, seed: u64) -> Option<Self> {
+        Self::roll_biased(terrain, hour, day, seed, None)
     }
 
     pub fn roll_biased(
         terrain: Terrain,
         hour: u32,
+        day: u32,
         seed: u64,
         player_people: Option<PeopleKind>,
     ) -> Option<Self> {
+        let season = Season::from_day(day);
         let hash = seed.wrapping_mul(2654435761)
             ^ (terrain as u64).wrapping_mul(40503)
             ^ (hour as u64).wrapping_mul(92000);
         let val = hash % 100;
+
+        // Settlements have no random encounters
+        if matches!(terrain, Terrain::Settlement) {
+            return None;
+        }
+
+        // Rare encounters: 3% base chance, terrain-gated
+        let rare_hash = hash.wrapping_mul(7919);
+        let rare_val = rare_hash % 100;
+        if rare_val < 3 {
+            let rare_kind = match terrain {
+                Terrain::Forest | Terrain::Mountain => EncounterKind::AncientRuin,
+                Terrain::Swamp | Terrain::Cave => EncounterKind::HermitCamp,
+                Terrain::Road | Terrain::Coast => EncounterKind::TravelingBard,
+                _ => EncounterKind::GodShrine,
+            };
+            return Some(Encounter {
+                kind: rare_kind,
+                terrain,
+            });
+        }
+
+        // Seasonal encounters
+        let season_val = (hash.wrapping_mul(104729)) % 100;
+        match season {
+            Season::Thaw if season_val < 5 => {
+                return Some(Encounter {
+                    kind: EncounterKind::SpringBloom,
+                    terrain,
+                });
+            }
+            Season::Green
+                if season_val < 8
+                    && matches!(terrain, Terrain::Road | Terrain::Grass | Terrain::Farmland) =>
+            {
+                return Some(Encounter {
+                    kind: EncounterKind::HarvestMarket,
+                    terrain,
+                });
+            }
+            Season::Frost if season_val < 4 => {
+                return Some(Encounter {
+                    kind: EncounterKind::WinterSurvivor,
+                    terrain,
+                });
+            }
+            _ => {}
+        }
+
         let (mut threshold, mut kind): (u32, EncounterKind) = match terrain {
             Terrain::Forest => (
                 25,
@@ -4555,7 +4646,7 @@ mod tests {
     fn encounter_forest_higher_chance() {
         let mut encounters = 0;
         for seed in 0..100u64 {
-            if Encounter::roll(Terrain::Forest, 10, seed).is_some() {
+            if Encounter::roll(Terrain::Forest, 10, 1, seed).is_some() {
                 encounters += 1;
             }
         }
@@ -4570,7 +4661,7 @@ mod tests {
     fn encounter_settlement_none() {
         let mut encounters = 0;
         for seed in 0..100u64 {
-            if Encounter::roll(Terrain::Settlement, 10, seed).is_some() {
+            if Encounter::roll(Terrain::Settlement, 10, 1, seed).is_some() {
                 encounters += 1;
             }
         }
@@ -4580,8 +4671,8 @@ mod tests {
     #[test]
     fn encounter_deterministic() {
         for seed in 0..50u64 {
-            let a = Encounter::roll(Terrain::Forest, 10, seed);
-            let b = Encounter::roll(Terrain::Forest, 10, seed);
+            let a = Encounter::roll(Terrain::Forest, 10, 1, seed);
+            let b = Encounter::roll(Terrain::Forest, 10, 1, seed);
             assert_eq!(a, b, "encounter roll must be deterministic");
         }
     }
@@ -5663,7 +5754,11 @@ mod death_cause_test {
 
     #[test]
     fn unknown_from_safe_collapse() {
-        let vitals = PlayerVitals { hunger: 0.8, thirst: 0.8, energy: 0.8 };
+        let vitals = PlayerVitals {
+            hunger: 0.8,
+            thirst: 0.8,
+            energy: 0.8,
+        };
         let cause = DeathCause::from_collapse_and_vitals(CollapseOutcome::StrangerHut, vitals);
         assert_eq!(cause, DeathCause::Unknown);
     }

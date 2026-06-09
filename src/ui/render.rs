@@ -2892,6 +2892,13 @@ fn draw_encounter_screen(f: &mut Frame, app: &App) {
             crate::model::EncounterKind::Bandit => "Bandit",
             crate::model::EncounterKind::Traveler => "Traveler",
             crate::model::EncounterKind::Storm => "Storm",
+            crate::model::EncounterKind::GodShrine => "✦ God Shrine",
+            crate::model::EncounterKind::AncientRuin => "🏛 Ancient Ruin",
+            crate::model::EncounterKind::HermitCamp => "🔥 Hermit Camp",
+            crate::model::EncounterKind::TravelingBard => "🎵 Traveling Bard",
+            crate::model::EncounterKind::SpringBloom => "❀ Spring Bloom",
+            crate::model::EncounterKind::HarvestMarket => "🏪 Harvest Market",
+            crate::model::EncounterKind::WinterSurvivor => "❄ Winter Survivor",
         };
         lines.push(Line::from(Span::styled(
             format!("  Kind: {}", kind_str),
