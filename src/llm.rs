@@ -1,10 +1,34 @@
-/// Optional LLM narrator (reqwest /v1). Feature-gated behind `llm`.
-/// Player-toggled in settings; falls back to voice.rs on any error.
 use crate::model::Person;
 use crate::voice::Situation;
 
+#[cfg(feature = "llm")]
+use std::time::Duration;
+
+#[cfg(feature = "llm")]
+use std::sync::Mutex;
+#[cfg(feature = "llm")]
+use std::time::Instant;
+
+#[cfg(feature = "llm")]
+static LAST_CALL: Mutex<Option<Instant>> = Mutex::new(None);
+#[cfg(feature = "llm")]
+const RATE_LIMIT_SECS: u64 = 2;
+
 pub fn narrate(_person: &Person, _prompt: &str) -> Option<String> {
-    None
+    #[cfg(feature = "llm")]
+    {
+        crate::llm::call_ollama(
+            "http://localhost:11434",
+            "deep-world",
+            _prompt,
+            30,
+        )
+        .map(crate::llm::strip_numbers)
+    }
+    #[cfg(not(feature = "llm"))]
+    {
+        None
+    }
 }
 
 pub fn narrate_with_fallback(
@@ -45,7 +69,7 @@ pub fn build_persona_prompt(person: &Person, situation: Situation) -> String {
     let age_part = format!(" Your age band is {}.", person.age_band);
 
     let situation_ctx = format!(
-        " Situation: {}. Respond naturally in character, staying brief (1-3 sentences).",
+        " Situation: {}. Respond naturally in character, staying brief (a few sentences).",
         situation.as_str()
     );
 
@@ -55,6 +79,77 @@ pub fn build_persona_prompt(person: &Person, situation: Situation) -> String {
     prompt.push_str(&age_part);
     prompt.push_str(&situation_ctx);
     prompt
+}
+
+pub fn build_flavor_context(
+    situation: Situation,
+    terrain: &str,
+    weather: &str,
+    people_kind: &str,
+) -> String {
+    format!(
+        "Situation: {}. Terrain: {}. Weather: {}. People: {}. \
+         Respond naturally in character, staying brief (a few sentences). \
+         Do not include numbers or statistics.",
+        situation.as_str(),
+        terrain,
+        weather,
+        people_kind,
+    )
+}
+
+pub fn strip_numbers(text: &str) -> String {
+    text.chars().filter(|c| !c.is_ascii_digit()).collect()
+}
+
+#[cfg(feature = "llm")]
+pub fn call_ollama(
+    endpoint: &str,
+    model: &str,
+    prompt: &str,
+    timeout_secs: u64,
+) -> Option<String> {
+    {
+        let mut last = LAST_CALL.lock().ok()?;
+        if let Some(prev) = *last {
+            let elapsed = prev.elapsed().as_secs();
+            if elapsed < RATE_LIMIT_SECS {
+                return None;
+            }
+        }
+        *last = Some(Instant::now());
+    }
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(timeout_secs))
+        .build()
+        .ok()?;
+
+    let body = serde_json::json!({
+        "model": model,
+        "prompt": prompt,
+        "stream": false,
+    });
+
+    let resp = client
+        .post(format!("{}/api/generate", endpoint.trim_end_matches('/')))
+        .json(&body)
+        .send()
+        .ok()?;
+
+    if !resp.status().is_success() {
+        return None;
+    }
+
+    let json: serde_json::Value = resp.json().ok()?;
+    json.get("response")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+#[cfg(feature = "llm")]
+pub fn narrate_with_llm(endpoint: &str, model: &str, context: &str) -> Option<String> {
+    call_ollama(endpoint, model, context, 30).map(strip_numbers)
 }
 
 #[cfg(test)]
@@ -182,5 +277,50 @@ mod tests {
         let person = test_person();
         let result = narrate_with_fallback(true, &person, Situation::Greeting, "Fallback text.");
         assert_eq!(result, "Fallback text.");
+    }
+
+    #[test]
+    fn strip_numbers_removes_digits() {
+        assert_eq!(strip_numbers("abc123def"), "abcdef");
+        assert_eq!(strip_numbers("no digits"), "no digits");
+        assert_eq!(strip_numbers("42"), "");
+        assert_eq!(strip_numbers(""), "");
+    }
+
+    #[test]
+    fn strip_numbers_preserves_other_chars() {
+        assert_eq!(strip_numbers("hello, world!"), "hello, world!");
+        assert_eq!(strip_numbers("price: 5 gold"), "price:  gold");
+    }
+
+    #[test]
+    fn build_flavor_context_is_number_free() {
+        let ctx = build_flavor_context(Situation::Greeting, "forest", "rain", "metsik");
+        for c in ctx.chars() {
+            assert!(!c.is_ascii_digit(), "context must not contain digits: found '{}'", c);
+        }
+    }
+
+    #[test]
+    fn build_flavor_context_includes_fields() {
+        let ctx = build_flavor_context(Situation::Trade, "mountain", "snow", "sepat");
+        assert!(ctx.contains("trade"));
+        assert!(ctx.contains("mountain"));
+        assert!(ctx.contains("snow"));
+        assert!(ctx.contains("sepat"));
+    }
+
+    #[cfg(feature = "llm")]
+    #[test]
+    fn call_ollama_returns_none_on_bad_endpoint() {
+        let result = call_ollama("http://127.0.0.1:1", "test-model", "hello", 2);
+        assert!(result.is_none());
+    }
+
+    #[cfg(feature = "llm")]
+    #[test]
+    fn narrate_with_llm_returns_none_on_bad_endpoint() {
+        let result = narrate_with_llm("http://127.0.0.1:1", "test-model", "hello");
+        assert!(result.is_none());
     }
 }

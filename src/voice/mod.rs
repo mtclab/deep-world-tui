@@ -466,6 +466,38 @@ pub fn weather_encounter_flavor(weather: Weather) -> &'static str {
     }
 }
 
+#[cfg(feature = "llm")]
+use std::collections::HashMap;
+#[cfg(feature = "llm")]
+use std::sync::Mutex;
+
+#[cfg(feature = "llm")]
+static LLM_CACHE: Mutex<Option<HashMap<u64, String>>> = Mutex::new(None);
+
+#[cfg(feature = "llm")]
+pub fn llm_voice_line(endpoint: &str, model: &str, context: &str) -> Option<String> {
+    let hash = crate::rng::fnv1a_hash(context);
+    {
+        let cache = LLM_CACHE.lock().ok()?;
+        if let Some(ref map) = *cache {
+            if let Some(cached) = map.get(&hash) {
+                return Some(cached.clone());
+            }
+        }
+    }
+    let result = crate::llm::narrate_with_llm(endpoint, model, context)?;
+    {
+        let mut cache = LLM_CACHE.lock().ok()?;
+        if cache.is_none() {
+            *cache = Some(HashMap::new());
+        }
+        if let Some(ref mut map) = *cache {
+            map.insert(hash, result.clone());
+        }
+    }
+    Some(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -764,6 +796,37 @@ mod tests {
         ] {
             let flavor = weather_encounter_flavor(w);
             assert!(!flavor.is_empty(), "flavor for {:?} must not be empty", w);
+        }
+    }
+
+    #[cfg(feature = "llm")]
+    #[test]
+    fn llm_voice_line_returns_none_on_bad_endpoint() {
+        let result = llm_voice_line("http://127.0.0.1:1", "test", "hello");
+        assert!(result.is_none());
+    }
+
+    #[cfg(feature = "llm")]
+    #[test]
+    fn llm_voice_line_cache_deterministic() {
+        let ctx = "deterministic-test-context-for-cache";
+        let h = crate::rng::fnv1a_hash(ctx);
+        {
+            let mut cache = LLM_CACHE.lock().unwrap();
+            if cache.is_none() {
+                *cache = Some(std::collections::HashMap::new());
+            }
+            if let Some(ref mut map) = *cache {
+                map.insert(h, "cached response".to_string());
+            }
+        }
+        let result = llm_voice_line("http://127.0.0.1:1", "test", ctx);
+        assert_eq!(result, Some("cached response".to_string()));
+        {
+            let mut cache = LLM_CACHE.lock().unwrap();
+            if let Some(ref mut map) = *cache {
+                map.remove(&h);
+            }
         }
     }
 }
