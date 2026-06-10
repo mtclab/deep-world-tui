@@ -222,7 +222,7 @@ fn region_work_terrain(region_type: &str) -> crate::model::Terrain {
 /// The crop a settlement's farmers favor on the given ground.
 fn best_crop_for(terrain: crate::model::Terrain) -> crate::model::economy::CropType {
     use crate::model::economy::CropType;
-    [CropType::Grain, CropType::RootVegetable, CropType::Herb]
+    CropType::all()
         .into_iter()
         .max_by(|a, b| {
             a.regional_suitability(terrain)

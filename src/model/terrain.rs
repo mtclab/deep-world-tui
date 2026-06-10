@@ -67,6 +67,9 @@ impl Terrain {
             (PeopleKind::Hiekkakavelijat, Terrain::Coast) => 1,
             (PeopleKind::Haramaki, Terrain::Mountain) => 1,
             (PeopleKind::Pohjavaki, Terrain::Cave) => 1,
+            // The Shear walk the dry places — they were the one people with no
+            // gather identity (their encounter edge on sand already existed).
+            (PeopleKind::Shear, Terrain::Sand | Terrain::DeepDesert) => 1,
             _ => 0,
         }
     }

@@ -18,6 +18,17 @@ pub enum DiscoveryKind {
     BoneCircle,
 }
 
+/// The tangible mark a discovery leaves on the discoverer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DiscoveryEffect {
+    /// A god takes notice.
+    God(crate::model::GodName, f64),
+    /// Water and a moment's ease.
+    Refresh { thirst: f64, energy: f64 },
+    /// The land makes sense from here: reveal the surroundings wider.
+    Reveal,
+}
+
 impl DiscoveryKind {
     pub fn label(self) -> &'static str {
         match self {
@@ -33,6 +44,32 @@ impl DiscoveryKind {
             DiscoveryKind::FrostShrine => "frost shrine",
             DiscoveryKind::WhisperingPool => "whispering pool",
             DiscoveryKind::BoneCircle => "bone circle",
+        }
+    }
+
+    /// What finding this place actually does. Discoveries were pure lore —
+    /// now each leaves a mark: a god's notice, water, or a wider horizon.
+    pub fn observe_effect(self) -> DiscoveryEffect {
+        use crate::model::GodName;
+        match self {
+            DiscoveryKind::StandingStone => DiscoveryEffect::God(GodName::Oltzed, 0.04),
+            DiscoveryKind::Wreck => DiscoveryEffect::God(GodName::Masa, 0.04),
+            DiscoveryKind::StrangeTree => DiscoveryEffect::God(GodName::Keuru, 0.04),
+            DiscoveryKind::Cairn => DiscoveryEffect::Reveal,
+            DiscoveryKind::Spring => DiscoveryEffect::Refresh {
+                thirst: 0.5,
+                energy: 0.1,
+            },
+            DiscoveryKind::BurningTree => DiscoveryEffect::God(GodName::Oltzed, 0.03),
+            DiscoveryKind::SleepingBear => DiscoveryEffect::God(GodName::Keuru, 0.05),
+            DiscoveryKind::SunkenVillage => DiscoveryEffect::God(GodName::Sampsa, 0.04),
+            DiscoveryKind::ErredMarker => DiscoveryEffect::Reveal,
+            DiscoveryKind::FrostShrine => DiscoveryEffect::God(GodName::Kukri, 0.05),
+            DiscoveryKind::WhisperingPool => DiscoveryEffect::Refresh {
+                thirst: 0.3,
+                energy: 0.2,
+            },
+            DiscoveryKind::BoneCircle => DiscoveryEffect::God(GodName::Kukri, 0.04),
         }
     }
 

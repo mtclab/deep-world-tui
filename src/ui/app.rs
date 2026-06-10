@@ -980,18 +980,28 @@ impl App {
             let people_bonus = Terrain::people_gather_bonus(pp, terrain);
             let base = 1 + people_bonus;
             let tool_bonus = if let Some(ref ps) = self.player_start {
-                let best_tool = [ItemType::Iron, ItemType::Wood, ItemType::Stone]
-                    .into_iter()
-                    .filter(|t| ps.inventory.has(*t) && !ps.inventory.is_broken(*t))
-                    .max_by_key(|t| t.base_price());
-                if best_tool.is_some() {
-                    1
+                // A crafted Tool beats improvised iron/wood/stone.
+                if ps.inventory.has(ItemType::Tool) && !ps.inventory.is_broken(ItemType::Tool) {
+                    2
                 } else {
-                    0
+                    let best_tool = [ItemType::Iron, ItemType::Wood, ItemType::Stone]
+                        .into_iter()
+                        .filter(|t| ps.inventory.has(*t) && !ps.inventory.is_broken(*t))
+                        .max_by_key(|t| t.base_price());
+                    if best_tool.is_some() {
+                        1
+                    } else {
+                        0
+                    }
                 }
             } else {
                 0
             };
+            if tool_bonus == 2 {
+                if let Some(ref mut ps) = self.player_start {
+                    ps.inventory.use_tool(ItemType::Tool);
+                }
+            }
             // A gathering animal (e.g. a hound) makes the player more productive.
             let companion_gather = self
                 .player_start
@@ -1382,7 +1392,11 @@ impl App {
             .unwrap_or(1.0);
         let mut departed: Vec<String> = Vec::new();
         if let Some(ref mut ps) = self.player_start {
-            // A sick player wears down faster (worst active disease sets the rate).
+            // A sick player wears down faster (worst active disease sets the
+            // rate), and untreated illness slowly worsens.
+            for d in ps.person.illnesses.iter_mut() {
+                d.worsen(hours);
+            }
             let illness_mult = ps
                 .person
                 .illnesses
@@ -1592,6 +1606,7 @@ impl App {
             .unwrap_or_default();
         let px_u32 = px as u32;
         let py_u32 = py as u32;
+        let mut found_kind = None;
         if let Some(ref mut sim) = self.sim {
             let disc_id = match sim.discoveries.at_position(region_idx, px_u32, py_u32) {
                 Some(d) => d.id.clone(),
@@ -1607,6 +1622,27 @@ impl App {
                 if let Some(kind) = kind {
                     sim.log_journal(tick, kind.observe_text().to_string());
                     self.status_msg = Some(format!("I found a {}!", kind.label()));
+                    found_kind = Some(kind);
+                }
+            }
+        }
+        // Finding a place leaves a mark — discoveries were pure lore before.
+        if let Some(kind) = found_kind {
+            match kind.observe_effect() {
+                crate::model::discovery::DiscoveryEffect::God(god, delta) => {
+                    self.god_affinity.adjust(god, delta);
+                }
+                crate::model::discovery::DiscoveryEffect::Refresh { thirst, energy } => {
+                    self.vitals.thirst = (self.vitals.thirst + thirst).min(1.0);
+                    self.vitals.energy = (self.vitals.energy + energy).min(1.0);
+                }
+                crate::model::discovery::DiscoveryEffect::Reveal => {
+                    // The land makes sense from here: see twice as far once.
+                    self.reveal_around(region_idx, px, py);
+                    let wider = crate::model::ExploredMap::reveal_radius_for_elder(self.elder) * 2;
+                    if region_idx < self.explored.len() {
+                        self.explored[region_idx].reveal(px, py, wider);
+                    }
                 }
             }
         }
@@ -3192,6 +3228,25 @@ impl App {
         if scouted {
             if let Some(pos) = self.player_pos {
                 self.reveal_around(pos.region_idx, pos.px, pos.py);
+            }
+        }
+        // Rest is when wounds get tended and snares get checked.
+        if let Some(ref mut ps) = self.player_start {
+            // Tending an illness with a bandage eases it and shortens its course.
+            if !ps.person.illnesses.is_empty() && ps.inventory.remove(ItemType::Bandage, 1) {
+                for d in ps.person.illnesses.iter_mut() {
+                    d.tend();
+                }
+                self.status_msg = Some("You dress your sickness with a bandage.".into());
+            }
+            // A set trap yields food over a proper rest in the wild.
+            if hours >= 4
+                && !on_settlement
+                && ps.inventory.has(ItemType::Trap)
+                && !ps.inventory.is_broken(ItemType::Trap)
+            {
+                ps.inventory.add(ItemType::Food, 1);
+                ps.inventory.use_tool(ItemType::Trap);
             }
         }
         let structure_bonus = match self.structure_at_player() {
