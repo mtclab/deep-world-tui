@@ -9,8 +9,8 @@
 ## The pitch (one line)
 
 You are born into an organic life in the Deep World — a people, a town, a family,
-a trade. Live it, change it, or walk away from it to wander the world. Every
-choice cascades, and the world remembers.
+a trade. **Walk the world as a living map**, talk to its people, weather its storms.
+Every choice cascades, and the world remembers.
 
 ## Pillars
 
@@ -22,17 +22,22 @@ choice cascades, and the world remembers.
 2. **The player is one of the organic people.** Your origin (people, town, family,
    profession, perks) is rolled from the same charts, with reroll / point-buy. You
    are *of* the world, not above it.
-3. **Freedom + consequence (the spine).** You may keep your trade, switch trades
+3. **The world is walked, not menued.** The primary screen is a **walkable
+   roguelike ASCII map** (`@` moves with hjkl/arrows). Terrain glyphs, fog of
+   war, weather forcing shelter, structures and build sites rendered on the map.
+   Settlements, NPCs, and companions appear as glyphs. Menus (Talk, Market,
+   Craft) open when you interact — the map is the game, screens are details.
+4. **Freedom + consequence (the spine).** You may keep your trade, switch trades
    when hardship strikes, take to the road, adventure, abandon everything — and
    **choices have consequences.** Leave a pregnant wife and that follows you:
    relationships fray, dependents suffer, reputation shifts, doors open and close.
    The game does not stop you; it makes you live with it. (See `CONSEQUENCES.md`.)
-4. **Deterministic + replayable.** A seed reproduces the whole world (share, replay,
+5. **Deterministic + replayable.** A seed reproduces the whole world (share, replay,
    debug). Runs are different every time because the charts are.
-5. **Hybrid, player-chosen voice.** NPC dialogue has a deterministic templated
+6. **Hybrid, player-chosen voice.** NPC dialogue has a deterministic templated
    spine (always), with an **optional** local-LLM flavour layer the **player toggles
    on/off** in settings. Plays fully offline.
-6. **Canon-grounded.** Charts, names, professions, and demographics derive from the
+7. **Canon-grounded.** Charts, names, professions, and demographics derive from the
    lore bible; SAST people-names; the Kingdom of Ahjorath; magic is bounded
    enhancement, never spells (see the lore + the sibling repos' DESIGN).
 
@@ -40,13 +45,32 @@ choice cascades, and the world remembers.
 
 - **Be someone.** Start as a sampled person with a life: people, settlement,
   household (maybe a spouse, children, debts), a profession, perks, a few crafts.
+- **Walk the world.** Move `@` across terrain (grass, forest, mountain, desert,
+  tundra, coast, caves). Fog reveals as you explore. Weather (storms, whiteouts)
+  forces shelter. Roads speed travel. Region edges transition to neighbours.
+- **Meet the people.** Settlement NPCs appear as glyphs (Greek letters by people).
+  Companions walk beside you. Bump into a settlement → enter it. Talk, trade,
+  help, betray. (Voice: templated, +LLM if you enabled it.)
 - **Live or leave.** Work your trade (seasons, income, hardship); tend or neglect
-  relationships; or pack up and travel — to learn a new trade, seek fortune, flee a
-  failing life, or just to see the world.
-- **Meet the world.** Generated NPCs with sampled people/profession/personality/bias;
-  talk, trade, help, betray. (Voice: templated, +LLM if you enabled it.)
+  relationships; or pack up and travel — to learn a new trade, seek fortune, flee
+  a failing life, or just to see the world.
 - **Bear the consequences.** The world reacts and remembers. Stories are emergent,
   not authored. A life ends (age, mischance) — start a new seed, a new life.
+
+## What lives on the map vs in screens
+
+| On the map (always visible) | In screens (on interaction) |
+|-----------------------------|---------------------------|
+| Terrain glyphs (`,` `▓` `≈` `▲` `:` etc.) | NPC Talk dialogue |
+| Player `@` | Market buy/sell |
+| Settlement tiles (`≡`) | Craft menu |
+| Companions (animal glyphs: `d` `H` `f` etc.) | Inventory management |
+| Settlement NPCs (people glyphs: `δ` `α` `ν` etc.) | Character creation |
+| Structures (`╔` `╦` etc.) | Journal, settings |
+| Build sites (`░` `▒` `▓`) | Save/load browser |
+| Memorials (`✦`) | Game over |
+| Weather indicator in header | Help, overmap |
+| Fog of war (`·` = unexplored) | Encounter resolution |
 
 ## Tone
 
@@ -57,8 +81,9 @@ price.
 ## Tech (see `ARCHITECTURE.md`)
 
 Rust + **ratatui** (crossterm) TUI, single static binary. Seedable deterministic
-RNG. Data-driven charts (serde/RON). Optional LLM via the OpenAI `/v1` contract
-(same as the sibling games), player-toggled, with templated fallback.
+RNG. Data-driven charts (serde/RON, tunable at runtime via `--charts` / env var /
+user config). Optional LLM via the OpenAI `/v1` contract (same as the sibling
+games), player-toggled, with templated fallback.
 
 ## Build order
 
