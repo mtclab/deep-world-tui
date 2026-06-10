@@ -651,6 +651,10 @@ pub struct Settlement {
     /// duration, no discounts, and no word of them reaching the roads.
     #[serde(default)]
     pub festival_until_day: u32,
+    /// Consecutive days the stores have stood empty. Long famine empties the
+    /// settlement itself.
+    #[serde(default)]
+    pub famine_days: u32,
 }
 
 impl Settlement {
@@ -680,6 +684,20 @@ impl Settlement {
         self.buildings
             .iter()
             .any(|b| b.building_type == kind && b.is_complete())
+    }
+
+    /// Size tier from the head-count: settlements grow into villages, towns,
+    /// and cities — and shrink back — as their population moves.
+    pub fn size_for_population(population: u32) -> &'static str {
+        if population >= 800 {
+            "city"
+        } else if population >= 250 {
+            "town"
+        } else if population >= 60 {
+            "village"
+        } else {
+            "hamlet"
+        }
     }
 
     /// Whether a festival is running on the given day.
@@ -1414,6 +1432,7 @@ mod tests {
             farms: Vec::new(),
             buildings: Vec::new(),
             festival_until_day: 0,
+            famine_days: 0,
         };
 
         roundtrip(&s);
