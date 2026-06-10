@@ -60,7 +60,11 @@ pub fn tick(world: &mut World) {
 pub struct SimState {
     pub world: World,
     pub effect_queue: EffectQueue,
+    // Default these so a save missing them still loads (both derive Default).
+    // Matches the treatment of every other non-world-snapshot field.
+    #[serde(default)]
     pub relationships: RelationshipTracker,
+    #[serde(default)]
     pub reputation: ReputationStore,
     // Late-added gameplay state: default so saves written before obligations
     // existed still load (it's not part of the original world snapshot).
@@ -404,6 +408,46 @@ mod tests {
         let back: SimState =
             ron::from_str(&stripped).expect("SimState must load without an obligations field");
         assert!(back.obligations.is_empty());
+    }
+
+    /// Remove a top-level `key:(...)` group (with its trailing comma) from a
+    /// compact-RON struct body by brace-matching the parentheses.
+    fn drop_ron_group(s: &str, key: &str) -> String {
+        let needle = format!("{key}:(");
+        let start = s.find(&needle).expect("key present");
+        let open = start + needle.len() - 1; // index of '('
+        let mut depth = 0i32;
+        let mut end = open;
+        for (i, c) in s[open..].char_indices() {
+            match c {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = open + i;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut after = end + 1;
+        if s[after..].starts_with(',') {
+            after += 1;
+        }
+        format!("{}{}", &s[..start], &s[after..])
+    }
+
+    #[test]
+    fn simstate_loads_when_reputation_and_relationships_missing() {
+        // Saves predating these fields omit them; #[serde(default)] must fill in
+        // the Default stores rather than failing to deserialize.
+        let charts = charts::load_charts().unwrap();
+        let sim = SimState::new(42, charts);
+        let s = ron::ser::to_string(&sim).unwrap();
+        let stripped = drop_ron_group(&drop_ron_group(&s, "reputation"), "relationships");
+        let _back: SimState = ron::from_str(&stripped)
+            .expect("SimState must load without reputation/relationships fields");
     }
 
     #[test]
