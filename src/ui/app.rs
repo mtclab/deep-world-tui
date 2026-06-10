@@ -1480,7 +1480,11 @@ impl App {
         let count = ps.person.illnesses.len();
         let contracted = crate::sim::illness::tick_illness(
             self.seed, tick, terrain, &needs, 0, has_healer, count,
-        );
+        )
+        .filter(|d| {
+            d.disease != crate::model::Disease::ChildbirthComplication
+                || crate::sim::illness::can_contract_childbirth(&ps.person.sex, &ps.person.age_band)
+        });
         if let Some(disease) = contracted {
             let label = disease.disease.name();
             ps.person.illnesses.push(disease);
@@ -2930,6 +2934,16 @@ impl App {
                 self.vitals.energy = (self.vitals.energy + 0.4).min(1.0);
                 self.vitals.hunger = (self.vitals.hunger + 0.2).min(1.0);
                 self.advance_clock(2);
+                // Taverns are where word travels: overhear a rumor. The Rumor
+                // journal voice (and its templates) existed but was never
+                // logged anywhere.
+                if let Some(ref mut sim) = self.sim {
+                    let tick = sim.world.tick;
+                    let mut rng = crate::rng::SeedRng::new(sim.world.seed)
+                        .fork_for(&format!("tavern-rumor-{tick}"));
+                    let text = crate::sim::journal::rumor_text(&mut rng);
+                    sim.log(tick, crate::sim::journal::Voice::Rumor, text);
+                }
                 self.status_msg = Some(format!(
                     "Rested at tavern (+energy, +hunger, 2h, {} coins)",
                     cost

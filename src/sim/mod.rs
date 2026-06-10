@@ -368,7 +368,11 @@ fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {
                 0,
                 has_healer,
                 existing,
-            ) {
+            )
+            .filter(|d| {
+                d.disease != crate::model::Disease::ChildbirthComplication
+                    || illness::can_contract_childbirth(&person.sex, &person.age_band)
+            }) {
                 new_illnesses.push((i, disease));
             }
         }

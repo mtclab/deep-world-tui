@@ -45,17 +45,31 @@ impl WantKind {
     }
 
     fn people_weights(people: &str) -> &'static [(WantKind, u32)] {
-        match people {
-            "Metsik" => &[(WantKind::FindFood, 4), (WantKind::TalkToFriend, 3)],
-            "Sepät" | "Ahjo" => &[(WantKind::RepairRoof, 4), (WantKind::FindApprentice, 3)],
-            "Arkit" => &[(WantKind::GoToTemple, 4), (WantKind::PayDebt, 3)],
-            "Väylä" => &[(WantKind::FindFood, 3), (WantKind::FindWater, 4)],
-            "Laakso" => &[(WantKind::MournSomeone, 4), (WantKind::GoToTemple, 3)],
-            "She'ar" => &[(WantKind::TalkToFriend, 3), (WantKind::HideFromBandit, 4)],
-            "Khör" => &[(WantKind::FleeFrost, 4), (WantKind::FindFood, 3)],
-            "Mëräk" => &[(WantKind::FindWater, 4), (WantKind::PayDebt, 3)],
-            "Häl" => &[(WantKind::TalkToFriend, 4), (WantKind::GoToTemple, 3)],
-            "Tzäkhar" => &[(WantKind::MournSomeone, 4), (WantKind::RepairRoof, 3)],
+        use crate::model::PeopleKind as P;
+        // Normalize through PeopleKind::from_name — chart people strings are
+        // lowercase ("metsik", "vayla", ...) but this used to match display
+        // names with diacritics ("Sepät", "Väylä"), so NO people ever matched
+        // and every NPC fell through to the generic default wants.
+        match P::from_name(people) {
+            P::Metsik | P::Metsareunat | P::Koskimetsa | P::Hal => {
+                &[(WantKind::FindFood, 4), (WantKind::TalkToFriend, 3)]
+            }
+            P::Sepat | P::Ahjo | P::Takovaki => {
+                &[(WantKind::RepairRoof, 4), (WantKind::FindApprentice, 3)]
+            }
+            P::Arkit | P::Muistikansa | P::Taulukansa | P::Kirjakansa => {
+                &[(WantKind::GoToTemple, 4), (WantKind::PayDebt, 3)]
+            }
+            P::Vayla | P::Rantavaki | P::Saarivaki | P::Hiekkakavelijat => {
+                &[(WantKind::FindFood, 3), (WantKind::FindWater, 4)]
+            }
+            P::Laakso | P::Haramaki | P::Jamavaki | P::Pohjavaki => {
+                &[(WantKind::MournSomeone, 4), (WantKind::GoToTemple, 3)]
+            }
+            P::Shear => &[(WantKind::TalkToFriend, 3), (WantKind::HideFromBandit, 4)],
+            P::Khor | P::Porokansa => &[(WantKind::FleeFrost, 4), (WantKind::FindFood, 3)],
+            P::Merak => &[(WantKind::FindWater, 4), (WantKind::PayDebt, 3)],
+            P::Tzakhar => &[(WantKind::MournSomeone, 4), (WantKind::RepairRoof, 3)],
             _ => &[(WantKind::FindFood, 2), (WantKind::TalkToFriend, 2)],
         }
     }

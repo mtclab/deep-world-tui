@@ -97,6 +97,12 @@ fn pick_disease(rng: &mut SeedRng, terrain: Terrain) -> Disease {
     Disease::Fever
 }
 
+/// Childbirth complications only afflict those who can actually give birth —
+/// the disease was previously contractible by anyone (a flavor break).
+pub fn can_contract_childbirth(sex: &str, age_band: &str) -> bool {
+    sex.eq_ignore_ascii_case("f") && matches!(age_band, "youth" | "young" | "adult")
+}
+
 pub fn apply_illness_effects(person: &mut crate::model::Person, current_tick: u64) {
     person.illnesses.retain(|d| !d.is_recovered(current_tick));
 }
