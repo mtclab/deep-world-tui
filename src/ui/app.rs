@@ -355,6 +355,8 @@ impl App {
                     .unwrap_or(self.inter_people_bias.player_people);
                 let festival = FestivalKind::for_people(people);
                 self.god_affinity.adjust(festival.patron_god(), 0.03);
+                // Festivals are when fences mend: showing up softens old grudges.
+                self.inter_people_bias.mod_toward(people, 0.03);
                 let bias = self.current_settlement_people().map_or(0.0, |p| {
                     self.inter_people_bias.effective_bias(p) + season.bias_modifier()
                 });
@@ -1236,9 +1238,20 @@ impl App {
         m
     }
 
+    /// Escalation: at deep hostility the market simply closes to the player.
+    fn market_barred(&self) -> bool {
+        self.current_settlement_people()
+            .map(|p| self.inter_people_bias.effective_bias(p) < -0.25)
+            .unwrap_or(false)
+    }
+
     pub fn buy_item(&mut self, item: ItemType) {
         if !item.tradeable() {
             self.status_msg = Some("Cannot buy that".into());
+            return;
+        }
+        if self.market_barred() {
+            self.status_msg = Some("The market is closed to your kind here.".into());
             return;
         }
         // Single source of truth with the displayed quote.
@@ -1252,6 +1265,10 @@ impl App {
                 self.status_msg =
                     Some(format!("Bought 1 {} for {} coins (1h)", item.name(), price));
                 self.god_affinity.adjust(GodName::Masa, 0.02);
+                // Honest trade slowly mends what tension breaks.
+                if let Some(np) = self.current_settlement_people() {
+                    self.inter_people_bias.mod_toward(np, 0.005);
+                }
             } else {
                 self.status_msg = Some(format!("Need {} coins", price));
             }
@@ -1261,6 +1278,10 @@ impl App {
     pub fn sell_item(&mut self, item: ItemType) {
         if !item.tradeable() {
             self.status_msg = Some("Cannot sell that".into());
+            return;
+        }
+        if self.market_barred() {
+            self.status_msg = Some("The market is closed to your kind here.".into());
             return;
         }
         // Single source of truth with the displayed quote (spread-clamped so
@@ -1274,9 +1295,68 @@ impl App {
                 self.check_quests_on_tick();
                 self.status_msg = Some(format!("Sold 1 {} for {} coins (1h)", item.name(), price));
                 self.god_affinity.adjust(GodName::Masa, 0.01);
+                if let Some(np) = self.current_settlement_people() {
+                    self.inter_people_bias.mod_toward(np, 0.005);
+                }
             } else {
                 self.status_msg = Some(format!("No {} to sell", item.name()));
             }
+        }
+    }
+
+    /// Try to palm an item off a market stall. The witness roll decides:
+    /// unseen takes it clean, rumored takes it with a whisper attached, seen
+    /// gets nothing and a name for thieving. Crime is a choice with weight.
+    pub fn steal_item(&mut self, item: ItemType) {
+        if !item.tradeable() {
+            self.status_msg = Some("Cannot steal that".into());
+            return;
+        }
+        if self.current_settlement().is_none() {
+            self.status_msg = Some("Nothing here to steal.".into());
+            return;
+        }
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let mut rng = crate::rng::SeedRng::new(self.seed.wrapping_add(tick)).fork_for("steal");
+        let roll = rng.gen_range(100);
+        let pid = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let sid = self
+            .current_settlement()
+            .map(|s| s.id.clone())
+            .unwrap_or_default();
+        let npc_people = self.current_settlement_people();
+        self.advance_clock_hour();
+        if roll < 50 {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(item, 1);
+            }
+            self.god_affinity.adjust(GodName::Masa, -0.03);
+            self.status_msg = Some(format!("No one saw. The {} is yours.", item.name()));
+        } else if roll < 80 {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(item, 1);
+            }
+            self.god_affinity.adjust(GodName::Masa, -0.05);
+            if let Some(ref mut sim) = self.sim {
+                sim.reputation.adjust_local(&pid, &sid, -0.05);
+            }
+            self.status_msg = Some(format!(
+                "The {} is yours — but someone is whispering already.",
+                item.name()
+            ));
+        } else {
+            self.god_affinity.adjust(GodName::Masa, -0.05);
+            if let Some(ref mut sim) = self.sim {
+                sim.reputation.adjust_local(&pid, &sid, -0.15);
+            }
+            if let Some(np) = npc_people {
+                self.inter_people_bias.mod_toward(np, -0.03);
+            }
+            self.status_msg = Some("Caught with your hand out. They will remember this.".into());
         }
     }
 
@@ -3167,6 +3247,21 @@ impl App {
                 self.vitals.hunger = (self.vitals.hunger + 0.5).min(1.0);
                 self.vitals.energy = (self.vitals.energy + 0.3).min(1.0);
                 self.advance_clock(3);
+                // Low standing finds absolution here: penance restores a little.
+                let pid = self
+                    .player_start
+                    .as_ref()
+                    .map(|ps| ps.person.id.clone())
+                    .unwrap_or_default();
+                let sid = self
+                    .current_settlement()
+                    .map(|s| s.id.clone())
+                    .unwrap_or_default();
+                if self.reputation_in_current_settlement() < 0.45 {
+                    if let Some(ref mut sim) = self.sim {
+                        sim.reputation.adjust_local(&pid, &sid, 0.05);
+                    }
+                }
                 // The temple healers also tend the sick — clear active illness.
                 let cured = self
                     .player_start

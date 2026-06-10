@@ -29,6 +29,14 @@ pub fn handle_market_input(app: &mut App, key: KeyEvent, scroll: u16) -> u16 {
                 app.sell_item(item);
             }
         }
+        // Shift+letter: the other way of acquiring things.
+        KeyCode::Char(c) if ('A'..='F').contains(&c) => {
+            let idx = (c as usize) - ('A' as usize);
+            let items = ItemType::tradeable_items();
+            if let Some(&item) = items.get(idx) {
+                app.steal_item(item);
+            }
+        }
         _ => {}
     }
     scroll

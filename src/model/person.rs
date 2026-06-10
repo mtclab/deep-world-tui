@@ -728,7 +728,10 @@ impl InterPeopleBias {
     pub fn mod_toward(&mut self, other: PeopleKind, delta: f64) {
         let key = format!("{:?}", other);
         let entry = self.bias_modifiers.entry(key).or_insert(0.0);
-        *entry = (*entry + delta).clamp(-0.15, 0.15);
+        // Wide enough that sustained grudge or goodwill genuinely matters:
+        // the escalation ladder (serve-refusal -0.15, market -0.25, gate
+        // -0.34) is reachable through play, and mendable the same way.
+        *entry = (*entry + delta).clamp(-0.35, 0.35);
     }
 
     pub fn effective_bias(&self, other: PeopleKind) -> f64 {
