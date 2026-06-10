@@ -42,10 +42,21 @@ pub fn generate_initial_quests(
     player_people: PeopleKind,
     regions: &[Region],
 ) -> Vec<Quest> {
-    let mut rng = SeedRng::new(seed).fork_for("initial-quests");
+    generate_quests(seed, player_people, regions, 1)
+}
+
+/// Generate a batch of quests dated from `current_day` (deadlines are relative
+/// to it). Used both for the initial batch and for periodic regeneration so the
+/// quest board never runs dry over a long, multi-generational game.
+pub fn generate_quests(
+    seed: u64,
+    player_people: PeopleKind,
+    regions: &[Region],
+    current_day: u32,
+) -> Vec<Quest> {
+    let mut rng = SeedRng::new(seed).fork_for("quests");
     let count = 1 + rng.gen_range(2) as usize;
     let mut quests = Vec::new();
-    let current_day = 1;
 
     let used_kinds = &mut [false; 5];
 

@@ -1491,6 +1491,23 @@ impl App {
                 }
             }
         }
+
+        // Keep the quest board alive: when active quests run low, the world posts
+        // new needs. Deterministic per day so the same seed plays out the same.
+        let player_people = self.inter_people_bias.player_people;
+        let day = self.clock.day;
+        let salt = self.seed.wrapping_add(day as u64 * 1009 + 7);
+        if let Some(ref mut sim) = self.sim {
+            if sim.quests.len() < 2 {
+                let fresh = crate::sim::quest_gen::generate_quests(
+                    salt,
+                    player_people,
+                    &sim.world.regions,
+                    day,
+                );
+                sim.quests.extend(fresh);
+            }
+        }
     }
 
     fn check_quests_on_travel(&mut self, region_idx: usize) {
