@@ -2775,6 +2775,28 @@ impl App {
         let settlement = region.settlements.first()?;
         let dead_id = &dead_person.id;
 
+        // 0. The player's own bonds come first: the heir is whoever the player
+        // dealt with most warmly (NPC memory), if anyone qualifies.
+        if let Some(ref sim) = self.sim {
+            let mut best: Option<(usize, f64)> = None;
+            for (idx, person) in settlement.people.iter().enumerate() {
+                if person.id == *dead_id {
+                    continue;
+                }
+                let trust = sim
+                    .npc_memories
+                    .get(&person.id)
+                    .map(|m| m.cumulative_trust())
+                    .unwrap_or(0.0);
+                if trust >= 0.15 && best.map(|(_, t)| trust > t).unwrap_or(true) {
+                    best = Some((idx, trust));
+                }
+            }
+            if let Some((idx, _)) = best {
+                return Some(idx);
+            }
+        }
+
         // 1. Find person with highest bond to dead character
         let mut best_idx: Option<usize> = None;
         let mut best_strength: f64 = -1.0;
@@ -3093,6 +3115,19 @@ impl App {
             .is_some_and(|s| s.in_festival(self.clock.day))
         {
             cost = (cost / 2).max(1);
+        }
+        // A friend in town vouches for you: a coin off, never below one.
+        let has_friend = self.current_settlement().is_some_and(|s| {
+            s.people.iter().any(|p| {
+                self.sim
+                    .as_ref()
+                    .and_then(|sim| sim.npc_memories.get(&p.id))
+                    .map(|m| m.cumulative_trust() >= 0.15)
+                    .unwrap_or(false)
+            })
+        });
+        if has_friend {
+            cost = cost.saturating_sub(1).max(1);
         }
         if let Some(ref mut ps) = self.player_start {
             if !ps.inventory.remove(ItemType::Coin, cost) {
