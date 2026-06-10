@@ -1490,6 +1490,36 @@ pub enum PeopleKind {
 }
 
 impl PeopleKind {
+    pub fn glyph(self) -> char {
+        match self {
+            PeopleKind::Metsik => 'δ',
+            PeopleKind::Arkit => 'α',
+            PeopleKind::Vayla => 'ν',
+            PeopleKind::Laakso => 'λ',
+            PeopleKind::Sepat => 'σ',
+            PeopleKind::Ahjo => 'ω',
+            PeopleKind::Varhaiset => 'ε',
+            PeopleKind::Metsareunat => 'δ',
+            PeopleKind::Porokansa => 'π',
+            PeopleKind::Koskimetsa => 'κ',
+            PeopleKind::Muistikansa => 'μ',
+            PeopleKind::Taulukansa => 'τ',
+            PeopleKind::Kirjakansa => 'χ',
+            PeopleKind::Takovaki => 'φ',
+            PeopleKind::Rantavaki => 'ρ',
+            PeopleKind::Saarivaki => 'ι',
+            PeopleKind::Hiekkakavelijat => 'η',
+            PeopleKind::Haramaki => 'θ',
+            PeopleKind::Jamavaki => 'ψ',
+            PeopleKind::Pohjavaki => 'ξ',
+            PeopleKind::Tzakhar => 'ζ',
+            PeopleKind::Merak => 'β',
+            PeopleKind::Shear => 'γ',
+            PeopleKind::Hal => 'δ',
+            PeopleKind::Khor => 'ξ',
+        }
+    }
+
     pub fn from_name(name: &str) -> Self {
         match name.to_lowercase().as_str() {
             "metsik" | "čyrvä" | "keurimä" => PeopleKind::Metsik,
@@ -3630,6 +3660,27 @@ pub enum Animal {
 }
 
 impl Animal {
+    pub fn glyph(self) -> char {
+        match self {
+            Animal::Dog => 'd',
+            Animal::Hound => 'h',
+            Animal::Horse => 'H',
+            Animal::Donkey => 'D',
+            Animal::Ox => 'O',
+            Animal::Falcon => 'f',
+            Animal::Crow => 'c',
+            Animal::Goat => 'g',
+            Animal::CaveLurker => 'L',
+            Animal::RiverEel => 'e',
+            Animal::RockLizard => 'l',
+            Animal::ForestOwl => 'W',
+            Animal::TundraFox => 'F',
+            Animal::DesertCaravanDog => 'C',
+            Animal::HighlandGoat => 'G',
+            Animal::MarshCrane => 'M',
+        }
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Animal::Dog => "dog",
