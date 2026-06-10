@@ -167,6 +167,9 @@ mod minimap_tests {
                 people: vec![],
                 services: vec![],
                 politics: crate::model::SettlementPolitics::new(),
+                food_stock: 0.0,
+                farms: Vec::new(),
+                buildings: Vec::new(),
             }],
             terrain: TerrainMap {
                 width: 2,
@@ -239,6 +242,9 @@ mod minimap_tests {
             ],
             services: vec![],
             politics: crate::model::SettlementPolitics::new(),
+            food_stock: 0.0,
+            farms: Vec::new(),
+            buildings: Vec::new(),
         }];
         let color = dominant_people_color(&settlements, &theme);
         assert_eq!(color, theme.warm_brown());
@@ -260,6 +266,9 @@ mod minimap_tests {
             people: vec![test_person("p1", "Unknown")],
             services: vec![],
             politics: crate::model::SettlementPolitics::new(),
+            food_stock: 0.0,
+            farms: Vec::new(),
+            buildings: Vec::new(),
         }];
         let color = dominant_people_color(&settlements, &theme);
         assert_eq!(color, theme.archive_red());

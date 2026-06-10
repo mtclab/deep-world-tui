@@ -604,6 +604,16 @@ pub struct Settlement {
     pub services: Vec<SettlementService>,
     #[serde(default)]
     pub politics: SettlementPolitics,
+    /// Communal food supply, in meals. Farms/fishers/herders fill it, the
+    /// population draws from it, and scarcity moves market prices.
+    #[serde(default)]
+    pub food_stock: f64,
+    /// Working farms, planted and harvested by the settlement's farmers.
+    #[serde(default)]
+    pub farms: Vec<Farm>,
+    /// NPC construction: projects underway and completed buildings.
+    #[serde(default)]
+    pub buildings: Vec<Building>,
 }
 
 impl Settlement {
@@ -617,6 +627,36 @@ impl Settlement {
             "town" => 2,
             "city" => 3,
             _ => 0,
+        }
+    }
+
+    /// How many residents practice the given profession.
+    pub fn profession_count(&self, profession: &str) -> usize {
+        self.people
+            .iter()
+            .filter(|p| p.profession == profession)
+            .count()
+    }
+
+    /// Whether a completed building of this type stands here.
+    pub fn has_building(&self, kind: BuildingType) -> bool {
+        self.buildings
+            .iter()
+            .any(|b| b.building_type == kind && b.is_complete())
+    }
+
+    /// Food scarcity as a market price multiplier: empty stores push food
+    /// prices toward 1.6x; full stores pull them toward 0.8x.
+    pub fn food_scarcity_modifier(&self) -> f64 {
+        let per_head = self.food_stock / (self.population.max(1) as f64);
+        if per_head < 0.5 {
+            1.6
+        } else if per_head < 1.5 {
+            1.2
+        } else if per_head > 4.0 {
+            0.8
+        } else {
+            1.0
         }
     }
 }
@@ -1284,6 +1324,9 @@ mod tests {
             services: vec![],
 
             politics: SettlementPolitics::new(),
+            food_stock: 0.0,
+            farms: Vec::new(),
+            buildings: Vec::new(),
         };
 
         roundtrip(&s);

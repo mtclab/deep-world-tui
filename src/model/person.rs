@@ -1419,6 +1419,9 @@ mod tests {
                 services: vec![],
 
                 politics: SettlementPolitics::new(),
+                food_stock: 0.0,
+                farms: Vec::new(),
+                buildings: Vec::new(),
             }],
         };
 

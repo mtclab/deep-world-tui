@@ -1300,8 +1300,20 @@ impl App {
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
-            * self.caravan_price_modifier(item);
+            * self.caravan_price_modifier(item)
+            * self.food_scarcity_modifier(item);
         ((base as f64 * m).ceil() as u32).max(1)
+    }
+
+    /// Hunger in the settlement moves the price of what can be eaten: lean
+    /// stores raise Food/Herb prices, full ones lower them.
+    fn food_scarcity_modifier(&self, item: ItemType) -> f64 {
+        if !matches!(item, ItemType::Food | ItemType::Herb) {
+            return 1.0;
+        }
+        self.current_settlement()
+            .map(|s| s.food_scarcity_modifier())
+            .unwrap_or(1.0)
     }
 
     /// What the market pays the player — always below the buy price, merchants
@@ -1320,7 +1332,8 @@ impl App {
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
-            * self.caravan_price_modifier(item);
+            * self.caravan_price_modifier(item)
+            * self.food_scarcity_modifier(item);
         let raw = ((base as f64 * m).floor() as u32).max(1);
         let buy = self.quote_buy_price(item);
         if buy > 1 {
