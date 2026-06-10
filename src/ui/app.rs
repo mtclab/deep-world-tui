@@ -509,6 +509,20 @@ impl App {
         }
     }
 
+    /// Best travel-speed multiplier among the player's companions (a horse
+    /// quickens the road); 1.0 with none.
+    fn companion_travel_mult(&self) -> f64 {
+        self.player_start
+            .as_ref()
+            .map(|ps| {
+                ps.companions
+                    .iter()
+                    .map(|c| c.animal.travel_speed_multiplier())
+                    .fold(1.0, f64::min)
+            })
+            .unwrap_or(1.0)
+    }
+
     /// The player's current age in years, derived from elapsed calendar days.
     pub fn current_age_years(&self) -> u32 {
         let elapsed = self.clock.day.saturating_sub(self.birth_day);
@@ -930,7 +944,19 @@ impl App {
             } else {
                 0
             };
-            let count = ((base + tool_bonus) as f64 * mult).floor() as u32;
+            // A gathering animal (e.g. a hound) makes the player more productive.
+            let companion_gather = self
+                .player_start
+                .as_ref()
+                .map(|ps| {
+                    ps.companions
+                        .iter()
+                        .map(|c| c.animal.gathering_bonus())
+                        .fold(0.0, f64::max)
+                })
+                .unwrap_or(0.0);
+            let count =
+                ((base + tool_bonus) as f64 * mult * (1.0 + companion_gather)).floor() as u32;
             let mut boon_msg = None;
             let patron = terrain.patron_god();
             let count = if let Some(god) = patron {
@@ -2919,6 +2945,7 @@ impl App {
         let weather_mult = weather
             .map(crate::sim::weather::travel_hours_multiplier)
             .unwrap_or(1.0);
+        let companion_travel = self.companion_travel_mult();
         let result = self.compute_move(dx, dy);
         match result {
             Some(MoveResult::EdgeTransition { region_idx, px, py }) => {
@@ -2944,7 +2971,8 @@ impl App {
                         0
                     }
                 });
-                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32
+                let hours = ((terrain.travel_hours() as f64 * weather_mult * companion_travel)
+                    .round() as i32
                     + bias_mod)
                     .max(1) as u32;
                 self.advance_clock(hours);
@@ -2980,7 +3008,8 @@ impl App {
                         0
                     }
                 });
-                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32
+                let hours = ((terrain.travel_hours() as f64 * weather_mult * companion_travel)
+                    .round() as i32
                     + bias_mod)
                     .max(1) as u32;
                 self.advance_clock(hours);
