@@ -53,6 +53,18 @@ pub(crate) fn draw_encounter_screen(f: &mut Frame, app: &App) {
             crate::model::EncounterKind::HarvestMarket => "🏪 Harvest Market",
             crate::model::EncounterKind::WinterSurvivor => "❄ Winter Survivor",
             crate::model::EncounterKind::MerchantCaravan => "🐪 Merchant Caravan",
+            crate::model::EncounterKind::RiverFlood => "≋ River Flood",
+            crate::model::EncounterKind::Mirage => "✶ Mirage",
+            crate::model::EncounterKind::CaveIn => "⛰ Cave-In",
+            crate::model::EncounterKind::FuneralProcession => "⚰ Funeral Procession",
+            crate::model::EncounterKind::LostChild => "👤 Lost Child",
+            crate::model::EncounterKind::EscapedLivestock => "🐄 Escaped Livestock",
+            crate::model::EncounterKind::PlagueWagon => "☠ Plague Wagon",
+            crate::model::EncounterKind::PilgrimBand => "🚶 Pilgrim Band",
+            crate::model::EncounterKind::BeastMigration => "🦌 Beast Migration",
+            crate::model::EncounterKind::DistantFire => "🔥 Distant Fire",
+            crate::model::EncounterKind::BorderWatch => "🛡 Border Watch",
+            crate::model::EncounterKind::AuroraVeil => "✨ Aurora Veil",
         };
         lines.push(Line::from(Span::styled(
             format!("  Kind: {}", kind_str),

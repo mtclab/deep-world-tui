@@ -1709,13 +1709,41 @@ impl App {
             return;
         }
 
+        // Inputs for the newer quest kinds: discoveries seen, dealings had,
+        // and where the player has raised structures.
+        let (observed, dealings, structure_regions) = {
+            let sim = self.sim.as_ref().unwrap();
+            let observed = sim
+                .discoveries
+                .entries
+                .iter()
+                .filter(|d| d.observed)
+                .count() as u32;
+            let dealings: u32 = sim.npc_memories.values().map(|m| m.count() as u32).sum();
+            let mut regions: Vec<usize> = sim
+                .world
+                .regions
+                .iter()
+                .enumerate()
+                .filter(|(_, r)| r.structures.iter().any(|st| !st.is_npc_built))
+                .map(|(i, _)| i)
+                .collect();
+            regions.dedup();
+            (observed, dealings, regions)
+        };
+
         let result = crate::sim::quest_gen::check_quests(
             &mut self.sim.as_mut().unwrap().quests,
-            &inventory,
-            region_idx,
-            &aided_npcs,
-            local_rep,
-            current_day,
+            &crate::sim::quest_gen::QuestContext {
+                inventory: &inventory,
+                current_region_idx: region_idx,
+                aided_npcs: &aided_npcs,
+                local_reputation: local_rep,
+                current_day,
+                observed_discoveries: observed,
+                dealings,
+                player_structure_regions: &structure_regions,
+            },
         );
 
         if result.completed.is_empty() && result.expired.is_empty() {
@@ -1739,6 +1767,9 @@ impl App {
             .iter()
             .filter_map(|&idx| match &self.sim.as_ref()?.quests.get(idx)?.kind {
                 crate::model::quest::QuestKind::FetchItem { item, count } => Some((*item, *count)),
+                crate::model::quest::QuestKind::DeliverTo { item, count, .. } => {
+                    Some((*item, *count))
+                }
                 _ => None,
             })
             .collect();
@@ -1807,12 +1838,26 @@ impl App {
             .wrapping_add(7);
         if let Some(ref mut sim) = self.sim {
             if sim.quests.len() < 2 {
-                let fresh = crate::sim::quest_gen::generate_quests(
+                let mut fresh = crate::sim::quest_gen::generate_quests(
                     salt,
                     player_people,
                     &sim.world.regions,
                     day,
                 );
+                let seen = sim
+                    .discoveries
+                    .entries
+                    .iter()
+                    .filter(|d| d.observed)
+                    .count() as u32;
+                for q in fresh.iter_mut() {
+                    if let crate::model::quest::QuestKind::VisitDiscovery { baseline } = &mut q.kind
+                    {
+                        if *baseline == u32::MAX {
+                            *baseline = seen;
+                        }
+                    }
+                }
                 sim.quests.extend(fresh);
             }
         }

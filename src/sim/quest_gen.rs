@@ -37,6 +37,30 @@ fn pick(rng: &mut SeedRng, slots: &[&'static str]) -> &'static str {
     slots[idx % slots.len()]
 }
 
+const DELIVER_DESCRIPTIONS: &[&str] = &[
+    "Another market waits for what we have in plenty.",
+    "Goods are owed across the border. Someone must carry them.",
+    "What is common here is dear elsewhere. Take it there.",
+];
+
+const BUILD_DESCRIPTIONS: &[&str] = &[
+    "Raise something that outlasts the season.",
+    "The land needs a roof on it. Put one up.",
+    "Build, and the road will remember you.",
+];
+
+const DISCOVERY_DESCRIPTIONS: &[&str] = &[
+    "There are places no map names. Find one.",
+    "Walk until the land surprises you.",
+    "Something old waits off the path. Look for it.",
+];
+
+const TALK_DESCRIPTIONS: &[&str] = &[
+    "Word matters more than coin here. Go and be known.",
+    "Deal with people — talk, trade, be remembered.",
+    "A stranger is a danger. Stop being one.",
+];
+
 pub fn generate_initial_quests(
     seed: u64,
     player_people: PeopleKind,
@@ -58,12 +82,12 @@ pub fn generate_quests(
     let count = 1 + rng.gen_range(2) as usize;
     let mut quests = Vec::new();
 
-    let used_kinds = &mut [false; 5];
+    let used_kinds = &mut [false; 9];
 
     for _ in 0..count {
-        let order = rng.gen_range(5) as usize;
+        let order = rng.gen_range(9) as usize;
         let kind_idx = if used_kinds[order] {
-            (0..5).find(|i| !used_kinds[*i]).unwrap_or(order)
+            (0..9).find(|i| !used_kinds[*i]).unwrap_or(order)
         } else {
             order
         };
@@ -154,6 +178,78 @@ pub fn generate_quests(
                     assigned_day: current_day,
                 }
             }
+            5 => {
+                let region_idx = if regions.len() > 1 {
+                    1 + rng.gen_range((regions.len() - 1) as u32) as usize
+                } else {
+                    0
+                };
+                let region_idx = region_idx.min(regions.len().saturating_sub(1));
+                let item = match player_people {
+                    PeopleKind::Sepat | PeopleKind::Ahjo => ItemType::Iron,
+                    PeopleKind::Metsik | PeopleKind::Hal => ItemType::Wood,
+                    _ => ItemType::Food,
+                };
+                let count = 2 + rng.gen_range(2);
+                let deadline = current_day + 16 + rng.gen_range(8);
+                Quest {
+                    kind: QuestKind::DeliverTo {
+                        region_idx,
+                        item,
+                        count,
+                    },
+                    description: pick(&mut rng, DELIVER_DESCRIPTIONS).into(),
+                    reward: QuestReward::Items {
+                        item: ItemType::Coin,
+                        count: 8,
+                    },
+                    progress: 0,
+                    target: 1,
+                    deadline_day: deadline,
+                    assigned_day: current_day,
+                }
+            }
+            6 => {
+                let deadline = current_day + 20 + rng.gen_range(10);
+                Quest {
+                    kind: QuestKind::RaiseBuilding { region_idx: 0 },
+                    description: pick(&mut rng, BUILD_DESCRIPTIONS).into(),
+                    reward: QuestReward::Reputation { amount: 0.15 },
+                    progress: 0,
+                    target: 1,
+                    deadline_day: deadline,
+                    assigned_day: current_day,
+                }
+            }
+            7 => {
+                let deadline = current_day + 15 + rng.gen_range(10);
+                Quest {
+                    // baseline is filled in by the caller (current observed count).
+                    kind: QuestKind::VisitDiscovery { baseline: u32::MAX },
+                    description: pick(&mut rng, DISCOVERY_DESCRIPTIONS).into(),
+                    reward: QuestReward::Items {
+                        item: ItemType::Herb,
+                        count: 4,
+                    },
+                    progress: 0,
+                    target: 1,
+                    deadline_day: deadline,
+                    assigned_day: current_day,
+                }
+            }
+            8 => {
+                let count = 3 + rng.gen_range(3);
+                let deadline = current_day + 12 + rng.gen_range(8);
+                Quest {
+                    kind: QuestKind::TalkToPeople { count },
+                    description: pick(&mut rng, TALK_DESCRIPTIONS).into(),
+                    reward: QuestReward::Reputation { amount: 0.12 },
+                    progress: 0,
+                    target: count,
+                    deadline_day: deadline,
+                    assigned_day: current_day,
+                }
+            }
             _ => {
                 let days = 5 + rng.gen_range(6);
                 let deadline = current_day + days + 3;
@@ -179,14 +275,27 @@ pub struct QuestCheckResult {
     pub expired: Vec<usize>,
 }
 
-pub fn check_quests(
-    quests: &mut [Quest],
-    inventory: &crate::model::Inventory,
-    current_region_idx: usize,
-    aided_npcs: &[String],
-    local_reputation: f64,
-    current_day: u32,
-) -> QuestCheckResult {
+/// Everything quest progress is judged against.
+pub struct QuestContext<'a> {
+    pub inventory: &'a crate::model::Inventory,
+    pub current_region_idx: usize,
+    pub aided_npcs: &'a [String],
+    pub local_reputation: f64,
+    pub current_day: u32,
+    pub observed_discoveries: u32,
+    pub dealings: u32,
+    pub player_structure_regions: &'a [usize],
+}
+
+pub fn check_quests(quests: &mut [Quest], ctx: &QuestContext) -> QuestCheckResult {
+    let inventory = ctx.inventory;
+    let current_region_idx = ctx.current_region_idx;
+    let aided_npcs = ctx.aided_npcs;
+    let local_reputation = ctx.local_reputation;
+    let current_day = ctx.current_day;
+    let observed_discoveries = ctx.observed_discoveries;
+    let dealings = ctx.dealings;
+    let player_structure_regions = ctx.player_structure_regions;
     let mut completed = Vec::new();
     let mut expired = Vec::new();
 
@@ -227,6 +336,32 @@ pub fn check_quests(
                 let elapsed = current_day.saturating_sub(quest.assigned_day);
                 elapsed.min(quest.target)
             }
+            QuestKind::DeliverTo {
+                region_idx,
+                item,
+                count,
+            } => {
+                if *region_idx == current_region_idx && inventory.get(*item) >= *count {
+                    1
+                } else {
+                    0
+                }
+            }
+            QuestKind::RaiseBuilding { region_idx } => {
+                if player_structure_regions.contains(region_idx) {
+                    1
+                } else {
+                    0
+                }
+            }
+            QuestKind::VisitDiscovery { baseline } => {
+                if *baseline != u32::MAX && observed_discoveries > *baseline {
+                    1
+                } else {
+                    0
+                }
+            }
+            QuestKind::TalkToPeople { count: _ } => dealings.min(quest.target),
         };
 
         quest.progress = progress;
@@ -329,7 +464,19 @@ mod tests {
             deadline_day: 30,
             assigned_day: 1,
         }];
-        let result = check_quests(&mut quests, &inv, 0, &[], 0.5, 5);
+        let result = check_quests(
+            &mut quests,
+            &QuestContext {
+                inventory: &inv,
+                current_region_idx: 0,
+                aided_npcs: &[],
+                local_reputation: 0.5,
+                current_day: 5,
+                observed_discoveries: 0,
+                dealings: 0,
+                player_structure_regions: &[],
+            },
+        );
         assert_eq!(result.completed.len(), 1);
         assert_eq!(quests[0].progress, 3);
     }
@@ -349,7 +496,19 @@ mod tests {
             assigned_day: 1,
         }];
         let inv = Inventory::default();
-        let result = check_quests(&mut quests, &inv, 0, &[], 0.5, 15);
+        let result = check_quests(
+            &mut quests,
+            &QuestContext {
+                inventory: &inv,
+                current_region_idx: 0,
+                aided_npcs: &[],
+                local_reputation: 0.5,
+                current_day: 15,
+                observed_discoveries: 0,
+                dealings: 0,
+                player_structure_regions: &[],
+            },
+        );
         assert_eq!(result.expired.len(), 1);
         assert!(result.completed.is_empty());
     }
@@ -366,7 +525,19 @@ mod tests {
             assigned_day: 1,
         }];
         let inv = Inventory::default();
-        let result = check_quests(&mut quests, &inv, 0, &[], 0.5, 6);
+        let result = check_quests(
+            &mut quests,
+            &QuestContext {
+                inventory: &inv,
+                current_region_idx: 0,
+                aided_npcs: &[],
+                local_reputation: 0.5,
+                current_day: 6,
+                observed_discoveries: 0,
+                dealings: 0,
+                player_structure_regions: &[],
+            },
+        );
         assert_eq!(
             result.completed.len(),
             1,
@@ -391,7 +562,19 @@ mod tests {
             deadline_day: 30,
             assigned_day: 1,
         }];
-        let result = check_quests(&mut quests, &inv, 0, &[], 0.5, 5);
+        let result = check_quests(
+            &mut quests,
+            &QuestContext {
+                inventory: &inv,
+                current_region_idx: 0,
+                aided_npcs: &[],
+                local_reputation: 0.5,
+                current_day: 5,
+                observed_discoveries: 0,
+                dealings: 0,
+                player_structure_regions: &[],
+            },
+        );
         assert!(result.completed.is_empty());
         assert_eq!(quests[0].progress, 1);
         assert_eq!(

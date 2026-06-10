@@ -373,6 +373,18 @@ pub enum EncounterKind {
     HarvestMarket,
     WinterSurvivor,
     MerchantCaravan,
+    RiverFlood,
+    Mirage,
+    CaveIn,
+    FuneralProcession,
+    LostChild,
+    EscapedLivestock,
+    PlagueWagon,
+    PilgrimBand,
+    BeastMigration,
+    DistantFire,
+    BorderWatch,
+    AuroraVeil,
 }
 
 impl EncounterKind {
@@ -390,6 +402,18 @@ impl EncounterKind {
             EncounterKind::HarvestMarket => "A market sprawls across the square — traders, food, noise, color, life.",
             EncounterKind::WinterSurvivor => "A huddled figure in the snow. They hold out a hand, half-frozen, half-hoping.",
             EncounterKind::MerchantCaravan => "A merchant caravan moves slowly along the road, pack animals laden with goods.",
+            EncounterKind::RiverFlood => "The ford is gone — brown water moves fast over where the path was.",
+            EncounterKind::Mirage => "Heat bends the horizon. Something shimmers there: water, walls, welcome. Maybe.",
+            EncounterKind::CaveIn => "Dust drifts from the ceiling. The stone overhead groans once and goes quiet.",
+            EncounterKind::FuneralProcession => "A slow line of mourners crosses the way, bearing someone home for the last time.",
+            EncounterKind::LostChild => "A child stands alone at the path's edge, too tired to cry anymore.",
+            EncounterKind::EscapedLivestock => "A panicked animal crashes about, trailing a broken rope — someone's livelihood running loose.",
+            EncounterKind::PlagueWagon => "A covered wagon with a white-daubed rail. The driver waves you back, not in greeting.",
+            EncounterKind::PilgrimBand => "Pilgrims in road-grey walk in step, singing low. They nod as they pass.",
+            EncounterKind::BeastMigration => "The herd is moving — hundreds of beasts in a river of hide and breath, crossing your road.",
+            EncounterKind::DistantFire => "A point of firelight in the dark distance. Someone's hearth, or someone's trouble.",
+            EncounterKind::BorderWatch => "Spears at the waymark. The watch wants to know your name and your business.",
+            EncounterKind::AuroraVeil => "The night sky splits into slow green fire. Even the wind stops to watch.",
         }
     }
 
@@ -413,11 +437,15 @@ impl EncounterKind {
             EncounterKind::SpringBloom
                 | EncounterKind::HarvestMarket
                 | EncounterKind::WinterSurvivor
+                | EncounterKind::AuroraVeil
         )
     }
 
     pub fn can_have_outside_help(self) -> bool {
-        matches!(self, EncounterKind::Wildlife | EncounterKind::Bandit)
+        matches!(
+            self,
+            EncounterKind::Wildlife | EncounterKind::Bandit | EncounterKind::BorderWatch
+        )
     }
 
     pub fn available_actions(self) -> Vec<EncounterAction> {
@@ -438,6 +466,32 @@ impl EncounterKind {
             EncounterKind::HarvestMarket => vec![EncounterAction::Trade, EncounterAction::Talk],
             EncounterKind::WinterSurvivor => vec![EncounterAction::Calm, EncounterAction::Trade],
             EncounterKind::MerchantCaravan => vec![EncounterAction::Trade, EncounterAction::Calm],
+            EncounterKind::RiverFlood => {
+                vec![EncounterAction::Shelter, EncounterAction::PushThrough]
+            }
+            EncounterKind::Mirage => vec![EncounterAction::Calm, EncounterAction::PushThrough],
+            EncounterKind::CaveIn => vec![EncounterAction::Flee, EncounterAction::PushThrough],
+            EncounterKind::FuneralProcession => {
+                vec![EncounterAction::Calm, EncounterAction::Talk]
+            }
+            EncounterKind::LostChild => vec![EncounterAction::Talk, EncounterAction::Calm],
+            EncounterKind::EscapedLivestock => {
+                vec![EncounterAction::Calm, EncounterAction::Trade]
+            }
+            EncounterKind::PlagueWagon => vec![EncounterAction::Flee, EncounterAction::Talk],
+            EncounterKind::PilgrimBand => vec![EncounterAction::Talk, EncounterAction::Trade],
+            EncounterKind::BeastMigration => vec![
+                EncounterAction::Shelter,
+                EncounterAction::Calm,
+                EncounterAction::PushThrough,
+            ],
+            EncounterKind::DistantFire => vec![EncounterAction::Talk, EncounterAction::Shelter],
+            EncounterKind::BorderWatch => vec![
+                EncounterAction::Talk,
+                EncounterAction::Bribe,
+                EncounterAction::Intimidate,
+            ],
+            EncounterKind::AuroraVeil => vec![EncounterAction::Calm, EncounterAction::Talk],
         }
     }
 }
@@ -574,11 +628,50 @@ impl Encounter {
         let rare_hash = hash.wrapping_mul(7919);
         let rare_val = rare_hash % 100;
         if rare_val < 3 {
+            let alt = (rare_hash / 100).is_multiple_of(2);
             let rare_kind = match terrain {
-                Terrain::Forest | Terrain::Mountain => EncounterKind::AncientRuin,
-                Terrain::Swamp | Terrain::Cave => EncounterKind::HermitCamp,
-                Terrain::Road | Terrain::Coast => EncounterKind::TravelingBard,
-                _ => EncounterKind::GodShrine,
+                Terrain::Forest => {
+                    if alt {
+                        EncounterKind::AncientRuin
+                    } else {
+                        EncounterKind::DistantFire
+                    }
+                }
+                Terrain::Mountain => {
+                    if alt {
+                        EncounterKind::AncientRuin
+                    } else {
+                        EncounterKind::CaveIn
+                    }
+                }
+                Terrain::Cave => {
+                    if alt {
+                        EncounterKind::HermitCamp
+                    } else {
+                        EncounterKind::CaveIn
+                    }
+                }
+                Terrain::Swamp => {
+                    if alt {
+                        EncounterKind::HermitCamp
+                    } else {
+                        EncounterKind::DistantFire
+                    }
+                }
+                Terrain::Road | Terrain::Coast => {
+                    if alt {
+                        EncounterKind::TravelingBard
+                    } else {
+                        EncounterKind::PilgrimBand
+                    }
+                }
+                _ => {
+                    if alt {
+                        EncounterKind::GodShrine
+                    } else {
+                        EncounterKind::FuneralProcession
+                    }
+                }
             };
             return Some(Encounter {
                 kind: rare_kind,
@@ -592,6 +685,22 @@ impl Encounter {
             Season::Thaw if season_val < 5 => {
                 return Some(Encounter {
                     kind: EncounterKind::SpringBloom,
+                    terrain,
+                });
+            }
+            // Meltwater: thaw floods the low ground.
+            Season::Thaw
+                if (5..8).contains(&season_val)
+                    && matches!(terrain, Terrain::Grass | Terrain::Farmland) =>
+            {
+                return Some(Encounter {
+                    kind: EncounterKind::RiverFlood,
+                    terrain,
+                });
+            }
+            Season::Frost if season_val < 6 && matches!(terrain, Terrain::Tundra) => {
+                return Some(Encounter {
+                    kind: EncounterKind::AuroraVeil,
                     terrain,
                 });
             }
@@ -624,22 +733,54 @@ impl Encounter {
             ),
             Terrain::Mountain => (15, EncounterKind::Storm),
             Terrain::Swamp => (20, EncounterKind::Wildlife),
-            Terrain::Sand => (10, EncounterKind::Storm),
-            Terrain::DeepDesert => (12, EncounterKind::Storm),
+            Terrain::Sand => (
+                10,
+                if val.is_multiple_of(3) {
+                    EncounterKind::Mirage
+                } else {
+                    EncounterKind::Storm
+                },
+            ),
+            Terrain::DeepDesert => (
+                12,
+                if val.is_multiple_of(3) {
+                    EncounterKind::Mirage
+                } else {
+                    EncounterKind::Storm
+                },
+            ),
             // Roads carry trade: every third road encounter is a merchant
             // caravan (the kind existed but was never spawned anywhere).
             Terrain::Road => (
                 5,
-                if val.is_multiple_of(3) {
-                    EncounterKind::MerchantCaravan
-                } else {
-                    EncounterKind::Traveler
+                match val % 6 {
+                    0 | 1 => EncounterKind::MerchantCaravan,
+                    2 => EncounterKind::BorderWatch,
+                    3 => EncounterKind::PlagueWagon,
+                    _ => EncounterKind::Traveler,
                 },
             ),
             Terrain::Settlement => (0, EncounterKind::Traveler),
             Terrain::Cave => (18, EncounterKind::Wildlife),
-            Terrain::Tundra => (15, EncounterKind::Storm),
+            Terrain::Tundra => (
+                15,
+                if val.is_multiple_of(3) {
+                    EncounterKind::BeastMigration
+                } else {
+                    EncounterKind::Storm
+                },
+            ),
             Terrain::Coast => (8, EncounterKind::Traveler),
+            // Open country: livestock loose, children lost, beasts about.
+            Terrain::Grass | Terrain::Farmland => (
+                8,
+                match val % 4 {
+                    0 => EncounterKind::EscapedLivestock,
+                    1 => EncounterKind::LostChild,
+                    2 => EncounterKind::Traveler,
+                    _ => EncounterKind::Wildlife,
+                },
+            ),
             _ => (8, EncounterKind::Wildlife),
         };
         if let Some(pp) = player_people {

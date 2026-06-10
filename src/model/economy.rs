@@ -372,6 +372,34 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
             output_count: 1,
             people: Some(PeopleKind::Vayla),
         },
+        CraftRecipe {
+            name: "Cordage".into(),
+            inputs: vec![(ItemType::Branches, 3)],
+            output: ItemType::Cordage,
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Thatch Bundle".into(),
+            inputs: vec![(ItemType::Branches, 2), (ItemType::Cordage, 1)],
+            output: ItemType::Thatch,
+            output_count: 3,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Laakso Stone-Ward".into(),
+            inputs: vec![(ItemType::Stone, 3), (ItemType::Herb, 1)],
+            output: ItemType::Bandage,
+            output_count: 2,
+            people: Some(PeopleKind::Laakso),
+        },
+        CraftRecipe {
+            name: "Tzakhar Deep-Tool".into(),
+            inputs: vec![(ItemType::Stone, 2), (ItemType::Iron, 1)],
+            output: ItemType::Tool,
+            output_count: 1,
+            people: Some(PeopleKind::Tzakhar),
+        },
     ]
 }
 
