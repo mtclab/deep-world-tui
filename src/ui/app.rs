@@ -1186,7 +1186,12 @@ impl App {
         let inter_mod = seller_people
             .map(|sp| self.inter_people_bias.price_modifier(sp))
             .unwrap_or(1.0);
-        let rep_mod = self.reputation_in_current_settlement();
+        // Reputation as a centered price modifier (baseline 0.5 -> 1.0; better
+        // standing -> cheaper buys). Raw reputation was used directly, which
+        // halved prices at baseline and made buying dearer the more you were
+        // liked. Same transform the service pricing already uses.
+        let rep_mod =
+            crate::sim::signals::reputation_price_modifier(self.reputation_in_current_settlement());
         let pol_mod = self.politics_price_modifier();
         let modifier = inter_mod * rep_mod * pol_mod * self.caravan_price_modifier(item);
         let price = ((base_price as f64 * modifier).ceil() as u32).max(1);
@@ -1215,7 +1220,12 @@ impl App {
         let inter_mod = buyer_people
             .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
             .unwrap_or(1.0);
-        let rep_mod = self.reputation_in_current_settlement();
+        // Selling inverts the buy modifier (better standing -> richer sales),
+        // mirroring the 2.0 - x inversion already used for inter_mod above.
+        let rep_mod = 2.0
+            - crate::sim::signals::reputation_price_modifier(
+                self.reputation_in_current_settlement(),
+            );
         let pol_mod = self.politics_price_modifier();
         let modifier = inter_mod * rep_mod * pol_mod * self.caravan_price_modifier(item);
         let price = ((base_price as f64 * modifier).floor() as u32).max(1);
@@ -1264,7 +1274,8 @@ impl App {
             .current_settlement_people()
             .map(|sp| self.inter_people_bias.price_modifier(sp))
             .unwrap_or(1.0);
-        let rep_mod = self.reputation_in_current_settlement();
+        let rep_mod =
+            crate::sim::signals::reputation_price_modifier(self.reputation_in_current_settlement());
         let m = inter_mod * rep_mod;
         ((base as f64 * m).ceil() as u32).max(1)
     }
@@ -1275,7 +1286,10 @@ impl App {
             .current_settlement_people()
             .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
             .unwrap_or(1.0);
-        let rep_mod = self.reputation_in_current_settlement();
+        let rep_mod = 2.0
+            - crate::sim::signals::reputation_price_modifier(
+                self.reputation_in_current_settlement(),
+            );
         let m = inter_mod * rep_mod;
         ((base as f64 * m).floor() as u32).max(1)
     }
