@@ -82,6 +82,8 @@ pub struct SimState {
     pub structures: Vec<crate::sim::structures::Structure>,
     #[serde(default)]
     pub build_sites: Vec<crate::sim::structures::BuildSite>,
+    #[serde(default)]
+    pub caravans: Vec<crate::model::economy::Caravan>,
 }
 
 impl SimState {
@@ -115,6 +117,7 @@ impl SimState {
             memorials: vec![],
             structures: Vec::new(),
             build_sites: Vec::new(),
+            caravans: Vec::new(),
         };
         sim.init_npc_wants();
         sim
@@ -193,6 +196,49 @@ pub fn sim_tick(sim: &mut SimState) {
     sim.world.recompute_all_schedules(hour);
     tick_build_sites(sim);
     tick_structure_decay(sim);
+    tick_caravans(sim);
+}
+
+/// Spawn trade caravans between settlements and retire them once their goods
+/// have dispersed. An arrived caravan lowers prices for the goods it carried at
+/// its destination (see App::caravan_price_modifier).
+fn tick_caravans(sim: &mut SimState) {
+    let tick = sim.world.tick;
+    // Goods disperse ~2 days after arrival.
+    sim.caravans.retain(|c| tick < c.arrival_tick + 48);
+
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let names: Vec<String> = sim
+        .world
+        .regions
+        .iter()
+        .flat_map(|r| r.settlements.iter())
+        .map(|s| s.name.clone())
+        .collect();
+    if names.len() < 2 {
+        return;
+    }
+    let day = tick / 24;
+    let mut rng =
+        SeedRng::new(sim.world.seed.wrapping_add(day.wrapping_mul(7919))).fork_for("caravan");
+    // ~1 caravan every other day on average.
+    if rng.gen_range(2) == 0 {
+        return;
+    }
+    let o = rng.gen_range(names.len() as u32) as usize;
+    let mut d = rng.gen_range(names.len() as u32) as usize;
+    if d == o {
+        d = (d + 1) % names.len();
+    }
+    let caravan = crate::model::economy::Caravan::generate(
+        sim.world.seed.wrapping_add(tick),
+        names[o].clone(),
+        names[d].clone(),
+        tick,
+    );
+    sim.caravans.push(caravan);
 }
 
 /// Remove structures that have fully weathered away (decay ratio >= 1.0).

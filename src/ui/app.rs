@@ -1151,6 +1151,24 @@ impl App {
         }
     }
 
+    /// Supply effect of arrived caravans on the current settlement's price for
+    /// an item (more goods in town → lower price). 1.0 when no caravan applies.
+    fn caravan_price_modifier(&self, item: ItemType) -> f64 {
+        let Some(name) = self.current_settlement().map(|s| s.name.clone()) else {
+            return 1.0;
+        };
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let mut m = 1.0;
+        if let Some(ref sim) = self.sim {
+            for c in &sim.caravans {
+                if c.destination == name && c.has_arrived(tick) {
+                    m *= c.price_modifier(item, tick);
+                }
+            }
+        }
+        m
+    }
+
     pub fn buy_item(&mut self, item: ItemType) {
         if !item.tradeable() {
             self.status_msg = Some("Cannot buy that".into());
@@ -1163,7 +1181,7 @@ impl App {
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
         let pol_mod = self.politics_price_modifier();
-        let modifier = inter_mod * rep_mod * pol_mod;
+        let modifier = inter_mod * rep_mod * pol_mod * self.caravan_price_modifier(item);
         let price = ((base_price as f64 * modifier).ceil() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(ItemType::Coin, price) {
@@ -1192,7 +1210,7 @@ impl App {
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
         let pol_mod = self.politics_price_modifier();
-        let modifier = inter_mod * rep_mod * pol_mod;
+        let modifier = inter_mod * rep_mod * pol_mod * self.caravan_price_modifier(item);
         let price = ((base_price as f64 * modifier).floor() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(item, 1) {
