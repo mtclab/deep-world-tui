@@ -93,6 +93,7 @@ mod tests {
                     farms: Vec::new(),
                     buildings: Vec::new(),
                     festival_until_day: 0,
+                    famine_days: 0,
                 }],
                 weather: crate::model::Weather::Clear,
             }],

@@ -377,6 +377,64 @@ fn tick_settlement_life(sim: &mut SimState) {
                 }
             }
 
+            // --- growth, famine, and decline ---
+            // Promotion/demotion by head-count; a new village raises a Temple.
+            let new_size = crate::model::Settlement::size_for_population(settlement.population);
+            if new_size != settlement.size {
+                let grew = matches!(
+                    (settlement.size.as_str(), new_size),
+                    ("hamlet", _) | ("village", "town") | ("village", "city") | ("town", "city")
+                );
+                settlement.size = new_size.to_string();
+                if grew {
+                    if !settlement
+                        .services
+                        .contains(&crate::model::SettlementService::Temple)
+                    {
+                        settlement
+                            .services
+                            .push(crate::model::SettlementService::Temple);
+                    }
+                    completed_msgs.push(format!(
+                        "{} has grown into a proper {}.",
+                        settlement.name, new_size
+                    ));
+                }
+            }
+            // Famine: empty stores for a week start an exodus; a month of it
+            // leaves the place standing empty.
+            if settlement.population > 0 {
+                if settlement.food_stock <= 0.0 {
+                    settlement.famine_days += 1;
+                } else {
+                    settlement.famine_days = 0;
+                }
+                if settlement.famine_days == 7 {
+                    completed_msgs.push(format!(
+                        "Hunger drives people from {} — the road is full of carts.",
+                        settlement.name
+                    ));
+                }
+                if settlement.famine_days > 7 {
+                    let leaving = (settlement.population as f64 * 0.02).ceil() as u32;
+                    settlement.population = settlement.population.saturating_sub(leaving);
+                    if settlement.people.len() > 1 && settlement.famine_days % 3 == 0 {
+                        settlement.people.pop();
+                    }
+                }
+                if settlement.famine_days > 21 && settlement.population <= 10 {
+                    completed_msgs.push(format!(
+                        "{} stands empty. The hunger took it.",
+                        settlement.name
+                    ));
+                    settlement.population = 0;
+                    settlement.people.clear();
+                    settlement.services.clear();
+                    settlement.farms.clear();
+                    settlement.description = "Abandoned. Doors hang open; nothing moves.".into();
+                }
+            }
+
             // --- festivals: begin, run, and lift spirits ---
             let day = (tick / 24) as u32;
             if !settlement.in_festival(day) && season.festival_chance() > 0 {

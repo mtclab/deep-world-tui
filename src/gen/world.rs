@@ -408,6 +408,7 @@ fn generate_settlement(
         farms: Vec::new(),
         buildings: Vec::new(),
         festival_until_day: 0,
+        famine_days: 0,
     }
 }
 
