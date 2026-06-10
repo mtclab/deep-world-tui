@@ -1,9 +1,37 @@
 use crate::charts::Charts;
-use anyhow::Result;
+use anyhow::{Context, Result};
+use std::path::Path;
 
 const CHARTS_RON: &str = include_str!("../../data/charts.ron");
 
 pub fn load_charts() -> Result<Charts> {
+    load_charts_from_override().unwrap_or_else(load_charts_embedded)
+}
+
+pub fn load_charts_from_path(path: &Path) -> Result<Charts> {
+    let contents = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read charts from {}", path.display()))?;
+    let charts: Charts = ron::from_str(&contents)
+        .with_context(|| format!("Failed to parse charts from {}", path.display()))?;
+    Ok(charts)
+}
+
+fn load_charts_from_override() -> Option<Result<Charts>> {
+    if let Ok(path) = std::env::var("DEEP_WORLD_CHARTS") {
+        if !path.is_empty() {
+            return Some(load_charts_from_path(Path::new(&path)));
+        }
+    }
+    if let Some(config_dir) = dirs::config_dir() {
+        let user_path = config_dir.join("deep-world-tui").join("charts.ron");
+        if user_path.exists() {
+            return Some(load_charts_from_path(&user_path));
+        }
+    }
+    None
+}
+
+fn load_charts_embedded() -> Result<Charts> {
     let charts: Charts = ron::from_str(CHARTS_RON)?;
     Ok(charts)
 }
