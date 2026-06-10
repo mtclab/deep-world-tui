@@ -707,7 +707,7 @@ impl App {
         self.screen = self.world_screen();
     }
 
-    fn world_screen(&self) -> Screen {
+    pub(crate) fn world_screen(&self) -> Screen {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         Screen::World { region_idx }
     }
@@ -2208,7 +2208,7 @@ impl App {
         settlement.people.iter().position(|p| p.id != *dead_id)
     }
 
-    fn continue_as_npc(&mut self) {
+    pub(crate) fn continue_as_npc(&mut self) {
         let dead_ps = match &self.player_start {
             Some(ps) => ps.clone(),
             None => {
@@ -2957,574 +2957,160 @@ impl App {
         }
         match event {
             AppEvent::Key(key) => match self.screen {
-                Screen::TitleScreen => match key.code {
-                    crossterm::event::KeyCode::Char('n') => {
-                        self.screen = Screen::CharacterCreation;
-                    }
-                    crossterm::event::KeyCode::Char('l') => {
-                        self.save_entries = crate::save::saves_dir_list();
-                        self.screen = Screen::SaveBrowser {
-                            scroll: 0,
-                            delete_confirm: None,
-                        };
-                    }
-                    crossterm::event::KeyCode::Char('?') => {
-                        self.previous_screen = Some(Screen::TitleScreen);
-                        self.screen = Screen::Help;
-                    }
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.running = false;
-                    }
-                    _ => {}
-                },
-                Screen::SaveBrowser {
-                    ref scroll,
-                    ref delete_confirm,
-                } => {
-                    let scroll_val = *scroll;
-                    let confirm_val = *delete_confirm;
-                    match key.code {
-                        crossterm::event::KeyCode::Char('j') | crossterm::event::KeyCode::Down => {
-                            let max_scroll = self.save_entries.len().saturating_sub(1) as u16;
-                            self.screen = Screen::SaveBrowser {
-                                scroll: scroll_val
-                                    .min(max_scroll)
-                                    .saturating_add(1)
-                                    .min(max_scroll),
-                                delete_confirm: confirm_val,
-                            };
-                        }
-                        crossterm::event::KeyCode::Char('k') | crossterm::event::KeyCode::Up => {
-                            self.screen = Screen::SaveBrowser {
-                                scroll: scroll_val.saturating_sub(1),
-                                delete_confirm: confirm_val,
-                            };
-                        }
-                        crossterm::event::KeyCode::Enter => {
-                            if let Some(entry) = self.save_entries.get(scroll_val as usize) {
-                                match crate::save::load_game_file(&entry.filename) {
-                                    Ok(data) => {
-                                        let last_collapse_died = data
-                                            .collapse_log
-                                            .last()
-                                            .map(|c| c.died)
-                                            .unwrap_or(false);
-                                        self.sim = Some(data.sim);
-                                        self.player_start = data.player_start;
-                                        self.clock = data.clock;
-                                        self.vitals = data.vitals;
-                                        self.player_pos = data.player_pos;
-                                        self.god_affinity = data.god_affinity;
-                                        self.inter_people_bias = data.inter_people_bias;
-                                        self.encounters_had = data.encounters_had;
-                                        self.collapses_had = data.collapses_had;
-                                        self.collapse_log = data.collapse_log;
-                                        self.lineage = data.lineage;
-                                        self.milestones = data.milestones;
-                                        self.hint_tracker = data.hint_tracker;
-                                        self.elder = self.milestones.has(
-                                            crate::sim::milestones::MilestoneKind::ElderAchieved,
-                                        );
-                                        if last_collapse_died {
-                                            self.continue_as_npc();
-                                        }
-                                        self.screen = self.world_screen();
-                                    }
-                                    Err(e) => {
-                                        self.status_msg = Some(format!("Load failed: {}", e));
-                                    }
-                                }
-                            }
-                        }
-                        crossterm::event::KeyCode::Char('d') => {
-                            if let Some(idx) = confirm_val {
-                                if idx == scroll_val as usize {
-                                    if let Some(entry) = self.save_entries.get(idx) {
-                                        let _ = crate::save::delete_save(&entry.filename);
-                                    }
-                                    self.save_entries = crate::save::saves_dir_list();
-                                    let new_scroll =
-                                        if scroll_val as usize >= self.save_entries.len() {
-                                            self.save_entries.len().saturating_sub(1) as u16
-                                        } else {
-                                            scroll_val
-                                        };
-                                    self.screen = Screen::SaveBrowser {
-                                        scroll: new_scroll,
-                                        delete_confirm: None,
-                                    };
-                                } else {
-                                    self.screen = Screen::SaveBrowser {
-                                        scroll: scroll_val,
-                                        delete_confirm: Some(scroll_val as usize),
-                                    };
-                                }
-                            } else if !self.save_entries.is_empty() {
-                                self.screen = Screen::SaveBrowser {
-                                    scroll: scroll_val,
-                                    delete_confirm: Some(scroll_val as usize),
-                                };
-                            }
-                        }
-                        crossterm::event::KeyCode::Esc => {
-                            self.screen = Screen::TitleScreen;
-                        }
-                        _ => {}
+                Screen::TitleScreen => {
+                    super::input::title::handle_title_input(self, key);
+                }
+                Screen::SaveBrowser { .. } => {
+                    super::input::save_browser::handle_save_browser_input(self, key);
+                }
+                Screen::CharacterCreation => {
+                    super::input::character_creation::handle_character_creation_input(self, key);
+                }
+                Screen::World { region_idx } => {
+                    super::input::world::handle_world_input(self, key, region_idx);
+                }
+                Screen::Overmap { region_idx } => {
+                    super::input::overmap::handle_overmap_input(self, key, region_idx);
+                }
+                Screen::Inventory => {
+                    super::input::inventory::handle_inventory_input(self, key);
+                }
+                Screen::Craft { scroll } => {
+                    let new_scroll = super::input::craft::handle_craft_input(self, key, scroll);
+                    if let Screen::Craft { .. } = self.screen {
+                        self.screen = Screen::Craft { scroll: new_scroll };
                     }
                 }
-                Screen::CharacterCreation => match key.code {
-                    crossterm::event::KeyCode::Char('r') => {
-                        self.reroll_player();
-                    }
-                    crossterm::event::KeyCode::Enter => {
-                        if self.player_start.is_none() {
-                            self.generate_player();
-                        }
-                        self.accept_player();
-                    }
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.screen = Screen::TitleScreen;
-                    }
-                    _ => {}
-                },
-                Screen::World { region_idx } => match key.code {
-                    crossterm::event::KeyCode::Char('h') | crossterm::event::KeyCode::Left => {
-                        self.move_player(-1, 0);
-                    }
-                    crossterm::event::KeyCode::Char('l') | crossterm::event::KeyCode::Right => {
-                        self.move_player(1, 0);
-                    }
-                    crossterm::event::KeyCode::Char('k') | crossterm::event::KeyCode::Up => {
-                        self.move_player(0, -1);
-                    }
-                    crossterm::event::KeyCode::Char('j') | crossterm::event::KeyCode::Down => {
-                        self.move_player(0, 1);
-                    }
-                    crossterm::event::KeyCode::Char('w') | crossterm::event::KeyCode::Char('.') => {
-                        self.advance_clock(1);
-                    }
-                    crossterm::event::KeyCode::Enter => {
-                        if let Some((ri, si)) = self.player_on_settlement() {
-                            self.enter_settlement(ri, si);
-                        }
-                    }
-                    crossterm::event::KeyCode::Char(' ') => {
-                        if let Some(ref mut sim) = self.sim {
-                            sim.step();
-                        }
-                    }
-                    crossterm::event::KeyCode::Char('a') => {
-                        if let Some((ri, si)) = self.player_on_settlement() {
-                            self.adopt_companion(ri, si);
-                        }
-                    }
-                    crossterm::event::KeyCode::Char('g') => {
-                        self.gather();
-                    }
-                    crossterm::event::KeyCode::Char('r') => {
-                        self.rest();
-                    }
-                    crossterm::event::KeyCode::Char('i') => {
-                        self.enter_inventory();
-                    }
-                    crossterm::event::KeyCode::Char('c') => {
-                        self.enter_craft();
-                    }
-                    crossterm::event::KeyCode::Char('b') => {
-                        self.start_build();
-                    }
-                    crossterm::event::KeyCode::Char('s') => {
-                        self.save_game();
-                    }
-                    crossterm::event::KeyCode::Char('M') => {
-                        self.enter_overmap();
-                    }
-                    crossterm::event::KeyCode::Char('m') => {
-                        self.enter_journal();
-                    }
-                    crossterm::event::KeyCode::Char('H') => {
-                        self.open_encounter_log();
-                    }
-                    crossterm::event::KeyCode::Char(c @ '1'..='9') => {
-                        let idx = (c as usize) - ('1' as usize);
-                        if idx != region_idx {
-                            self.enter_map(
-                                idx.min(
-                                    self.sim
-                                        .as_ref()
-                                        .map(|s| s.world.regions.len())
-                                        .unwrap_or(1)
-                                        - 1,
-                                ),
-                            );
-                        }
-                    }
-                    crossterm::event::KeyCode::Char('?') => {
-                        self.previous_screen = Some(self.screen.clone());
-                        self.screen = Screen::Help;
-                    }
-                    crossterm::event::KeyCode::Char(',') => {
-                        self.previous_screen = Some(self.screen.clone());
-                        self.screen = Screen::Settings;
-                    }
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.screen = Screen::TitleScreen;
-                    }
-                    _ => {}
-                },
-                Screen::Overmap { region_idx } => match key.code {
-                    crossterm::event::KeyCode::Char('q')
-                    | crossterm::event::KeyCode::Esc
-                    | crossterm::event::KeyCode::Char('M') => {
-                        self.exit_overmap();
-                    }
-                    crossterm::event::KeyCode::Char('h') | crossterm::event::KeyCode::Left => {
-                        if let Some(ref sim) = self.sim {
-                            if let Some(region) = sim.world.regions.get(region_idx) {
-                                if let Some(west) = region.neighbors.west {
-                                    self.screen = Screen::Overmap { region_idx: west };
-                                }
-                            }
-                        }
-                    }
-                    crossterm::event::KeyCode::Char('l') | crossterm::event::KeyCode::Right => {
-                        if let Some(ref sim) = self.sim {
-                            if let Some(region) = sim.world.regions.get(region_idx) {
-                                if let Some(east) = region.neighbors.east {
-                                    self.screen = Screen::Overmap { region_idx: east };
-                                }
-                            }
-                        }
-                    }
-                    crossterm::event::KeyCode::Char('k') | crossterm::event::KeyCode::Up => {
-                        if let Some(ref sim) = self.sim {
-                            if let Some(region) = sim.world.regions.get(region_idx) {
-                                if let Some(north) = region.neighbors.north {
-                                    self.screen = Screen::Overmap { region_idx: north };
-                                }
-                            }
-                        }
-                    }
-                    crossterm::event::KeyCode::Char('j') | crossterm::event::KeyCode::Down => {
-                        if let Some(ref sim) = self.sim {
-                            if let Some(region) = sim.world.regions.get(region_idx) {
-                                if let Some(south) = region.neighbors.south {
-                                    self.screen = Screen::Overmap { region_idx: south };
-                                }
-                            }
-                        }
-                    }
-                    crossterm::event::KeyCode::Enter => {
-                        self.screen = Screen::World { region_idx };
-                    }
-                    _ => {}
-                },
-                Screen::Inventory => match key.code {
-                    crossterm::event::KeyCode::Char('q')
-                    | crossterm::event::KeyCode::Esc
-                    | crossterm::event::KeyCode::Char('i') => {
-                        self.exit_inventory();
-                    }
-                    _ => {}
-                },
-                Screen::Craft { ref mut scroll } => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.exit_craft();
-                    }
-                    crossterm::event::KeyCode::Down => {
-                        *scroll = scroll.saturating_add(1);
-                    }
-                    crossterm::event::KeyCode::Up => {
-                        *scroll = scroll.saturating_sub(1);
-                    }
-                    crossterm::event::KeyCode::Char(c @ '1'..='9') => {
-                        let idx = (c as usize) - ('1' as usize);
-                        self.craft_recipe(idx);
-                    }
-                    _ => {}
-                },
                 Screen::Location {
-                    ref mut scroll,
+                    scroll,
                     region_idx,
                     settlement_idx,
-                } => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.exit_settlement();
+                } => {
+                    let new_scroll = super::input::location::handle_location_input(
+                        self,
+                        key,
+                        scroll,
+                        region_idx,
+                        settlement_idx,
+                    );
+                    if let Screen::Location {
+                        region_idx,
+                        settlement_idx,
+                        ..
+                    } = self.screen
+                    {
+                        self.screen = Screen::Location {
+                            scroll: new_scroll,
+                            region_idx,
+                            settlement_idx,
+                        };
                     }
-                    crossterm::event::KeyCode::Char(' ') => {
-                        if let Some(ref mut sim) = self.sim {
-                            sim.step();
-                        }
-                    }
-                    crossterm::event::KeyCode::Down => {
-                        *scroll = scroll.saturating_add(1);
-                    }
-                    crossterm::event::KeyCode::Up => {
-                        *scroll = scroll.saturating_sub(1);
-                    }
-                    crossterm::event::KeyCode::Enter => {
-                        self.enter_npc(region_idx, settlement_idx, 0);
-                    }
-                    crossterm::event::KeyCode::Char(c) if ('1'..='9').contains(&c) => {
-                        let idx = (c as usize) - ('1' as usize);
-                        self.enter_npc(region_idx, settlement_idx, idx);
-                    }
-                    crossterm::event::KeyCode::Char('m') => {
-                        self.enter_market(region_idx, settlement_idx);
-                    }
-                    crossterm::event::KeyCode::Char('s') => {
-                        if let Some(ref sim) = self.sim {
-                            if let Some(region) = sim.world.regions.get(region_idx) {
-                                if let Some(settlement) = region.settlements.get(settlement_idx) {
-                                    if let Some(&service) = settlement.services.first() {
-                                        self.use_service(service);
-                                    } else {
-                                        self.status_msg = Some("No services here".into());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                },
+                }
                 Screen::Npc {
-                    ref mut scroll,
+                    scroll,
                     region_idx,
                     settlement_idx,
                     person_idx,
-                } => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.exit_npc(region_idx, settlement_idx);
+                } => {
+                    let new_scroll = super::input::npc::handle_npc_input(
+                        self,
+                        key,
+                        scroll,
+                        region_idx,
+                        settlement_idx,
+                        person_idx,
+                    );
+                    if let Screen::Npc {
+                        region_idx,
+                        settlement_idx,
+                        person_idx,
+                        ..
+                    } = self.screen
+                    {
+                        self.screen = Screen::Npc {
+                            scroll: new_scroll,
+                            region_idx,
+                            settlement_idx,
+                            person_idx,
+                        };
                     }
-                    crossterm::event::KeyCode::Char(' ') => {
-                        if let Some(ref mut sim) = self.sim {
-                            sim.step();
-                        }
+                }
+                Screen::Journal { scroll } => {
+                    let new_scroll = super::input::journal::handle_journal_input(self, key, scroll);
+                    if let Screen::Journal { .. } = self.screen {
+                        self.screen = Screen::Journal { scroll: new_scroll };
                     }
-                    crossterm::event::KeyCode::Char('t') => {
-                        self.enter_talk(region_idx, settlement_idx, person_idx);
+                }
+                Screen::EncounterLog { scroll } => {
+                    let new_scroll =
+                        super::input::encounter_log::handle_encounter_log_input(self, key, scroll);
+                    if let Screen::EncounterLog { .. } = self.screen {
+                        self.screen = Screen::EncounterLog { scroll: new_scroll };
                     }
-                    crossterm::event::KeyCode::Down => {
-                        *scroll = scroll.saturating_add(1);
-                    }
-                    crossterm::event::KeyCode::Up => {
-                        *scroll = scroll.saturating_sub(1);
-                    }
-                    _ => {}
-                },
-                Screen::Journal { ref mut scroll } => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.exit_journal();
-                    }
-                    crossterm::event::KeyCode::Down => {
-                        *scroll = scroll.saturating_add(1);
-                    }
-                    crossterm::event::KeyCode::Up => {
-                        *scroll = scroll.saturating_sub(1);
-                    }
-                    _ => {}
-                },
-                Screen::EncounterLog { ref mut scroll } => match key.code {
-                    crossterm::event::KeyCode::Char('q')
-                    | crossterm::event::KeyCode::Esc
-                    | crossterm::event::KeyCode::Char('H')
-                    | crossterm::event::KeyCode::Left => {
-                        self.exit_encounter_log();
-                    }
-                    crossterm::event::KeyCode::Down => {
-                        *scroll = scroll.saturating_add(1);
-                    }
-                    crossterm::event::KeyCode::Up => {
-                        *scroll = scroll.saturating_sub(1);
-                    }
-                    _ => {}
-                },
+                }
                 Screen::Talk {
-                    ref mut scroll,
+                    scroll,
                     region_idx,
                     settlement_idx,
                     person_idx,
-                } => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.exit_talk(region_idx, settlement_idx, person_idx);
+                } => {
+                    let new_scroll = super::input::talk::handle_talk_input(
+                        self,
+                        key,
+                        scroll,
+                        region_idx,
+                        settlement_idx,
+                        person_idx,
+                    );
+                    if let Screen::Talk {
+                        region_idx,
+                        settlement_idx,
+                        person_idx,
+                        ..
+                    } = self.screen
+                    {
+                        self.screen = Screen::Talk {
+                            scroll: new_scroll,
+                            region_idx,
+                            settlement_idx,
+                            person_idx,
+                        };
                     }
-                    crossterm::event::KeyCode::Char('f') => {
-                        self.give_food(region_idx, settlement_idx, person_idx);
+                }
+                Screen::Market {
+                    scroll,
+                    region_idx: _,
+                    settlement_idx: _,
+                } => {
+                    let new_scroll = super::input::market::handle_market_input(self, key, scroll);
+                    if let Screen::Market {
+                        region_idx,
+                        settlement_idx,
+                        ..
+                    } = self.screen
+                    {
+                        self.screen = Screen::Market {
+                            scroll: new_scroll,
+                            region_idx,
+                            settlement_idx,
+                        };
                     }
-                    crossterm::event::KeyCode::Char('c') => {
-                        self.give_coin(region_idx, settlement_idx, person_idx);
-                    }
-                    crossterm::event::KeyCode::Down => {
-                        *scroll = scroll.saturating_add(1);
-                    }
-                    crossterm::event::KeyCode::Up => {
-                        *scroll = scroll.saturating_sub(1);
-                    }
-                    _ => {}
-                },
-                Screen::Market { ref mut scroll, .. } => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.exit_market();
-                    }
-                    crossterm::event::KeyCode::Down => {
-                        *scroll = scroll.saturating_add(1);
-                    }
-                    crossterm::event::KeyCode::Up => {
-                        *scroll = scroll.saturating_sub(1);
-                    }
-                    crossterm::event::KeyCode::Char(c) if ('1'..='6').contains(&c) => {
-                        let idx = (c as usize) - ('1' as usize);
-                        let items = ItemType::tradeable_items();
-                        if let Some(&item) = items.get(idx) {
-                            self.buy_item(item);
-                        }
-                    }
-                    crossterm::event::KeyCode::Char(c) if ('a'..='f').contains(&c) => {
-                        let idx = (c as usize) - ('a' as usize);
-                        let items = ItemType::tradeable_items();
-                        if let Some(&item) = items.get(idx) {
-                            self.sell_item(item);
-                        }
-                    }
-                    _ => {}
-                },
-                Screen::Encounter => match key.code {
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.resolve_encounter(EncounterAction::Flee);
-                    }
-                    crossterm::event::KeyCode::Enter => {
-                        self.resolve_encounter(EncounterAction::Flee);
-                    }
-                    crossterm::event::KeyCode::Char(c) => {
-                        if let Some(enc) = self.encounter {
-                            for action in enc.kind.available_actions() {
-                                if action.key() == c {
-                                    self.resolve_encounter(action);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                },
-                Screen::Collapse => match key.code {
-                    crossterm::event::KeyCode::Char('q')
-                    | crossterm::event::KeyCode::Esc
-                    | crossterm::event::KeyCode::Enter => {
-                        self.dismiss_collapse();
-                    }
-                    _ => {}
-                },
-                Screen::GameOver => match key.code {
-                    crossterm::event::KeyCode::Char('r') => {
-                        self.restart_game();
-                    }
-                    crossterm::event::KeyCode::Char('q') | crossterm::event::KeyCode::Esc => {
-                        self.running = false;
-                    }
-                    _ => {}
-                },
-                Screen::Help => match key.code {
-                    crossterm::event::KeyCode::Char('q')
-                    | crossterm::event::KeyCode::Esc
-                    | crossterm::event::KeyCode::Char('?') => {
-                        if let Some(prev) = self.previous_screen.take() {
-                            self.screen = prev;
-                        }
-                    }
-                    _ => {}
-                },
-                Screen::Settings => match key.code {
-                    crossterm::event::KeyCode::Char('q')
-                    | crossterm::event::KeyCode::Esc
-                    | crossterm::event::KeyCode::Char(',') => {
-                        if let Some(prev) = self.previous_screen.take() {
-                            self.screen = prev;
-                        }
-                    }
-                    crossterm::event::KeyCode::Char('l') => {
-                        self.llm_enabled = !self.llm_enabled;
-                        self.status_msg = Some(if self.llm_enabled {
-                            "LLM narrator enabled".into()
-                        } else {
-                            "LLM narrator disabled (using voice.rs templates)".into()
-                        });
-                        self.save_settings();
-                    }
-                    crossterm::event::KeyCode::Char('m') => {
-                        self.monochrome = !self.monochrome;
-                        self.status_msg = Some(if self.monochrome {
-                            "Monochrome mode on".into()
-                        } else {
-                            "Full color mode on".into()
-                        });
-                        self.save_settings();
-                    }
-                    crossterm::event::KeyCode::Char('h') => {
-                        self.high_contrast = !self.high_contrast;
-                        self.status_msg = Some(if self.high_contrast {
-                            "High contrast mode on".into()
-                        } else {
-                            "Standard contrast mode on".into()
-                        });
-                        self.save_settings();
-                    }
-                    crossterm::event::KeyCode::Char('p') => {
-                        self.reduced_motion = !self.reduced_motion;
-                        self.status_msg = Some(if self.reduced_motion {
-                            "Reduced motion on".into()
-                        } else {
-                            "Animations enabled".into()
-                        });
-                        self.save_settings();
-                    }
-                    crossterm::event::KeyCode::Char('a') => {
-                        self.audio_enabled = !self.audio_enabled;
-                        self.status_msg = Some(if self.audio_enabled {
-                            "Audio enabled".into()
-                        } else {
-                            "Audio disabled".into()
-                        });
-                        self.save_settings();
-                    }
-                    crossterm::event::KeyCode::Char('+') | crossterm::event::KeyCode::Char('=') => {
-                        self.audio_volume = (self.audio_volume + 0.1).clamp(0.0, 1.0);
-                        self.status_msg =
-                            Some(format!("Volume: {:.0}%", self.audio_volume * 100.0));
-                        self.save_settings();
-                    }
-                    crossterm::event::KeyCode::Char('-') => {
-                        self.audio_volume = (self.audio_volume - 0.1).clamp(0.0, 1.0);
-                        self.status_msg =
-                            Some(format!("Volume: {:.0}%", self.audio_volume * 100.0));
-                        self.save_settings();
-                    }
-                    crossterm::event::KeyCode::Char('e') => {
-                        let endpoints = [
-                            "http://localhost:11434/v1",
-                            "http://localhost:8080/v1",
-                            "https://api.openai.com/v1",
-                        ];
-                        let idx = endpoints
-                            .iter()
-                            .position(|e| *e == self.llm_endpoint)
-                            .unwrap_or(0);
-                        self.llm_endpoint = endpoints[(idx + 1) % endpoints.len()].to_string();
-                        self.status_msg = Some(format!("Endpoint: {}", self.llm_endpoint));
-                        self.save_settings();
-                    }
-                    crossterm::event::KeyCode::Char('o') => {
-                        let models = ["llama3", "mistral", "gemma2", "phi3", "qwen2"];
-                        let idx = models
-                            .iter()
-                            .position(|m| *m == self.llm_model)
-                            .unwrap_or(0);
-                        self.llm_model = models[(idx + 1) % models.len()].to_string();
-                        self.status_msg = Some(format!("Model: {}", self.llm_model));
-                        self.save_settings();
-                    }
-                    _ => {}
-                },
+                }
+                Screen::Encounter => {
+                    super::input::encounter::handle_encounter_input(self, key);
+                }
+                Screen::Collapse => {
+                    super::input::collapse::handle_collapse_input(self, key);
+                }
+                Screen::GameOver => {
+                    super::input::game_over::handle_game_over_input(self, key);
+                }
+                Screen::Help => {
+                    super::input::help::handle_help_input(self, key);
+                }
+                Screen::Settings => {
+                    super::input::settings::handle_settings_input(self, key);
+                }
             },
             AppEvent::Tick => {}
         }

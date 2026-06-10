@@ -1,5 +1,6 @@
 pub mod app;
 pub mod event;
+pub mod input;
 pub mod render;
 pub mod screens;
 pub mod settings;
