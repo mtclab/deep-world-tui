@@ -271,8 +271,13 @@ impl Companion {
     }
 
     pub fn decay_needs(&mut self, ticks: u64) {
-        self.food_need = (self.food_need + ticks as f64 * 0.5).min(100.0);
-        self.rest_need = (self.rest_need + ticks as f64 * 0.3).min(100.0);
+        // Per-animal upkeep: a horse eats twice what a dog does, and a river
+        // eel asks for nothing. These rates existed on Animal but decay used
+        // flat constants, so every companion cost the same to keep.
+        let food_rate = 0.25 * self.animal.food_per_tick() as f64;
+        let rest_rate = 0.15 * self.animal.rest_per_tick() as f64;
+        self.food_need = (self.food_need + ticks as f64 * food_rate).min(100.0);
+        self.rest_need = (self.rest_need + ticks as f64 * rest_rate).min(100.0);
     }
 
     pub fn feed(&mut self, amount: f64) {
