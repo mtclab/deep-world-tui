@@ -83,8 +83,10 @@ thing they can later keep, change, or abandon.
 
 ## 5. Data + lore grounding
 
-Charts live in `data/` as RON (or JSON), loaded at runtime with serde, so they're
-tunable without recompiling. **Generate/tune weights from the lore**, citing the
+Charts live in `data/` as RON (or JSON), embedded at build time via `include_str!`
+but overridable at runtime: `--charts <path>` CLI flag, `DEEP_WORLD_CHARTS` env var,
+or `~/.config/deep-world-tui/charts.ron` — so they're tunable without recompiling.
+Invalid override falls back to embedded. **Generate/tune weights from the lore**, citing the
 file. Key sources (in `deep-world-history/src/docs/`):
 - `nations/population_scale_and_settlement_hierarchy.md` → people + region weights, density.
 - `culture/professions_and_trades_catalogue.md`, `crafts_guilds_and_working_life.md`,
