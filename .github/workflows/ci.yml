@@ -29,6 +29,27 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --all
 
+  playtest-smoke:
+    name: playtest smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build playtest binary
+        run: cargo build --bin playtest
+      - name: Drive a scripted session and assert save/load survives
+        run: |
+          set -euo pipefail
+          for seed in 42 555 777; do
+            out=$(printf 'move e\nmove e\nmove e\ngather\nmove n\nencounter talk\nmove s\nmove w\nenter 0 0\nuse tavern\nexit\nsave\nload\nstatus\nquit\n' \
+              | cargo run --quiet --bin playtest -- "$seed")
+            echo "$out"
+            if echo "$out" | grep -qiE 'Load failed|panicked|Save failed'; then
+              echo "::error::playtest smoke failed for seed $seed"
+              exit 1
+            fi
+          done
+
   build:
     name: build (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
