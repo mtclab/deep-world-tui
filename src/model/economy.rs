@@ -1318,6 +1318,7 @@ mod tests {
             neighbors: RegionNeighbors::default(),
 
             structures: vec![],
+            weather: crate::model::Weather::Clear,
         };
 
         assert_eq!(region.danger_level(), DangerLevel::Safe);
@@ -1358,6 +1359,7 @@ mod tests {
             neighbors: RegionNeighbors::default(),
 
             structures: vec![],
+            weather: crate::model::Weather::Clear,
         };
 
         assert_eq!(region.danger_level(), DangerLevel::Dangerous);
@@ -1427,6 +1429,7 @@ mod tests {
             neighbors: RegionNeighbors::default(),
 
             structures: vec![],
+            weather: crate::model::Weather::Clear,
         };
 
         roundtrip(&r);

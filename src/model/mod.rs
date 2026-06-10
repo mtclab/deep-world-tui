@@ -115,6 +115,15 @@ pub struct Region {
     pub neighbors: RegionNeighbors,
     #[serde(default)]
     pub structures: Vec<crate::sim::structures::Structure>,
+    /// Today's sky over this region. Set daily by the weather-front system
+    /// (persistence + drift from neighbors) instead of an hourly hash, so
+    /// weather has continuity — fronts arrive, sit, and move on.
+    #[serde(default = "default_region_weather")]
+    pub weather: Weather,
+}
+
+fn default_region_weather() -> Weather {
+    Weather::Clear
 }
 
 impl Region {

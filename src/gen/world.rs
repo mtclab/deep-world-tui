@@ -162,6 +162,14 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
 
     let terrain = generate_terrain(&mut rng, &region_type, &settlements);
 
+    // Opening sky drawn from the region's own tendencies; the front system
+    // takes over from day one.
+    let weather = crate::model::Weather::generate(
+        rng.next_u64(),
+        0,
+        crate::sim::region_work_terrain(&region_type),
+    );
+
     Region {
         id: region_id,
         name: region_name,
@@ -172,6 +180,7 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
         terrain,
         neighbors: crate::model::RegionNeighbors::default(),
         structures: vec![],
+        weather,
     }
 }
 
