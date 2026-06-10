@@ -33,6 +33,9 @@ fn make_save(version: u32) -> SaveData {
         version,
         first_run: true,
         hint_tracker: HintTracker::default(),
+        start_age_years: 0,
+        birth_day: 0,
+        lifespan_years: 0,
     }
 }
 
@@ -97,6 +100,9 @@ fn roundtrip_preserves_all_fields() {
         version: CURRENT_SAVE_VERSION,
         first_run: true,
         hint_tracker: HintTracker::default(),
+        start_age_years: 0,
+        birth_day: 0,
+        lifespan_years: 0,
     };
 
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");

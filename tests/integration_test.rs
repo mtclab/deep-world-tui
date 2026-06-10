@@ -119,6 +119,9 @@ fn full_pipeline_seed_generate_enter_talk() {
         version: CURRENT_SAVE_VERSION,
         first_run: true,
         hint_tracker: HintTracker::default(),
+        start_age_years: 0,
+        birth_day: 0,
+        lifespan_years: 0,
     };
 
     save::save_game(&data, "integration_save.ron").expect("save should succeed");

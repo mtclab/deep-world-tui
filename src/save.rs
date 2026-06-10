@@ -69,6 +69,12 @@ pub struct SaveData {
     pub first_run: bool,
     #[serde(default)]
     pub hint_tracker: HintTracker,
+    #[serde(default)]
+    pub start_age_years: u32,
+    #[serde(default)]
+    pub birth_day: u32,
+    #[serde(default)]
+    pub lifespan_years: u32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -254,6 +260,9 @@ pub fn restore_from_compact(
         version: CURRENT_SAVE_VERSION,
         first_run: true,
         hint_tracker: HintTracker::default(),
+        start_age_years: 0,
+        birth_day: 0,
+        lifespan_years: 0,
     })
 }
 
@@ -285,6 +294,9 @@ mod tests {
             version: CURRENT_SAVE_VERSION,
             first_run: true,
             hint_tracker: HintTracker::default(),
+            start_age_years: 0,
+            birth_day: 0,
+            lifespan_years: 0,
         };
         save_game(&data, "test_save.ron").expect("save should succeed");
         let loaded = load_game("test_save.ron").expect("load should succeed");
@@ -371,6 +383,9 @@ mod tests {
             version: CURRENT_SAVE_VERSION,
             first_run: true,
             hint_tracker: HintTracker::default(),
+            start_age_years: 0,
+            birth_day: 0,
+            lifespan_years: 0,
         };
         let compact_data = CompactSave {
             seed: 42,

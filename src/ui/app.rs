@@ -27,6 +27,9 @@ pub enum Screen {
     SaveSlots {
         scroll: u16,
     },
+    RestPrompt {
+        hours: u32,
+    },
     CharacterCreation,
     World {
         region_idx: usize,
@@ -108,6 +111,12 @@ pub struct App {
     pub milestones: crate::sim::milestones::MilestoneTracker,
     pub explored: Vec<crate::model::ExploredMap>,
     pub elder: bool,
+    /// Age in years at the start of the current life (from age_band).
+    pub start_age_years: u32,
+    /// Calendar day on which the current life began (for elapsed-age math).
+    pub birth_day: u32,
+    /// Rolled maximum age for the current life; death of old age at/after this.
+    pub lifespan_years: u32,
     pub tick_count: u64,
     pub flash_frames: u8,
     pub perf_slow_frames: u32,
@@ -118,6 +127,25 @@ pub struct App {
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
+}
+
+/// Calendar days that elapse per year of the player's life. Aging is decoupled
+/// from the literal hour/day calendar so a full life is reachable in normal play.
+const AGING_DAYS_PER_LIFE_YEAR: u32 = 3;
+/// Years before death at which the player becomes an elder.
+const ELDER_BAND_YEARS: u32 = 8;
+/// Longest single rest the player may take (a full night).
+const MAX_REST_HOURS: u32 = 12;
+/// Default rest duration the picker opens on.
+const DEFAULT_REST_HOURS: u32 = 6;
+
+/// Starting age (years) for a generated age band.
+fn start_age_from_band(band: &str) -> u32 {
+    match band.to_ascii_lowercase().as_str() {
+        "youth" | "young" => 18,
+        "elder" | "old" => 58,
+        _ => 32, // adult / unknown
+    }
 }
 
 impl App {
@@ -163,6 +191,9 @@ impl App {
             milestones: crate::sim::milestones::MilestoneTracker::new(),
             explored: Vec::new(),
             elder: false,
+            start_age_years: 0,
+            birth_day: 0,
+            lifespan_years: 0,
             tick_count: 0,
             flash_frames: 0,
             perf_slow_frames: 0,
@@ -228,7 +259,9 @@ impl App {
                     .map(|r| crate::model::ExploredMap::new(r.terrain.width, r.terrain.height))
                     .collect();
             }
+            let age_band = ps.person.age_band.clone();
             self.player_start = Some(ps);
+            self.begin_life_aging(&age_band, 0);
             self.enter_map(0);
         }
     }
@@ -417,6 +450,9 @@ impl App {
             version: save_migrations::CURRENT_SAVE_VERSION,
             first_run: false,
             hint_tracker: self.hint_tracker.clone(),
+            start_age_years: self.start_age_years,
+            birth_day: self.birth_day,
+            lifespan_years: self.lifespan_years,
         })
     }
 
@@ -436,6 +472,89 @@ impl App {
         self.save_to_slot(1);
     }
 
+    /// Begin tracking age for a new life: starting age from the age band, the
+    /// current calendar day as birth, and a rolled lifespan (mischance-weighted).
+    fn begin_life_aging(&mut self, age_band: &str, life_salt: u64) {
+        self.start_age_years = start_age_from_band(age_band);
+        self.birth_day = self.clock.day;
+        let mut rng = SeedRng::new(self.seed.wrapping_add(life_salt)).fork_for("lifespan");
+        // Base 58-72 years; ~1 in 6 lives is cut short by frailty/mischance.
+        let mut span = 58 + rng.gen_range(15);
+        if rng.gen_range(6) == 0 {
+            span = span.saturating_sub(8 + rng.gen_range(18));
+        }
+        self.lifespan_years = span.max(self.start_age_years + 2);
+        self.elder = false;
+    }
+
+    /// Restore aging fields from a loaded save; pre-aging saves (lifespan 0)
+    /// get a fresh lifespan rolled from the player's band so they still age.
+    pub(crate) fn apply_loaded_aging(
+        &mut self,
+        start_age_years: u32,
+        birth_day: u32,
+        lifespan_years: u32,
+    ) {
+        self.start_age_years = start_age_years;
+        self.birth_day = birth_day;
+        self.lifespan_years = lifespan_years;
+        if self.lifespan_years == 0 {
+            if let Some(band) = self
+                .player_start
+                .as_ref()
+                .map(|ps| ps.person.age_band.clone())
+            {
+                self.begin_life_aging(&band, self.clock.day as u64);
+            }
+        }
+    }
+
+    /// The player's current age in years, derived from elapsed calendar days.
+    pub fn current_age_years(&self) -> u32 {
+        let elapsed = self.clock.day.saturating_sub(self.birth_day);
+        self.start_age_years + elapsed / AGING_DAYS_PER_LIFE_YEAR
+    }
+
+    /// Advance elderhood and old-age death based on the player's age. Called
+    /// once per clock advance.
+    fn check_aging(&mut self) {
+        if self.player_start.is_none() || self.lifespan_years == 0 {
+            return;
+        }
+        let age = self.current_age_years();
+        if age >= self.lifespan_years {
+            self.die_of_old_age();
+            return;
+        }
+        if !self.elder && age + ELDER_BAND_YEARS >= self.lifespan_years {
+            self.elder = true;
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Scar,
+                    "My years weigh on me now. I have become an elder.".into(),
+                );
+            }
+        }
+    }
+
+    fn die_of_old_age(&mut self) {
+        self.death_cause = Some(DeathCause::OldAge);
+        if let Some(data) = self.build_save_data() {
+            let _ = save::save_lineage(&data, self.seed);
+        }
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Scar,
+                "Age took me, quiet as dusk. The world remembers, and life goes on.".into(),
+            );
+        }
+        self.continue_as_npc();
+    }
+
     /// Return to the World map at the player's current region.
     pub fn return_to_world(&mut self) {
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
@@ -447,6 +566,15 @@ impl App {
         self.save_entries = save::saves_dir_list();
         self.screen = Screen::SaveSlots { scroll: 0 };
     }
+
+    /// Open the rest-duration picker.
+    pub fn open_rest_prompt(&mut self) {
+        self.screen = Screen::RestPrompt {
+            hours: DEFAULT_REST_HOURS,
+        };
+    }
+
+    pub const MAX_REST_HOURS: u32 = MAX_REST_HOURS;
 
     pub fn load_game(&mut self) {
         match save::load_game(&save::slot_filename(1)) {
@@ -466,6 +594,7 @@ impl App {
                 self.hint_tracker = data.hint_tracker;
                 self.explored = data.explored;
                 self.milestones = data.milestones;
+                self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
                 self.elder = self
                     .milestones
                     .has(crate::sim::milestones::MilestoneKind::ElderAchieved);
@@ -1168,6 +1297,7 @@ impl App {
         }
         self.check_quests_on_tick();
         self.check_collapse();
+        self.check_aging();
     }
 
     fn log_travel(&mut self, terrain: Terrain) {
@@ -1886,17 +2016,7 @@ impl App {
             }
         }
 
-        if !self.elder && self.milestones.check_elder(day) {
-            self.elder = true;
-            if let Some(ref mut sim) = self.sim {
-                let tick = sim.world.tick;
-                sim.log(
-                    tick,
-                    MilestoneKind::ElderAchieved.voice(),
-                    MilestoneKind::ElderAchieved.journal_text(),
-                );
-            }
-        }
+        // Elderhood is age-based now (see check_aging), not a fixed calendar day.
 
         let has_player_structure = self
             .sim
@@ -2138,6 +2258,9 @@ impl App {
                     version: save_migrations::CURRENT_SAVE_VERSION,
                     first_run: false,
                     hint_tracker: self.hint_tracker.clone(),
+                    start_age_years: self.start_age_years,
+                    birth_day: self.birth_day,
+                    lifespan_years: self.lifespan_years,
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }
@@ -2344,9 +2467,14 @@ impl App {
         }
 
         // Switch player
+        let heir_band = npc_person.age_band.clone();
         self.player_start = Some(new_player_start);
         self.vitals = PlayerVitals::default();
         self.inter_people_bias = InterPeopleBias::new(PeopleKind::from_name(&npc_person.people));
+        // The heir is a fresh life: reset aging, salted by lineage depth so each
+        // generation rolls its own lifespan.
+        self.death_cause = None;
+        self.begin_life_aging(&heir_band, self.lineage.len() as u64);
 
         // Continue on Map screen
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
@@ -2563,9 +2691,19 @@ impl App {
         self.advance_clock(1);
     }
 
+    /// A full night's rest (8h). Kept for the legacy/default path.
     pub fn rest(&mut self) {
+        self.rest_hours(8);
+    }
+
+    /// Rest for a chosen number of hours (a short spurt up to a full night),
+    /// clamped to [1, MAX_REST_HOURS]. Effects and risk scale with the duration;
+    /// quality still depends on where you rest (settlement, shelter, the cold).
+    pub fn rest_hours(&mut self, hours: u32) {
         use crate::sim::rest::{tile_rest_quality, RestQuality};
 
+        let hours = hours.clamp(1, MAX_REST_HOURS);
+        let h = hours as f64;
         let tod = crate::model::TimeOfDay::from_hour(self.clock.hour);
         let was_deep_night = tod == crate::model::TimeOfDay::DeepNight;
         let on_settlement = self.player_on_settlement().is_some();
@@ -2574,9 +2712,9 @@ impl App {
         } else {
             tile_rest_quality(on_settlement, false, false, false)
         };
-        let stamina_gain = quality.stamina_per_hour() * 8.0;
-        let morale_gain = quality.morale_per_hour() * 8.0;
-        let encounter_risk = quality.encounter_risk_per_hour() * 8.0;
+        let stamina_gain = quality.stamina_per_hour() * h;
+        let morale_gain = quality.morale_per_hour() * h;
+        let encounter_risk = quality.encounter_risk_per_hour() * h;
 
         let quality_label = crate::sim::journal::rest_quality_label(
             on_settlement,
@@ -2585,11 +2723,11 @@ impl App {
             false,
         );
 
-        self.advance_clock(8);
-        self.vitals.rest();
+        self.advance_clock(hours);
+        self.vitals.rest(hours);
         if let Some(ref mut ps) = self.player_start {
             for companion in &mut ps.companions {
-                companion.rest(1.0);
+                companion.rest(h / 8.0);
                 let action_seed = self
                     .seed
                     .wrapping_add((self.clock.day as u64 * 24 + self.clock.hour as u64) * 137);
@@ -2617,15 +2755,16 @@ impl App {
             },
             None => 0.0,
         };
+        let dur_frac = h / 8.0;
         if structure_bonus > 0.0 {
-            self.vitals.energy = (self.vitals.energy + structure_bonus).min(1.0);
-            self.vitals.hunger = (self.vitals.hunger - structure_bonus * 0.3).max(0.0);
+            self.vitals.energy = (self.vitals.energy + structure_bonus * dur_frac).min(1.0);
+            self.vitals.hunger = (self.vitals.hunger - structure_bonus * 0.3 * dur_frac).max(0.0);
         }
         self.vitals.energy = (self.vitals.energy + stamina_gain / 8.0).min(1.0);
         self.god_affinity
             .adjust(GodName::Kukri, 0.02 + morale_gain * 0.1);
         if quality == RestQuality::Inn {
-            self.vitals.energy = (self.vitals.energy + 0.05).min(1.0);
+            self.vitals.energy = (self.vitals.energy + 0.05 * dur_frac).min(1.0);
         }
 
         let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
@@ -3003,6 +3142,9 @@ impl App {
                 }
                 Screen::SaveSlots { scroll } => {
                     super::input::save_slots::handle_save_slots_input(self, key, scroll);
+                }
+                Screen::RestPrompt { hours } => {
+                    super::input::rest_prompt::handle_rest_prompt_input(self, key, hours);
                 }
                 Screen::CharacterCreation => {
                     super::input::character_creation::handle_character_creation_input(self, key);

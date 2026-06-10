@@ -49,6 +49,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::SaveSlots { scroll } => {
             screens::save_slots::draw_save_slots_screen(f, app, scroll);
         }
+        Screen::RestPrompt { hours } => {
+            screens::rest_prompt::draw_rest_prompt_screen(f, app, hours);
+        }
         Screen::CharacterCreation => draw_character_creation(f, app),
         Screen::World { region_idx } => {
             draw_map_screen(f, app, region_idx);
