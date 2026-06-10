@@ -407,6 +407,7 @@ fn generate_settlement(
         food_stock: population as f64 * 2.0,
         farms: Vec::new(),
         buildings: Vec::new(),
+        festival_until_day: 0,
     }
 }
 

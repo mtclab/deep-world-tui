@@ -342,13 +342,14 @@ impl App {
         }
 
         let season = self.clock.season();
-        if season.festival_chance() > 0 {
-            let hash = self.seed.wrapping_mul(2654435761)
-                ^ (region_idx as u64).wrapping_mul(40503)
-                ^ (settlement_idx as u64).wrapping_mul(92000)
-                ^ (self.clock.day as u64);
-            let val = hash % 100;
-            if val < season.festival_chance() as u64 {
+        let festival_now = self
+            .sim
+            .as_ref()
+            .and_then(|sim| sim.world.regions.get(region_idx))
+            .and_then(|r| r.settlements.get(settlement_idx))
+            .is_some_and(|s| s.in_festival(self.clock.day));
+        if festival_now {
+            {
                 let people = self
                     .current_settlement_people()
                     .unwrap_or(self.inter_people_bias.player_people);
@@ -2988,6 +2989,13 @@ impl App {
             let extra = (service.cost() as f64 * combined).ceil() as u32;
             cost = cost.saturating_add(extra);
         }
+        // Festival days: the doors are open and everything is half price.
+        if self
+            .current_settlement()
+            .is_some_and(|s| s.in_festival(self.clock.day))
+        {
+            cost = (cost / 2).max(1);
+        }
         if let Some(ref mut ps) = self.player_start {
             if !ps.inventory.remove(ItemType::Coin, cost) {
                 self.status_msg = Some(format!("Need {} coins for {}", cost, service.label()));
@@ -2999,20 +3007,28 @@ impl App {
                 self.vitals.energy = (self.vitals.energy + 0.4).min(1.0);
                 self.vitals.hunger = (self.vitals.hunger + 0.2).min(1.0);
                 self.advance_clock(2);
-                // Taverns are where word travels: overhear a rumor. The Rumor
-                // journal voice (and its templates) existed but was never
-                // logged anywhere.
+                // Taverns are where word travels. Prefer a rumor grounded in
+                // the actual world (famine, caravans, festivals, construction)
+                // — actionable information — and fall back to flavor.
+                let day = self.clock.day;
+                let mut heard: Option<String> = None;
                 if let Some(ref mut sim) = self.sim {
                     let tick = sim.world.tick;
-                    let mut rng = crate::rng::SeedRng::new(sim.world.seed)
-                        .fork_for(&format!("tavern-rumor-{tick}"));
-                    let text = crate::sim::journal::rumor_text(&mut rng);
-                    sim.log(tick, crate::sim::journal::Voice::Rumor, text);
+                    let text =
+                        crate::sim::rumors::informed_rumor(sim, day, tick).unwrap_or_else(|| {
+                            let mut rng = crate::rng::SeedRng::new(sim.world.seed)
+                                .fork_for(&format!("tavern-rumor-{tick}"));
+                            crate::sim::journal::rumor_text(&mut rng)
+                        });
+                    sim.log(tick, crate::sim::journal::Voice::Rumor, text.clone());
+                    heard = Some(text);
                 }
-                self.status_msg = Some(format!(
-                    "Rested at tavern (+energy, +hunger, 2h, {} coins)",
-                    cost
-                ));
+                self.status_msg = Some(match heard {
+                    Some(r) => {
+                        format!("Rested at tavern ({} coins). You overhear: \"{}\"", cost, r)
+                    }
+                    None => format!("Rested at tavern (+energy, +hunger, 2h, {} coins)", cost),
+                });
             }
             SettlementService::Temple => {
                 self.vitals.hunger = (self.vitals.hunger + 0.5).min(1.0);
