@@ -1766,20 +1766,24 @@ impl App {
         let mut label = "structure";
         if let Some(ref mut sim) = self.sim {
             if let Some(region) = sim.world.regions.get_mut(pos.region_idx) {
-                for st in region
-                    .structures
-                    .iter_mut()
-                    .filter(|st| st.x == px && st.y == py)
-                {
+                // Match the `here` detect predicate exactly — only player-built,
+                // decaying structures are maintainable. Filtering on position
+                // alone would refresh (and mislabel/charge for) a co-located
+                // NPC-built or non-decaying structure.
+                for st in region.structures.iter_mut().filter(|st| {
+                    st.x == px && st.y == py && !st.is_npc_built && st.kind.decay_years().is_some()
+                }) {
                     st.last_maintenance_tick = tick;
                     label = st.kind.label();
                 }
             }
-            for st in sim
-                .structures
-                .iter_mut()
-                .filter(|st| st.region_idx == pos.region_idx && st.x == px && st.y == py)
-            {
+            for st in sim.structures.iter_mut().filter(|st| {
+                st.region_idx == pos.region_idx
+                    && st.x == px
+                    && st.y == py
+                    && !st.is_npc_built
+                    && st.kind.decay_years().is_some()
+            }) {
                 st.last_maintenance_tick = tick;
             }
         }
