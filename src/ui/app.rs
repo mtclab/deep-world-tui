@@ -1841,6 +1841,12 @@ impl App {
                 }
             }
         };
+        // Resolving an encounter takes a moment, and breaking away costs effort —
+        // the flavor text promises these costs, so actually apply them.
+        self.advance_clock(1);
+        if matches!(action, EncounterAction::Flee | EncounterAction::PushThrough) {
+            self.vitals.energy = (self.vitals.energy - 0.08).max(0.0);
+        }
         let encounter_data = self.encounter.map(|e| e.kind);
         let pos_opt = self.player_pos;
         let npc_people = self
