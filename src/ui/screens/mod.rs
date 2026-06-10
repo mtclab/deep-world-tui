@@ -15,6 +15,7 @@ pub mod minimap;
 pub mod npc;
 pub mod overmap;
 pub mod save_browser;
+pub mod save_slots;
 pub mod settings;
 pub mod status_bar;
 pub mod talk;

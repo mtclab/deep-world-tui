@@ -24,6 +24,9 @@ pub enum Screen {
         scroll: u16,
         delete_confirm: Option<usize>,
     },
+    SaveSlots {
+        scroll: u16,
+    },
     CharacterCreation,
     World {
         region_idx: usize,
@@ -395,35 +398,58 @@ impl App {
     }
 
     #[allow(deprecated)]
-    pub fn save_game(&mut self) {
-        if let Some(ref sim) = self.sim {
-            let data = SaveData {
-                sim: sim.clone(),
-                player_start: self.player_start.clone(),
-                clock: self.clock,
-                vitals: self.vitals,
-                player_pos: self.player_pos,
-                god_affinity: self.god_affinity,
-                inter_people_bias: self.inter_people_bias.clone(),
-                encounters_had: self.encounters_had,
-                collapses_had: self.collapses_had,
-                collapse_log: self.collapse_log.clone(),
-                lineage: self.lineage.clone(),
-                milestones: self.milestones.clone(),
-                explored: self.explored.clone(),
-                version: save_migrations::CURRENT_SAVE_VERSION,
-                first_run: false,
-                hint_tracker: self.hint_tracker.clone(),
-            };
-            match save::save_game(&data, "save.ron") {
-                Ok(()) => self.status_msg = Some("Saved to save.ron".into()),
-                Err(e) => self.status_msg = Some(format!("Save failed: {}", e)),
-            }
+    fn build_save_data(&self) -> Option<SaveData> {
+        let sim = self.sim.as_ref()?;
+        Some(SaveData {
+            sim: sim.clone(),
+            player_start: self.player_start.clone(),
+            clock: self.clock,
+            vitals: self.vitals,
+            player_pos: self.player_pos,
+            god_affinity: self.god_affinity,
+            inter_people_bias: self.inter_people_bias.clone(),
+            encounters_had: self.encounters_had,
+            collapses_had: self.collapses_had,
+            collapse_log: self.collapse_log.clone(),
+            lineage: self.lineage.clone(),
+            milestones: self.milestones.clone(),
+            explored: self.explored.clone(),
+            version: save_migrations::CURRENT_SAVE_VERSION,
+            first_run: false,
+            hint_tracker: self.hint_tracker.clone(),
+        })
+    }
+
+    /// Save into a numbered manual slot (1-based).
+    pub fn save_to_slot(&mut self, slot: usize) {
+        let Some(data) = self.build_save_data() else {
+            return;
+        };
+        match save::save_game(&data, &save::slot_filename(slot)) {
+            Ok(()) => self.status_msg = Some(format!("Saved to slot {slot}")),
+            Err(e) => self.status_msg = Some(format!("Save failed: {}", e)),
         }
     }
 
+    pub fn save_game(&mut self) {
+        // Back-compat default slot (used by the legacy single-save path/tests).
+        self.save_to_slot(1);
+    }
+
+    /// Return to the World map at the player's current region.
+    pub fn return_to_world(&mut self) {
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        self.screen = Screen::World { region_idx };
+    }
+
+    /// Open the manual save-slot picker.
+    pub fn open_save_slots(&mut self) {
+        self.save_entries = save::saves_dir_list();
+        self.screen = Screen::SaveSlots { scroll: 0 };
+    }
+
     pub fn load_game(&mut self) {
-        match save::load_game("save.ron") {
+        match save::load_game(&save::slot_filename(1)) {
             Ok(data) => {
                 let last_collapse_died = data.collapse_log.last().map(|c| c.died).unwrap_or(false);
                 self.sim = Some(data.sim);
@@ -447,7 +473,7 @@ impl App {
                     self.continue_as_npc();
                 } else {
                     self.screen = self.world_screen();
-                    self.status_msg = Some("Loaded from save.ron".into());
+                    self.status_msg = Some("Loaded slot 1".into());
                 }
             }
             Err(e) => self.status_msg = Some(format!("Load failed: {}", e)),
@@ -2974,6 +3000,9 @@ impl App {
                 }
                 Screen::SaveBrowser { .. } => {
                     super::input::save_browser::handle_save_browser_input(self, key);
+                }
+                Screen::SaveSlots { scroll } => {
+                    super::input::save_slots::handle_save_slots_input(self, key, scroll);
                 }
                 Screen::CharacterCreation => {
                     super::input::character_creation::handle_character_creation_input(self, key);

@@ -50,7 +50,7 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
             app.start_build();
         }
         KeyCode::Char('s') => {
-            app.save_game();
+            app.open_save_slots();
         }
         KeyCode::Char('M') => {
             app.enter_overmap();

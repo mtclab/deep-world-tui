@@ -12,6 +12,7 @@ pub mod market;
 pub mod npc;
 pub mod overmap;
 pub mod save_browser;
+pub mod save_slots;
 pub mod settings;
 pub mod talk;
 pub mod title;
