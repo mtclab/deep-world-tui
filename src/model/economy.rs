@@ -646,6 +646,11 @@ pub struct Settlement {
     /// NPC construction: projects underway and completed buildings.
     #[serde(default)]
     pub buildings: Vec<Building>,
+    /// Last day of the current festival (0 = none). Set by the settlement
+    /// daily tick; festivals used to be a per-visit dice roll with no
+    /// duration, no discounts, and no word of them reaching the roads.
+    #[serde(default)]
+    pub festival_until_day: u32,
 }
 
 impl Settlement {
@@ -675,6 +680,11 @@ impl Settlement {
         self.buildings
             .iter()
             .any(|b| b.building_type == kind && b.is_complete())
+    }
+
+    /// Whether a festival is running on the given day.
+    pub fn in_festival(&self, day: u32) -> bool {
+        self.festival_until_day > 0 && day <= self.festival_until_day
     }
 
     /// Food scarcity as a market price multiplier: empty stores push food
@@ -1403,6 +1413,7 @@ mod tests {
             food_stock: 0.0,
             farms: Vec::new(),
             buildings: Vec::new(),
+            festival_until_day: 0,
         };
 
         roundtrip(&s);

@@ -18,6 +18,7 @@ pub mod quest_gen;
 pub mod relationships;
 pub mod reputation;
 pub mod rest;
+pub mod rumors;
 pub mod signals;
 pub mod structures;
 pub mod wants;
@@ -373,6 +374,28 @@ fn tick_settlement_life(sim: &mut SimState) {
                     person.needs.satisfy(Need::Food, 0.10);
                 } else if per_head < 0.4 {
                     person.needs.decay(Need::Food, 0.05);
+                }
+            }
+
+            // --- festivals: begin, run, and lift spirits ---
+            let day = (tick / 24) as u32;
+            if !settlement.in_festival(day) && season.festival_chance() > 0 {
+                let h = seed.wrapping_mul(2654435761)
+                    ^ (settlement.id.len() as u64).wrapping_mul(40503)
+                    ^ (day as u64);
+                // Roughly a third of the old per-visit chance, per day.
+                if h % 300 < season.festival_chance() as u64 {
+                    settlement.festival_until_day = day + 2; // three days
+                    completed_msgs.push(format!(
+                        "There's a festival in {} — the doors are open and the drink flows.",
+                        settlement.name
+                    ));
+                }
+            }
+            if settlement.in_festival(day) {
+                for person in settlement.people.iter_mut() {
+                    person.needs.satisfy(Need::Presence, 0.05);
+                    person.needs.satisfy(Need::Care, 0.03);
                 }
             }
 
