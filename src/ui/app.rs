@@ -1303,11 +1303,37 @@ impl App {
     pub fn advance_clock(&mut self, hours: u32) {
         let season = self.clock.season();
         self.clock.advance(hours);
+        let mut departed: Vec<String> = Vec::new();
         if let Some(ref mut ps) = self.player_start {
             self.vitals.tick(hours, &mut ps.inventory, season);
             for companion in &mut ps.companions {
                 companion.decay_needs(hours as u64);
             }
+            // A companion neglected until its needs max out leaves (or dies).
+            // Nothing enforced this, so is_alive() was dead and starved
+            // companions lingered forever at full need, Unhappy and idle.
+            ps.companions.retain(|c| {
+                if c.is_alive() {
+                    true
+                } else {
+                    departed.push(c.name.clone());
+                    false
+                }
+            });
+        }
+        for name in departed {
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Scar,
+                    format!(
+                        "{} could bear it no longer and slipped away. I kept nothing.",
+                        name
+                    ),
+                );
+            }
+            self.status_msg = Some(format!("{} left — too long neglected.", name));
         }
         if let Some(ref mut sim) = self.sim {
             for _ in 0..hours {
