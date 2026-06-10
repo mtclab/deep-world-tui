@@ -1499,6 +1499,19 @@ impl App {
             .filter_map(|&idx| self.sim.as_ref()?.quests.get(idx).map(|q| q.reward.clone()))
             .collect();
 
+        // FetchItem quests are deliveries ("needed within the walls") — the
+        // goods are handed over on completion. Collect what to consume before
+        // the quests are removed below; without this you keep the items and the
+        // same stack can satisfy repeated fetch quests (reward farming).
+        let fetch_deliveries: Vec<(ItemType, u32)> = result
+            .completed
+            .iter()
+            .filter_map(|&idx| match &self.sim.as_ref()?.quests.get(idx)?.kind {
+                crate::model::quest::QuestKind::FetchItem { item, count } => Some((*item, *count)),
+                _ => None,
+            })
+            .collect();
+
         if let Some(ref mut sim) = self.sim {
             for _ in &result.completed {
                 sim.log(
@@ -1524,6 +1537,13 @@ impl App {
                 if idx < sim.quests.len() {
                     sim.quests.remove(idx);
                 }
+            }
+        }
+
+        // Hand over the delivered goods.
+        if let Some(ref mut ps) = self.player_start {
+            for (item, count) in &fetch_deliveries {
+                ps.inventory.remove(*item, *count);
             }
         }
 
