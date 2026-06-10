@@ -111,24 +111,42 @@ static TRAVEL_DAWN: &[&str] = &[
     "Dawn broke cold on the path. I kept moving.",
     "First light found me on the road. I did not wait for the sun.",
     "The world woke around me, but I was already walking.",
+    "Grey light, wet grass, a road that asked nothing. I gave it my feet.",
+    "The birds started before I did, but not by much.",
+    "Dawn is the road's honest hour. Nothing has had time to lie yet.",
+    "I left while the smoke of last night's fire still hung in the air.",
+    "Cold hands, warm blood, first light. Walking.",
 ];
 
 static TRAVEL_MORNING: &[&str] = &[
     "The morning was bright and the road stretched ahead.",
     "I walked through the early hours. The light was kind.",
     "The day opened before me. I walked into it.",
+    "The dew burned off and the miles came easy.",
+    "A good morning for walking. There are not so many; I notice them.",
+    "The road was busy with small lives this morning — beetles, larks, one fox.",
+    "I ate as I walked. The morning did not mind.",
+    "Mist in the hollows, sun on the rises. I walked through both.",
 ];
 
 static TRAVEL_NOON: &[&str] = &[
     "The sun beat down. I walked the midpoint of the day.",
     "No rest at noon. The road does not pause.",
     "High sun, long shadow beneath me. I kept walking.",
+    "I measured the day by my shadow and found it short.",
+    "Noon is when the road is longest. I walked it anyway.",
+    "I rested in the shade of a stone for a hundred breaths, then went on.",
+    "The heat sat on my shoulders like a pack. I carried both.",
 ];
 
 static TRAVEL_AFTERNOON: &[&str] = &[
     "The afternoon wore on. I walked the long hours.",
     "Shadows lengthened ahead of me. I followed them.",
     "The day turned. I did not turn with it.",
+    "The light went gold and the dust with it.",
+    "Long hours. The kind that pass through me rather than by me.",
+    "I counted milestones until I stopped counting. Then I just walked.",
+    "The afternoon asked nothing and gave little. Fair trade.",
 ];
 
 static TRAVEL_DUSK: &[&str] = &[
@@ -137,6 +155,9 @@ static TRAVEL_DUSK: &[&str] = &[
     "The road grew dark. I did not stop.",
     "Shadows lengthened across my path. I followed them.",
     "Evening found me still on the road. I accept that.",
+    "The last light caught the tops of the trees and let go.",
+    "Day's end. My legs knew it before the sky did.",
+    "I walked the seam between day and night and felt at home in it.",
 ];
 
 static TRAVEL_NIGHT: &[&str] = &[
@@ -145,12 +166,18 @@ static TRAVEL_NIGHT: &[&str] = &[
     "The world was dark and I was a shadow crossing it.",
     "Only fools travel at night. I kept walking anyway.",
     "The dark road held no comfort. I walked it regardless.",
+    "Something kept pace with me in the dark for a while. Then it didn't.",
+    "Night walking: half listening, half praying, all forward.",
+    "The moon did what it could. I did the rest.",
 ];
 
 static TRAVEL_DEEP_NIGHT: &[&str] = &[
     "The world slept. I did not.",
     "Deepest night. I moved through it like a ghost.",
     "The dark was absolute. My steps were the only sound.",
+    "Even the wind had gone to bed. I trespassed in the stillness.",
+    "The hour when the world forgets itself. I walked through its forgetting.",
+    "No light, no sound, no company but my own heartbeat. It was enough.",
 ];
 
 static TRAVEL_STORM: &[&str] = &[
@@ -158,23 +185,36 @@ static TRAVEL_STORM: &[&str] = &[
     "Rain hammered the path. I walked through it.",
     "Wind tried to turn me back. The wind does not decide.",
     "The sky opened up and I kept walking. What else is there to do?",
+    "The thunder counted my steps. I lost count of the thunder.",
+    "Every tree wanted me under it. I trusted none of them.",
+    "Soaked through by the first mile. After that, the rain was just weather.",
+    "The storm and I went the same way for a while. Then it lost interest.",
 ];
 
 static TRAVEL_SNOW: &[&str] = &[
     "Snow covered the road. I made my own path.",
     "The path was white and still. I broke the silence with my steps.",
     "Each step left a mark in the snow. I kept stepping.",
+    "The snow asked silence and I gave it. We got along.",
+    "White road, grey sky, black trees. The world in three inks.",
+    "My breath went ahead of me in little clouds. I followed it.",
 ];
 
 static TRAVEL_FOG: &[&str] = &[
     "Fog swallowed the road ahead. I walked into it.",
     "The mist was thick. I trusted my feet.",
     "I could barely see. I walked anyway.",
+    "Shapes came and went in the mist. I greeted none of them.",
+    "The fog made the familiar strange. I made my legs ignore it.",
+    "Ten paces of road at a time. The world rationed itself today.",
 ];
 
 static TRAVEL_CLEAR_DAWN: &[&str] = &[
     "A clear dawn. The road stretched out before me like a promise.",
     "The morning was clean and bright. I took it as a sign.",
+    "Sky like washed glass. Days like this are owed to someone.",
+    "The horizon was sharp enough to cut. I walked toward the wound.",
+    "Not a cloud. The land lay open like a ledger.",
 ];
 
 static ENCOUNTER_TEMPLATES: &[&str] = &[
@@ -183,6 +223,12 @@ static ENCOUNTER_TEMPLATES: &[&str] = &[
     "I met a stranger. The meeting was brief. It stays with me.",
     "An encounter. Brief, but not without weight.",
     "The road provides company, sometimes. Today it did — for a moment.",
+    "The road put someone in my way. We managed it, both of us.",
+    "Faces on the road: each one a country I will never visit twice.",
+    "We traded a few words and kept our distances. Civilization, of a kind.",
+    "They went their way, I went mine. The road held us both a moment.",
+    "Some meetings weigh nothing. This one had a little weight to it.",
+    "I keep a count of kindnesses met on the road. It moved today — one way or the other.",
 ];
 
 static REST_CAMPFIRE: &[&str] = &[
@@ -191,6 +237,9 @@ static REST_CAMPFIRE: &[&str] = &[
     "The flames are low. The night is long. I rest.",
     "A small fire. A small comfort. I sleep.",
     "The fire crackles. I let myself close my eyes.",
+    "Fed the fire twigs until it trusted me. Slept in its good opinion.",
+    "The fire talked all night, soft. I fell asleep mid-sentence.",
+    "One ember watched me till morning. I let it.",
 ];
 
 static REST_OUTSIDE: &[&str] = &[
@@ -199,6 +248,10 @@ static REST_OUTSIDE: &[&str] = &[
     "I sleep in the open. The cold is an old companion.",
     "No shelter. I rest against the earth and hope for dawn.",
     "The stars are my roof. It is not enough. I sleep anyway.",
+    "I slept like the stones around me: badly, and watching.",
+    "Every sound was a wolf until it wasn't. Then I slept.",
+    "The earth is an honest bed. It promises nothing and keeps its word.",
+    "Curled up small, the way the old road-wisdom says. Still cold.",
 ];
 
 static REST_SETTLEMENT: &[&str] = &[
@@ -207,6 +260,9 @@ static REST_SETTLEMENT: &[&str] = &[
     "The settlement takes me in. I rest on solid ground.",
     "Shelter. The simple kind. I am grateful.",
     "Four walls and a bed. It is enough.",
+    "Other people's sounds through the wall: someone's cough, someone's child. I slept among lives.",
+    "The floor smelled of woodsmoke and dogs. Better than most nights.",
+    "They let me sleep by the wall. The wall and I are grateful.",
 ];
 
 static REST_INN: &[&str] = &[
@@ -215,6 +271,9 @@ static REST_INN: &[&str] = &[
     "For tonight, I am not on the road. I sleep without fear.",
     "Heat from the hearth. A blanket. I close my eyes and do not dream.",
     "The innkeeper asked no questions. I gave no answers. I slept well.",
+    "I paid for the bed and the lock on the door. The lock slept better than either of us.",
+    "Clean straw, near-clean blanket. Luxury keeps low standards on the road, thankfully.",
+    "Somebody sang in the common room until late. I fell asleep inside the song.",
 ];
 
 static REST_LEAN_TO: &[&str] = &[
@@ -222,6 +281,9 @@ static REST_LEAN_TO: &[&str] = &[
     "The wind is quieter here. I close my eyes against the rough wood.",
     "Rough shelter, but shelter. I rest.",
     "The lean-to creaks. I sleep anyway.",
+    "My own work between me and the sky. It held.",
+    "The lean-to took the rain's first argument and most of its second.",
+    "Knees to chest under slanted wood. Sleep came sideways but it came.",
 ];
 
 static DREAM_TEMPLATES: &[&str] = &[
@@ -230,6 +292,11 @@ static DREAM_TEMPLATES: &[&str] = &[
     "I dreamed of walking a road that had no end. I was not tired.",
     "The dream was of water — cold, clear, rising. I did not drown.",
     "A figure stood at the crossroads in my dream. It pointed. I did not follow.",
+    "I dreamed the mountain was hollow and full of slow bells.",
+    "In the dream I owed someone a name. I woke before I paid.",
+    "I dreamed of the sea swallowing a library, shelf by shelf, patient as tide.",
+    "A dream of hands building a wall, my hands, a wall I have never seen. It needed one more stone.",
+    "I dreamed I was the road. Everyone I have ever met walked over me, gently.",
 ];
 
 static SCAR_TEMPLATES: &[&str] = &[
@@ -238,6 +305,10 @@ static SCAR_TEMPLATES: &[&str] = &[
     "Pain teaches. This lesson is carved in skin.",
     "Another mark. Another story I do not tell.",
     "The body heals. The body remembers.",
+    "Some debts are written on the skin so the heart can stop holding them.",
+    "It aches before storms now. I own a small oracle.",
+    "I tell people it was a beast. Some days that is even true.",
+    "The mark has faded to the color of memory. Both still pull.",
 ];
 
 static RUMOR_TEMPLATES: &[&str] = &[
@@ -246,6 +317,10 @@ static RUMOR_TEMPLATES: &[&str] = &[
     "They spoke of something. I listened. That is all.",
     "Rumor travels faster than people. It found me.",
     "Words from a stranger's mouth. I file them away.",
+    "Talk is the one crop that grows in every season.",
+    "I bought a drink and was paid in hearsay. Fair rate.",
+    "Half of what I heard tonight is false. The trick is which half.",
+    "News wears out its boots fast on these roads. This piece still had sole left.",
 ];
 
 pub fn travel_text(rng: &mut SeedRng, tod: TimeOfDay, weather: Weather) -> String {
