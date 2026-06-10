@@ -2748,6 +2748,7 @@ impl App {
 
         self.advance_clock(hours);
         self.vitals.rest(hours);
+        let mut scouted = false;
         if let Some(ref mut ps) = self.player_start {
             for companion in &mut ps.companions {
                 companion.rest(h / 8.0);
@@ -2755,6 +2756,16 @@ impl App {
                     .seed
                     .wrapping_add((self.clock.day as u64 * 24 + self.clock.hour as u64) * 137);
                 if let Some(action) = companion.autonomous_action(action_seed) {
+                    // The flavor promises a yield — deliver it to the player.
+                    match action {
+                        crate::model::CompanionAction::Hunt => {
+                            ps.inventory.add(crate::model::ItemType::Food, 1)
+                        }
+                        crate::model::CompanionAction::Gather => {
+                            ps.inventory.add(crate::model::ItemType::Herb, 1)
+                        }
+                        crate::model::CompanionAction::Scout => scouted = true,
+                    }
                     let flavor = companion.apply_action(action);
                     self.status_msg = Some(format!("{} {}", companion.name, flavor));
                 }
@@ -2763,6 +2774,12 @@ impl App {
                     ps.inventory.remove(crate::model::ItemType::Food, 1);
                     companion.feed(0.5);
                 }
+            }
+        }
+        // A scouting companion reveals the ground around the player.
+        if scouted {
+            if let Some(pos) = self.player_pos {
+                self.reveal_around(pos.region_idx, pos.px, pos.py);
             }
         }
         let structure_bonus = match self.structure_at_player() {
