@@ -170,12 +170,20 @@ impl Structure {
 
     pub fn decay_tick(&self, current_tick: u64, ticks_per_day: u64) -> Option<f64> {
         let decay_years = self.kind.decay_years()?;
-        let ticks_per_year = ticks_per_day as f64 * 360.0;
+        // Compressed to the game's aging scale (see STRUCTURE_DAYS_PER_YEAR) so
+        // structures actually weather within a playthrough rather than over
+        // unreachable real-calendar centuries.
+        let ticks_per_year = ticks_per_day as f64 * STRUCTURE_DAYS_PER_YEAR;
         let age_ticks = current_tick.saturating_sub(self.last_maintenance_tick) as f64;
         let age_years = age_ticks / ticks_per_year;
         Some(age_years / decay_years)
     }
 }
+
+/// Calendar days per year of a structure's decay life — compressed to match the
+/// aging scale so a tarp-tent (3y) weathers in ~a season and a home (30y) lasts
+/// roughly a player's lifetime.
+pub const STRUCTURE_DAYS_PER_YEAR: f64 = 3.0;
 
 pub fn generate_npc_structures(
     seed: u64,

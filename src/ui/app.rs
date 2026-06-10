@@ -1650,6 +1650,62 @@ impl App {
         self.status_msg = Some(format!("{} the {} joins me.", name, animal.name()));
     }
 
+    /// Maintain a weathering structure under the player (resets its decay clock).
+    /// Returns true if a maintainable structure was here (handled), false if not.
+    fn maintain_structure_here(&mut self) -> bool {
+        let pos = match self.player_pos {
+            Some(p) => p,
+            None => return false,
+        };
+        let (px, py) = (pos.px as u32, pos.py as u32);
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let here = |st: &crate::sim::structures::Structure| {
+            st.x == px && st.y == py && !st.is_npc_built && st.kind.decay_years().is_some()
+        };
+        let found = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(pos.region_idx))
+            .is_some_and(|r| r.structures.iter().any(here));
+        if !found {
+            return false;
+        }
+        if !self
+            .player_start
+            .as_ref()
+            .is_some_and(|ps| ps.inventory.has(ItemType::Wood))
+        {
+            self.status_msg = Some("Need 1 Wood to maintain this structure.".into());
+            return true;
+        }
+        let mut label = "structure";
+        if let Some(ref mut sim) = self.sim {
+            if let Some(region) = sim.world.regions.get_mut(pos.region_idx) {
+                for st in region
+                    .structures
+                    .iter_mut()
+                    .filter(|st| st.x == px && st.y == py)
+                {
+                    st.last_maintenance_tick = tick;
+                    label = st.kind.label();
+                }
+            }
+            for st in sim
+                .structures
+                .iter_mut()
+                .filter(|st| st.region_idx == pos.region_idx && st.x == px && st.y == py)
+            {
+                st.last_maintenance_tick = tick;
+            }
+        }
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(ItemType::Wood, 1);
+        }
+        self.advance_clock(2);
+        self.status_msg = Some(format!("Maintained {label} (1 Wood, 2h)"));
+        true
+    }
+
     pub fn start_build(&mut self) {
         let pos = match self.player_pos {
             Some(p) => p,
@@ -1658,6 +1714,11 @@ impl App {
                 return;
             }
         };
+        // Standing on your own weathering structure? Maintain it instead of
+        // trying to build a new one on the same tile.
+        if self.maintain_structure_here() {
+            return;
+        }
         let region_idx = pos.region_idx;
         let px = pos.px as u32;
         let py = pos.py as u32;

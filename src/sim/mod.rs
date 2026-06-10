@@ -192,6 +192,20 @@ pub fn sim_tick(sim: &mut SimState) {
     sim.world.tick_npc_wants(current_tick, 24);
     sim.world.recompute_all_schedules(hour);
     tick_build_sites(sim);
+    tick_structure_decay(sim);
+}
+
+/// Remove structures that have fully weathered away (decay ratio >= 1.0).
+/// Tarp/lean-to return None from decay_tick and are never removed here.
+fn tick_structure_decay(sim: &mut SimState) {
+    let tick = sim.world.tick;
+    let alive = |s: &crate::sim::structures::Structure| {
+        s.decay_tick(tick, 24).is_none_or(|ratio| ratio < 1.0)
+    };
+    for region in &mut sim.world.regions {
+        region.structures.retain(&alive);
+    }
+    sim.structures.retain(&alive);
 }
 
 fn tick_build_sites(sim: &mut SimState) {
