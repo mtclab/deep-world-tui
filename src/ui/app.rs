@@ -1327,7 +1327,15 @@ impl App {
         self.clock.advance(hours);
         let mut departed: Vec<String> = Vec::new();
         if let Some(ref mut ps) = self.player_start {
-            self.vitals.tick(hours, &mut ps.inventory, season);
+            // A sick player wears down faster (worst active disease sets the rate).
+            let illness_mult = ps
+                .person
+                .illnesses
+                .iter()
+                .map(|d| d.vitals_modifier())
+                .fold(1.0_f64, f64::max);
+            self.vitals
+                .tick_with_illness(hours, &mut ps.inventory, season, illness_mult);
             for companion in &mut ps.companions {
                 companion.decay_needs(hours as u64);
             }
@@ -1397,6 +1405,63 @@ impl App {
         self.check_quests_on_tick();
         self.check_collapse();
         self.check_aging();
+        self.check_player_illness();
+    }
+
+    /// Recover from any run-out illnesses, then roll for contracting a new one
+    /// based on the player's terrain, hunger, shelter, and access to a healer.
+    /// The player was previously immune — illness was an NPC-only system.
+    fn check_player_illness(&mut self) {
+        let Some(pos) = self.player_pos else {
+            return;
+        };
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let terrain = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(pos.region_idx))
+            .and_then(|r| r.terrain.get(pos.px, pos.py))
+            .unwrap_or(Terrain::Grass);
+        let on_settlement = self.player_on_settlement().is_some();
+        let has_healer = on_settlement
+            && self
+                .sim
+                .as_ref()
+                .and_then(|s| s.world.regions.get(pos.region_idx))
+                .and_then(|r| r.settlements.first())
+                .map(crate::sim::illness::settlement_has_healer)
+                .unwrap_or(false);
+
+        // A Needs proxy from the player's vitals (Food = hunger; Safety from shelter).
+        let mut needs = crate::model::Needs::default();
+        needs
+            .values
+            .insert(crate::model::Need::Food, self.vitals.hunger);
+        needs.values.insert(
+            crate::model::Need::Safety,
+            if on_settlement { 0.8 } else { 0.2 },
+        );
+
+        let Some(ref mut ps) = self.player_start else {
+            return;
+        };
+        ps.person.illnesses.retain(|d| !d.is_recovered(tick));
+        let count = ps.person.illnesses.len();
+        let contracted = crate::sim::illness::tick_illness(
+            self.seed, tick, terrain, &needs, 0, has_healer, count,
+        );
+        if let Some(disease) = contracted {
+            let label = disease.disease.name();
+            ps.person.illnesses.push(disease);
+            if let Some(ref mut sim) = self.sim {
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Scar,
+                    format!("A sickness takes me — {label}. My body turns against the road."),
+                );
+            }
+            self.status_msg = Some(format!("You have fallen ill: {label}."));
+        }
     }
 
     fn log_travel(&mut self, terrain: Terrain) {
@@ -2816,10 +2881,21 @@ impl App {
                 self.vitals.hunger = (self.vitals.hunger + 0.5).min(1.0);
                 self.vitals.energy = (self.vitals.energy + 0.3).min(1.0);
                 self.advance_clock(3);
-                self.status_msg = Some(format!(
-                    "Blessed at temple (+hunger, +energy, 3h, {} coins)",
-                    cost
-                ));
+                // The temple healers also tend the sick — clear active illness.
+                let cured = self
+                    .player_start
+                    .as_mut()
+                    .map(|ps| {
+                        let had = !ps.person.illnesses.is_empty();
+                        ps.person.illnesses.clear();
+                        had
+                    })
+                    .unwrap_or(false);
+                self.status_msg = Some(if cured {
+                    format!("Blessed and healed at temple (illness cured, 3h, {cost} coins)")
+                } else {
+                    format!("Blessed at temple (+hunger, +energy, 3h, {cost} coins)")
+                });
             }
             SettlementService::Forge => {
                 self.god_affinity.adjust(GodName::Oltzed, 0.02);

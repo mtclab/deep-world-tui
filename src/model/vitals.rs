@@ -22,9 +22,22 @@ impl PlayerVitals {
     }
 
     pub fn tick(&mut self, hours: u32, inventory: &mut Inventory, season: Season) {
-        let hunger_rate = 0.05 * season.need_decay_multiplier();
-        let thirst_rate = 0.06 * season.need_decay_multiplier();
-        let energy_rate = 0.02 * season.need_decay_multiplier();
+        self.tick_with_illness(hours, inventory, season, 1.0);
+    }
+
+    /// Like `tick`, but scales hunger/thirst/energy decay by an illness
+    /// multiplier (>= 1.0) — a sick traveller wears down faster.
+    pub fn tick_with_illness(
+        &mut self,
+        hours: u32,
+        inventory: &mut Inventory,
+        season: Season,
+        illness_mult: f64,
+    ) {
+        let m = season.need_decay_multiplier() * illness_mult.max(1.0);
+        let hunger_rate = 0.05 * m;
+        let thirst_rate = 0.06 * m;
+        let energy_rate = 0.02 * m;
         for _ in 0..hours {
             self.hunger -= hunger_rate;
             self.thirst -= thirst_rate;
