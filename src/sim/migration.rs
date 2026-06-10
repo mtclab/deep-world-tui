@@ -618,9 +618,12 @@ mod tests {
             .map(|s| s.people.len())
             .sum();
 
+        // Call migration directly at a boundary: it must move people without
+        // creating or losing any. (The full sim no longer conserves headcount
+        // — the lifecycle system births and buries people by design.)
         let mut sim = make_sim(42);
-        for _ in 0..500 {
-            sim.step();
+        for boundary in 1..=16u64 {
+            tick_migration(&mut sim, boundary * 30);
         }
         let total_after: usize = sim
             .world

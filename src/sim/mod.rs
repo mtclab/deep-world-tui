@@ -9,6 +9,7 @@ pub mod god;
 pub mod hints;
 pub mod illness;
 pub mod journal;
+pub mod lifecycle;
 pub mod migration;
 pub mod milestones;
 pub mod needs_dependent;
@@ -205,6 +206,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_structure_decay(sim);
     tick_caravans(sim);
     tick_settlement_life(sim);
+    lifecycle::tick_lifecycle(sim);
 }
 
 /// The terrain a settlement farms and fishes, derived from its region type.

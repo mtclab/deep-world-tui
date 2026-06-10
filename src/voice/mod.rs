@@ -556,6 +556,7 @@ mod tests {
             illnesses: Vec::new(),
             relations: vec![],
             wants: vec![],
+            age_years: 0,
         }
     }
 
