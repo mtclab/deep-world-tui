@@ -1825,13 +1825,13 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
             (
                 region.terrain.width,
                 region.terrain.height,
-                region.terrain.tiles.clone(),
+                &region.terrain.tiles,
             )
         } else {
-            (0, 0, Vec::new())
+            (0, 0, &Vec::new())
         }
     } else {
-        (0, 0, Vec::new())
+        (0, 0, &Vec::new())
     };
 
     if map_w == 0 || map_h == 0 {
@@ -1858,6 +1858,42 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
     };
     let npc_map = build_npc_map(app, region_idx, &vp);
 
+    let structure_map: HashMap<(usize, usize), char> = app
+        .sim
+        .as_ref()
+        .and_then(|sim| sim.world.regions.get(region_idx))
+        .map(|r| {
+            r.structures
+                .iter()
+                .map(|s| ((s.x as usize, s.y as usize), s.kind.glyph()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let build_map: HashMap<(usize, usize), f64> = app
+        .sim
+        .as_ref()
+        .map(|sim| {
+            sim.build_sites
+                .iter()
+                .filter(|s| s.region_idx == region_idx)
+                .map(|s| ((s.x as usize, s.y as usize), s.progress_fraction(s.kind)))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let memorial_set: std::collections::HashSet<(usize, usize)> = app
+        .sim
+        .as_ref()
+        .map(|sim| {
+            sim.memorials
+                .iter()
+                .filter(|m| m.region_idx == region_idx)
+                .map(|m| (m.x as usize, m.y as usize))
+                .collect()
+        })
+        .unwrap_or_default();
+
     let mut lines: Vec<Line> = Vec::new();
     for vy in 0..view_h {
         let my = cam_y + vy;
@@ -1878,23 +1914,12 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
                             npc.glyph.to_string(),
                             Style::default().fg(npc.color),
                         ));
-                    } else if let Some(structure) = app.sim.as_ref().and_then(|sim| {
-                        sim.world.regions.get(region_idx).and_then(|r| {
-                            r.structures
-                                .iter()
-                                .find(|s| s.x as usize == mx && s.y as usize == my)
-                        })
-                    }) {
+                    } else if let Some(&glyph) = structure_map.get(&(mx, my)) {
                         spans.push(Span::styled(
-                            structure.kind.glyph().to_string(),
+                            glyph.to_string(),
                             Style::default().fg(theme.archive_red()),
                         ));
-                    } else if let Some(build) = app.sim.as_ref().and_then(|sim| {
-                        sim.build_sites.iter().find(|s| {
-                            s.region_idx == region_idx && s.x as usize == mx && s.y as usize == my
-                        })
-                    }) {
-                        let pct = build.progress_fraction(build.kind);
+                    } else if let Some(&pct) = build_map.get(&(mx, my)) {
                         let pct_char = if pct < 0.33 {
                             '░'
                         } else if pct < 0.66 {
@@ -1912,12 +1937,7 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
                             .get(region_idx)
                             .map(|e| e.is_explored(mx, my))
                             .unwrap_or(true);
-                        let is_memorial = is_explored
-                            && app.sim.as_ref().is_some_and(|sim| {
-                                sim.memorials
-                                    .iter()
-                                    .any(|m| m.at_position(region_idx, mx as u32, my as u32))
-                            });
+                        let is_memorial = is_explored && memorial_set.contains(&(mx, my));
                         if !is_explored {
                             spans.push(Span::styled(
                                 "·".to_string(),
