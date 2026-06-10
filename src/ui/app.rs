@@ -863,13 +863,20 @@ impl App {
     fn find_settlement_pos(&self, region_idx: usize) -> (usize, usize) {
         if let Some(ref sim) = self.sim {
             if let Some(region) = sim.world.regions.get(region_idx) {
+                let w = region.terrain.width.max(1);
+                // Prefer a settlement tile.
                 if let Some(pos) = region
                     .terrain
                     .tiles
                     .iter()
                     .position(|&t| t == Terrain::Settlement)
                 {
-                    return (pos % region.terrain.width, pos / region.terrain.width);
+                    return (pos % w, pos / w);
+                }
+                // Otherwise any passable tile — never strand the player in water
+                // or on a mountain (e.g. a settlement-less upland region).
+                if let Some(pos) = region.terrain.tiles.iter().position(|&t| t.passable()) {
+                    return (pos % w, pos / w);
                 }
             }
         }

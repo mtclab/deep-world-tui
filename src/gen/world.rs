@@ -215,6 +215,15 @@ fn generate_terrain(
                 }
             }
         }
+        // Carve a ford so the river/coast doesn't split the region into two
+        // unreachable halves. One passable column (a crossing) is enough to keep
+        // the map connected.
+        let ford_x = width / 4 + (rng.next_u64() as usize) % (width / 2).max(1);
+        for y in 0..height {
+            if tiles[y * width + ford_x] == Terrain::Water {
+                tiles[y * width + ford_x] = Terrain::Road;
+            }
+        }
     }
     if region_type == "upland" {
         for y in 0..height {
