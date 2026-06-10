@@ -6,8 +6,10 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
+use std::collections::HashMap;
 
-use crate::model::{craft_recipes, ItemType, Need, Season, Terrain};
+use crate::model::{craft_recipes, ItemType, Need, PeopleKind, Season, Terrain};
+use crate::rng::SeedRng;
 use crate::ui::app::{App, Screen};
 use crate::ui::theme::Theme;
 use crate::voice::Situation;
@@ -1638,6 +1640,112 @@ fn terrain_color_at(terrain: Terrain, dark: bool) -> Color {
     }
 }
 
+struct MapViewport {
+    px: usize,
+    py: usize,
+    view_w: usize,
+    view_h: usize,
+    cam_x: usize,
+    cam_y: usize,
+}
+
+struct MapNpc {
+    glyph: char,
+    color: Color,
+}
+
+fn build_npc_map(
+    app: &App,
+    region_idx: usize,
+    vp: &MapViewport,
+) -> HashMap<(usize, usize), MapNpc> {
+    let mut npcs: HashMap<(usize, usize), MapNpc> = HashMap::new();
+
+    let (seed, tick, regions) = match app.sim.as_ref() {
+        Some(sim) => (sim.world.seed, sim.world.tick, &sim.world.regions),
+        None => return npcs,
+    };
+    let region = match regions.get(region_idx) {
+        Some(r) => r,
+        None => return npcs,
+    };
+
+    if let Some(ref ps) = app.player_start {
+        for companion in &ps.companions {
+            let dirs: [(i32, i32); 4] = [(0, -1), (-1, 0), (1, 0), (0, 1)];
+            let cidx = companion.animal as u32;
+            let (dx, dy) = dirs[(cidx as usize) % 4];
+            let cx = (vp.px as i32 + dx) as usize;
+            let cy = (vp.py as i32 + dy) as usize;
+            if cx >= vp.cam_x
+                && cy >= vp.cam_y
+                && cx < vp.cam_x + vp.view_w
+                && cy < vp.cam_y + vp.view_h
+            {
+                npcs.entry((cx, cy)).or_insert(MapNpc {
+                    glyph: companion.animal.glyph(),
+                    color: Color::Green,
+                });
+            }
+        }
+    }
+
+    let settle_positions: Vec<(usize, usize)> = {
+        let mut sp = Vec::new();
+        for (i, &t) in region.terrain.tiles.iter().enumerate() {
+            if t == Terrain::Settlement {
+                sp.push((i % region.terrain.width, i / region.terrain.width));
+            }
+        }
+        sp.sort_by_key(|(x, _)| *x);
+        sp
+    };
+
+    for (si, settlement) in region.settlements.iter().enumerate() {
+        let (sx, sy) = match settle_positions.get(si) {
+            Some(&pos) => pos,
+            None => continue,
+        };
+
+        let people_count = settlement.people.len().min(8);
+        for pi in 0..people_count {
+            let domain = format!("npc-{}-{}-{}-{}", seed, region_idx, si, pi);
+            let mut rng = SeedRng::new(seed).fork_for(&domain);
+
+            let tick_offset = tick % 24;
+            let ox = (rng.gen_range(7u32) as i32).saturating_sub(3);
+            let oy = (rng.gen_range(5u32) as i32).saturating_sub(2);
+            let ox = (ox + (tick_offset as i32 % 3) - 1).clamp(-3, 3);
+            let oy = (oy + (tick_offset as i32 % 2) - 1).clamp(-2, 2);
+            let nx = (sx as i32 + ox) as usize;
+            let ny = (sy as i32 + oy) as usize;
+
+            if nx == vp.px && ny == vp.py {
+                continue;
+            }
+
+            if nx >= vp.cam_x
+                && ny >= vp.cam_y
+                && nx < vp.cam_x + vp.view_w
+                && ny < vp.cam_y + vp.view_h
+            {
+                let person = &settlement.people[pi];
+                let pk = PeopleKind::from_name(&person.people);
+                let npcs_entry = npcs.entry((nx, ny)).or_insert(MapNpc {
+                    glyph: pk.glyph(),
+                    color: Color::Yellow,
+                });
+                if npcs_entry.glyph == ' ' {
+                    npcs_entry.glyph = pk.glyph();
+                    npcs_entry.color = Color::Yellow;
+                }
+            }
+        }
+    }
+
+    npcs
+}
+
 fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
     let theme = Theme {
         monochrome: app.monochrome,
@@ -1740,6 +1848,16 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
 
     let dark = app.clock.time_of_day().is_dark();
 
+    let vp = MapViewport {
+        px,
+        py,
+        view_w,
+        view_h,
+        cam_x,
+        cam_y,
+    };
+    let npc_map = build_npc_map(app, region_idx, &vp);
+
     let mut lines: Vec<Line> = Vec::new();
     for vy in 0..view_h {
         let my = cam_y + vy;
@@ -1754,6 +1872,11 @@ fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
                             Style::default()
                                 .fg(Color::White)
                                 .add_modifier(Modifier::BOLD),
+                        ));
+                    } else if let Some(npc) = npc_map.get(&(mx, my)) {
+                        spans.push(Span::styled(
+                            npc.glyph.to_string(),
+                            Style::default().fg(npc.color),
                         ));
                     } else if let Some(structure) = app.sim.as_ref().and_then(|sim| {
                         sim.world.regions.get(region_idx).and_then(|r| {
@@ -3605,5 +3728,14 @@ mod accessibility_tests {
         let color = Color::Red;
         let style = pulse_style(color, 0, false, false);
         assert!(!style.add_modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn people_kind_glyph_deterministic() {
+        let g1 = PeopleKind::Metsik.glyph();
+        let g2 = PeopleKind::Metsik.glyph();
+        assert_eq!(g1, g2);
+        assert_ne!(PeopleKind::Metsik.glyph(), PeopleKind::Arkit.glyph());
+        assert_ne!(PeopleKind::Metsik.glyph(), PeopleKind::Vayla.glyph());
     }
 }
