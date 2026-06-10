@@ -44,7 +44,10 @@ pub fn handle_overmap_input(app: &mut App, key: KeyEvent, region_idx: usize) {
             }
         }
         KeyCode::Enter => {
-            app.screen = Screen::World { region_idx };
+            // The overmap is a planning view — return to the player's actual
+            // region rather than teleporting the view to the cursored one (which
+            // left the @ and movement desynced from the rendered terrain).
+            app.exit_overmap();
         }
         _ => {}
     }
