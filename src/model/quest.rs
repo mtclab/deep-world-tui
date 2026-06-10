@@ -4,11 +4,40 @@ use super::ItemType;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum QuestKind {
-    FetchItem { item: ItemType, count: u32 },
-    VisitRegion { region_idx: usize },
-    AidNPC { npc_id: String },
-    ReachReputation { threshold: f64 },
-    SurviveDays { days: u32 },
+    FetchItem {
+        item: ItemType,
+        count: u32,
+    },
+    VisitRegion {
+        region_idx: usize,
+    },
+    AidNPC {
+        npc_id: String,
+    },
+    ReachReputation {
+        threshold: f64,
+    },
+    SurviveDays {
+        days: u32,
+    },
+    /// Carry goods to another region's market (consumed on arrival).
+    DeliverTo {
+        region_idx: usize,
+        item: ItemType,
+        count: u32,
+    },
+    /// Raise any structure of your own in the named region.
+    RaiseBuilding {
+        region_idx: usize,
+    },
+    /// Find and observe somewhere new.
+    VisitDiscovery {
+        baseline: u32,
+    },
+    /// Deal with people — talks, trades, dealings remembered.
+    TalkToPeople {
+        count: u32,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

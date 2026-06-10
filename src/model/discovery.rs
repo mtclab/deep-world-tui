@@ -16,6 +16,18 @@ pub enum DiscoveryKind {
     FrostShrine,
     WhisperingPool,
     BoneCircle,
+    HotSpring,
+    Battlefield,
+    SingingCave,
+    GlassField,
+    DriftwoodIdol,
+    StarfallCrater,
+    HollowOak,
+    SaltFlat,
+    EchoWell,
+    PaintedRocks,
+    AbandonedCamp,
+    MoonPool,
 }
 
 /// The tangible mark a discovery leaves on the discoverer.
@@ -44,6 +56,18 @@ impl DiscoveryKind {
             DiscoveryKind::FrostShrine => "frost shrine",
             DiscoveryKind::WhisperingPool => "whispering pool",
             DiscoveryKind::BoneCircle => "bone circle",
+            DiscoveryKind::HotSpring => "hot spring",
+            DiscoveryKind::Battlefield => "old battlefield",
+            DiscoveryKind::SingingCave => "singing cave",
+            DiscoveryKind::GlassField => "glass field",
+            DiscoveryKind::DriftwoodIdol => "driftwood idol",
+            DiscoveryKind::StarfallCrater => "starfall crater",
+            DiscoveryKind::HollowOak => "hollow oak",
+            DiscoveryKind::SaltFlat => "salt flat",
+            DiscoveryKind::EchoWell => "echo well",
+            DiscoveryKind::PaintedRocks => "painted rocks",
+            DiscoveryKind::AbandonedCamp => "abandoned camp",
+            DiscoveryKind::MoonPool => "moon pool",
         }
     }
 
@@ -70,6 +94,27 @@ impl DiscoveryKind {
                 energy: 0.2,
             },
             DiscoveryKind::BoneCircle => DiscoveryEffect::God(GodName::Kukri, 0.04),
+            DiscoveryKind::HotSpring => DiscoveryEffect::Refresh {
+                thirst: 0.2,
+                energy: 0.4,
+            },
+            DiscoveryKind::Battlefield => DiscoveryEffect::God(GodName::Oltzed, 0.05),
+            DiscoveryKind::SingingCave => DiscoveryEffect::God(GodName::Kukri, 0.04),
+            DiscoveryKind::GlassField => DiscoveryEffect::God(GodName::Oltzed, 0.04),
+            DiscoveryKind::DriftwoodIdol => DiscoveryEffect::God(GodName::Masa, 0.05),
+            DiscoveryKind::StarfallCrater => DiscoveryEffect::Reveal,
+            DiscoveryKind::HollowOak => DiscoveryEffect::God(GodName::Keuru, 0.04),
+            DiscoveryKind::SaltFlat => DiscoveryEffect::Reveal,
+            DiscoveryKind::EchoWell => DiscoveryEffect::God(GodName::Sampsa, 0.05),
+            DiscoveryKind::PaintedRocks => DiscoveryEffect::God(GodName::Sampsa, 0.04),
+            DiscoveryKind::AbandonedCamp => DiscoveryEffect::Refresh {
+                thirst: 0.1,
+                energy: 0.2,
+            },
+            DiscoveryKind::MoonPool => DiscoveryEffect::Refresh {
+                thirst: 0.4,
+                energy: 0.2,
+            },
         }
     }
 
@@ -111,6 +156,42 @@ impl DiscoveryKind {
             DiscoveryKind::BoneCircle => {
                 "Bones arranged with purpose. A warning, a ward, or a covenant."
             }
+            DiscoveryKind::HotSpring => {
+                "Steam curls off dark water. The ground itself is warm here."
+            }
+            DiscoveryKind::Battlefield => {
+                "Rust and bone under shallow soil. Two lines met here once, and neither left whole."
+            }
+            DiscoveryKind::SingingCave => {
+                "The wind plays the cave mouth like a reed. The note never quite ends."
+            }
+            DiscoveryKind::GlassField => {
+                "Sand fused to glass in long ropes. Whatever burned here burned hot and fast."
+            }
+            DiscoveryKind::DriftwoodIdol => {
+                "Salt-bleached wood lashed into a watching shape. Offerings rot at its feet."
+            }
+            DiscoveryKind::StarfallCrater => {
+                "A bowl of fused earth. From its rim, the whole land lies open."
+            }
+            DiscoveryKind::HollowOak => {
+                "An oak old enough to hollow, wide enough to sleep in. Someone has."
+            }
+            DiscoveryKind::SaltFlat => {
+                "White to the horizon. Every track ever made here is still visible."
+            }
+            DiscoveryKind::EchoWell => {
+                "A dry well that answers. It repeats what you say, a beat too late, a word too many."
+            }
+            DiscoveryKind::PaintedRocks => {
+                "Ochre hands and running beasts. The painters knew this land before its names."
+            }
+            DiscoveryKind::AbandonedCamp => {
+                "A cold fire ring and a bedroll left mid-flight. Whatever they fled, it was sudden."
+            }
+            DiscoveryKind::MoonPool => {
+                "Still water that holds the sky too well. You look once and sit down without meaning to."
+            }
         }
     }
 
@@ -128,6 +209,18 @@ impl DiscoveryKind {
             DiscoveryKind::FrostShrine => '❄',
             DiscoveryKind::WhisperingPool => '◎',
             DiscoveryKind::BoneCircle => '⊛',
+            DiscoveryKind::HotSpring => '♨',
+            DiscoveryKind::Battlefield => '†',
+            DiscoveryKind::SingingCave => '∩',
+            DiscoveryKind::GlassField => '✶',
+            DiscoveryKind::DriftwoodIdol => '⍙',
+            DiscoveryKind::StarfallCrater => '◉',
+            DiscoveryKind::HollowOak => '⌂',
+            DiscoveryKind::SaltFlat => '▭',
+            DiscoveryKind::EchoWell => '◌',
+            DiscoveryKind::PaintedRocks => '◍',
+            DiscoveryKind::AbandonedCamp => '⌑',
+            DiscoveryKind::MoonPool => '☾',
         }
     }
 
@@ -145,6 +238,18 @@ impl DiscoveryKind {
             DiscoveryKind::FrostShrine,
             DiscoveryKind::WhisperingPool,
             DiscoveryKind::BoneCircle,
+            DiscoveryKind::HotSpring,
+            DiscoveryKind::Battlefield,
+            DiscoveryKind::SingingCave,
+            DiscoveryKind::GlassField,
+            DiscoveryKind::DriftwoodIdol,
+            DiscoveryKind::StarfallCrater,
+            DiscoveryKind::HollowOak,
+            DiscoveryKind::SaltFlat,
+            DiscoveryKind::EchoWell,
+            DiscoveryKind::PaintedRocks,
+            DiscoveryKind::AbandonedCamp,
+            DiscoveryKind::MoonPool,
         ]
     }
 }
