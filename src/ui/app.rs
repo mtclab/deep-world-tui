@@ -109,6 +109,9 @@ pub struct App {
     pub flash_frames: u8,
     pub perf_slow_frames: u32,
     pub perf_last_render_us: u64,
+    /// Re-entrancy guard: a collapse advances the clock for its unconscious
+    /// hours, which must not recursively re-trigger another collapse.
+    in_collapse: bool,
     seed: u64,
     charts: Charts,
     player_rng: Option<SeedRng>,
@@ -161,6 +164,7 @@ impl App {
             flash_frames: 0,
             perf_slow_frames: 0,
             perf_last_render_us: 0,
+            in_collapse: false,
             seed,
             charts,
             player_rng: Some(player_rng),
@@ -1955,6 +1959,12 @@ impl App {
         if self.vitals.hunger > 0.0 && self.vitals.energy > 0.0 {
             return;
         }
+        // A collapse advances the clock for its unconscious hours; that nested
+        // advance must not recursively re-trigger another collapse (which would
+        // recurse without bound when vitals stay at zero).
+        if self.in_collapse {
+            return;
+        }
         let vitals_before = self.vitals;
         let region_name = self
             .sim
@@ -2025,7 +2035,9 @@ impl App {
             self.vitals.hunger = 0.15;
             self.vitals.energy = 0.1;
         }
+        self.in_collapse = true;
         self.advance_clock(hours);
+        self.in_collapse = false;
         let tick = self.sim.as_ref().map(|sim| sim.world.tick).unwrap_or(0);
         self.collapse_log.push(CollapseEvent {
             tick,
