@@ -96,6 +96,7 @@ mod tests {
                     famine_days: 0,
                 }],
                 weather: crate::model::Weather::Clear,
+                game_richness: 1.0,
             }],
             charts_version: "0.1.0".into(),
             region_cols: 1,

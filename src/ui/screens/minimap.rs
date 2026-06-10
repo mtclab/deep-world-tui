@@ -182,6 +182,7 @@ mod minimap_tests {
             neighbors: Default::default(),
             structures: Vec::new(),
             weather: crate::model::Weather::Clear,
+            game_richness: 1.0,
         }
     }
 

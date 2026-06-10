@@ -120,6 +120,15 @@ pub struct Region {
     /// weather has continuity — fronts arrive, sit, and move on.
     #[serde(default = "default_region_weather")]
     pub weather: Weather,
+    /// How much wild game the region still carries (1.0 = untouched). Traps,
+    /// hunting companions, and beast-handlers draw it down; it recovers with
+    /// the seasons. Over-trap a valley and it goes quiet.
+    #[serde(default = "default_game_richness")]
+    pub game_richness: f64,
+}
+
+fn default_game_richness() -> f64 {
+    1.0
 }
 
 fn default_region_weather() -> Weather {

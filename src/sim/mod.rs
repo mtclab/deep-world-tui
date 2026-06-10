@@ -224,6 +224,14 @@ fn tick_weather_fronts(sim: &mut SimState) {
     let seed = sim.world.seed;
     let current: Vec<Weather> = sim.world.regions.iter().map(|r| r.weather).collect();
     for (ri, region) in sim.world.regions.iter_mut().enumerate() {
+        // Wild game recovers slowly; the green season breeds faster.
+        let season = crate::model::Season::from_day(day as u32);
+        let recover = if season == crate::model::Season::Green {
+            0.02
+        } else {
+            0.01
+        };
+        region.game_richness = (region.game_richness + recover).min(1.0);
         let mut rng = SeedRng::new(seed).fork_for(&format!("front-{day}-{ri}"));
         let roll = rng.gen_range(100);
         region.weather = if roll < 55 {
@@ -297,6 +305,8 @@ fn tick_settlement_life(sim: &mut SimState) {
     for region in sim.world.regions.iter_mut() {
         let terrain = region_work_terrain(&region.region_type);
         let weather = region.weather;
+        let region_richness = region.game_richness;
+        let mut richness_draw = 0.0_f64;
         let coastal = matches!(
             region.region_type.as_str(),
             "coast" | "delta" | "river_valley"
@@ -349,10 +359,11 @@ fn tick_settlement_life(sim: &mut SimState) {
                 * scale
                 * weather.gather_modifier();
             let trap_food = if settlement.has_building(BuildingType::Trap) {
-                2.0
+                2.0 * region_richness
             } else {
                 0.0
             };
+            richness_draw += trap_food * 0.002 + handlers as f64 * 0.001;
             settlement.food_stock += harvested + gathered + trap_food;
 
             // --- consumption + spoilage ---
@@ -530,6 +541,7 @@ fn tick_settlement_life(sim: &mut SimState) {
                 }
             }
         }
+        region.game_richness = (region.game_richness - richness_draw).max(0.0);
     }
     for msg in completed_msgs {
         let t = sim.world.tick;

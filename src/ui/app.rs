@@ -1565,7 +1565,25 @@ impl App {
         let weather_mult = self
             .player_pos
             .map(|pos| {
-                crate::sim::weather::encounter_rate_modifier(self.region_weather(pos.region_idx))
+                let base = crate::sim::weather::encounter_rate_modifier(
+                    self.region_weather(pos.region_idx),
+                );
+                // Empty land is quiet land: wild terrain spawns scale with game.
+                let wild = matches!(
+                    terrain,
+                    Terrain::Forest | Terrain::Swamp | Terrain::Cave | Terrain::Tundra
+                );
+                if wild {
+                    let richness = self
+                        .sim
+                        .as_ref()
+                        .and_then(|s| s.world.regions.get(pos.region_idx))
+                        .map(|r| r.game_richness)
+                        .unwrap_or(1.0);
+                    base * (0.5 + 0.5 * richness)
+                } else {
+                    base
+                }
             })
             .unwrap_or(1.0);
         if let Some(enc) = Encounter::roll_biased_weather(
@@ -2845,8 +2863,10 @@ impl App {
             }
         };
 
-        // Get the NPC person
-        let npc_person = {
+        // Get the NPC person (and the settlement the heir actually lives in —
+        // reputation used to be keyed by the dead's stored settlement string,
+        // which can differ from any real settlement id).
+        let (npc_person, heir_settlement_id) = {
             let pos = match self.player_pos {
                 Some(p) => p,
                 None => {
@@ -2872,13 +2892,14 @@ impl App {
                     return;
                 }
             };
-            match settlement.people.get(npc_idx) {
+            let person = match settlement.people.get(npc_idx) {
                 Some(p) => p.clone(),
                 None => {
                     self.screen = Screen::GameOver;
                     return;
                 }
-            }
+            };
+            (person, settlement.id.clone())
         };
 
         // Add lineage record. The authoritative cause is `death_cause` — both
@@ -2901,13 +2922,34 @@ impl App {
             tick,
         });
 
-        // Create new PlayerStart from NPC
+        // Create new PlayerStart from NPC. The heir keeps a keepsake — a few
+        // coins and one thing the dead carried — and the family's standing
+        // doesn't vanish with the body (half of it carries to the heir).
+        let mut inherited = Inventory::default();
+        let keepsake = self.player_start.as_ref().map(|ps| {
+            let coins = ps.inventory.get(ItemType::Coin).min(3);
+            let item = ps
+                .inventory
+                .items
+                .keys()
+                .copied()
+                .find(|i| *i != ItemType::Coin && ps.inventory.get(*i) > 0);
+            (coins, item)
+        });
+        if let Some((coins, item)) = keepsake {
+            if coins > 0 {
+                inherited.add(ItemType::Coin, coins);
+            }
+            if let Some(it) = item {
+                inherited.add(it, 1);
+            }
+        }
         let new_player_start = PlayerStart {
             person: npc_person.clone(),
             reroll_count: 0,
             point_buy_adjustments: Vec::new(),
             accepted: true,
-            inventory: Inventory::default(),
+            inventory: inherited,
             companions: vec![],
         };
 
@@ -2920,10 +2962,21 @@ impl App {
             sim.log_journal(sim.world.tick, memorial);
         }
 
-        // +0.15 reputation boost
+        // +0.15 reputation boost, plus half the dead's standing carries over —
+        // the family name is remembered.
+        let dead_standing = self
+            .sim
+            .as_ref()
+            .map(|sim| sim.reputation.get(&dead_person.id, &heir_settlement_id))
+            .unwrap_or(0.5);
         if let Some(ref mut sim) = self.sim {
             sim.reputation
-                .adjust_local(&npc_person.id, &settlement_id, 0.15);
+                .adjust_local(&npc_person.id, &heir_settlement_id, 0.15);
+            let carry = (dead_standing - 0.5) * 0.5;
+            if carry.abs() > 0.01 {
+                sim.reputation
+                    .adjust_local(&npc_person.id, &heir_settlement_id, carry);
+            }
         }
 
         // Switch player
@@ -3294,14 +3347,40 @@ impl App {
                 }
                 self.status_msg = Some("You dress your sickness with a bandage.".into());
             }
-            // A set trap yields food over a proper rest in the wild.
+            // A set trap yields food over a proper rest in the wild — if the
+            // land still carries game. Trapping draws the valley down.
+            let richness = self
+                .player_pos
+                .and_then(|pos| {
+                    self.sim
+                        .as_ref()
+                        .and_then(|s| s.world.regions.get(pos.region_idx))
+                })
+                .map(|r| r.game_richness)
+                .unwrap_or(1.0);
             if hours >= 4
                 && !on_settlement
+                && richness > 0.3
                 && ps.inventory.has(ItemType::Trap)
                 && !ps.inventory.is_broken(ItemType::Trap)
             {
                 ps.inventory.add(ItemType::Food, 1);
                 ps.inventory.use_tool(ItemType::Trap);
+                if let Some(pos) = self.player_pos {
+                    if let Some(region) = self
+                        .sim
+                        .as_mut()
+                        .and_then(|s| s.world.regions.get_mut(pos.region_idx))
+                    {
+                        region.game_richness = (region.game_richness - 0.02).max(0.0);
+                    }
+                }
+            } else if hours >= 4
+                && !on_settlement
+                && richness <= 0.3
+                && ps.inventory.has(ItemType::Trap)
+            {
+                self.status_msg = Some("The snare sits empty. This land is trapped out.".into());
             }
         }
         let structure_bonus = match self.structure_at_player() {
