@@ -2560,12 +2560,16 @@ impl App {
             }
         };
 
-        // Add lineage record
+        // Add lineage record. The authoritative cause is `death_cause` — both
+        // death paths (collapse and old age) set it. The old code read
+        // `self.collapse.outcome`, which is stale/None for an old-age death, so
+        // OldAge deaths were mislabeled with a leftover collapse outcome or
+        // "unknown" and never showed as "old age" in the lineage.
         let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
         let cause = self
-            .collapse
-            .as_ref()
-            .map(|c| format!("{:?}", c.outcome))
+            .death_cause
+            .map(|d| d.label().to_string())
+            .or_else(|| self.collapse.as_ref().map(|c| format!("{:?}", c.outcome)))
             .unwrap_or_else(|| "unknown".to_string());
 
         self.lineage.push(LineageRecord {
