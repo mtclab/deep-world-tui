@@ -72,7 +72,7 @@ Charts(
         base: WeightedTable(entries: {
             "farmer": 100, "labourer": 70, "herder": 30, "fisher": 22, "forester": 18,
             "weaver": 12, "smith": 8, "carpenter": 8, "trader": 6, "miner": 6,
-            "sailor": 6, "soldier": 5, "healer": 4, "scribe": 3, "priest": 2,
+            "sailor": 6, "soldier": 5, "healer": 4, "herbalist": 2, "scribe": 3, "priest": 2,
             "hearth-keeper": 4, "path-finder": 3, "fence-builder": 3, "beast-handler": 2, "singer": 3,
         }),
         modifiers: [

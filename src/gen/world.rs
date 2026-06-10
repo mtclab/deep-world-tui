@@ -406,10 +406,15 @@ fn settlement_services(size: &str, people: &str) -> Vec<SettlementService> {
         _ => vec![],
     };
     let pk = crate::model::PeopleKind::from_name(people);
+    // Each god-people's signature service. Archive/TradePost/Shrine were fully
+    // implemented in use_service but never generated, so they were unreachable.
     match pk {
         crate::model::PeopleKind::Sepat => svcs.push(SettlementService::Forge),
         crate::model::PeopleKind::Ahjo => svcs.push(SettlementService::Hearth),
         crate::model::PeopleKind::Metsik => svcs.push(SettlementService::TrapWorkshop),
+        crate::model::PeopleKind::Arkit => svcs.push(SettlementService::Archive),
+        crate::model::PeopleKind::Vayla => svcs.push(SettlementService::TradePost),
+        crate::model::PeopleKind::Laakso => svcs.push(SettlementService::Shrine),
         _ => {}
     }
     svcs

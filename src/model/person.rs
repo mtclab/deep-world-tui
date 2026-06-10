@@ -764,6 +764,9 @@ impl InterPeopleBias {
                 "xenophobic" | "suspicious" | "insular" => mod_val -= 0.10,
                 "cautious" | "guarded" => mod_val -= 0.04,
                 "open" | "curious" => mod_val += 0.05,
+                // Previously chart-only flavor with no effect:
+                "cheerful" | "earnest" => mod_val += 0.05,
+                "melancholic" | "world-weary" => mod_val -= 0.04,
                 _ => {}
             }
         }
@@ -781,6 +784,10 @@ impl InterPeopleBias {
                 "open" | "curious" => mod_val -= 0.02,
                 "bitter" | "shrewd" => mod_val += 0.04,
                 "reckless" => mod_val -= 0.03,
+                // Previously chart-only flavor with no effect:
+                "devious" => mod_val += 0.05,
+                "proud" => mod_val += 0.03,
+                "earnest" => mod_val -= 0.02,
                 _ => {}
             }
         }
@@ -803,6 +810,13 @@ impl InterPeopleBias {
                 "stoic" => mod_val.calm += 0.04,
                 "withdrawn" => mod_val.talk -= 0.03,
                 "shrewd" => mod_val.trade += 0.04,
+                // Previously chart-only flavor with no effect:
+                "proud" => mod_val.intimidate += 0.03,
+                "cheerful" | "boisterous" => mod_val.talk += 0.03,
+                "melancholic" => mod_val.talk -= 0.02,
+                "devious" => mod_val.bribe_cost -= 0.05,
+                "earnest" => mod_val.talk += 0.04,
+                "world-weary" => mod_val.calm += 0.03,
                 _ => {}
             }
         }

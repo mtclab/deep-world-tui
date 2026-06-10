@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -74,37 +72,6 @@ impl PeopleBanks {
             P::Hal => &self.hal,
             P::Khor => &self.khor,
         }
-    }
-
-    pub fn into_map(self) -> HashMap<crate::model::PeopleKind, PeopleVoiceBank> {
-        use crate::model::PeopleKind as P;
-        let mut m = HashMap::new();
-        m.insert(P::Metsik, self.metsik);
-        m.insert(P::Arkit, self.arkit);
-        m.insert(P::Vayla, self.vayla);
-        m.insert(P::Laakso, self.laakso);
-        m.insert(P::Sepat, self.sepat);
-        m.insert(P::Ahjo, self.ahjo);
-        m.insert(P::Varhaiset, self.varhaiset);
-        m.insert(P::Metsareunat, self.metsareunat);
-        m.insert(P::Porokansa, self.porokansa);
-        m.insert(P::Koskimetsa, self.koskimetsa);
-        m.insert(P::Muistikansa, self.muistikansa);
-        m.insert(P::Taulukansa, self.taulukansa);
-        m.insert(P::Kirjakansa, self.kirjakansa);
-        m.insert(P::Takovaki, self.takovaki);
-        m.insert(P::Rantavaki, self.rantavaki);
-        m.insert(P::Saarivaki, self.saarivaki);
-        m.insert(P::Hiekkakavelijat, self.hiekkakavelijat);
-        m.insert(P::Haramaki, self.haramaki);
-        m.insert(P::Jamavaki, self.jamavaki);
-        m.insert(P::Pohjavaki, self.pohjavaki);
-        m.insert(P::Tzakhar, self.tzakhar);
-        m.insert(P::Merak, self.merak);
-        m.insert(P::Shear, self.shear);
-        m.insert(P::Hal, self.hal);
-        m.insert(P::Khor, self.khor);
-        m
     }
 }
 
