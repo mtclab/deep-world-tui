@@ -934,7 +934,15 @@ impl App {
                 _ => {}
             }
             let season = self.clock.season();
-            let mult = season.gather_multiplier();
+            // Weather affects the harvest too, not just travel — a storm or
+            // whiteout thins what the land gives. gather_modifier was previously
+            // applied only to NPC farm growth, never to player gathering.
+            let weather = self
+                .sim
+                .as_ref()
+                .map(|s| Weather::generate(s.world.seed, s.world.tick, terrain))
+                .unwrap_or(Weather::Clear);
+            let mult = season.gather_multiplier() * weather.gather_modifier();
             let pp = self.inter_people_bias.player_people;
             let people_bonus = Terrain::people_gather_bonus(pp, terrain);
             let base = 1 + people_bonus;
