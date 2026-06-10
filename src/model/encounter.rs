@@ -545,6 +545,20 @@ impl Encounter {
         seed: u64,
         player_people: Option<PeopleKind>,
     ) -> Option<Self> {
+        Self::roll_biased_weather(terrain, hour, day, seed, player_people, 1.0)
+    }
+
+    /// Like `roll_biased`, but the baseline encounter chance is scaled by a
+    /// weather multiplier (a storm stirs the land; clear skies quiet it).
+    /// Weather was generated but never fed into encounter spawning.
+    pub fn roll_biased_weather(
+        terrain: Terrain,
+        hour: u32,
+        day: u32,
+        seed: u64,
+        player_people: Option<PeopleKind>,
+        weather_mult: f64,
+    ) -> Option<Self> {
         let season = Season::from_day(day);
         let hash = seed.wrapping_mul(2654435761)
             ^ (terrain as u64).wrapping_mul(40503)
@@ -612,7 +626,16 @@ impl Encounter {
             Terrain::Swamp => (20, EncounterKind::Wildlife),
             Terrain::Sand => (10, EncounterKind::Storm),
             Terrain::DeepDesert => (12, EncounterKind::Storm),
-            Terrain::Road => (5, EncounterKind::Traveler),
+            // Roads carry trade: every third road encounter is a merchant
+            // caravan (the kind existed but was never spawned anywhere).
+            Terrain::Road => (
+                5,
+                if val.is_multiple_of(3) {
+                    EncounterKind::MerchantCaravan
+                } else {
+                    EncounterKind::Traveler
+                },
+            ),
             Terrain::Settlement => (0, EncounterKind::Traveler),
             Terrain::Cave => (18, EncounterKind::Wildlife),
             Terrain::Tundra => (15, EncounterKind::Storm),
@@ -661,7 +684,8 @@ impl Encounter {
                 _ => {}
             }
         }
-        if (val % 100) < (threshold as u64) {
+        let threshold = (threshold as f64 * weather_mult.clamp(0.0, 3.0)).round() as u64;
+        if (val % 100) < threshold {
             Some(Encounter { kind, terrain })
         } else {
             None
