@@ -509,6 +509,20 @@ impl App {
         }
     }
 
+    /// Best travel-speed multiplier among the player's companions (a horse
+    /// quickens the road); 1.0 with none.
+    fn companion_travel_mult(&self) -> f64 {
+        self.player_start
+            .as_ref()
+            .map(|ps| {
+                ps.companions
+                    .iter()
+                    .map(|c| c.animal.travel_speed_multiplier())
+                    .fold(1.0, f64::min)
+            })
+            .unwrap_or(1.0)
+    }
+
     /// The player's current age in years, derived from elapsed calendar days.
     pub fn current_age_years(&self) -> u32 {
         let elapsed = self.clock.day.saturating_sub(self.birth_day);
@@ -930,7 +944,19 @@ impl App {
             } else {
                 0
             };
-            let count = ((base + tool_bonus) as f64 * mult).floor() as u32;
+            // A gathering animal (e.g. a hound) makes the player more productive.
+            let companion_gather = self
+                .player_start
+                .as_ref()
+                .map(|ps| {
+                    ps.companions
+                        .iter()
+                        .map(|c| c.animal.gathering_bonus())
+                        .fold(0.0, f64::max)
+                })
+                .unwrap_or(0.0);
+            let count =
+                ((base + tool_bonus) as f64 * mult * (1.0 + companion_gather)).floor() as u32;
             let mut boon_msg = None;
             let patron = terrain.patron_god();
             let count = if let Some(god) = patron {
@@ -1125,6 +1151,24 @@ impl App {
         }
     }
 
+    /// Supply effect of arrived caravans on the current settlement's price for
+    /// an item (more goods in town → lower price). 1.0 when no caravan applies.
+    fn caravan_price_modifier(&self, item: ItemType) -> f64 {
+        let Some(name) = self.current_settlement().map(|s| s.name.clone()) else {
+            return 1.0;
+        };
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let mut m = 1.0;
+        if let Some(ref sim) = self.sim {
+            for c in &sim.caravans {
+                if c.destination == name && c.has_arrived(tick) {
+                    m *= c.price_modifier(item, tick);
+                }
+            }
+        }
+        m
+    }
+
     pub fn buy_item(&mut self, item: ItemType) {
         if !item.tradeable() {
             self.status_msg = Some("Cannot buy that".into());
@@ -1137,7 +1181,7 @@ impl App {
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
         let pol_mod = self.politics_price_modifier();
-        let modifier = inter_mod * rep_mod * pol_mod;
+        let modifier = inter_mod * rep_mod * pol_mod * self.caravan_price_modifier(item);
         let price = ((base_price as f64 * modifier).ceil() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(ItemType::Coin, price) {
@@ -1166,7 +1210,7 @@ impl App {
             .unwrap_or(1.0);
         let rep_mod = self.reputation_in_current_settlement();
         let pol_mod = self.politics_price_modifier();
-        let modifier = inter_mod * rep_mod * pol_mod;
+        let modifier = inter_mod * rep_mod * pol_mod * self.caravan_price_modifier(item);
         let price = ((base_price as f64 * modifier).floor() as u32).max(1);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(item, 1) {
@@ -1491,6 +1535,23 @@ impl App {
                 }
             }
         }
+
+        // Keep the quest board alive: when active quests run low, the world posts
+        // new needs. Deterministic per day so the same seed plays out the same.
+        let player_people = self.inter_people_bias.player_people;
+        let day = self.clock.day;
+        let salt = self.seed.wrapping_add(day as u64 * 1009 + 7);
+        if let Some(ref mut sim) = self.sim {
+            if sim.quests.len() < 2 {
+                let fresh = crate::sim::quest_gen::generate_quests(
+                    salt,
+                    player_people,
+                    &sim.world.regions,
+                    day,
+                );
+                sim.quests.extend(fresh);
+            }
+        }
     }
 
     fn check_quests_on_travel(&mut self, region_idx: usize) {
@@ -1607,6 +1668,62 @@ impl App {
         self.status_msg = Some(format!("{} the {} joins me.", name, animal.name()));
     }
 
+    /// Maintain a weathering structure under the player (resets its decay clock).
+    /// Returns true if a maintainable structure was here (handled), false if not.
+    fn maintain_structure_here(&mut self) -> bool {
+        let pos = match self.player_pos {
+            Some(p) => p,
+            None => return false,
+        };
+        let (px, py) = (pos.px as u32, pos.py as u32);
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let here = |st: &crate::sim::structures::Structure| {
+            st.x == px && st.y == py && !st.is_npc_built && st.kind.decay_years().is_some()
+        };
+        let found = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(pos.region_idx))
+            .is_some_and(|r| r.structures.iter().any(here));
+        if !found {
+            return false;
+        }
+        if !self
+            .player_start
+            .as_ref()
+            .is_some_and(|ps| ps.inventory.has(ItemType::Wood))
+        {
+            self.status_msg = Some("Need 1 Wood to maintain this structure.".into());
+            return true;
+        }
+        let mut label = "structure";
+        if let Some(ref mut sim) = self.sim {
+            if let Some(region) = sim.world.regions.get_mut(pos.region_idx) {
+                for st in region
+                    .structures
+                    .iter_mut()
+                    .filter(|st| st.x == px && st.y == py)
+                {
+                    st.last_maintenance_tick = tick;
+                    label = st.kind.label();
+                }
+            }
+            for st in sim
+                .structures
+                .iter_mut()
+                .filter(|st| st.region_idx == pos.region_idx && st.x == px && st.y == py)
+            {
+                st.last_maintenance_tick = tick;
+            }
+        }
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(ItemType::Wood, 1);
+        }
+        self.advance_clock(2);
+        self.status_msg = Some(format!("Maintained {label} (1 Wood, 2h)"));
+        true
+    }
+
     pub fn start_build(&mut self) {
         let pos = match self.player_pos {
             Some(p) => p,
@@ -1615,6 +1732,11 @@ impl App {
                 return;
             }
         };
+        // Standing on your own weathering structure? Maintain it instead of
+        // trying to build a new one on the same tile.
+        if self.maintain_structure_here() {
+            return;
+        }
         let region_idx = pos.region_idx;
         let px = pos.px as u32;
         let py = pos.py as u32;
@@ -1841,6 +1963,12 @@ impl App {
                 }
             }
         };
+        // Resolving an encounter takes a moment, and breaking away costs effort —
+        // the flavor text promises these costs, so actually apply them.
+        self.advance_clock(1);
+        if matches!(action, EncounterAction::Flee | EncounterAction::PushThrough) {
+            self.vitals.energy = (self.vitals.energy - 0.08).max(0.0);
+        }
         let encounter_data = self.encounter.map(|e| e.kind);
         let pos_opt = self.player_pos;
         let npc_people = self
@@ -2725,6 +2853,7 @@ impl App {
 
         self.advance_clock(hours);
         self.vitals.rest(hours);
+        let mut scouted = false;
         if let Some(ref mut ps) = self.player_start {
             for companion in &mut ps.companions {
                 companion.rest(h / 8.0);
@@ -2732,6 +2861,16 @@ impl App {
                     .seed
                     .wrapping_add((self.clock.day as u64 * 24 + self.clock.hour as u64) * 137);
                 if let Some(action) = companion.autonomous_action(action_seed) {
+                    // The flavor promises a yield — deliver it to the player.
+                    match action {
+                        crate::model::CompanionAction::Hunt => {
+                            ps.inventory.add(crate::model::ItemType::Food, 1)
+                        }
+                        crate::model::CompanionAction::Gather => {
+                            ps.inventory.add(crate::model::ItemType::Herb, 1)
+                        }
+                        crate::model::CompanionAction::Scout => scouted = true,
+                    }
                     let flavor = companion.apply_action(action);
                     self.status_msg = Some(format!("{} {}", companion.name, flavor));
                 }
@@ -2740,6 +2879,12 @@ impl App {
                     ps.inventory.remove(crate::model::ItemType::Food, 1);
                     companion.feed(0.5);
                 }
+            }
+        }
+        // A scouting companion reveals the ground around the player.
+        if scouted {
+            if let Some(pos) = self.player_pos {
+                self.reveal_around(pos.region_idx, pos.px, pos.py);
             }
         }
         let structure_bonus = match self.structure_at_player() {
@@ -2879,6 +3024,7 @@ impl App {
         let weather_mult = weather
             .map(crate::sim::weather::travel_hours_multiplier)
             .unwrap_or(1.0);
+        let companion_travel = self.companion_travel_mult();
         let result = self.compute_move(dx, dy);
         match result {
             Some(MoveResult::EdgeTransition { region_idx, px, py }) => {
@@ -2904,7 +3050,8 @@ impl App {
                         0
                     }
                 });
-                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32
+                let hours = ((terrain.travel_hours() as f64 * weather_mult * companion_travel)
+                    .round() as i32
                     + bias_mod)
                     .max(1) as u32;
                 self.advance_clock(hours);
@@ -2940,7 +3087,8 @@ impl App {
                         0
                     }
                 });
-                let hours = ((terrain.travel_hours() as f64 * weather_mult).round() as i32
+                let hours = ((terrain.travel_hours() as f64 * weather_mult * companion_travel)
+                    .round() as i32
                     + bias_mod)
                     .max(1) as u32;
                 self.advance_clock(hours);
