@@ -67,6 +67,7 @@ mod tests {
             start_age_years: 0,
             birth_day: 0,
             lifespan_years: 0,
+            encounter_log: Default::default(),
         }
     }
 

@@ -122,6 +122,7 @@ fn full_pipeline_seed_generate_enter_talk() {
         start_age_years: 0,
         birth_day: 0,
         lifespan_years: 0,
+        encounter_log: Default::default(),
     };
 
     save::save_game(&data, "integration_save.ron").expect("save should succeed");

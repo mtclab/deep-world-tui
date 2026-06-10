@@ -75,6 +75,10 @@ pub struct SaveData {
     pub birth_day: u32,
     #[serde(default)]
     pub lifespan_years: u32,
+    // The player's encounter history (day/hour/kind/action) lived in App but
+    // was never saved, so the log reset on every load.
+    #[serde(default)]
+    pub encounter_log: crate::model::EncounterLog,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -263,6 +267,7 @@ pub fn restore_from_compact(
         start_age_years: 0,
         birth_day: 0,
         lifespan_years: 0,
+        encounter_log: Default::default(),
     })
 }
 
@@ -297,6 +302,7 @@ mod tests {
             start_age_years: 0,
             birth_day: 0,
             lifespan_years: 0,
+            encounter_log: Default::default(),
         };
         save_game(&data, "test_save.ron").expect("save should succeed");
         let loaded = load_game("test_save.ron").expect("load should succeed");
@@ -386,6 +392,7 @@ mod tests {
             start_age_years: 0,
             birth_day: 0,
             lifespan_years: 0,
+            encounter_log: Default::default(),
         };
         let compact_data = CompactSave {
             seed: 42,
