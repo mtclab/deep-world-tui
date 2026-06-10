@@ -1970,11 +1970,18 @@ impl App {
                 }
             }
         };
-        // Resolving an encounter takes a moment, and breaking away costs effort —
-        // the flavor text promises these costs, so actually apply them.
-        self.advance_clock(1);
-        if matches!(action, EncounterAction::Flee | EncounterAction::PushThrough) {
-            self.vitals.energy = (self.vitals.energy - 0.08).max(0.0);
+        // Apply the action's data-driven costs (time, energy, hunger) and its
+        // god-affinity shift. These lived on EncounterAction but were never
+        // wired in — resolution hardcoded a flat 1h + 0.08 energy and ignored
+        // hunger and god affinity entirely.
+        let hours = action.hours();
+        if hours > 0 {
+            self.advance_clock(hours);
+        }
+        self.vitals.energy = (self.vitals.energy - action.energy_cost()).max(0.0);
+        self.vitals.hunger = (self.vitals.hunger - action.hunger_cost()).max(0.0);
+        if let Some((god, delta)) = action.god_affinity_effect() {
+            self.god_affinity.adjust(god, delta);
         }
         let encounter_data = self.encounter.map(|e| e.kind);
         let pos_opt = self.player_pos;
