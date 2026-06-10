@@ -224,6 +224,7 @@ mod tests {
             illnesses: vec![],
             relations: vec![],
             wants: vec![],
+            age_years: 0,
         };
         assert_eq!(illness_productivity_modifier(&person), 1.0);
     }

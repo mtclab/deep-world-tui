@@ -1154,6 +1154,9 @@ pub struct Person {
     pub has_spouse: bool,
     pub children_count: u32,
     pub has_debt: bool,
+    /// Age in life-years (0 = not yet derived from age_band; see lifecycle).
+    #[serde(default)]
+    pub age_years: u32,
     #[serde(default)]
     pub schedule: NpcSchedule,
     #[serde(default)]
@@ -1358,6 +1361,7 @@ mod tests {
             relations: vec![],
 
             wants: vec![],
+            age_years: 0,
         };
 
         roundtrip(&person);
