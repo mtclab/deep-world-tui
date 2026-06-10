@@ -34,17 +34,24 @@ pub struct JournalEntry {
 
 impl<'de> serde::Deserialize<'de> for JournalEntry {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        fn default_voice() -> Voice {
+            Voice::Encounter
+        }
         #[derive(serde::Deserialize)]
         struct OldEntry {
             tick: u64,
-            #[serde(default)]
-            voice: Option<Voice>,
+            // Plain Voice (not Option): derived Serialize writes a bare
+            // `voice:Scar`, and compact RON's reader has no implicit-some, so a
+            // bare enum into Option<Voice> fails with "Expected option". The
+            // default fn still migrates older saves that lacked the field.
+            #[serde(default = "default_voice")]
+            voice: Voice,
             text: String,
         }
         let old = OldEntry::deserialize(deserializer)?;
         Ok(JournalEntry {
             tick: old.tick,
-            voice: old.voice.unwrap_or(Voice::Encounter),
+            voice: old.voice,
             text: old.text,
         })
     }
