@@ -181,6 +181,7 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
         neighbors: crate::model::RegionNeighbors::default(),
         structures: vec![],
         weather,
+        game_richness: 1.0,
     }
 }
 

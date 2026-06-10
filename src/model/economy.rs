@@ -1375,6 +1375,7 @@ mod tests {
 
             structures: vec![],
             weather: crate::model::Weather::Clear,
+            game_richness: 1.0,
         };
 
         assert_eq!(region.danger_level(), DangerLevel::Safe);
@@ -1416,6 +1417,7 @@ mod tests {
 
             structures: vec![],
             weather: crate::model::Weather::Clear,
+            game_richness: 1.0,
         };
 
         assert_eq!(region.danger_level(), DangerLevel::Dangerous);
@@ -1488,6 +1490,7 @@ mod tests {
 
             structures: vec![],
             weather: crate::model::Weather::Clear,
+            game_richness: 1.0,
         };
 
         roundtrip(&r);
