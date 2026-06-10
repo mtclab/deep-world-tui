@@ -43,6 +43,11 @@ pub fn handle_save_browser_input(app: &mut App, key: KeyEvent) {
                         app.lineage = data.lineage;
                         app.milestones = data.milestones;
                         app.hint_tracker = data.hint_tracker;
+                        app.apply_loaded_aging(
+                            data.start_age_years,
+                            data.birth_day,
+                            data.lifespan_years,
+                        );
                         app.elder = app
                             .milestones
                             .has(crate::sim::milestones::MilestoneKind::ElderAchieved);

@@ -38,6 +38,9 @@ fn make_save_data(seed: u64, charts: &charts::Charts) -> SaveData {
         version: CURRENT_SAVE_VERSION,
         first_run: true,
         hint_tracker: HintTracker::default(),
+        start_age_years: 0,
+        birth_day: 0,
+        lifespan_years: 0,
     }
 }
 

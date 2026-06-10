@@ -136,6 +136,7 @@ pub enum DeathCause {
     Exposure,
     Exhaustion,
     Wounds,
+    OldAge,
     Unknown,
 }
 
@@ -160,6 +161,7 @@ impl DeathCause {
             DeathCause::Exposure => "The elements exacted their toll. Your body could endure no more.",
             DeathCause::Exhaustion => "Your strength gave way. Even the will to rise has its limit.",
             DeathCause::Wounds => "Your wounds proved too great. The wilds are not forgiving.",
+            DeathCause::OldAge => "Your years came full circle. You met the end as the old do — quietly, and at home in the world.",
             DeathCause::Unknown => "The end came quietly. The world holds its breath.",
         }
     }
@@ -170,6 +172,7 @@ impl DeathCause {
             DeathCause::Exposure => "exposure",
             DeathCause::Exhaustion => "exhaustion",
             DeathCause::Wounds => "wounds",
+            DeathCause::OldAge => "old age",
             DeathCause::Unknown => "unknown",
         }
     }

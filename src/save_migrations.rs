@@ -64,6 +64,9 @@ mod tests {
             version,
             first_run: true,
             hint_tracker: crate::sim::hints::HintTracker::default(),
+            start_age_years: 0,
+            birth_day: 0,
+            lifespan_years: 0,
         }
     }
 
