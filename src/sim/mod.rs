@@ -62,6 +62,9 @@ pub struct SimState {
     pub effect_queue: EffectQueue,
     pub relationships: RelationshipTracker,
     pub reputation: ReputationStore,
+    // Late-added gameplay state: default so saves written before obligations
+    // existed still load (it's not part of the original world snapshot).
+    #[serde(default)]
     pub obligations: Vec<needs_dependent::Obligation>,
     pub charts: Charts,
     #[serde(default)]
@@ -385,6 +388,23 @@ mod tests {
     use super::*;
     use crate::charts;
     use crate::gen::world::generate_world;
+
+    #[test]
+    fn simstate_loads_when_obligations_field_missing() {
+        // A save written before `obligations` existed omits the field entirely.
+        // #[serde(default)] must let it load as an empty Vec rather than error.
+        let charts = charts::load_charts().unwrap();
+        let sim = SimState::new(42, charts);
+        let s = ron::ser::to_string(&sim).unwrap();
+        assert!(
+            s.contains("obligations:[]"),
+            "fresh state has empty obligations"
+        );
+        let stripped = s.replace("obligations:[],", "");
+        let back: SimState =
+            ron::from_str(&stripped).expect("SimState must load without an obligations field");
+        assert!(back.obligations.is_empty());
+    }
 
     #[test]
     fn tick_needs_food_highest_decay() {
