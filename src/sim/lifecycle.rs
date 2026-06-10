@@ -52,6 +52,7 @@ pub fn tick_lifecycle(sim: &mut SimState) {
     let seed = sim.world.seed;
     let charts = sim.charts.clone();
     let mut events: Vec<String> = Vec::new();
+    let mut died: Vec<(String, String, String)> = Vec::new();
 
     for region in sim.world.regions.iter_mut() {
         let region_id = region.id.clone();
@@ -95,6 +96,7 @@ pub fn tick_lifecycle(sim: &mut SimState) {
             // trade on where someone young can take it up.
             for &i in deaths.iter().rev() {
                 let dead = settlement.people.remove(i);
+                died.push((dead.id.clone(), dead.name.clone(), settlement.name.clone()));
                 settlement.population = settlement
                     .population
                     .saturating_sub(scale)
@@ -150,5 +152,20 @@ pub fn tick_lifecycle(sim: &mut SimState) {
     // The world talks about a few of these; the journal isn't a census.
     for e in events.into_iter().take(4) {
         sim.log(tick, Voice::Rumor, e);
+    }
+    // The player's people are not statistics. A friend's death cuts.
+    for (id, name, place) in died {
+        let trust = sim
+            .npc_memories
+            .get(&id)
+            .map(|m| m.cumulative_trust())
+            .unwrap_or(0.0);
+        if trust >= 0.15 {
+            sim.log(
+                tick,
+                Voice::Scar,
+                format!("{name} of {place} is gone. I knew them. The road is poorer."),
+            );
+        }
     }
 }
