@@ -10,7 +10,6 @@ use crossterm::{
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
 
-use deep_world_tui::charts::load::load_charts;
 use deep_world_tui::ui::App;
 
 #[derive(Parser)]
@@ -22,6 +21,10 @@ struct Cli {
     /// World seed (deterministic generation)
     #[arg(long)]
     seed: Option<u64>,
+
+    /// Path to charts.ron file (overrides embedded charts)
+    #[arg(long)]
+    charts: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -33,7 +36,11 @@ fn main() -> Result<()> {
             .as_secs()
     });
 
-    let charts = load_charts()?;
+    let charts = if let Some(ref path) = cli.charts {
+        deep_world_tui::charts::load::load_charts_from_path(std::path::Path::new(path))?
+    } else {
+        deep_world_tui::charts::load::load_charts()?
+    };
     let mut app = App::new(seed, charts);
 
     enable_raw_mode()?;
