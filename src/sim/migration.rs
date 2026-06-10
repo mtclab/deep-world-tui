@@ -652,6 +652,9 @@ mod tests {
             people: vec![person],
             services: vec![crate::model::SettlementService::Forge],
             politics: crate::model::SettlementPolitics::new(),
+            food_stock: 0.0,
+            farms: Vec::new(),
+            buildings: Vec::new(),
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(
@@ -681,6 +684,9 @@ mod tests {
             people,
             services: vec![crate::model::SettlementService::Forge],
             politics: crate::model::SettlementPolitics::new(),
+            food_stock: 0.0,
+            farms: Vec::new(),
+            buildings: Vec::new(),
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(

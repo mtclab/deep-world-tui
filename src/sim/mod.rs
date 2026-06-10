@@ -204,6 +204,214 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_build_sites(sim);
     tick_structure_decay(sim);
     tick_caravans(sim);
+    tick_settlement_life(sim);
+}
+
+/// The terrain a settlement farms and fishes, derived from its region type.
+fn region_work_terrain(region_type: &str) -> crate::model::Terrain {
+    use crate::model::Terrain;
+    match region_type {
+        "river_valley" | "delta" => Terrain::Farmland,
+        "forest" => Terrain::Forest,
+        "coast" => Terrain::Coast,
+        "upland" => Terrain::Mountain,
+        _ => Terrain::Grass,
+    }
+}
+
+/// The crop a settlement's farmers favor on the given ground.
+fn best_crop_for(terrain: crate::model::Terrain) -> crate::model::economy::CropType {
+    use crate::model::economy::CropType;
+    [CropType::Grain, CropType::RootVegetable, CropType::Herb]
+        .into_iter()
+        .max_by(|a, b| {
+            a.regional_suitability(terrain)
+                .partial_cmp(&b.regional_suitability(terrain))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or(CropType::Grain)
+}
+
+/// Settlement daily life: farmers plant and harvest, fishers and herders bring
+/// food in, the population eats from the common stores, hearth-keepers slow
+/// spoilage, builders raise buildings, and soldiers/singers steady the
+/// settlement's safety and spirits. The Farm/CropType and Building/BuildingType
+/// systems were fully modeled but never instantiated — settlements had no
+/// food economy and never built anything.
+fn tick_settlement_life(sim: &mut SimState) {
+    use crate::model::economy::{Building, BuildingType, Farm};
+    use crate::model::{Need, Weather};
+
+    let tick = sim.world.tick;
+    // Heavy work happens once per day.
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let season = crate::model::Season::from_day((tick / 24) as u32);
+    let seed = sim.world.seed;
+    let mut completed_msgs: Vec<String> = Vec::new();
+
+    for region in sim.world.regions.iter_mut() {
+        let terrain = region_work_terrain(&region.region_type);
+        let weather = Weather::generate(seed, tick, terrain);
+        let coastal = matches!(
+            region.region_type.as_str(),
+            "coast" | "delta" | "river_valley"
+        );
+
+        for settlement in region.settlements.iter_mut() {
+            let sample = settlement.people.len().max(1) as f64;
+            // The people vec is a sample of the population; scale producers up.
+            let scale = (settlement.population.max(1) as f64 / sample).max(1.0);
+
+            // --- farms: plant, grow, harvest ---
+            let farmers = settlement.profession_count("farmer");
+            let farm_cap = farmers.min(4);
+            let frost = season == crate::model::Season::Frost;
+            while settlement.farms.len() < farm_cap && !frost {
+                let crop = best_crop_for(terrain);
+                let farm_seed = seed
+                    .wrapping_add(tick)
+                    .wrapping_add(settlement.farms.len() as u64 * 7919)
+                    ^ settlement.id.len() as u64;
+                settlement
+                    .farms
+                    .push(Farm::new(farm_seed, crop, tick, terrain));
+            }
+            let mut harvested = 0.0;
+            for farm in settlement.farms.iter_mut() {
+                farm.update_growth(tick, weather);
+                if farm.is_ready() {
+                    harvested += farm.harvest_yield() as f64 * scale;
+                    // Replant the same field.
+                    farm.planted_tick = tick;
+                    farm.growth_progress = 0.0;
+                    farm.stage = crate::model::economy::GrowthStage::Planted;
+                }
+            }
+            // Frost kills standing crops.
+            if frost {
+                settlement.farms.clear();
+            }
+
+            // --- other food producers (per sampled person, scaled) ---
+            let fishers = if coastal {
+                settlement.profession_count("fisher") + settlement.profession_count("sailor")
+            } else {
+                0
+            };
+            let herders = settlement.profession_count("herder");
+            let handlers = settlement.profession_count("beast-handler");
+            let gathered = (fishers as f64 * 1.0 + herders as f64 * 0.8 + handlers as f64 * 0.5)
+                * scale
+                * weather.gather_modifier();
+            let trap_food = if settlement.has_building(BuildingType::Trap) {
+                2.0
+            } else {
+                0.0
+            };
+            settlement.food_stock += harvested + gathered + trap_food;
+
+            // --- consumption + spoilage ---
+            let eaten = settlement.population as f64 * 0.15;
+            settlement.food_stock = (settlement.food_stock - eaten).max(0.0);
+            let keepers = settlement.profession_count("hearth-keeper") as f64;
+            let hearth = if settlement.has_building(BuildingType::Hearth) {
+                0.5
+            } else {
+                0.0
+            };
+            let spoil_rate = (0.03 - keepers * 0.005 - hearth * 0.01).max(0.0);
+            settlement.food_stock *= 1.0 - spoil_rate;
+
+            // --- the stores feed (or fail) the people ---
+            let per_head = settlement.food_stock / settlement.population.max(1) as f64;
+            for person in settlement.people.iter_mut() {
+                if per_head >= 1.0 {
+                    person.needs.satisfy(Need::Food, 0.10);
+                } else if per_head < 0.4 {
+                    person.needs.decay(Need::Food, 0.05);
+                }
+            }
+
+            // --- guardians and gatherers of spirit ---
+            let safety_hands = settlement.profession_count("soldier")
+                + settlement.profession_count("fence-builder")
+                + settlement.profession_count("path-finder");
+            let shelter = settlement.has_building(BuildingType::Shelter);
+            let shrine = settlement.has_building(BuildingType::Shrine);
+            let singers = settlement.profession_count("singer");
+            for person in settlement.people.iter_mut() {
+                if safety_hands > 0 || shelter {
+                    person.needs.satisfy(
+                        Need::Safety,
+                        0.02 * (safety_hands.min(3) as f64) + if shelter { 0.02 } else { 0.0 },
+                    );
+                }
+                if singers > 0 {
+                    person
+                        .needs
+                        .satisfy(Need::Presence, 0.02 * singers.min(2) as f64);
+                }
+                if shrine {
+                    person.needs.satisfy(Need::Care, 0.02);
+                }
+            }
+
+            // --- construction ---
+            let builders = settlement.profession_count("carpenter")
+                + settlement.profession_count("labourer")
+                + settlement.profession_count("forester")
+                + settlement.profession_count("miner")
+                + settlement.profession_count("weaver");
+            if builders > 0 {
+                let underway = settlement.buildings.iter().any(|b| !b.is_complete());
+                if !underway {
+                    // Raise what's missing, in order of need.
+                    let wanted = [
+                        BuildingType::Shelter,
+                        BuildingType::Hearth,
+                        BuildingType::Trap,
+                        BuildingType::Workshop,
+                        BuildingType::Shrine,
+                    ]
+                    .into_iter()
+                    .find(|k| !settlement.has_building(*k));
+                    if let Some(kind) = wanted {
+                        let bseed = seed.wrapping_add(tick) ^ (settlement.id.len() as u64) << 8;
+                        settlement.buildings.push(Building::new(
+                            bseed,
+                            kind,
+                            settlement.id.clone(),
+                        ));
+                    }
+                }
+                let workshop_boost = if settlement.has_building(BuildingType::Workshop) {
+                    1.5
+                } else {
+                    1.0
+                };
+                let crew = ((builders as f64) * workshop_boost).round() as u64;
+                for b in settlement.buildings.iter_mut() {
+                    if !b.is_complete() {
+                        b.advance_construction(crew, tick);
+                        if b.is_complete() {
+                            completed_msgs.push(format!(
+                                "They raised a new {} in {}.",
+                                b.building_type.name(),
+                                settlement.name
+                            ));
+                        }
+                        break; // one project at a time
+                    }
+                }
+            }
+        }
+    }
+    for msg in completed_msgs {
+        let t = sim.world.tick;
+        sim.log(t, Voice::Rumor, msg);
+    }
 }
 
 /// Spawn trade caravans between settlements and retire them once their goods

@@ -394,6 +394,10 @@ fn generate_settlement(
         people,
         services: settlement_services(&size, &dominant_people),
         politics: crate::model::SettlementPolitics::new(),
+        // Larders start two days full; the settlement-life tick takes it from here.
+        food_stock: population as f64 * 2.0,
+        farms: Vec::new(),
+        buildings: Vec::new(),
     }
 }
 
