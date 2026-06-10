@@ -27,6 +27,9 @@ pub enum Screen {
     SaveSlots {
         scroll: u16,
     },
+    RestPrompt {
+        hours: u32,
+    },
     CharacterCreation,
     World {
         region_idx: usize,
@@ -131,6 +134,10 @@ pub struct App {
 const AGING_DAYS_PER_LIFE_YEAR: u32 = 3;
 /// Years before death at which the player becomes an elder.
 const ELDER_BAND_YEARS: u32 = 8;
+/// Longest single rest the player may take (a full night).
+const MAX_REST_HOURS: u32 = 12;
+/// Default rest duration the picker opens on.
+const DEFAULT_REST_HOURS: u32 = 6;
 
 /// Starting age (years) for a generated age band.
 fn start_age_from_band(band: &str) -> u32 {
@@ -559,6 +566,15 @@ impl App {
         self.save_entries = save::saves_dir_list();
         self.screen = Screen::SaveSlots { scroll: 0 };
     }
+
+    /// Open the rest-duration picker.
+    pub fn open_rest_prompt(&mut self) {
+        self.screen = Screen::RestPrompt {
+            hours: DEFAULT_REST_HOURS,
+        };
+    }
+
+    pub const MAX_REST_HOURS: u32 = MAX_REST_HOURS;
 
     pub fn load_game(&mut self) {
         match save::load_game(&save::slot_filename(1)) {
@@ -2675,9 +2691,19 @@ impl App {
         self.advance_clock(1);
     }
 
+    /// A full night's rest (8h). Kept for the legacy/default path.
     pub fn rest(&mut self) {
+        self.rest_hours(8);
+    }
+
+    /// Rest for a chosen number of hours (a short spurt up to a full night),
+    /// clamped to [1, MAX_REST_HOURS]. Effects and risk scale with the duration;
+    /// quality still depends on where you rest (settlement, shelter, the cold).
+    pub fn rest_hours(&mut self, hours: u32) {
         use crate::sim::rest::{tile_rest_quality, RestQuality};
 
+        let hours = hours.clamp(1, MAX_REST_HOURS);
+        let h = hours as f64;
         let tod = crate::model::TimeOfDay::from_hour(self.clock.hour);
         let was_deep_night = tod == crate::model::TimeOfDay::DeepNight;
         let on_settlement = self.player_on_settlement().is_some();
@@ -2686,9 +2712,9 @@ impl App {
         } else {
             tile_rest_quality(on_settlement, false, false, false)
         };
-        let stamina_gain = quality.stamina_per_hour() * 8.0;
-        let morale_gain = quality.morale_per_hour() * 8.0;
-        let encounter_risk = quality.encounter_risk_per_hour() * 8.0;
+        let stamina_gain = quality.stamina_per_hour() * h;
+        let morale_gain = quality.morale_per_hour() * h;
+        let encounter_risk = quality.encounter_risk_per_hour() * h;
 
         let quality_label = crate::sim::journal::rest_quality_label(
             on_settlement,
@@ -2697,11 +2723,11 @@ impl App {
             false,
         );
 
-        self.advance_clock(8);
-        self.vitals.rest();
+        self.advance_clock(hours);
+        self.vitals.rest(hours);
         if let Some(ref mut ps) = self.player_start {
             for companion in &mut ps.companions {
-                companion.rest(1.0);
+                companion.rest(h / 8.0);
                 let action_seed = self
                     .seed
                     .wrapping_add((self.clock.day as u64 * 24 + self.clock.hour as u64) * 137);
@@ -2729,15 +2755,16 @@ impl App {
             },
             None => 0.0,
         };
+        let dur_frac = h / 8.0;
         if structure_bonus > 0.0 {
-            self.vitals.energy = (self.vitals.energy + structure_bonus).min(1.0);
-            self.vitals.hunger = (self.vitals.hunger - structure_bonus * 0.3).max(0.0);
+            self.vitals.energy = (self.vitals.energy + structure_bonus * dur_frac).min(1.0);
+            self.vitals.hunger = (self.vitals.hunger - structure_bonus * 0.3 * dur_frac).max(0.0);
         }
         self.vitals.energy = (self.vitals.energy + stamina_gain / 8.0).min(1.0);
         self.god_affinity
             .adjust(GodName::Kukri, 0.02 + morale_gain * 0.1);
         if quality == RestQuality::Inn {
-            self.vitals.energy = (self.vitals.energy + 0.05).min(1.0);
+            self.vitals.energy = (self.vitals.energy + 0.05 * dur_frac).min(1.0);
         }
 
         let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
@@ -3115,6 +3142,9 @@ impl App {
                 }
                 Screen::SaveSlots { scroll } => {
                     super::input::save_slots::handle_save_slots_input(self, key, scroll);
+                }
+                Screen::RestPrompt { hours } => {
+                    super::input::rest_prompt::handle_rest_prompt_input(self, key, hours);
                 }
                 Screen::CharacterCreation => {
                     super::input::character_creation::handle_character_creation_input(self, key);

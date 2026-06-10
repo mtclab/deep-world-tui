@@ -41,8 +41,9 @@ impl PlayerVitals {
         self.energy = self.energy.max(0.0);
     }
 
-    pub fn rest(&mut self) {
-        self.energy = (self.energy + 0.6).min(1.0);
+    /// Restore energy proportional to hours rested (≈+0.6 over a full 8h).
+    pub fn rest(&mut self, hours: u32) {
+        self.energy = (self.energy + 0.075 * hours as f64).min(1.0);
     }
 
     pub fn is_starving(self) -> bool {
@@ -144,7 +145,7 @@ mod tests {
 
         v.energy = 0.1;
 
-        v.rest();
+        v.rest(8);
 
         assert!(v.energy > 0.5, "rest should restore energy");
     }

@@ -38,6 +38,10 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
             app.gather();
         }
         KeyCode::Char('r') => {
+            app.open_rest_prompt();
+        }
+        KeyCode::Char('R') => {
+            // Quick full night's rest, skipping the picker.
             app.rest();
         }
         KeyCode::Char('i') => {

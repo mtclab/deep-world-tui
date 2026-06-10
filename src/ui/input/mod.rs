@@ -11,6 +11,7 @@ pub mod location;
 pub mod market;
 pub mod npc;
 pub mod overmap;
+pub mod rest_prompt;
 pub mod save_browser;
 pub mod save_slots;
 pub mod settings;
