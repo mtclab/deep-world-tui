@@ -839,7 +839,20 @@ impl App {
     }
 
     pub fn reveal_around(&mut self, region_idx: usize, px: usize, py: usize) {
-        let radius = crate::model::ExploredMap::reveal_radius_for_elder(self.elder);
+        let mut radius = crate::model::ExploredMap::reveal_radius_for_elder(self.elder);
+        // A scouting animal (falcon, crow) rides ahead and widens what the
+        // player sees. scouting_bonus existed on Animal but was never applied.
+        let scout = self
+            .player_start
+            .as_ref()
+            .map(|ps| {
+                ps.companions
+                    .iter()
+                    .map(|c| c.animal.scouting_bonus())
+                    .fold(0.0, f64::max)
+            })
+            .unwrap_or(0.0);
+        radius += (scout * 5.0).round() as usize;
         if region_idx < self.explored.len() {
             self.explored[region_idx].reveal(px, py, radius);
         }
@@ -3005,10 +3018,31 @@ impl App {
         let tod = crate::model::TimeOfDay::from_hour(self.clock.hour);
         let was_deep_night = tod == crate::model::TimeOfDay::DeepNight;
         let on_settlement = self.player_on_settlement().is_some();
-        let quality = if was_deep_night {
+        // A structure on this tile raises the rest tier — your own walls count.
+        // Tier drives stamina rate, encounter risk, and journal flavor; the
+        // tile_rest_quality shelter flags were previously hardcoded false, so a
+        // built Home still rested like open ground (and deep night forced
+        // "out in the cold" even inside it).
+        let structure_tier = self.structure_at_player().map(|s| match s.kind {
+            crate::sim::structures::BuildKind::Tarp => RestQuality::Campfire,
+            crate::sim::structures::BuildKind::LeanTo
+            | crate::sim::structures::BuildKind::TarpTent => RestQuality::LeanTo,
+            crate::sim::structures::BuildKind::Laavu | crate::sim::structures::BuildKind::Kota => {
+                RestQuality::SettlementFloor
+            }
+            crate::sim::structures::BuildKind::Cabin
+            | crate::sim::structures::BuildKind::Longhouse
+            | crate::sim::structures::BuildKind::Home => RestQuality::Inn,
+        });
+        let sheltered = structure_tier.is_some() || on_settlement;
+        let base_quality = if was_deep_night && !sheltered {
             RestQuality::OutInCold
         } else {
             tile_rest_quality(on_settlement, false, false, false)
+        };
+        let quality = match structure_tier {
+            Some(t) if t.stamina_per_hour() > base_quality.stamina_per_hour() => t,
+            _ => base_quality,
         };
         let stamina_gain = quality.stamina_per_hour() * h;
         let morale_gain = quality.morale_per_hour() * h;
@@ -3048,6 +3082,15 @@ impl App {
                 if companion.food_need > 50.0 && ps.inventory.has(crate::model::ItemType::Food) {
                     ps.inventory.remove(crate::model::ItemType::Food, 1);
                     companion.feed(0.5);
+                }
+                // A goat is a walking larder: a proper rest stop yields milk.
+                // milk_production existed on Animal but was never collected.
+                let milk = companion.animal.milk_production();
+                if milk > 0
+                    && hours >= 4
+                    && companion.mood() != crate::model::CompanionMood::Unhappy
+                {
+                    ps.inventory.add(crate::model::ItemType::Food, milk);
                 }
             }
         }
