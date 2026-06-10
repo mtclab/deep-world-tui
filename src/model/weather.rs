@@ -276,22 +276,6 @@ impl Weather {
         }
     }
 
-    pub fn travel_speed_modifier(self) -> f64 {
-        match self {
-            Weather::Clear => 1.0,
-            Weather::Cloudy => 0.95,
-            Weather::Rain => 0.85,
-            Weather::Storm => 0.6,
-            Weather::Snow => 0.7,
-            Weather::Fog => 0.75,
-            Weather::Heatwave => 0.8,
-            Weather::Whiteout => 0.35,
-            Weather::Thunderhead => 0.55,
-            Weather::DryLightning => 0.75,
-            Weather::SeaSquall => 0.45,
-        }
-    }
-
     pub fn need_decay_modifier(self) -> f64 {
         match self {
             Weather::Clear => 1.0,
@@ -906,8 +890,6 @@ mod tests {
 
         for w in weathers {
             assert!(w.gather_modifier() > 0.0 && w.gather_modifier() <= 1.0);
-
-            assert!(w.travel_speed_modifier() > 0.0 && w.travel_speed_modifier() <= 1.0);
 
             assert!(w.need_decay_modifier() >= 1.0 && w.need_decay_modifier() <= 1.5);
 

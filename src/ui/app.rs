@@ -1338,6 +1338,20 @@ impl App {
     pub fn advance_clock(&mut self, hours: u32) {
         let season = self.clock.season();
         self.clock.advance(hours);
+        // Harsh weather wears the body down faster too (need_decay_modifier
+        // was defined per-weather but never applied to the player).
+        let weather_mult = self
+            .player_pos
+            .and_then(|pos| {
+                let sim = self.sim.as_ref()?;
+                let region = sim.world.regions.get(pos.region_idx)?;
+                let terrain = region.terrain.get(pos.px, pos.py)?;
+                Some(
+                    Weather::generate(sim.world.seed, sim.world.tick, terrain)
+                        .need_decay_modifier(),
+                )
+            })
+            .unwrap_or(1.0);
         let mut departed: Vec<String> = Vec::new();
         if let Some(ref mut ps) = self.player_start {
             // A sick player wears down faster (worst active disease sets the rate).
@@ -1347,8 +1361,12 @@ impl App {
                 .iter()
                 .map(|d| d.vitals_modifier())
                 .fold(1.0_f64, f64::max);
-            self.vitals
-                .tick_with_illness(hours, &mut ps.inventory, season, illness_mult);
+            self.vitals.tick_with_illness(
+                hours,
+                &mut ps.inventory,
+                season,
+                illness_mult * weather_mult,
+            );
             for companion in &mut ps.companions {
                 companion.decay_needs(hours as u64);
             }
@@ -1490,9 +1508,27 @@ impl App {
 
     pub fn check_encounter(&mut self, terrain: Terrain) {
         let pp = Some(self.inter_people_bias.player_people);
-        if let Some(enc) =
-            Encounter::roll_biased(terrain, self.clock.hour, self.clock.day, self.seed, pp)
-        {
+        // Weather stirs or settles the land: storms raise encounter chance,
+        // clear skies lower it (encounter_rate_modifier was never wired).
+        let weather_mult = self
+            .sim
+            .as_ref()
+            .map(|s| {
+                crate::sim::weather::encounter_rate_modifier(Weather::generate(
+                    s.world.seed,
+                    s.world.tick,
+                    terrain,
+                ))
+            })
+            .unwrap_or(1.0);
+        if let Some(enc) = Encounter::roll_biased_weather(
+            terrain,
+            self.clock.hour,
+            self.clock.day,
+            self.seed,
+            pp,
+            weather_mult,
+        ) {
             self.encounter = Some(enc);
             self.encounters_had += 1;
             self.fire_hint(hints::HINT_FIRST_ENCOUNTER);
@@ -1993,8 +2029,17 @@ impl App {
                 .unwrap_or_default(),
             _ => InterPeopleBias::encounter_modifier(&[]),
         };
+        // Weather colors the mood of whoever you meet — rain sours a talk,
+        // a clear sky warms it (npc_mood_modifier was never applied).
+        let weather_mood = self
+            .sim
+            .as_ref()
+            .map(|s| Weather::generate(s.world.seed, s.world.tick, terrain).npc_mood_modifier())
+            .unwrap_or(0.0);
         let people_bias_mod = self.current_settlement_people().map_or(0.0, |npc_people| {
-            self.inter_people_bias.effective_bias(npc_people) + self.clock.season().bias_modifier()
+            self.inter_people_bias.effective_bias(npc_people)
+                + self.clock.season().bias_modifier()
+                + weather_mood
         });
         let god_calm_bonus = if self.god_affinity.get(GodName::Keuru) > 0.4 {
             0.03
