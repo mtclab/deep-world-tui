@@ -104,10 +104,19 @@ pub struct CompactSave {
     pub tick: u64,
 }
 
+/// Number of manual save slots exposed to the player.
+pub const SAVE_SLOT_COUNT: usize = 5;
+
+/// Filename for a numbered manual save slot (1-based).
+pub fn slot_filename(slot: usize) -> String {
+    format!("slot_{slot}.ron")
+}
+
 pub fn save_game(data: &SaveData, filename: &str) -> Result<(), String> {
     let path = sanitize_save_path(filename)?;
-    let ron_string = ron::ser::to_string_pretty(data, ron::ser::PrettyConfig::default())
-        .map_err(|e| format!("Failed to serialize: {}", e))?;
+    // Compact RON (no pretty-printing) — ~4x smaller than the indented form.
+    let ron_string =
+        ron::ser::to_string(data).map_err(|e| format!("Failed to serialize: {}", e))?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
