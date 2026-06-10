@@ -74,6 +74,13 @@ pub enum ItemType {
     Nails,
     Thatch,
     Glass,
+    /// A proper crafted tool — the best gathering aid, wears with use.
+    Tool,
+    /// Dressings for the sick: tended during rest, an illness runs its course
+    /// faster.
+    Bandage,
+    /// A set snare: yields food while resting in the wild, wears with use.
+    Trap,
 }
 
 impl ItemType {
@@ -93,6 +100,9 @@ impl ItemType {
             ItemType::Nails => "Nails",
             ItemType::Thatch => "Thatch",
             ItemType::Glass => "Glass",
+            ItemType::Tool => "Tool",
+            ItemType::Bandage => "Bandage",
+            ItemType::Trap => "Trap",
         }
     }
 
@@ -112,6 +122,9 @@ impl ItemType {
             ItemType::Nails => 3,
             ItemType::Thatch => 1,
             ItemType::Glass => 8,
+            ItemType::Tool => 6,
+            ItemType::Bandage => 4,
+            ItemType::Trap => 5,
         }
     }
 
@@ -134,6 +147,9 @@ impl ItemType {
             ItemType::Nails,
             ItemType::Thatch,
             ItemType::Glass,
+            ItemType::Tool,
+            ItemType::Bandage,
+            ItemType::Trap,
         ]
     }
 
@@ -299,17 +315,19 @@ pub struct CraftRecipe {
 pub fn craft_recipes() -> Vec<CraftRecipe> {
     vec![
         CraftRecipe {
+            // Outputs were stand-ins (Bandage made Food, Tool made Iron) until
+            // the real item types existed.
             name: "Bandage".into(),
             inputs: vec![(ItemType::Herb, 3), (ItemType::Cloth, 1)],
-            output: ItemType::Food,
+            output: ItemType::Bandage,
             output_count: 2,
             people: None,
         },
         CraftRecipe {
             name: "Tool".into(),
             inputs: vec![(ItemType::Wood, 2), (ItemType::Iron, 1)],
-            output: ItemType::Iron,
-            output_count: 2,
+            output: ItemType::Tool,
+            output_count: 1,
             people: None,
         },
         CraftRecipe {
@@ -336,9 +354,23 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
         CraftRecipe {
             name: "Metsik Trap".into(),
             inputs: vec![(ItemType::Wood, 3), (ItemType::Herb, 1)],
-            output: ItemType::Herb,
-            output_count: 4,
+            output: ItemType::Trap,
+            output_count: 1,
             people: Some(PeopleKind::Metsik),
+        },
+        CraftRecipe {
+            name: "Arkit Salve".into(),
+            inputs: vec![(ItemType::Herb, 4), (ItemType::Water, 1)],
+            output: ItemType::Bandage,
+            output_count: 3,
+            people: Some(PeopleKind::Arkit),
+        },
+        CraftRecipe {
+            name: "Väylä Net".into(),
+            inputs: vec![(ItemType::Cordage, 2), (ItemType::Wood, 1)],
+            output: ItemType::Trap,
+            output_count: 1,
+            people: Some(PeopleKind::Vayla),
         },
     ]
 }
@@ -834,7 +866,21 @@ impl ActiveDisease {
     }
 
     pub fn vitals_modifier(&self) -> f64 {
-        self.disease.vitals_decay_modifier()
+        // Severity scales how hard the disease bites (1.0 = textbook case).
+        // The field was persisted but never read; untreated illness now
+        // worsens and tending it (bandages) eases it.
+        1.0 + (self.disease.vitals_decay_modifier() - 1.0) * self.severity.max(0.5)
+    }
+
+    /// Untreated illness worsens a little each hour (capped at 1.5x).
+    pub fn worsen(&mut self, hours: u32) {
+        self.severity = (self.severity + 0.005 * hours as f64).min(1.5);
+    }
+
+    /// A tended illness eases and runs its course a day faster.
+    pub fn tend(&mut self) {
+        self.severity = (self.severity - 0.25).max(1.0);
+        self.contracted_tick = self.contracted_tick.saturating_sub(24);
     }
 }
 
@@ -935,6 +981,9 @@ pub enum CropType {
     Grain,
     RootVegetable,
     Herb,
+    Mushroom,
+    Berry,
+    Flatroot,
 }
 
 impl CropType {
@@ -943,6 +992,9 @@ impl CropType {
             CropType::Grain => "grain",
             CropType::RootVegetable => "root vegetables",
             CropType::Herb => "herbs",
+            CropType::Mushroom => "mushrooms",
+            CropType::Berry => "berries",
+            CropType::Flatroot => "flatroot",
         }
     }
 
@@ -951,6 +1003,9 @@ impl CropType {
             CropType::Grain => 72,         // 3 days
             CropType::RootVegetable => 96, // 4 days
             CropType::Herb => 48,          // 2 days
+            CropType::Mushroom => 60,
+            CropType::Berry => 36,
+            CropType::Flatroot => 84,
         }
     }
 
@@ -959,6 +1014,9 @@ impl CropType {
             CropType::Grain => 4,
             CropType::RootVegetable => 3,
             CropType::Herb => 5,
+            CropType::Mushroom => 4,
+            CropType::Berry => 3,
+            CropType::Flatroot => 5,
         }
     }
 
@@ -967,9 +1025,24 @@ impl CropType {
             (CropType::Grain, Terrain::Farmland | Terrain::Grass) => 1.2,
             (CropType::RootVegetable, Terrain::Forest | Terrain::Farmland) => 1.1,
             (CropType::Herb, Terrain::Forest | Terrain::Swamp) => 1.3,
+            (CropType::Mushroom, Terrain::Forest | Terrain::Swamp | Terrain::Cave) => 1.3,
+            (CropType::Berry, Terrain::Forest | Terrain::Tundra) => 1.2,
+            (CropType::Flatroot, Terrain::Sand | Terrain::Grass) => 1.1,
             (_, Terrain::Farmland) => 1.0,
             _ => 0.7,
         }
+    }
+
+    /// Every crop a settlement might plant.
+    pub fn all() -> [CropType; 6] {
+        [
+            CropType::Grain,
+            CropType::RootVegetable,
+            CropType::Herb,
+            CropType::Mushroom,
+            CropType::Berry,
+            CropType::Flatroot,
+        ]
     }
 }
 
@@ -1160,7 +1233,8 @@ mod tests {
 
         assert!(!items.contains(&ItemType::Coin));
 
-        assert_eq!(items.len(), 13);
+        // 16 = all item kinds minus Coin (Tool/Bandage/Trap added with #310).
+        assert_eq!(items.len(), 16);
     }
 
     #[test]
