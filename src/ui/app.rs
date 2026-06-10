@@ -2478,8 +2478,12 @@ impl App {
 
     pub fn dismiss_collapse(&mut self) {
         self.collapse = None;
-        self.vitals.hunger = 0.4;
-        self.vitals.energy = 0.5;
+        // A floor on waking, not an assignment. check_collapse already applied
+        // the outcome-specific restores (a settlement bed / divine rescue
+        // recovers far more than a ditch); hardcoding 0.4/0.5 here threw all of
+        // that away, so every non-fatal collapse ended identically.
+        self.vitals.hunger = self.vitals.hunger.max(0.4);
+        self.vitals.energy = self.vitals.energy.max(0.5);
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         self.screen = Screen::World { region_idx };
     }
