@@ -67,7 +67,9 @@ pub struct Journal {
 impl Journal {
     pub fn log(&mut self, tick: u64, voice: Voice, text: String) {
         if self.entries.len() >= MAX_JOURNAL {
-            self.entries.remove(0);
+            // Drop the oldest quarter in one shift instead of remove(0) per
+            // entry — at the cap, every log used to pay an O(n) front-shift.
+            self.entries.drain(0..MAX_JOURNAL / 4);
         }
         self.entries.push(JournalEntry { tick, voice, text });
     }
@@ -338,12 +340,15 @@ mod tests {
 
     #[test]
     fn journal_log_and_trim() {
+        // The cap drops the oldest quarter in one amortized drain rather than
+        // an O(n) remove(0) per entry. Never exceeds MAX_JOURNAL; newest kept.
         let mut j = Journal::default();
         for i in 0..205 {
             j.log(i, Voice::Travel, format!("entry {i}"));
         }
-        assert_eq!(j.entries.len(), 200);
-        assert_eq!(j.entries[0].tick, 5);
+        assert!(j.entries.len() <= 200);
+        assert_eq!(j.entries.last().unwrap().tick, 204);
+        assert!(j.entries[0].tick >= 5, "oldest entries dropped");
     }
 
     #[test]

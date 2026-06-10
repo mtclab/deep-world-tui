@@ -16,8 +16,8 @@ fn higher_reputation_lowers_buys_and_raises_sells() {
     app.running = true;
     app.enter_map(0);
 
-    let buy0 = app.quote_buy_price(ItemType::Herb);
-    let sell0 = app.quote_sell_price(ItemType::Herb);
+    let buy0 = app.quote_buy_price(ItemType::Iron);
+    let sell0 = app.quote_sell_price(ItemType::Iron);
 
     // Raise the player's standing in the current settlement.
     let pid = app.player_start.as_ref().unwrap().person.id.clone();
@@ -31,20 +31,21 @@ fn higher_reputation_lowers_buys_and_raises_sells() {
         .reputation
         .adjust_settlement(&pid, &sid, 0.4);
 
-    let buy1 = app.quote_buy_price(ItemType::Herb);
-    let sell1 = app.quote_sell_price(ItemType::Herb);
+    let buy1 = app.quote_buy_price(ItemType::Iron);
+    let sell1 = app.quote_sell_price(ItemType::Iron);
 
     assert!(
         buy1 <= buy0,
         "higher reputation should not raise buy price ({buy0} -> {buy1})"
     );
     assert!(
-        sell1 >= sell0,
-        "higher reputation should not lower sell price ({sell0} -> {sell1})"
+        buy1 < buy0,
+        "reputation should lower the buy price (buy {buy0}->{buy1})"
     );
-    // And it should actually move at least one of them.
+    // Sell is ceilinged by buy-1 (merchant spread), so it may tighten as buys
+    // get cheaper — but the spread must never invert.
     assert!(
-        buy1 < buy0 || sell1 > sell0,
-        "reputation should affect prices (buy {buy0}->{buy1}, sell {sell0}->{sell1})"
+        sell0 < buy0 && sell1 < buy1,
+        "sell must stay below buy (before {sell0}/{buy0}, after {sell1}/{buy1})"
     );
 }

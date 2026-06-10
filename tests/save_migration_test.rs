@@ -36,6 +36,7 @@ fn make_save(version: u32) -> SaveData {
         start_age_years: 0,
         birth_day: 0,
         lifespan_years: 0,
+        encounter_log: Default::default(),
     }
 }
 
@@ -103,6 +104,7 @@ fn roundtrip_preserves_all_fields() {
         start_age_years: 0,
         birth_day: 0,
         lifespan_years: 0,
+        encounter_log: Default::default(),
     };
 
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");

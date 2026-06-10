@@ -27,35 +27,10 @@ pub fn handle_save_browser_input(app: &mut App, key: KeyEvent) {
         KeyCode::Enter => {
             if let Some(entry) = app.save_entries.get(scroll_val as usize) {
                 match crate::save::load_game_file(&entry.filename) {
-                    Ok(data) => {
-                        let last_collapse_died =
-                            data.collapse_log.last().map(|c| c.died).unwrap_or(false);
-                        app.sim = Some(data.sim);
-                        app.player_start = data.player_start;
-                        app.clock = data.clock;
-                        app.vitals = data.vitals;
-                        app.player_pos = data.player_pos;
-                        app.god_affinity = data.god_affinity;
-                        app.inter_people_bias = data.inter_people_bias;
-                        app.encounters_had = data.encounters_had;
-                        app.collapses_had = data.collapses_had;
-                        app.collapse_log = data.collapse_log;
-                        app.lineage = data.lineage;
-                        app.milestones = data.milestones;
-                        app.hint_tracker = data.hint_tracker;
-                        app.apply_loaded_aging(
-                            data.start_age_years,
-                            data.birth_day,
-                            data.lifespan_years,
-                        );
-                        app.elder = app
-                            .milestones
-                            .has(crate::sim::milestones::MilestoneKind::ElderAchieved);
-                        if last_collapse_died {
-                            app.continue_as_npc();
-                        }
-                        app.screen = app.world_screen();
-                    }
+                    // Shared restore path — the browser's own field list had
+                    // drifted from load_game (it dropped `explored`, and like
+                    // slot-load it never re-anchored the seed).
+                    Ok(data) => app.apply_save_data(data),
                     Err(e) => {
                         app.status_msg = Some(format!("Load failed: {}", e));
                     }

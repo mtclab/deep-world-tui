@@ -453,6 +453,7 @@ impl App {
             start_age_years: self.start_age_years,
             birth_day: self.birth_day,
             lifespan_years: self.lifespan_years,
+            encounter_log: self.encounter_log.clone(),
         })
     }
 
@@ -590,34 +591,53 @@ impl App {
 
     pub const MAX_REST_HOURS: u32 = MAX_REST_HOURS;
 
+    /// The seed driving player-facing RNG (encounters, collapses, tension).
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+
+    /// Restore the full App state from a save. The single restore path for
+    /// every load entry point — slot 1, the save browser, anything else —
+    /// so loads can't silently diverge (the browser used its own field list
+    /// and dropped `explored`; neither path restored `seed`, so a loaded game
+    /// rolled encounters/collapses from whatever seed this session started
+    /// with instead of the world it was saved in).
+    pub fn apply_save_data(&mut self, data: SaveData) {
+        let last_collapse_died = data.collapse_log.last().map(|c| c.died).unwrap_or(false);
+        // Re-anchor all player-facing RNG (encounters, collapses, tension
+        // events) to the saved world's seed.
+        self.seed = data.sim.world.seed;
+        self.sim = Some(data.sim);
+        self.player_start = data.player_start;
+        self.clock = data.clock;
+        self.vitals = data.vitals;
+        self.player_pos = data.player_pos;
+        self.god_affinity = data.god_affinity;
+        self.inter_people_bias = data.inter_people_bias;
+        self.encounters_had = data.encounters_had;
+        self.collapses_had = data.collapses_had;
+        self.collapse_log = data.collapse_log;
+        self.lineage = data.lineage;
+        self.hint_tracker = data.hint_tracker;
+        self.explored = data.explored;
+        self.milestones = data.milestones;
+        self.encounter_log = data.encounter_log;
+        self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
+        self.elder = self
+            .milestones
+            .has(crate::sim::milestones::MilestoneKind::ElderAchieved);
+        if last_collapse_died {
+            self.continue_as_npc();
+        } else {
+            self.screen = self.world_screen();
+        }
+    }
+
     pub fn load_game(&mut self) {
         match save::load_game(&save::slot_filename(1)) {
             Ok(data) => {
-                let last_collapse_died = data.collapse_log.last().map(|c| c.died).unwrap_or(false);
-                self.sim = Some(data.sim);
-                self.player_start = data.player_start;
-                self.clock = data.clock;
-                self.vitals = data.vitals;
-                self.player_pos = data.player_pos;
-                self.god_affinity = data.god_affinity;
-                self.inter_people_bias = data.inter_people_bias;
-                self.encounters_had = data.encounters_had;
-                self.collapses_had = data.collapses_had;
-                self.collapse_log = data.collapse_log;
-                self.lineage = data.lineage;
-                self.hint_tracker = data.hint_tracker;
-                self.explored = data.explored;
-                self.milestones = data.milestones;
-                self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
-                self.elder = self
-                    .milestones
-                    .has(crate::sim::milestones::MilestoneKind::ElderAchieved);
-                if last_collapse_died {
-                    self.continue_as_npc();
-                } else {
-                    self.screen = self.world_screen();
-                    self.status_msg = Some("Loaded slot 1".into());
-                }
+                self.apply_save_data(data);
+                self.status_msg = Some("Loaded slot 1".into());
             }
             Err(e) => self.status_msg = Some(format!("Load failed: {}", e)),
         }
@@ -1202,20 +1222,8 @@ impl App {
             self.status_msg = Some("Cannot buy that".into());
             return;
         }
-        let base_price = item.base_price();
-        let seller_people = self.current_settlement_people();
-        let inter_mod = seller_people
-            .map(|sp| self.inter_people_bias.price_modifier(sp))
-            .unwrap_or(1.0);
-        // Reputation as a centered price modifier (baseline 0.5 -> 1.0; better
-        // standing -> cheaper buys). Raw reputation was used directly, which
-        // halved prices at baseline and made buying dearer the more you were
-        // liked. Same transform the service pricing already uses.
-        let rep_mod =
-            crate::sim::signals::reputation_price_modifier(self.reputation_in_current_settlement());
-        let pol_mod = self.politics_price_modifier();
-        let modifier = inter_mod * rep_mod * pol_mod * self.caravan_price_modifier(item);
-        let price = ((base_price as f64 * modifier).ceil() as u32).max(1);
+        // Single source of truth with the displayed quote.
+        let price = self.quote_buy_price(item);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(ItemType::Coin, price) {
                 ps.inventory.add(item, 1);
@@ -1236,20 +1244,9 @@ impl App {
             self.status_msg = Some("Cannot sell that".into());
             return;
         }
-        let base_price = item.base_price();
-        let buyer_people = self.current_settlement_people();
-        let inter_mod = buyer_people
-            .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
-            .unwrap_or(1.0);
-        // Selling inverts the buy modifier (better standing -> richer sales),
-        // mirroring the 2.0 - x inversion already used for inter_mod above.
-        let rep_mod = 2.0
-            - crate::sim::signals::reputation_price_modifier(
-                self.reputation_in_current_settlement(),
-            );
-        let pol_mod = self.politics_price_modifier();
-        let modifier = inter_mod * rep_mod * pol_mod * self.caravan_price_modifier(item);
-        let price = ((base_price as f64 * modifier).floor() as u32).max(1);
+        // Single source of truth with the displayed quote (spread-clamped so
+        // selling never pays more than buying costs).
+        let price = self.quote_sell_price(item);
         if let Some(ref mut ps) = self.player_start {
             if ps.inventory.remove(item, 1) {
                 ps.inventory.add(ItemType::Coin, price);
@@ -1289,6 +1286,9 @@ impl App {
         1.0
     }
 
+    /// What the market charges the player. Includes ALL the modifiers the
+    /// transaction applies (politics + caravan supply too — the quotes used to
+    /// omit those, so the displayed price could differ from the charged one).
     pub fn quote_buy_price(&self, item: ItemType) -> u32 {
         let base = item.base_price();
         let inter_mod = self
@@ -1297,10 +1297,16 @@ impl App {
             .unwrap_or(1.0);
         let rep_mod =
             crate::sim::signals::reputation_price_modifier(self.reputation_in_current_settlement());
-        let m = inter_mod * rep_mod;
+        let m = inter_mod
+            * rep_mod
+            * self.politics_price_modifier()
+            * self.caravan_price_modifier(item);
         ((base as f64 * m).ceil() as u32).max(1)
     }
 
+    /// What the market pays the player — always below the buy price, merchants
+    /// take a margin. Without the clamp, high reputation inverted the spread
+    /// (buy at 0.6x base, sell at 1.4x) and buy->sell was an infinite-coin loop.
     pub fn quote_sell_price(&self, item: ItemType) -> u32 {
         let base = item.base_price();
         let inter_mod = self
@@ -1311,8 +1317,17 @@ impl App {
             - crate::sim::signals::reputation_price_modifier(
                 self.reputation_in_current_settlement(),
             );
-        let m = inter_mod * rep_mod;
-        ((base as f64 * m).floor() as u32).max(1)
+        let m = inter_mod
+            * rep_mod
+            * self.politics_price_modifier()
+            * self.caravan_price_modifier(item);
+        let raw = ((base as f64 * m).floor() as u32).max(1);
+        let buy = self.quote_buy_price(item);
+        if buy > 1 {
+            raw.clamp(1, buy - 1)
+        } else {
+            1
+        }
     }
 
     pub fn npc_will_engage(
@@ -1730,10 +1745,16 @@ impl App {
         }
 
         // Keep the quest board alive: when active quests run low, the world posts
-        // new needs. Deterministic per day so the same seed plays out the same.
+        // new needs. Salted by world tick (not day): a day-only salt regenerated
+        // the IDENTICAL quest batch after completing one within the same day,
+        // letting the same fetch quest be re-completed for repeat rewards.
         let player_people = self.inter_people_bias.player_people;
         let day = self.clock.day;
-        let salt = self.seed.wrapping_add(day as u64 * 1009 + 7);
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let salt = self
+            .seed
+            .wrapping_add(tick.wrapping_mul(1009))
+            .wrapping_add(7);
         if let Some(ref mut sim) = self.sim {
             if sim.quests.len() < 2 {
                 let fresh = crate::sim::quest_gen::generate_quests(
@@ -2602,6 +2623,7 @@ impl App {
                     start_age_years: self.start_age_years,
                     birth_day: self.birth_day,
                     lifespan_years: self.lifespan_years,
+                    encounter_log: self.encounter_log.clone(),
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }
