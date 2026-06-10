@@ -266,6 +266,7 @@ mod tests {
                         buildings: Vec::new(),
                     },
                 ],
+                weather: crate::model::Weather::Clear,
             }],
             charts_version: "0.1.0".into(),
             region_cols: 1,

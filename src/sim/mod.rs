@@ -205,12 +205,52 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_build_sites(sim);
     tick_structure_decay(sim);
     tick_caravans(sim);
+    tick_weather_fronts(sim);
     tick_settlement_life(sim);
     lifecycle::tick_lifecycle(sim);
 }
 
+/// Daily weather fronts: each region's sky persists (~55%), drifts in from a
+/// neighbor (~15%), or turns with the terrain's own tendencies (~30%) —
+/// replacing the old hourly hash where sun could follow blizzard by the hour.
+fn tick_weather_fronts(sim: &mut SimState) {
+    use crate::model::Weather;
+    let tick = sim.world.tick;
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let day = tick / 24;
+    let seed = sim.world.seed;
+    let current: Vec<Weather> = sim.world.regions.iter().map(|r| r.weather).collect();
+    for (ri, region) in sim.world.regions.iter_mut().enumerate() {
+        let mut rng = SeedRng::new(seed).fork_for(&format!("front-{day}-{ri}"));
+        let roll = rng.gen_range(100);
+        region.weather = if roll < 55 {
+            current[ri]
+        } else if roll < 70 {
+            let nbs: Vec<usize> = [
+                region.neighbors.north,
+                region.neighbors.east,
+                region.neighbors.south,
+                region.neighbors.west,
+            ]
+            .into_iter()
+            .flatten()
+            .filter(|&n| n < current.len())
+            .collect();
+            if nbs.is_empty() {
+                Weather::generate(seed, day, region_work_terrain(&region.region_type))
+            } else {
+                current[nbs[rng.gen_range(nbs.len() as u32) as usize]]
+            }
+        } else {
+            Weather::generate(seed, day, region_work_terrain(&region.region_type))
+        };
+    }
+}
+
 /// The terrain a settlement farms and fishes, derived from its region type.
-fn region_work_terrain(region_type: &str) -> crate::model::Terrain {
+pub(crate) fn region_work_terrain(region_type: &str) -> crate::model::Terrain {
     use crate::model::Terrain;
     match region_type {
         "river_valley" | "delta" => Terrain::Farmland,
@@ -242,7 +282,7 @@ fn best_crop_for(terrain: crate::model::Terrain) -> crate::model::economy::CropT
 /// food economy and never built anything.
 fn tick_settlement_life(sim: &mut SimState) {
     use crate::model::economy::{Building, BuildingType, Farm};
-    use crate::model::{Need, Weather};
+    use crate::model::Need;
 
     let tick = sim.world.tick;
     // Heavy work happens once per day.
@@ -255,7 +295,7 @@ fn tick_settlement_life(sim: &mut SimState) {
 
     for region in sim.world.regions.iter_mut() {
         let terrain = region_work_terrain(&region.region_type);
-        let weather = Weather::generate(seed, tick, terrain);
+        let weather = region.weather;
         let coastal = matches!(
             region.region_type.as_str(),
             "coast" | "delta" | "river_valley"

@@ -379,6 +379,15 @@ impl App {
         self.screen = self.world_screen();
     }
 
+    /// Today's sky over a region (the weather-front system's state).
+    pub fn region_weather(&self, region_idx: usize) -> Weather {
+        self.sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(region_idx))
+            .map(|r| r.weather)
+            .unwrap_or(Weather::Clear)
+    }
+
     pub fn current_settlement(&self) -> Option<&Settlement> {
         match &self.screen {
             Screen::Location {
@@ -971,9 +980,8 @@ impl App {
             // whiteout thins what the land gives. gather_modifier was previously
             // applied only to NPC farm growth, never to player gathering.
             let weather = self
-                .sim
-                .as_ref()
-                .map(|s| Weather::generate(s.world.seed, s.world.tick, terrain))
+                .player_pos
+                .map(|pos| self.region_weather(pos.region_idx))
                 .unwrap_or(Weather::Clear);
             let mult = season.gather_multiplier() * weather.gather_modifier();
             let pp = self.inter_people_bias.player_people;
@@ -1380,15 +1388,7 @@ impl App {
         // was defined per-weather but never applied to the player).
         let weather_mult = self
             .player_pos
-            .and_then(|pos| {
-                let sim = self.sim.as_ref()?;
-                let region = sim.world.regions.get(pos.region_idx)?;
-                let terrain = region.terrain.get(pos.px, pos.py)?;
-                Some(
-                    Weather::generate(sim.world.seed, sim.world.tick, terrain)
-                        .need_decay_modifier(),
-                )
-            })
+            .map(|pos| self.region_weather(pos.region_idx).need_decay_modifier())
             .unwrap_or(1.0);
         let mut departed: Vec<String> = Vec::new();
         if let Some(ref mut ps) = self.player_start {
@@ -1544,7 +1544,12 @@ impl App {
     fn log_travel(&mut self, terrain: Terrain) {
         if let Some(ref mut sim) = self.sim {
             let tod = self.clock.time_of_day();
-            let weather = Weather::generate(sim.world.seed, sim.world.tick, terrain);
+            let weather = self
+                .player_pos
+                .and_then(|pos| sim.world.regions.get(pos.region_idx))
+                .map(|r| r.weather)
+                .unwrap_or(Weather::Clear);
+            let _ = terrain;
             let mut rng = crate::rng::SeedRng::new(sim.world.seed)
                 .fork_for(&format!("travel-journal-{}", sim.world.tick));
             let text = crate::sim::journal::travel_text(&mut rng, tod, weather);
@@ -1557,14 +1562,9 @@ impl App {
         // Weather stirs or settles the land: storms raise encounter chance,
         // clear skies lower it (encounter_rate_modifier was never wired).
         let weather_mult = self
-            .sim
-            .as_ref()
-            .map(|s| {
-                crate::sim::weather::encounter_rate_modifier(Weather::generate(
-                    s.world.seed,
-                    s.world.tick,
-                    terrain,
-                ))
+            .player_pos
+            .map(|pos| {
+                crate::sim::weather::encounter_rate_modifier(self.region_weather(pos.region_idx))
             })
             .unwrap_or(1.0);
         if let Some(enc) = Encounter::roll_biased_weather(
@@ -2106,9 +2106,8 @@ impl App {
         // Weather colors the mood of whoever you meet — rain sours a talk,
         // a clear sky warms it (npc_mood_modifier was never applied).
         let weather_mood = self
-            .sim
-            .as_ref()
-            .map(|s| Weather::generate(s.world.seed, s.world.tick, terrain).npc_mood_modifier())
+            .player_pos
+            .map(|pos| self.region_weather(pos.region_idx).npc_mood_modifier())
             .unwrap_or(0.0);
         let people_bias_mod = self.current_settlement_people().map_or(0.0, |npc_people| {
             self.inter_people_bias.effective_bias(npc_people)
@@ -2538,12 +2537,7 @@ impl App {
             .and_then(|sim| {
                 let pos = self.player_pos?;
                 let region = sim.world.regions.get(pos.region_idx)?;
-                let terrain = region.terrain.get(0, 0)?;
-                Some(
-                    crate::model::Weather::generate(sim.world.seed, sim.world.tick, terrain)
-                        .name()
-                        .to_string(),
-                )
+                Some(region.weather.name().to_string())
             })
             .unwrap_or_else(|| "unknown".to_string());
         let local_rep = self
@@ -3364,8 +3358,7 @@ impl App {
         let weather = self.sim.as_ref().and_then(|sim| {
             let pos = self.player_pos?;
             let region = sim.world.regions.get(pos.region_idx)?;
-            let terrain = region.terrain.get(pos.px, pos.py)?;
-            Some(Weather::generate(sim.world.seed, sim.world.tick, terrain))
+            Some(region.weather)
         });
         if let Some(w) = weather {
             if let Some(ref mut rng) = self.player_rng {

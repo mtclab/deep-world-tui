@@ -38,7 +38,13 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
             .get(pos.region_idx)
             .and_then(|r| r.terrain.get(pos.px, pos.py))
         {
-            let w = crate::model::Weather::generate(sim.world.seed, sim.world.tick, terrain);
+            let _ = terrain;
+            let w = sim
+                .world
+                .regions
+                .get(pos.region_idx)
+                .map(|r| r.weather)
+                .unwrap_or(crate::model::Weather::Clear);
             Some(Span::styled(
                 format!(" {} ", w.glyph()),
                 Style::default().fg(theme.warm_brown()),

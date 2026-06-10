@@ -313,6 +313,7 @@ mod tests {
                     farms: Vec::new(),
                     buildings: Vec::new(),
                 }],
+                weather: crate::model::Weather::Clear,
             }],
             charts_version: "0.1.0".into(),
             region_cols: 1,
@@ -440,6 +441,7 @@ mod tests {
                         farms: Vec::new(),
                         buildings: Vec::new(),
                     }],
+                    weather: crate::model::Weather::Clear,
                 },
                 crate::model::Region {
                     id: "r2".into(),
@@ -464,6 +466,7 @@ mod tests {
                         farms: Vec::new(),
                         buildings: Vec::new(),
                     }],
+                    weather: crate::model::Weather::Clear,
                 },
             ],
             charts_version: "0.1.0".into(),

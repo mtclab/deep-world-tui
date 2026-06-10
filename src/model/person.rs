@@ -1427,6 +1427,7 @@ mod tests {
                 farms: Vec::new(),
                 buildings: Vec::new(),
             }],
+            weather: crate::model::Weather::Clear,
         };
 
         world.regions.push(region);

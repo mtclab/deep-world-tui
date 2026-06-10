@@ -179,6 +179,7 @@ mod minimap_tests {
             },
             neighbors: Default::default(),
             structures: Vec::new(),
+            weather: crate::model::Weather::Clear,
         }
     }
 
