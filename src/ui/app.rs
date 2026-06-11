@@ -2766,6 +2766,26 @@ impl App {
             .and_then(GodName::from_label)
     }
 
+    /// A laid path structure (trail or footbridge) standing on this tile.
+    fn path_structure_at(
+        &self,
+        region_idx: usize,
+        x: usize,
+        y: usize,
+    ) -> Option<crate::sim::structures::BuildKind> {
+        use crate::sim::structures::BuildKind;
+        let region = self.sim.as_ref()?.world.regions.get(region_idx)?;
+        region
+            .structures
+            .iter()
+            .find(|st| {
+                st.x == x as u32
+                    && st.y == y as u32
+                    && matches!(st.kind, BuildKind::Trail | BuildKind::Footbridge)
+            })
+            .map(|st| st.kind)
+    }
+
     /// Put goods into the house. The stash stays with the building — and the
     /// building stays with the line: heirs inherit the house and what's in it.
     pub fn stash_item(&mut self, item: ItemType, count: u32) {
@@ -2825,7 +2845,12 @@ impl App {
         let frost = self.clock.season() == crate::model::Season::Frost;
         let Some(ref mut sim) = self.sim else { return };
         let Some(site) = sim.build_sites.iter_mut().find(|s| {
-            s.region_idx == pos.region_idx && s.x == pos.px as u32 && s.y == pos.py as u32
+            s.region_idx == pos.region_idx
+                && ((s.x == pos.px as u32 && s.y == pos.py as u32)
+                    // A footbridge is worked from the bank beside it.
+                    || (s.kind == crate::sim::structures::BuildKind::Footbridge
+                        && s.x.abs_diff(pos.px as u32) <= 1
+                        && s.y.abs_diff(pos.py as u32) <= 1))
         }) else {
             self.status_msg = Some("No build site here.".into());
             return;
@@ -2883,6 +2908,38 @@ impl App {
             .and_then(|s| s.world.regions.get(region_idx))
             .and_then(|r| r.terrain.get(pos.px, pos.py))
             .unwrap_or(Terrain::Grass);
+        // A footbridge is raised from the bank, onto the water beside you.
+        let mut build_x = px;
+        let mut build_y = py;
+        let mut build_terrain = terrain;
+        if wanted == Some(crate::sim::structures::BuildKind::Footbridge) {
+            let water = self.sim.as_ref().and_then(|s| {
+                let r = s.world.regions.get(region_idx)?;
+                [(0i32, -1i32), (1, 0), (0, 1), (-1, 0)]
+                    .into_iter()
+                    .find_map(|(dx, dy)| {
+                        let nx = pos.px as i32 + dx;
+                        let ny = pos.py as i32 + dy;
+                        if nx < 0 || ny < 0 {
+                            return None;
+                        }
+                        (r.terrain.get(nx as usize, ny as usize) == Some(Terrain::Water))
+                            .then_some((nx as u32, ny as u32))
+                    })
+            });
+            match water {
+                Some((wx, wy)) => {
+                    build_x = wx;
+                    build_y = wy;
+                    build_terrain = Terrain::Water;
+                }
+                None => {
+                    self.status_msg =
+                        Some("A footbridge wants water to cross — stand on the bank.".into());
+                    return;
+                }
+            }
+        }
         // Building on a settlement's ground needs the settlement's consent:
         // the council grants ground to those it does not distrust.
         if terrain == Terrain::Settlement {
@@ -2957,11 +3014,11 @@ impl App {
                 }
             }
         };
-        if !kind.stands_on(terrain) {
+        if !kind.stands_on(build_terrain) {
             self.status_msg = Some(format!(
                 "A {} cannot stand on {}.",
                 kind.label(),
-                format!("{:?}", terrain).to_lowercase()
+                format!("{:?}", build_terrain).to_lowercase()
             ));
             return;
         }
@@ -3022,8 +3079,8 @@ impl App {
             let site = crate::sim::structures::BuildSite {
                 kind,
                 region_idx,
-                x: px,
-                y: py,
+                x: build_x,
+                y: build_y,
                 hours_done: 0,
                 started_tick: sim.world.tick,
                 dedication,
@@ -4251,8 +4308,10 @@ impl App {
             crate::sim::structures::BuildKind::Cabin
             | crate::sim::structures::BuildKind::Longhouse
             | crate::sim::structures::BuildKind::Home => RestQuality::Inn,
-            // A shrine is no shelter — it shades nothing but the spirit.
-            crate::sim::structures::BuildKind::Shrine => RestQuality::Campfire,
+            // A shrine, a trail, a bridge: none of them is shelter.
+            crate::sim::structures::BuildKind::Shrine
+            | crate::sim::structures::BuildKind::Trail
+            | crate::sim::structures::BuildKind::Footbridge => RestQuality::Campfire,
         });
         let sheltered = structure_tier.is_some() || on_settlement;
         let base_quality = if was_deep_night && !sheltered {
@@ -4375,7 +4434,9 @@ impl App {
                 crate::sim::structures::BuildKind::Cabin => 0.45,
                 crate::sim::structures::BuildKind::Longhouse => 0.60,
                 crate::sim::structures::BuildKind::Home => 0.80,
-                crate::sim::structures::BuildKind::Shrine => 0.0,
+                crate::sim::structures::BuildKind::Shrine
+                | crate::sim::structures::BuildKind::Trail
+                | crate::sim::structures::BuildKind::Footbridge => 0.0,
             },
             None => 0.0,
         };
@@ -4552,8 +4613,12 @@ impl App {
                         0
                     }
                 });
-                let hours = ((terrain.travel_hours() as f64 * weather_mult * companion_travel)
-                    .round() as i32
+                let tile_hours = if self.path_structure_at(region_idx, px, py).is_some() {
+                    1 // a laid trail or sound planks carry you clean across
+                } else {
+                    terrain.travel_hours()
+                };
+                let hours = ((tile_hours as f64 * weather_mult * companion_travel).round() as i32
                     + bias_mod)
                     .max(1) as u32;
                 self.advance_clock(hours);
@@ -4589,8 +4654,12 @@ impl App {
                         0
                     }
                 });
-                let hours = ((terrain.travel_hours() as f64 * weather_mult * companion_travel)
-                    .round() as i32
+                let tile_hours = if self.path_structure_at(region_idx, px, py).is_some() {
+                    1 // a laid trail or sound planks carry you clean across
+                } else {
+                    terrain.travel_hours()
+                };
+                let hours = ((tile_hours as f64 * weather_mult * companion_travel).round() as i32
                     + bias_mod)
                     .max(1) as u32;
                 self.advance_clock(hours);
@@ -4660,7 +4729,12 @@ impl App {
             let uy = ny as usize;
             let terrain = region.terrain.get(ux, uy);
             if let Some(t) = terrain {
-                if t.passable() {
+                // A standing footbridge makes its water crossable — while it
+                // stands. Decay takes the planks, and the water comes back.
+                let bridged = t == Terrain::Water
+                    && self.path_structure_at(pos.region_idx, ux, uy)
+                        == Some(crate::sim::structures::BuildKind::Footbridge);
+                if t.passable() || bridged {
                     Some(MoveResult::Step {
                         region_idx: pos.region_idx,
                         px: ux,
