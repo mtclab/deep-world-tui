@@ -569,14 +569,7 @@ fn tick_settlement_life(sim: &mut SimState) {
         // Paint grown footprints: the settlement's square of ground expands
         // with its size, clamped to the map's edge.
         for (ax, ay, n) in grown_footprints {
-            for dy in 0..n as usize {
-                for dx in 0..n as usize {
-                    let (tx, ty) = (ax as usize + dx, ay as usize + dy);
-                    if ty < map_h && tx < map_w {
-                        region.terrain.tiles[ty * map_w + tx] = crate::model::Terrain::Settlement;
-                    }
-                }
-            }
+            crate::gen::town::lay_town(&mut region.terrain, ax as usize, ay as usize, n as usize);
         }
         region.game_richness = (region.game_richness - richness_draw).max(0.0);
     }

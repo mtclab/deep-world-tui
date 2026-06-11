@@ -14,6 +14,10 @@ pub enum Terrain {
     Cave,
     Tundra,
     DeepDesert,
+    /// A roofed building inside a settlement: someone's house, the tavern,
+    /// the temple. Solid to walk through; entered by stepping into the door
+    /// (the walk-in interaction layer).
+    House,
 }
 
 impl Terrain {
@@ -24,7 +28,8 @@ impl Terrain {
             Terrain::Water => '≈',
             Terrain::Mountain => '▲',
             Terrain::Road => '·',
-            Terrain::Settlement => '█',
+            Terrain::Settlement => '·',
+            Terrain::House => '⌂',
             Terrain::Farmland => '▒',
             Terrain::Sand => '·',
             Terrain::Swamp => '~',
@@ -36,7 +41,9 @@ impl Terrain {
     }
 
     pub fn passable(self) -> bool {
-        !matches!(self, Terrain::Water | Terrain::Mountain)
+        // Houses are solid: you enter them by the door (the walk-in layer),
+        // you don't walk through their walls.
+        !matches!(self, Terrain::Water | Terrain::Mountain | Terrain::House)
     }
 
     pub fn travel_hours(self) -> u32 {
@@ -47,7 +54,7 @@ impl Terrain {
             Terrain::Grass | Terrain::Farmland | Terrain::Sand | Terrain::Coast => 1,
             Terrain::Forest | Terrain::Swamp | Terrain::Cave | Terrain::Tundra => 2,
             Terrain::DeepDesert => 2,
-            Terrain::Water | Terrain::Mountain => 1,
+            Terrain::Water | Terrain::Mountain | Terrain::House => 1,
         }
     }
 
@@ -87,6 +94,7 @@ impl Terrain {
             Terrain::Cave => Some(GodName::Kukri),
             Terrain::Tundra => Some(GodName::Kukri),
             Terrain::Sand | Terrain::DeepDesert => None,
+            Terrain::House => Some(GodName::Oltzed),
         }
     }
 }

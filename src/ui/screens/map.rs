@@ -252,8 +252,8 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
             Span::styled("Mtn ", Style::default().fg(theme.dark_brown())),
             Span::styled("·", Style::default().fg(terrain_color(Terrain::Road))),
             Span::styled("Road ", Style::default().fg(theme.dark_brown())),
-            Span::styled("█", Style::default().fg(terrain_color(Terrain::Settlement))),
-            Span::styled("Town ", Style::default().fg(theme.dark_brown())),
+            Span::styled("⌂", Style::default().fg(terrain_color(Terrain::House))),
+            Span::styled("House ", Style::default().fg(theme.dark_brown())),
         ]),
         Line::from(vec![
             Span::styled("▒", Style::default().fg(terrain_color(Terrain::Farmland))),

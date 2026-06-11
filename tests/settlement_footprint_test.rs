@@ -32,16 +32,17 @@ fn footprints_match_size_and_are_painted() {
             );
             for dy in 0..n {
                 for dx in 0..n {
-                    assert_eq!(
-                        region
-                            .terrain
-                            .get(s.map_x as usize + dx, s.map_y as usize + dy),
-                        Some(Terrain::Settlement),
-                        "{} ({}) tile ({},{}) must be painted ground",
+                    let t = region
+                        .terrain
+                        .get(s.map_x as usize + dx, s.map_y as usize + dy);
+                    assert!(
+                        matches!(t, Some(Terrain::Settlement) | Some(Terrain::House)),
+                        "{} ({}) tile ({},{}) must be street or roof, got {:?}",
                         s.name,
                         s.size,
                         s.map_x as usize + dx,
-                        s.map_y as usize + dy
+                        s.map_y as usize + dy,
+                        t
                     );
                 }
             }
@@ -110,12 +111,13 @@ fn promotion_paints_new_houses_past_the_old_wall() {
     let (ax2, ay2) = (s.map_x as usize, s.map_y as usize);
     for dy in 0..n {
         for dx in 0..n {
-            assert_eq!(
-                region.terrain.get(ax2 + dx, ay2 + dy),
-                Some(Terrain::Settlement),
-                "grown ground painted at ({},{})",
+            let t = region.terrain.get(ax2 + dx, ay2 + dy);
+            assert!(
+                matches!(t, Some(Terrain::Settlement) | Some(Terrain::House)),
+                "grown ground painted at ({},{}): {:?}",
                 ax2 + dx,
-                ay2 + dy
+                ay2 + dy,
+                t
             );
         }
     }
@@ -158,12 +160,13 @@ fn pre_anchor_saves_are_backfilled() {
         let n = s.footprint() as usize;
         for dy in 0..n {
             for dx in 0..n {
-                assert_eq!(
-                    region
-                        .terrain
-                        .get(s.map_x as usize + dx, s.map_y as usize + dy),
-                    Some(Terrain::Settlement)
-                );
+                let t = region
+                    .terrain
+                    .get(s.map_x as usize + dx, s.map_y as usize + dy);
+                assert!(matches!(
+                    t,
+                    Some(Terrain::Settlement) | Some(Terrain::House)
+                ));
             }
         }
     }
