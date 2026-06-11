@@ -72,6 +72,8 @@ mod tests {
             homestead_settlers: Vec::new(),
             homestead_rumored: false,
             founding_check_day: 0,
+            spouse_id: None,
+            widowed_day: 0,
         }
     }
 

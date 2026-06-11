@@ -127,6 +127,8 @@ fn full_pipeline_seed_generate_enter_talk() {
         homestead_settlers: Vec::new(),
         homestead_rumored: false,
         founding_check_day: 0,
+        spouse_id: None,
+        widowed_day: 0,
     };
 
     save::save_game(&data, "integration_save.ron").expect("save should succeed");

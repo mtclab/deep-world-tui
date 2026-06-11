@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
     println!(
         "  buy/sell/steal <item>, build [kind], work, plant, harvest, stash/take <item> [n], quests, journal [n], region,"
     );
-    println!("  encounter <action>, talk [idx], collapse-dismiss,");
+    println!("  encounter <action>, talk [idx], court [idx], collapse-dismiss,");
     println!("  save [slot], load [slot], record <file>, replay <file>, help, quit");
     println!();
 
@@ -189,6 +189,12 @@ fn main() -> anyhow::Result<()> {
                     service: parts.get(1).copied().unwrap_or("").to_string(),
                 });
                 app.use_service(svc);
+                print_msg(&app);
+            }
+            "court" => {
+                let idx: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                app.apply_choice(&PlayerChoice::Court { person_idx: idx });
+                recorded.push(PlayerChoice::Court { person_idx: idx });
                 print_msg(&app);
             }
             "talk" | "t" => {

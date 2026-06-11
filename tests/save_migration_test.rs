@@ -41,6 +41,8 @@ fn make_save(version: u32) -> SaveData {
         homestead_settlers: Vec::new(),
         homestead_rumored: false,
         founding_check_day: 0,
+        spouse_id: None,
+        widowed_day: 0,
     }
 }
 
@@ -113,6 +115,8 @@ fn roundtrip_preserves_all_fields() {
         homestead_settlers: Vec::new(),
         homestead_rumored: false,
         founding_check_day: 0,
+        spouse_id: None,
+        widowed_day: 0,
     };
 
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");

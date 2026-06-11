@@ -112,6 +112,10 @@ pub struct App {
     pub homestead_rumored: bool,
     /// Last day the founding check ran (it asks the roads every ten days).
     pub founding_check_day: u32,
+    /// The person the player is wed to, if anyone (their Person id).
+    pub spouse_id: Option<String>,
+    /// Day the player was widowed (0 = never); grief holds the door a while.
+    pub widowed_day: u32,
     pub collapses_had: u32,
     pub collapse_log: Vec<CollapseEvent>,
     pub lineage: Vec<LineageRecord>,
@@ -196,6 +200,8 @@ impl App {
             homestead_settlers: Vec::new(),
             homestead_rumored: false,
             founding_check_day: 0,
+            spouse_id: None,
+            widowed_day: 0,
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
@@ -483,6 +489,8 @@ impl App {
             homestead_settlers: self.homestead_settlers.clone(),
             homestead_rumored: self.homestead_rumored,
             founding_check_day: self.founding_check_day,
+            spouse_id: self.spouse_id.clone(),
+            widowed_day: self.widowed_day,
         })
     }
 
@@ -734,6 +742,7 @@ impl App {
                     self.enter_talk(pos.region_idx, 0, *person_idx);
                 }
             }
+            C::Court { person_idx } => self.court(*person_idx),
         }
     }
 
@@ -777,6 +786,8 @@ impl App {
         self.homestead_settlers = data.homestead_settlers;
         self.homestead_rumored = data.homestead_rumored;
         self.founding_check_day = data.founding_check_day;
+        self.spouse_id = data.spouse_id;
+        self.widowed_day = data.widowed_day;
         self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
         self.elder = self
             .milestones
@@ -1629,6 +1640,7 @@ impl App {
     }
 
     pub fn advance_clock(&mut self, hours: u32) {
+        let day_before = self.clock.day;
         let season = self.clock.season();
         self.clock.advance(hours);
         // Harsh weather wears the body down faster too (need_decay_modifier
@@ -1727,6 +1739,9 @@ impl App {
         self.check_aging();
         self.check_player_illness();
         self.tick_player_farms();
+        if self.clock.day != day_before {
+            self.check_spouse();
+        }
         // The founding check asks the roads every ten days; the waystation
         // ledger keeps the same calendar.
         if self.clock.day / 10 > self.founding_check_day / 10 {
@@ -2676,6 +2691,195 @@ impl App {
                     self.status_msg = Some(format!("A hamlet is born: {name}."));
                 }
             }
+        }
+    }
+
+    /// Whether the player owns a completed Cabin/Longhouse/Home anywhere —
+    /// an oath needs a roof to live under.
+    fn owns_a_home(&self) -> bool {
+        use crate::sim::structures::BuildKind;
+        self.sim
+            .as_ref()
+            .map(|s| {
+                s.world.regions.iter().any(|r| {
+                    r.structures.iter().any(|st| {
+                        !st.is_npc_built
+                            && matches!(
+                                st.kind,
+                                BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home
+                            )
+                    })
+                })
+            })
+            .unwrap_or(false)
+    }
+
+    /// Court a person of the settlement the player stands in (#362). The
+    /// oath is ordinary — no chosen ones: it asks trust earned over time, a
+    /// family that doesn't bar the door, a standing the town can live with,
+    /// a roof, and a feast the hall will remember.
+    pub fn court(&mut self, person_idx: usize) {
+        let Some((ri, si)) = self.player_on_settlement() else {
+            self.status_msg = Some("Courting is done where people live.".into());
+            return;
+        };
+        if self.spouse_id.is_some() {
+            self.status_msg = Some("You are wed already.".into());
+            return;
+        }
+        if self.widowed_day > 0 && self.clock.day < self.widowed_day + 30 {
+            self.status_msg = Some("The grief is too new. The house is not ready.".into());
+            return;
+        }
+        let Some(person) = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(ri))
+            .and_then(|r| r.settlements.get(si))
+            .and_then(|s| s.people.get(person_idx))
+            .cloned()
+        else {
+            self.status_msg = Some("No such person here.".into());
+            return;
+        };
+        if person.has_spouse {
+            self.status_msg = Some(format!("{} is wed.", person.name));
+            return;
+        }
+        let np = crate::model::PeopleKind::from_name(&person.people);
+        if self.inter_people_bias.effective_bias(np) < -0.15 {
+            self.status_msg = Some(format!(
+                "{}'s family turns you from the door. Mend things between your peoples first.",
+                person.name
+            ));
+            return;
+        }
+        let trust = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.npc_memories.get(&person.id))
+            .map(|m| m.cumulative_trust())
+            .unwrap_or(0.0);
+        if trust < 0.15 {
+            self.status_msg = Some(format!(
+                "{} knows you only from the road. Time, gifts, and help come first.",
+                person.name
+            ));
+            return;
+        }
+        if self.reputation_in_current_settlement() < 0.45 {
+            self.status_msg =
+                Some("The town would not stand witness for you. Earn its regard.".into());
+            return;
+        }
+        if !self.owns_a_home() {
+            self.status_msg =
+                Some("An oath needs a roof to live under — raise a cabin first.".into());
+            return;
+        }
+        let feast_paid = self
+            .player_start
+            .as_mut()
+            .map(|ps| {
+                if ps.inventory.get(ItemType::Food) >= 20 && ps.inventory.get(ItemType::Coin) >= 10
+                {
+                    ps.inventory.remove(ItemType::Food, 20);
+                    ps.inventory.remove(ItemType::Coin, 10);
+                    true
+                } else {
+                    false
+                }
+            })
+            .unwrap_or(false);
+        if !feast_paid {
+            self.status_msg =
+                Some("A wedding wants a feast: 20 food and 10 coins for the hall.".into());
+            return;
+        }
+        // The oath is spoken.
+        self.spouse_id = Some(person.id.clone());
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let (settlement_id, settlement_name) = {
+            let s = &self.sim.as_ref().unwrap().world.regions[ri].settlements[si];
+            (s.id.clone(), s.name.clone())
+        };
+        if let Some(ref mut sim) = self.sim {
+            if let Some(p) = sim
+                .world
+                .regions
+                .get_mut(ri)
+                .and_then(|r| r.settlements.get_mut(si))
+                .and_then(|s| s.people.get_mut(person_idx))
+            {
+                p.has_spouse = true;
+            }
+            sim.reputation
+                .adjust_settlement(&player_id, &settlement_id, 0.10);
+            let t = sim.world.tick;
+            sim.log(
+                t,
+                crate::sim::journal::Voice::Scar,
+                format!(
+                    "We spoke the oath at {} with the town for witness, and the hall ate                      well. {} keeps my house with me now.",
+                    settlement_name, person.name
+                ),
+            );
+        }
+        // The oath is Masa's (contract kept); the feast is Keuru's table.
+        self.god_affinity.adjust(GodName::Masa, 0.05);
+        self.god_affinity.adjust(GodName::Keuru, 0.05);
+        // Marriage is the oldest diplomacy between peoples.
+        if np != self.inter_people_bias.player_people {
+            self.inter_people_bias.mod_toward(np, 0.10);
+        }
+        if let Some(ref mut ps) = self.player_start {
+            ps.person.has_spouse = true;
+        }
+        self.advance_clock(6);
+        self.status_msg = Some(format!(
+            "Wed to {} — the oath spoken, the hall fed (6h).",
+            person.name
+        ));
+    }
+
+    /// Once a day, look in on the marriage: if the spouse has gone from the
+    /// world (lifecycle deaths reach spouses too), the player is widowed —
+    /// grief in the journal and a closed door for a season.
+    fn check_spouse(&mut self) {
+        let Some(spouse_id) = self.spouse_id.clone() else {
+            return;
+        };
+        let alive = self
+            .sim
+            .as_ref()
+            .map(|s| {
+                s.world
+                    .regions
+                    .iter()
+                    .flat_map(|r| r.settlements.iter())
+                    .flat_map(|s| s.people.iter())
+                    .any(|p| p.id == spouse_id)
+            })
+            .unwrap_or(true);
+        if !alive {
+            self.spouse_id = None;
+            self.widowed_day = self.clock.day.max(1);
+            if let Some(ref mut ps) = self.player_start {
+                ps.person.has_spouse = false;
+            }
+            if let Some(ref mut sim) = self.sim {
+                let t = sim.world.tick;
+                sim.log(
+                    t,
+                    crate::sim::journal::Voice::Scar,
+                    "The house is quiet in a way it was not. I keep setting two bowls.".into(),
+                );
+            }
+            self.status_msg = Some("Word comes that your spouse has died.".into());
         }
     }
 
@@ -3737,6 +3941,8 @@ impl App {
                     homestead_settlers: self.homestead_settlers.clone(),
                     homestead_rumored: self.homestead_rumored,
                     founding_check_day: self.founding_check_day,
+                    spouse_id: self.spouse_id.clone(),
+                    widowed_day: self.widowed_day,
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }
@@ -4514,6 +4720,11 @@ impl App {
         self.vitals.energy = (self.vitals.energy + stamina_gain / 8.0).min(1.0);
         self.god_affinity
             .adjust(GodName::Kukri, 0.02 + morale_gain * 0.1);
+        // A shared roof rests better: at one's own Cabin+ with a living
+        // marriage, the night gives a little more back.
+        if self.spouse_id.is_some() && self.own_hearth_here() {
+            self.vitals.energy = (self.vitals.energy + 0.05 * dur_frac).min(1.0);
+        }
         // Rest beside your own shrine: a slow, small pull toward the god it
         // was raised to. Devotional practice, not a summons — the gods are
         // withdrawn, and a new shrine changes the rester, not the world.

@@ -116,6 +116,7 @@ fn every_choice_variant_is_applicable() {
             action: "talk".into(),
         },
         PlayerChoice::Talk { person_idx: 0 },
+        PlayerChoice::Court { person_idx: 0 },
         PlayerChoice::EnterSettlement {
             region_idx: 0,
             settlement_idx: 0,
