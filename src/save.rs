@@ -89,6 +89,11 @@ pub struct SaveData {
     pub homestead_rumored: bool,
     #[serde(default)]
     pub founding_check_day: u32,
+    /// Marriage: the spouse's Person id, and the day the player was widowed.
+    #[serde(default)]
+    pub spouse_id: Option<String>,
+    #[serde(default)]
+    pub widowed_day: u32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -139,6 +144,9 @@ pub enum PlayerChoice {
     TakeItem {
         item: String,
         count: u32,
+    },
+    Court {
+        person_idx: usize,
     },
 }
 
@@ -307,6 +315,8 @@ pub fn restore_from_compact(
         homestead_settlers: Vec::new(),
         homestead_rumored: false,
         founding_check_day: 0,
+        spouse_id: None,
+        widowed_day: 0,
     })
 }
 
@@ -346,6 +356,8 @@ mod tests {
             homestead_settlers: Vec::new(),
             homestead_rumored: false,
             founding_check_day: 0,
+            spouse_id: None,
+            widowed_day: 0,
         };
         save_game(&data, "test_save.ron").expect("save should succeed");
         let loaded = load_game("test_save.ron").expect("load should succeed");
@@ -440,6 +452,8 @@ mod tests {
             homestead_settlers: Vec::new(),
             homestead_rumored: false,
             founding_check_day: 0,
+            spouse_id: None,
+            widowed_day: 0,
         };
         let compact_data = CompactSave {
             seed: 42,
