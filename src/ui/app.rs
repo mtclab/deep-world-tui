@@ -1477,14 +1477,27 @@ impl App {
             .map(|s| s.id.clone())
             .unwrap_or_default();
         let npc_people = self.current_settlement_people();
+        // More eyes in a city: witness odds scale with the place. A hamlet's
+        // lanes are empty half the day; a city street is never unwatched.
+        let (clean_under, whisper_under) = match self
+            .current_settlement()
+            .map(|s| s.size.clone())
+            .unwrap_or_default()
+            .as_str()
+        {
+            "hamlet" => (60, 85),
+            "town" => (40, 70),
+            "city" => (25, 60),
+            _ => (50, 80), // village — the old odds
+        };
         self.advance_clock_hour();
-        if roll < 50 {
+        if roll < clean_under {
             if let Some(ref mut ps) = self.player_start {
                 ps.inventory.add(item, 1);
             }
             self.god_affinity.adjust(GodName::Masa, -0.03);
             self.status_msg = Some(format!("No one saw. The {} is yours.", item.name()));
-        } else if roll < 80 {
+        } else if roll < whisper_under {
             if let Some(ref mut ps) = self.player_start {
                 ps.inventory.add(item, 1);
             }
@@ -4154,7 +4167,10 @@ impl App {
                 self.vitals.hunger = (self.vitals.hunger + 0.5).min(1.0);
                 self.vitals.energy = (self.vitals.energy + 0.3).min(1.0);
                 self.advance_clock(3);
-                // Low standing finds absolution here: penance restores a little.
+                // Restitution is more Masa than absolution: low standing is
+                // mended only against a donation scaled to the offense, paid
+                // into the poor-box on top of the visit price. No coin, no
+                // ledger eased — the blessing is free, the making-good is not.
                 let pid = self
                     .player_start
                     .as_ref()
@@ -4164,9 +4180,26 @@ impl App {
                     .current_settlement()
                     .map(|s| s.id.clone())
                     .unwrap_or_default();
-                if self.reputation_in_current_settlement() < 0.45 {
-                    if let Some(ref mut sim) = self.sim {
-                        sim.reputation.adjust_local(&pid, &sid, 0.05);
+                let mut penance_note = String::new();
+                let rep = self.reputation_in_current_settlement();
+                if rep < 0.45 {
+                    let donation = ((0.45 - rep) * 40.0).ceil() as u32;
+                    let paid = self
+                        .player_start
+                        .as_mut()
+                        .map(|ps| ps.inventory.remove(ItemType::Coin, donation))
+                        .unwrap_or(false);
+                    if paid {
+                        if let Some(ref mut sim) = self.sim {
+                            sim.reputation.adjust_local(&pid, &sid, 0.05);
+                        }
+                        penance_note =
+                            format!(" Restitution made: {donation} coins to the poor-box.");
+                    } else {
+                        penance_note = format!(
+                            " The keeper names your restitution: {donation} coins. \
+                             You cannot pay it; the ledger stands."
+                        );
                     }
                 }
                 // The temple healers also tend the sick — clear active illness.
@@ -4180,9 +4213,11 @@ impl App {
                     })
                     .unwrap_or(false);
                 self.status_msg = Some(if cured {
-                    format!("Blessed and healed at temple (illness cured, 3h, {cost} coins)")
+                    format!(
+                        "Blessed and healed at temple (illness cured, 3h, {cost} coins){penance_note}"
+                    )
                 } else {
-                    format!("Blessed at temple (+hunger, +energy, 3h, {cost} coins)")
+                    format!("Blessed at temple (+hunger, +energy, 3h, {cost} coins){penance_note}")
                 });
             }
             SettlementService::Forge => {
