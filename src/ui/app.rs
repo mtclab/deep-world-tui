@@ -2915,11 +2915,11 @@ impl App {
         if rng.gen_range(4) != 0 {
             return;
         }
-        let (people, charts_name) = {
-            let ps = self.player_start.as_ref().unwrap();
-            (ps.person.people.clone(), ())
-        };
-        let _ = charts_name;
+        let people = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.people.clone())
+            .unwrap_or_default();
         let name = self
             .sim
             .as_ref()
