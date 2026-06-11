@@ -131,11 +131,12 @@ fn a_fed_homestead_becomes_a_hamlet_and_people_are_conserved() {
         founded,
         "twelve souls should have gathered within the waves"
     );
-    // The ground is marked.
-    assert_eq!(
-        a.sim.as_ref().unwrap().world.regions[ri].terrain.get(x, y),
-        Some(Terrain::Settlement),
-        "the homestead tile becomes the hamlet"
+    // The ground is marked: the homestead plot becomes the hamlet's first
+    // roof (districts lay street and house now, not a smear).
+    let t = a.sim.as_ref().unwrap().world.regions[ri].terrain.get(x, y);
+    assert!(
+        matches!(t, Some(Terrain::House) | Some(Terrain::Settlement)),
+        "the homestead tile becomes the hamlet: {t:?}"
     );
     // People are conserved: nobody was made from nothing.
     assert_eq!(

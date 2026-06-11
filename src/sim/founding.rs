@@ -360,21 +360,9 @@ pub fn spawn_settlement(
     // Tile→settlement resolution is by footprint containment (anchor set
     // above), so vec order carries no meaning — append.
     region.settlements.push(settlement);
-    // Mark the ground: the site itself, with worked land around it (the same
-    // hand worldgen uses).
-    if y < region.terrain.height && x < region.terrain.width {
-        region.terrain.tiles[y * region.terrain.width + x] = Terrain::Settlement;
-    }
-    for dy in 0..3usize {
-        for dx in 0..3usize {
-            let (tx, ty) = (x + dx, y + dy);
-            if ty < region.terrain.height
-                && tx < region.terrain.width
-                && region.terrain.tiles[ty * region.terrain.width + tx] != Terrain::Settlement
-            {
-                region.terrain.tiles[ty * region.terrain.width + tx] = Terrain::Farmland;
-            }
-        }
-    }
+    // Mark the ground: a hamlet district — street and first roof — with
+    // worked land around it.
+    let fp = crate::model::economy::Settlement::footprint_for_size("hamlet") as usize;
+    crate::gen::town::lay_town(&mut region.terrain, x, y, fp);
     Some((settlement_id, name))
 }

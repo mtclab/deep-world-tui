@@ -5209,7 +5209,11 @@ impl App {
         let pos = self.player_pos?;
         let sim = self.sim.as_ref()?;
         let region = sim.world.regions.get(pos.region_idx)?;
-        if region.terrain.get(pos.px, pos.py) != Some(Terrain::Settlement) {
+        // Streets and houses both count as being in town.
+        if !matches!(
+            region.terrain.get(pos.px, pos.py),
+            Some(Terrain::Settlement) | Some(Terrain::House)
+        ) {
             return None;
         }
         // The settlement whose painted footprint this tile belongs to —

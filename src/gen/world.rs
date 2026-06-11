@@ -332,12 +332,14 @@ fn generate_terrain(
         };
         settlement.map_x = sx as u32;
         settlement.map_y = sy as u32;
+        // The district itself — streets and houses — is laid after the
+        // terrain map exists (generate_terrain returns first); see the
+        // lay_town pass in generate_region.
         for dy in 0..n {
             for dx in 0..n {
                 tiles[(sy + dy) * width + (sx + dx)] = Terrain::Settlement;
             }
         }
-        // Worked land skirts the walls.
         for dy in 0..n + 2 {
             for dx in 0..n + 2 {
                 let ty = sy + dy;
@@ -347,7 +349,28 @@ fn generate_terrain(
                 }
             }
         }
-        settle_positions.push((sx, sy));
+        // Roads aim at a street cell (rel 1,1 is always street in the town
+        // layout) — aiming at the anchor would dead-end on a house wall.
+        settle_positions.push((sx + 1, sy + 1));
+    }
+
+    // Lay every district now, BEFORE the roads: the road painter must see
+    // the real houses so it can cut its way to the street.
+    {
+        let mut tmap = TerrainMap {
+            width,
+            height,
+            tiles,
+        };
+        for s in settlements.iter() {
+            crate::gen::town::lay_town(
+                &mut tmap,
+                s.map_x as usize,
+                s.map_y as usize,
+                s.footprint() as usize,
+            );
+        }
+        tiles = tmap.tiles;
     }
 
     for window in settle_positions.windows(2) {
@@ -356,8 +379,13 @@ fn generate_terrain(
         let mut cx = x1;
         let mut cy = y1;
         while cx != x2 || cy != y2 {
-            if cx < width && cy < height && tiles[cy * width + cx] != Terrain::Settlement {
-                tiles[cy * width + cx] = Terrain::Road;
+            if cx < width && cy < height {
+                match tiles[cy * width + cx] {
+                    Terrain::Settlement => {}
+                    // The road went through town: that plot is street now.
+                    Terrain::House => tiles[cy * width + cx] = Terrain::Settlement,
+                    _ => tiles[cy * width + cx] = Terrain::Road,
+                }
             }
             if cx < x2 {
                 cx += 1;
@@ -556,20 +584,14 @@ pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
                 s.map_y = y.min(h.saturating_sub(n)) as u32;
             }
         }
-        // Paint every footprint (idempotent; also grows pre-anchor towns).
+        // Lay every district (idempotent; also grows pre-anchor towns).
         let prints: Vec<(usize, usize, usize)> = region
             .settlements
             .iter()
             .map(|s| (s.map_x as usize, s.map_y as usize, s.footprint() as usize))
             .collect();
         for (ax, ay, n) in prints {
-            for dy in 0..n {
-                for dx in 0..n {
-                    if ay + dy < h && ax + dx < w {
-                        region.terrain.tiles[(ay + dy) * w + (ax + dx)] = Terrain::Settlement;
-                    }
-                }
-            }
+            crate::gen::town::lay_town(&mut region.terrain, ax, ay, n);
         }
     }
 }
