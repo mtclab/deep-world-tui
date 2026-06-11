@@ -105,6 +105,13 @@ pub struct App {
     pub encounter_log: EncounterLog,
     /// The player's worked fields (plant/harvest at the homestead).
     pub player_farms: Vec<crate::model::economy::PlayerFarm>,
+    /// Settlers camped by the homestead, drawn out of real settlements —
+    /// at ~12 souls the world recognizes the place and a hamlet is born.
+    pub homestead_settlers: Vec<crate::model::Person>,
+    /// Word has gone out about the homestead (the rumor precedes the wagons).
+    pub homestead_rumored: bool,
+    /// Last day the founding check ran (it asks the roads every ten days).
+    pub founding_check_day: u32,
     pub collapses_had: u32,
     pub collapse_log: Vec<CollapseEvent>,
     pub lineage: Vec<LineageRecord>,
@@ -186,6 +193,9 @@ impl App {
             encounters_had: 0,
             encounter_log: EncounterLog::new(),
             player_farms: Vec::new(),
+            homestead_settlers: Vec::new(),
+            homestead_rumored: false,
+            founding_check_day: 0,
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
@@ -470,6 +480,9 @@ impl App {
             lifespan_years: self.lifespan_years,
             encounter_log: self.encounter_log.clone(),
             player_farms: self.player_farms.clone(),
+            homestead_settlers: self.homestead_settlers.clone(),
+            homestead_rumored: self.homestead_rumored,
+            founding_check_day: self.founding_check_day,
         })
     }
 
@@ -756,6 +769,9 @@ impl App {
         self.milestones = data.milestones;
         self.encounter_log = data.encounter_log;
         self.player_farms = data.player_farms;
+        self.homestead_settlers = data.homestead_settlers;
+        self.homestead_rumored = data.homestead_rumored;
+        self.founding_check_day = data.founding_check_day;
         self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
         self.elder = self
             .milestones
@@ -1683,6 +1699,11 @@ impl App {
         self.check_aging();
         self.check_player_illness();
         self.tick_player_farms();
+        // The founding check asks the roads every ten days.
+        if self.clock.day / 10 > self.founding_check_day / 10 {
+            self.founding_check_day = self.clock.day;
+            self.tick_founding();
+        }
     }
 
     /// Recover from any run-out illnesses, then roll for contracting a new one
@@ -2466,6 +2487,151 @@ impl App {
         });
         if killed {
             self.status_msg = Some("The frost took the standing crops.".into());
+        }
+    }
+
+    /// If you feed a place, people come (#345). A homestead on wild ground
+    /// with a working field, full stores, fit land, and a name the nearest
+    /// town doesn't spit at draws settlers — rumor first, then wagons. The
+    /// settlers are real: drawn out of neighboring settlements and counted
+    /// off their rolls. At ~12 souls the world recognizes the place: a hamlet
+    /// is born, named by the region's naming tradition — the founding goes in
+    /// the record; the player gets fame, not naming rights.
+    pub fn tick_founding(&mut self) {
+        use crate::sim::structures::BuildKind;
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let pocket_food = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.get(ItemType::Food))
+            .unwrap_or(0);
+        // 1. Find a qualifying homestead.
+        let site = {
+            let Some(ref sim) = self.sim else { return };
+            let mut found: Option<(usize, usize, usize)> = None;
+            'outer: for (ri, region) in sim.world.regions.iter().enumerate() {
+                for st in &region.structures {
+                    if st.is_npc_built
+                        || !matches!(
+                            st.kind,
+                            BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home
+                        )
+                    {
+                        continue;
+                    }
+                    let (sx, sy) = (st.x as usize, st.y as usize);
+                    // A working field within two tiles — a homestead, not a hut.
+                    let farmed = self.player_farms.iter().any(|f| {
+                        f.region_idx == ri && f.x.abs_diff(st.x) <= 2 && f.y.abs_diff(st.y) <= 2
+                    });
+                    if !farmed {
+                        continue;
+                    }
+                    // Wild ground: no settlement within six tiles.
+                    let near_town = (sy.saturating_sub(6)..(sy + 7).min(region.terrain.height))
+                        .any(|ty| {
+                            (sx.saturating_sub(6)..(sx + 7).min(region.terrain.width))
+                                .any(|tx| region.terrain.get(tx, ty) == Some(Terrain::Settlement))
+                        });
+                    if near_town {
+                        continue;
+                    }
+                    // Land fit to feed more mouths than yours.
+                    if region.game_richness <= 0.5 {
+                        continue;
+                    }
+                    // Full stores: stash and pockets together past a winter's margin.
+                    if st.stash.get(ItemType::Food) + pocket_food <= 30 {
+                        continue;
+                    }
+                    // Not ill-regarded where word of you comes from.
+                    let standing = region
+                        .settlements
+                        .first()
+                        .map(|s| sim.reputation.get(&player_id, &s.id))
+                        .unwrap_or(0.5);
+                    if standing < 0.45 {
+                        continue;
+                    }
+                    found = Some((ri, sx, sy));
+                    break 'outer;
+                }
+            }
+            found
+        };
+        let Some((ri, x, y)) = site else { return };
+        // 2. The rumor precedes the wagons.
+        if !self.homestead_rumored {
+            self.homestead_rumored = true;
+            if let Some(ref mut sim) = self.sim {
+                let t = sim.world.tick;
+                sim.log(
+                    t,
+                    crate::sim::journal::Voice::Rumor,
+                    "Families on the road, they say — asking after the homestead that feeds \
+                     travelers."
+                        .into(),
+                );
+            }
+            self.status_msg = Some("Word of the homestead is on the roads.".into());
+            return;
+        }
+        let day = self.clock.day;
+        let mut rng = SeedRng::new(self.seed).fork_for(&format!("founding-{day}"));
+        // 3. A wave arrives — drawn out of real settlements, counted off their rolls.
+        if self.homestead_settlers.len() < 12 {
+            let n = 2 + rng.gen_range(3);
+            if let Some(ref mut sim) = self.sim {
+                let drawn = crate::sim::founding::draw_settlers(sim, ri, n, &mut rng);
+                if drawn.is_empty() {
+                    return;
+                }
+                let arrived = drawn.len();
+                self.homestead_settlers.extend(drawn);
+                let total = self.homestead_settlers.len();
+                let t = sim.world.tick;
+                sim.log(
+                    t,
+                    crate::sim::journal::Voice::Encounter,
+                    format!(
+                        "{} more souls have camped by my fields — {} now, waiting for the \
+                         place to become somewhere.",
+                        arrived, total
+                    ),
+                );
+                self.status_msg = Some(format!("Settlers by the homestead: {total} souls."));
+            }
+        }
+        // 4. At ~12 souls the world recognizes the place.
+        if self.homestead_settlers.len() >= 12 {
+            let settlers = std::mem::take(&mut self.homestead_settlers);
+            if let Some(ref mut sim) = self.sim {
+                if let Some((id, name)) =
+                    crate::sim::founding::spawn_settlement(sim, ri, x, y, settlers, &mut rng)
+                {
+                    // Founder status: the place holds the player in the
+                    // highest regard it can — standing, not naming rights.
+                    if !player_id.is_empty() {
+                        sim.reputation.adjust_settlement(&player_id, &id, 0.5);
+                    }
+                    let t = sim.world.tick;
+                    sim.log(
+                        t,
+                        crate::sim::journal::Voice::Scar,
+                        format!(
+                            "They are calling it {}. It grew up around my fields. The record \
+                             will keep my name; the place keeps its own.",
+                            name
+                        ),
+                    );
+                    self.homestead_rumored = false;
+                    self.status_msg = Some(format!("A hamlet is born: {name}."));
+                }
+            }
         }
     }
 
@@ -3334,6 +3500,9 @@ impl App {
                     lifespan_years: self.lifespan_years,
                     encounter_log: self.encounter_log.clone(),
                     player_farms: self.player_farms.clone(),
+                    homestead_settlers: self.homestead_settlers.clone(),
+                    homestead_rumored: self.homestead_rumored,
+                    founding_check_day: self.founding_check_day,
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }

@@ -43,6 +43,9 @@ fn make_save_data(seed: u64, charts: &charts::Charts) -> SaveData {
         lifespan_years: 0,
         encounter_log: Default::default(),
         player_farms: Vec::new(),
+        homestead_settlers: Vec::new(),
+        homestead_rumored: false,
+        founding_check_day: 0,
     }
 }
 

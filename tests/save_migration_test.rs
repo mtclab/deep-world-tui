@@ -38,6 +38,9 @@ fn make_save(version: u32) -> SaveData {
         lifespan_years: 0,
         encounter_log: Default::default(),
         player_farms: Vec::new(),
+        homestead_settlers: Vec::new(),
+        homestead_rumored: false,
+        founding_check_day: 0,
     }
 }
 
@@ -107,6 +110,9 @@ fn roundtrip_preserves_all_fields() {
         lifespan_years: 0,
         encounter_log: Default::default(),
         player_farms: Vec::new(),
+        homestead_settlers: Vec::new(),
+        homestead_rumored: false,
+        founding_check_day: 0,
     };
 
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");

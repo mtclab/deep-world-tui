@@ -124,6 +124,9 @@ fn full_pipeline_seed_generate_enter_talk() {
         lifespan_years: 0,
         encounter_log: Default::default(),
         player_farms: Vec::new(),
+        homestead_settlers: Vec::new(),
+        homestead_rumored: false,
+        founding_check_day: 0,
     };
 
     save::save_game(&data, "integration_save.ron").expect("save should succeed");
