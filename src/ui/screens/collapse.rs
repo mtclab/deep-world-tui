@@ -45,7 +45,10 @@ pub(crate) fn draw_collapse_screen(f: &mut Frame, app: &App) {
         )));
         if let Some(god) = collapse.rescued_by {
             lines.push(Line::from(Span::styled(
-                format!("  {} watches over you.", god.label()),
+                format!(
+                    "  Something of {} lingered in that place. Or so it felt.",
+                    god.label()
+                ),
                 Style::default().fg(theme.warm_brown()),
             )));
         }

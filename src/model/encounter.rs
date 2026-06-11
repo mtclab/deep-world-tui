@@ -25,7 +25,7 @@ impl CollapseOutcome {
             CollapseOutcome::Riverbank => "Water on your face. You're lying on smooth stones by a river, soaked but alive. The current carried you somewhere gentler. A traveler's cairn marks the spot.",
             CollapseOutcome::FestivalBench => "Laughter. Firelight. You're slumped on a bench at some festival — someone draped a blanket over you. A child pokes your arm offering bread. The hearth-fires burn bright here.",
             CollapseOutcome::Ditch => "Mud. Cold mud. You're in a ditch. Something crawled over you in the night. Your coin pouch feels lighter.",
-            CollapseOutcome::GodCampsite => "You wake by a fire that burns without smoke. Five figures sit around it, speaking in a language you almost understand. One glances at you, amused. 'Sleep well, little one?' They are gone by morning. You feel... changed.",
+            CollapseOutcome::GodCampsite => "You wake at a campsite no one admits to keeping. The fire is banked just so; food and herbs sit wrapped by your hand; the ground beside you holds the warmth of company. There are no tracks. You will tell no one, and they would not believe you, and you are not sure you believe it yourself.",
         }
     }
 
