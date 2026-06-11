@@ -1039,11 +1039,11 @@ impl App {
                 count
             };
             if count == 0 {
-                self.status_msg = Some(format!(
-                    "Too scarce in {} to gather {}",
-                    season,
-                    item.name()
-                ));
+                self.status_msg = Some(if weather.gather_modifier() < 0.7 {
+                    format!("The {} keeps the land's gifts hidden", weather.name())
+                } else {
+                    format!("Too scarce in {} to gather {}", season, item.name())
+                });
                 return;
             }
             if let Some(ref mut ps) = self.player_start {
@@ -2549,8 +2549,10 @@ impl App {
         }
         self.encounter = None;
         let msg_with_witness = match witness {
-            WitnessLevel::Unseen => format!("{}. {}", msg, witness.flavor()),
-            WitnessLevel::Rumored => format!("{}. {}", msg, witness.flavor()),
+            WitnessLevel::Unseen | WitnessLevel::Rumored => {
+                let base = msg.trim_end_matches('.').to_string();
+                format!("{}. {}", base, witness.flavor())
+            }
             WitnessLevel::Seen => msg,
         };
         self.status_msg = Some(msg_with_witness);
