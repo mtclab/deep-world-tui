@@ -15,6 +15,12 @@ pub enum BuildKind {
     /// A god-site, raised as devotional practice — not a summons. The god is
     /// chosen at the raising and kept in Structure::name.
     Shrine,
+    /// A walked-in path, laid by one pair of hands. Cuts travel on its tile
+    /// while it lasts — and it does not last untended.
+    Trail,
+    /// Planks over a stream. Water becomes crossable while the bridge stands;
+    /// an untended footbridge is a private Velkarmoss.
+    Footbridge,
 }
 
 impl BuildKind {
@@ -29,6 +35,8 @@ impl BuildKind {
             BuildKind::Longhouse,
             BuildKind::Home,
             BuildKind::Shrine,
+            BuildKind::Trail,
+            BuildKind::Footbridge,
         ]
     }
 
@@ -56,6 +64,11 @@ impl BuildKind {
                 terrain,
                 T::Grass | T::Tundra | T::Farmland | T::Forest | T::Coast
             ),
+            // A trail is laid on walkable wild ground; roads and streets
+            // already are one.
+            BuildKind::Trail => terrain.passable() && !matches!(terrain, T::Road | T::Settlement),
+            // The only thing that stands on water.
+            BuildKind::Footbridge => matches!(terrain, T::Water),
         }
     }
 
@@ -63,7 +76,7 @@ impl BuildKind {
     pub fn needs_tool(self) -> bool {
         matches!(
             self,
-            BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home
+            BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home | BuildKind::Footbridge
         )
     }
 
@@ -84,6 +97,8 @@ impl BuildKind {
             "longhouse" => Some(BuildKind::Longhouse),
             "home" | "house" => Some(BuildKind::Home),
             "shrine" => Some(BuildKind::Shrine),
+            "trail" => Some(BuildKind::Trail),
+            "footbridge" | "bridge" => Some(BuildKind::Footbridge),
             _ => None,
         }
     }
@@ -99,6 +114,8 @@ impl BuildKind {
             BuildKind::Longhouse => "longhouse",
             BuildKind::Home => "home",
             BuildKind::Shrine => "shrine",
+            BuildKind::Trail => "trail",
+            BuildKind::Footbridge => "footbridge",
         }
     }
 
@@ -113,6 +130,8 @@ impl BuildKind {
             BuildKind::Longhouse => '▒',
             BuildKind::Home => '▓',
             BuildKind::Shrine => '†',
+            BuildKind::Trail => ':',
+            BuildKind::Footbridge => '=',
         }
     }
 
@@ -127,6 +146,8 @@ impl BuildKind {
             BuildKind::Longhouse => 168,
             BuildKind::Home => 336,
             BuildKind::Shrine => 12,
+            BuildKind::Trail => 8,
+            BuildKind::Footbridge => 24,
         }
     }
 
@@ -141,6 +162,8 @@ impl BuildKind {
             BuildKind::Longhouse => "longhouse",
             BuildKind::Home => "home",
             BuildKind::Shrine => "shrine",
+            BuildKind::Trail => "trail",
+            BuildKind::Footbridge => "footbridge",
         }
     }
 
@@ -175,6 +198,12 @@ impl BuildKind {
             ],
             // Same materials as the NPC kind: stone and cloth, nothing grand.
             BuildKind::Shrine => vec![(ItemType::Stone, 6), (ItemType::Cloth, 3)],
+            BuildKind::Trail => vec![(ItemType::Stone, 4), (ItemType::Branches, 4)],
+            BuildKind::Footbridge => vec![
+                (ItemType::Wood, 24),
+                (ItemType::Nails, 12),
+                (ItemType::Cordage, 4),
+            ],
         }
     }
 
@@ -190,6 +219,10 @@ impl BuildKind {
             BuildKind::Kota => Some(5.0),
             BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home => Some(30.0),
             BuildKind::Shrine => Some(10.0),
+            // Infrastructure decays from day one — that is the whole point.
+            // A path grows over in a couple of years; planks rot in five.
+            BuildKind::Trail => Some(2.0),
+            BuildKind::Footbridge => Some(5.0),
         }
     }
 }
