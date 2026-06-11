@@ -122,6 +122,12 @@ impl Season {
     }
 
     pub const YEAR_DAYS: u32 = 90;
+
+    /// The canonical present: one year after the Quiet Chronicles close
+    /// (trilogy runs to 182 AF; ethnographic surveys 155 AF; Archive index
+    /// compiled 175 AF). The game year is a compressed abstraction of the
+    /// canon 365-day year — seasons pass faster than the books count them.
+    pub const PRESENT_YEAR_AF: u32 = 183;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -478,6 +484,8 @@ pub enum FestivalKind {
     RiverGathering,
     MidsummerBonfire,
     AncestorVigil,
+    /// Sampsa's festival: star-charts read aloud, the rolls of names recited.
+    StarReckoning,
 }
 
 impl FestivalKind {
@@ -489,6 +497,7 @@ impl FestivalKind {
             FestivalKind::RiverGathering => "River Gathering",
             FestivalKind::MidsummerBonfire => "Midsummer Bonfire",
             FestivalKind::AncestorVigil => "Ancestor Vigil",
+            FestivalKind::StarReckoning => "Star-Reckoning",
         }
     }
 
@@ -498,25 +507,25 @@ impl FestivalKind {
             PeopleKind::Sepat => FestivalKind::ForgeDay,
             PeopleKind::Metsik => FestivalKind::ForestRite,
             PeopleKind::Vayla => FestivalKind::RiverGathering,
-            PeopleKind::Arkit => FestivalKind::AncestorVigil,
-            PeopleKind::Laakso => FestivalKind::MidsummerBonfire,
-            PeopleKind::Varhaiset => FestivalKind::AncestorVigil,
+            PeopleKind::Arkit => FestivalKind::StarReckoning,
+            PeopleKind::Laakso => FestivalKind::AncestorVigil,
+            PeopleKind::Varhaiset => FestivalKind::MidsummerBonfire,
             PeopleKind::Metsareunat => FestivalKind::ForestRite,
             PeopleKind::Porokansa => FestivalKind::ForestRite,
             PeopleKind::Koskimetsa => FestivalKind::ForestRite,
-            PeopleKind::Muistikansa => FestivalKind::AncestorVigil,
-            PeopleKind::Taulukansa => FestivalKind::AncestorVigil,
-            PeopleKind::Kirjakansa => FestivalKind::AncestorVigil,
+            PeopleKind::Muistikansa => FestivalKind::StarReckoning,
+            PeopleKind::Taulukansa => FestivalKind::StarReckoning,
+            PeopleKind::Kirjakansa => FestivalKind::StarReckoning,
             PeopleKind::Takovaki => FestivalKind::ForgeDay,
             PeopleKind::Rantavaki => FestivalKind::RiverGathering,
             PeopleKind::Saarivaki => FestivalKind::RiverGathering,
             PeopleKind::Hiekkakavelijat => FestivalKind::RiverGathering,
-            PeopleKind::Haramaki => FestivalKind::MidsummerBonfire,
-            PeopleKind::Jamavaki => FestivalKind::MidsummerBonfire,
-            PeopleKind::Pohjavaki => FestivalKind::MidsummerBonfire,
+            PeopleKind::Haramaki => FestivalKind::AncestorVigil,
+            PeopleKind::Jamavaki => FestivalKind::AncestorVigil,
+            PeopleKind::Pohjavaki => FestivalKind::AncestorVigil,
             PeopleKind::Tzakhar => FestivalKind::AncestorVigil,
             PeopleKind::Merak => FestivalKind::RiverGathering,
-            PeopleKind::Shear => FestivalKind::MidsummerBonfire,
+            PeopleKind::Shear => FestivalKind::AncestorVigil,
             PeopleKind::Hal => FestivalKind::ForestRite,
             PeopleKind::Khor => FestivalKind::AncestorVigil,
         }
@@ -530,6 +539,7 @@ impl FestivalKind {
             FestivalKind::RiverGathering => "Boats crowd the dock. Lanterns float on the water. Voices carry across the current.",
             FestivalKind::MidsummerBonfire => "The bonfire roars taller than the rooftops. Shadows dance wild. The night is brief and ancient.",
             FestivalKind::AncestorVigil => "Candles burn in every window. Voices murmur old names. The past walks among the living tonight.",
+            FestivalKind::StarReckoning => "Lanterns ring the square. Star-charts are read aloud, and the rolls of names — every birth, every death, every arrival — recited to the sky.",
         }
     }
 
@@ -541,7 +551,15 @@ impl FestivalKind {
             FestivalKind::RiverGathering => GodName::Masa,
             FestivalKind::MidsummerBonfire => GodName::Keuru,
             FestivalKind::AncestorVigil => GodName::Kukri,
+            FestivalKind::StarReckoning => GodName::Sampsa,
         }
+    }
+}
+
+impl GameClock {
+    /// The current year in After-Fall reckoning (game years are compressed).
+    pub fn year_af(&self) -> u32 {
+        Season::PRESENT_YEAR_AF + self.day / Season::YEAR_DAYS
     }
 }
 

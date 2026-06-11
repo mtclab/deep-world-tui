@@ -67,7 +67,10 @@ impl WantKind {
                 &[(WantKind::MournSomeone, 4), (WantKind::GoToTemple, 3)]
             }
             P::Shear => &[(WantKind::TalkToFriend, 3), (WantKind::HideFromBandit, 4)],
-            P::Khor | P::Porokansa => &[(WantKind::FleeFrost, 4), (WantKind::FindFood, 3)],
+            // Herd-following peoples: Khör are endothermic — winter is home,
+            // not a thing to flee (canon: Talven-Hiljaisuus). The herds and
+            // the shelter-craft are what occupy them.
+            P::Khor | P::Porokansa => &[(WantKind::FindFood, 4), (WantKind::RepairRoof, 3)],
             P::Merak => &[(WantKind::FindWater, 4), (WantKind::PayDebt, 3)],
             P::Tzakhar => &[(WantKind::MournSomeone, 4), (WantKind::RepairRoof, 3)],
             _ => &[(WantKind::FindFood, 2), (WantKind::TalkToFriend, 2)],
