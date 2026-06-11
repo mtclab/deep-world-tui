@@ -114,7 +114,9 @@ pub enum PlayerChoice {
     StealItem {
         item: String,
     },
-    Build,
+    Build {
+        kind: Option<String>,
+    },
     Talk {
         person_idx: usize,
     },

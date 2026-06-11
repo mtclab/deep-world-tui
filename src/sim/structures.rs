@@ -28,6 +28,56 @@ impl BuildKind {
         ]
     }
 
+    /// The land each kind can stand on. A tarp goes anywhere you can lie
+    /// down; a cabin wants real land. None of them rise on water, bare
+    /// mountain, a road, or someone else's street (settlement residency is
+    /// gated separately).
+    pub fn stands_on(self, terrain: crate::model::Terrain) -> bool {
+        use crate::model::Terrain as T;
+        match self {
+            BuildKind::Tarp | BuildKind::LeanTo => {
+                !matches!(terrain, T::Water | T::Mountain | T::Road | T::Settlement)
+            }
+            BuildKind::TarpTent | BuildKind::Laavu => matches!(
+                terrain,
+                T::Forest | T::Grass | T::Tundra | T::Swamp | T::Coast
+            ),
+            BuildKind::Kota => matches!(terrain, T::Grass | T::Tundra | T::Farmland),
+            BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home => matches!(
+                terrain,
+                T::Grass | T::Farmland | T::Forest | T::Coast | T::Settlement
+            ),
+        }
+    }
+
+    /// Real construction needs a real tool.
+    pub fn needs_tool(self) -> bool {
+        matches!(
+            self,
+            BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home
+        )
+    }
+
+    /// Big builds advance only while someone works the site.
+    pub fn needs_labor(self) -> bool {
+        self.needs_tool()
+    }
+
+    /// Parse a kind from the player's word.
+    pub fn from_name(name: &str) -> Option<BuildKind> {
+        match name.to_ascii_lowercase().as_str() {
+            "tarp" => Some(BuildKind::Tarp),
+            "leanto" | "lean-to" => Some(BuildKind::LeanTo),
+            "tarptent" | "tent" => Some(BuildKind::TarpTent),
+            "laavu" => Some(BuildKind::Laavu),
+            "kota" => Some(BuildKind::Kota),
+            "cabin" => Some(BuildKind::Cabin),
+            "longhouse" => Some(BuildKind::Longhouse),
+            "home" | "house" => Some(BuildKind::Home),
+            _ => None,
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             BuildKind::Tarp => "tarp",
