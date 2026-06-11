@@ -136,3 +136,71 @@ already makes ghost towns; now it can fill them:
 5. **Re-population + land-taking**: ghost towns refill, new NPC hamlets.
 6. **Structure world-effects**: kota cooking, longhouse waystation, shrine.
 7. **Future tier**: roads/bridges/wells/waymarkers as appetite allows.
+
+## 8. Canon-logic audit (is each piece true to the world?)
+
+Every mechanic above tested against the world's own physics — the
+Conservation Principle (nothing from nothing), the Fall's slow recovery,
+withdrawn-but-present gods (proximity never confirmed), god-peoples as
+diaspora minorities, and the novels' tone (no chosen ones; competence and
+maintenance, not miracles).
+
+**Farming (#343)** — agriculture is the canon base economy (grain farmers
+are the most common profession; the Harkomi plain feeds the continent), so
+the mechanic is native. Two corrections it must carry: **seed costs** —
+planting consumes a measure of Food (nothing from nothing; this also goes
+for NPC farms, which currently plant from air); and the **forest-edge
+tension** — clearing wooded land for fields is the Ahjorath sin in
+miniature (the Kaelva Burning's whole substance). Farming adjacent to
+Forest tiles should cost Keuru affinity and Metsik-family bias; swidden is
+deeply Finno-Ugric and deeply contested. The crop list should eventually
+align with canon's crop appendix (geography/crop_species...).
+
+**Stash & residency (#344)** — mundane storage and a council's consent:
+both native. The consent gate (bias + standing) IS the inter-people world
+working as written. Inheritance of house and stash matches the
+family-standing canon. Future-true addition: polities tax; a resident
+might owe a yearly coin (skip for now, note for the polity layer).
+
+**Homestead → hamlet (#345)** — this is the era's signature story (the
+Basin Leagues formed exactly this way, ~50 AF). Constraints to honor:
+settlers must come FROM somewhere — sampled from neighboring settlements
+and SUBTRACTED from them (people are conserved); the hamlet inherits their
+peoples mix, so god-peoples stay minorities even in the player's town; the
+name comes from the region's naming tradition, never the player's (the
+founding is remembered in the record instead — fame without naming rights,
+very Archive). Founder status is local standing, not cosmic election.
+
+**Re-population & land-taking (#346)** — directly canonical (the chronicle
+is full of reopenings), with two disciplines: the sponsor PAYS (population
+and stores actually move — conservation again), and the pace stays slow
+and rare; the Fall's tail is long, and a world that bounces back in a
+season betrays the whole setting. Some ghost towns should simply stay
+empty for economic reasons — not every wound closes.
+
+**Structure effects (#347)** — kota cooking and longhouse waystations are
+mundane and waystation-canon (the dying waystation network is a core
+motif; the player quietly restarting one node of it is the recovery era in
+a single mechanic). The player SHRINE needs the careful frame: gods are
+withdrawn; a new shrine is the player's devotional practice, not a summons
+— its affinity pull is slow and small, and the pilgrims it draws are
+ordinary people on ordinary roads. No miracle sites.
+
+**Infrastructure (#348)** — the most canon-resonant tier of all, with two
+corrections: scale honesty (one person lays a TRAIL and a FOOTBRIDGE over
+a stream — Karsath was god-era engineering; the names must stay humble)
+and, non-negotiable: **player infrastructure decays and demands
+maintenance from day one**. A footbridge left untended becomes a private
+Velkarmoss. That is the Fall's lesson made playable, and it is the reason
+this tier exists.
+
+**Fixes applied to shipped content during this audit:** the GodCampsite
+collapse text showed all Five Gods in person, speaking — flatly against
+the proximity-event canon (never confirmed in 11,000 years; the reveal
+belongs to Book 3). Rewritten deniable: a kept fire, wrapped food, no
+tracks, and a survivor who isn't sure they believe themselves. The rescue
+screen's "X watches over you" likewise softened to a felt thing. Noted
+for later passes: temple penance might ask a donation (restitution is more
+Masa than absolution); theft-witness odds could scale with settlement size
+(more eyes in a city); CANON_RUMORS are timeless ambient truths, which
+suits an era that changes slowly.
