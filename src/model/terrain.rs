@@ -40,12 +40,14 @@ impl Terrain {
     }
 
     pub fn travel_hours(self) -> u32 {
+        // Tiles are half the ground they were (80x40 sectors, #372): costs
+        // halve so crossing a region takes the same days it always did.
         match self {
             Terrain::Road | Terrain::Settlement => 1,
-            Terrain::Grass | Terrain::Farmland | Terrain::Sand | Terrain::Coast => 2,
-            Terrain::Forest | Terrain::Swamp | Terrain::Cave | Terrain::Tundra => 3,
-            Terrain::DeepDesert => 4,
-            Terrain::Water | Terrain::Mountain => 2,
+            Terrain::Grass | Terrain::Farmland | Terrain::Sand | Terrain::Coast => 1,
+            Terrain::Forest | Terrain::Swamp | Terrain::Cave | Terrain::Tundra => 2,
+            Terrain::DeepDesert => 2,
+            Terrain::Water | Terrain::Mountain => 1,
         }
     }
 
@@ -125,6 +127,24 @@ impl ExploredMap {
         } else {
             false
         }
+    }
+
+    /// Upscale to a finer grid (each tile becomes an f x f block) — used
+    /// when old saves meet the larger sector maps.
+    pub fn upscale(&self, f: usize) -> ExploredMap {
+        let mut out = ExploredMap::new(self.width * f, self.height * f);
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.tiles[y * self.width + x] {
+                    for dy in 0..f {
+                        for dx in 0..f {
+                            out.tiles[(y * f + dy) * out.width + (x * f + dx)] = true;
+                        }
+                    }
+                }
+            }
+        }
+        out
     }
 
     pub fn reveal(&mut self, cx: usize, cy: usize, radius: usize) {
@@ -223,11 +243,11 @@ mod tests {
 
         assert_eq!(Terrain::Settlement.travel_hours(), 1);
 
-        assert_eq!(Terrain::Grass.travel_hours(), 2);
+        assert_eq!(Terrain::Grass.travel_hours(), 1);
 
-        assert_eq!(Terrain::Forest.travel_hours(), 3);
+        assert_eq!(Terrain::Forest.travel_hours(), 2);
 
-        assert_eq!(Terrain::Swamp.travel_hours(), 3);
+        assert_eq!(Terrain::Swamp.travel_hours(), 2);
     }
 
     #[test]

@@ -93,7 +93,13 @@ fn seamless_terrain_edges(regions: &mut [Region]) {
                     let h_other = regions[ni].terrain.height;
                     if h == h_other && regions[ni].terrain.width == w {
                         for x in 0..w {
-                            let top = regions[ni].terrain.get(x, h - 1).unwrap_or(Terrain::Grass);
+                            let mut top =
+                                regions[ni].terrain.get(x, h - 1).unwrap_or(Terrain::Grass);
+                            // A settlement is a place, not a texture: the
+                            // seam carries its road onward instead.
+                            if top == Terrain::Settlement {
+                                top = Terrain::Road;
+                            }
                             regions[i].terrain.set(x, 0, top);
                         }
                     }
@@ -106,7 +112,10 @@ fn seamless_terrain_edges(regions: &mut [Region]) {
                     let w_other = regions[ei].terrain.width;
                     if w_other == w && regions[ei].terrain.height == h {
                         for y in 1..h.saturating_sub(1) {
-                            let right = regions[ei].terrain.get(0, y).unwrap_or(Terrain::Grass);
+                            let mut right = regions[ei].terrain.get(0, y).unwrap_or(Terrain::Grass);
+                            if right == Terrain::Settlement {
+                                right = Terrain::Road;
+                            }
                             regions[i].terrain.set(w - 1, y, right);
                         }
                     }
@@ -199,8 +208,10 @@ fn generate_terrain(
     region_type: &str,
     settlements: &mut [Settlement],
 ) -> TerrainMap {
-    let width = 40usize;
-    let height = 20usize;
+    // One map, walkable towns (#372): sectors carry enough ground that a
+    // city's every house fits on the same grid as the forests around it.
+    let width = 80usize;
+    let height = 40usize;
     let base = match region_type {
         "river_valley" => Terrain::Grass,
         "coast" => Terrain::Sand,
@@ -309,11 +320,15 @@ fn generate_terrain(
         // A settlement is not a point: its footprint scales with its size, so
         // a town reads as a town from the road. Anchor = top-left tile.
         let n = settlement.footprint() as usize;
-        let sx = (spacing / 2 + i * spacing).min(width - n);
+        // Stay two tiles clear of every region seam: the seam-smoothing pass
+        // copies edge rows between neighbors, and a town must never be
+        // cloned into the next region as phantom paint.
+        let sx = (spacing / 2 + i * spacing).clamp(2, width.saturating_sub(n + 2));
         let sy = if let Some(row) = water_row {
-            if row > 3 { row - 2 } else { row + 3 }.min(height - n)
+            if row > 3 { row - 2 } else { row + 3 }.clamp(2, height.saturating_sub(n + 2))
         } else {
-            (3 + (rng.next_u64() as usize) % (height - 6).max(1)).min(height - n)
+            (3 + (rng.next_u64() as usize) % (height - 6).max(1))
+                .clamp(2, height.saturating_sub(n + 2))
         };
         settlement.map_x = sx as u32;
         settlement.map_y = sy as u32;
@@ -435,6 +450,64 @@ fn generate_settlement(
         map_x: 0,
         map_y: 0,
     }
+}
+
+/// Old saves carry 40x20 sectors (#372 made them 80x40). Upscale terrain 2x
+/// — each tile becomes a 2x2 block, so the world keeps its exact shape —
+/// and remap every coordinate that lives on it. Returns true when anything
+/// was scaled, so the caller can scale its own player-side coordinates too.
+pub fn upscale_world_2x(sim: &mut crate::sim::SimState) -> bool {
+    let mut scaled = false;
+    for region in sim.world.regions.iter_mut() {
+        let (w, h) = (region.terrain.width, region.terrain.height);
+        if w == 0 || w >= 80 {
+            continue;
+        }
+        scaled = true;
+        let mut tiles = vec![Terrain::Grass; (w * 2) * (h * 2)];
+        for y in 0..h {
+            for x in 0..w {
+                let t = region.terrain.tiles[y * w + x];
+                for dy in 0..2 {
+                    for dx in 0..2 {
+                        tiles[(y * 2 + dy) * (w * 2) + (x * 2 + dx)] = t;
+                    }
+                }
+            }
+        }
+        region.terrain = TerrainMap {
+            width: w * 2,
+            height: h * 2,
+            tiles,
+        };
+        for s in region.settlements.iter_mut() {
+            s.map_x *= 2;
+            s.map_y *= 2;
+        }
+        for st in region.structures.iter_mut() {
+            st.x *= 2;
+            st.y *= 2;
+        }
+    }
+    if scaled {
+        for site in sim.build_sites.iter_mut() {
+            site.x *= 2;
+            site.y *= 2;
+        }
+        for st in sim.structures.iter_mut() {
+            st.x *= 2;
+            st.y *= 2;
+        }
+        for d in sim.discoveries.entries.iter_mut() {
+            d.x *= 2;
+            d.y *= 2;
+        }
+        for m in sim.memorials.iter_mut() {
+            m.x *= 2;
+            m.y *= 2;
+        }
+    }
+    scaled
 }
 
 /// Backfill settlement anchors for saves written before footprints existed.
@@ -923,12 +996,12 @@ mod tests {
         let charts = charts::load_charts().unwrap();
         let w = generate_world(42, &charts);
         for region in &w.regions {
-            assert_eq!(region.terrain.width, 40, "terrain width must be 40");
-            assert_eq!(region.terrain.height, 20, "terrain height must be 20");
+            assert_eq!(region.terrain.width, 80, "terrain width must be 80");
+            assert_eq!(region.terrain.height, 40, "terrain height must be 40");
             assert_eq!(
                 region.terrain.tiles.len(),
-                800,
-                "terrain must have 800 tiles"
+                3200,
+                "terrain must have 3200 tiles"
             );
         }
     }

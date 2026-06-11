@@ -136,7 +136,7 @@ fn trap_yields_food_on_wild_rest() {
         ps.companions.clear();
     }
     // Walk clear of the settlement's footprint (towns are squares now).
-    for _ in 0..6 {
+    for _ in 0..12 {
         if a.player_on_settlement().is_none() {
             break;
         }

@@ -696,11 +696,13 @@ impl Settlement {
     /// Footprint edge in tiles for a size tier: a hamlet is one rooftop, a
     /// city is a 4x4 quarter of the map's ground.
     pub fn footprint_for_size(size: &str) -> u32 {
+        // On the 80x40 grid a settlement is a district, not a dot: room for
+        // streets and houses (laid down by the town generator).
         match size {
-            "city" => 4,
-            "town" => 3,
-            "village" => 2,
-            _ => 1,
+            "city" => 8,
+            "town" => 6,
+            "village" => 4,
+            _ => 2,
         }
     }
 
