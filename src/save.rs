@@ -105,6 +105,19 @@ pub enum PlayerChoice {
         action: String,
     },
     DismissCollapse,
+    BuyItem {
+        item: String,
+    },
+    SellItem {
+        item: String,
+    },
+    StealItem {
+        item: String,
+    },
+    Build,
+    Talk {
+        person_idx: usize,
+    },
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
