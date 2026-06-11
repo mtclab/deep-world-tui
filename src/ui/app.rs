@@ -436,7 +436,15 @@ impl App {
                     .get(*region_idx)
                     .and_then(|r| r.settlements.get(*settlement_idx))
             }),
-            _ => None,
+            // Off the menu screens, the town is wherever you stand: streets
+            // and roofs resolve to their settlement (walk-in layer, #372).
+            _ => {
+                let (ri, si) = self.player_on_settlement()?;
+                self.sim
+                    .as_ref()
+                    .and_then(|sim| sim.world.regions.get(ri))
+                    .and_then(|r| r.settlements.get(si))
+            }
         }
     }
 
@@ -5017,6 +5025,22 @@ impl App {
                 }
             }
         }
+        // A door is not a wall: stepping into a house enters it (#372 PR 3) —
+        // the tavern serves, the temple blesses, a home answers the knock.
+        if let Some(pos) = self.player_pos {
+            let (nx, ny) = (pos.px as i32 + dx, pos.py as i32 + dy);
+            if nx >= 0 && ny >= 0 {
+                let target = self
+                    .sim
+                    .as_ref()
+                    .and_then(|s| s.world.regions.get(pos.region_idx))
+                    .and_then(|r| r.terrain.get(nx as usize, ny as usize));
+                if target == Some(Terrain::House) {
+                    self.enter_door(pos.region_idx, nx as usize, ny as usize);
+                    return;
+                }
+            }
+        }
         let weather_mult = weather
             .map(crate::sim::weather::travel_hours_multiplier)
             .unwrap_or(1.0);
@@ -5130,6 +5154,46 @@ impl App {
                 self.status_msg = Some(msg);
             }
             None => {}
+        }
+    }
+
+    /// Step through a house door (#372 PR 3): a service building serves, a
+    /// plain home answers the knock. The walker stays on the doorstep — the
+    /// roof tile remains solid ground you don't occupy.
+    fn enter_door(&mut self, region_idx: usize, x: usize, y: usize) {
+        let owner = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(region_idx))
+            .and_then(|r| {
+                r.settlements
+                    .iter()
+                    .position(|s| s.contains_tile(x, y))
+                    .map(|si| (si, r.settlements[si].clone()))
+            });
+        let Some((_si, settlement)) = owner else {
+            self.status_msg = Some("The door is barred and no one answers.".into());
+            return;
+        };
+        match crate::gen::town::service_at(&settlement, x, y) {
+            Some(svc) => self.use_service(svc),
+            None => {
+                // An ordinary home: a knock, a face, a moment by the fire.
+                let host = if settlement.people.is_empty() {
+                    None
+                } else {
+                    let idx = (x.wrapping_mul(31) ^ y.wrapping_mul(17)) % settlement.people.len();
+                    settlement.people.get(idx).map(|p| p.name.clone())
+                };
+                self.advance_clock(1);
+                self.status_msg = Some(match host {
+                    Some(name) => format!(
+                        "You knock. {} waves you in to warm up by the hearth (1h).",
+                        name
+                    ),
+                    None => "You knock. No one answers; the house stands empty.".into(),
+                });
+            }
         }
     }
 
