@@ -683,9 +683,39 @@ pub struct Settlement {
     /// settlement itself.
     #[serde(default)]
     pub famine_days: u32,
+    /// Anchor tile (top-left of the footprint) on the region map. A
+    /// settlement is not a point: its footprint scales with its size and is
+    /// painted as Settlement terrain, so a town LOOKS like a town.
+    #[serde(default)]
+    pub map_x: u32,
+    #[serde(default)]
+    pub map_y: u32,
 }
 
 impl Settlement {
+    /// Footprint edge in tiles for a size tier: a hamlet is one rooftop, a
+    /// city is a 4x4 quarter of the map's ground.
+    pub fn footprint_for_size(size: &str) -> u32 {
+        match size {
+            "city" => 4,
+            "town" => 3,
+            "village" => 2,
+            _ => 1,
+        }
+    }
+
+    /// This settlement's footprint edge in tiles.
+    pub fn footprint(&self) -> u32 {
+        Self::footprint_for_size(&self.size)
+    }
+
+    /// Whether the given map tile lies inside this settlement's footprint.
+    pub fn contains_tile(&self, x: usize, y: usize) -> bool {
+        let n = self.footprint() as usize;
+        let (ax, ay) = (self.map_x as usize, self.map_y as usize);
+        x >= ax && x < ax + n && y >= ay && y < ay + n
+    }
+
     pub fn allows_companions(&self) -> bool {
         matches!(self.size.as_str(), "village" | "town" | "city")
     }
@@ -1472,6 +1502,8 @@ mod tests {
             buildings: Vec::new(),
             festival_until_day: 0,
             famine_days: 0,
+            map_x: 0,
+            map_y: 0,
         };
 
         roundtrip(&s);

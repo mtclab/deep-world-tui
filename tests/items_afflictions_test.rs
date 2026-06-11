@@ -135,8 +135,14 @@ fn trap_yields_food_on_wild_rest() {
         ps.inventory.add(ItemType::Trap, 1);
         ps.companions.clear();
     }
-    // Not on a settlement (fresh spawn position adjusted off-settlement).
-    a.move_player(1, 0);
+    // Walk clear of the settlement's footprint (towns are squares now).
+    for _ in 0..6 {
+        if a.player_on_settlement().is_none() {
+            break;
+        }
+        a.move_player(1, 0);
+    }
+    assert!(a.player_on_settlement().is_none(), "walked clear of town");
     let before = a
         .player_start
         .as_ref()

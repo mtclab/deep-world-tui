@@ -25,7 +25,15 @@ fn trapping_draws_the_land_down_and_an_empty_land_gives_nothing() {
         ps.inventory.add(ItemType::Trap, 1);
         ps.companions.clear();
     }
-    a.move_player(1, 0); // off the settlement
+    // Walk clear of the settlement's footprint (towns are squares of
+    // ground now, not single tiles).
+    for _ in 0..6 {
+        if a.player_on_settlement().is_none() {
+            break;
+        }
+        a.move_player(1, 0);
+    }
+    assert!(a.player_on_settlement().is_none(), "walked clear of town");
     let before = a.sim.as_ref().unwrap().world.regions[0].game_richness;
     a.rest_hours(8);
     let after = a.sim.as_ref().unwrap().world.regions[0].game_richness;

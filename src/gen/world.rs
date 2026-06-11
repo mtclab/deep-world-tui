@@ -169,7 +169,7 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
         settlements.push(settlement);
     }
 
-    let terrain = generate_terrain(&mut rng, &region_type, &settlements);
+    let terrain = generate_terrain(&mut rng, &region_type, &mut settlements);
 
     // Opening sky drawn from the region's own tendencies; the front system
     // takes over from day one.
@@ -197,7 +197,7 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
 fn generate_terrain(
     rng: &mut SeedRng,
     region_type: &str,
-    settlements: &[Settlement],
+    settlements: &mut [Settlement],
 ) -> TerrainMap {
     let width = 40usize;
     let height = 20usize;
@@ -305,16 +305,26 @@ fn generate_terrain(
     let n_settle = settlements.len().max(1);
     let spacing = width / n_settle;
     let mut settle_positions: Vec<(usize, usize)> = Vec::new();
-    for (i, _) in settlements.iter().enumerate() {
-        let sx = (spacing / 2 + i * spacing).min(width - 1);
+    for (i, settlement) in settlements.iter_mut().enumerate() {
+        // A settlement is not a point: its footprint scales with its size, so
+        // a town reads as a town from the road. Anchor = top-left tile.
+        let n = settlement.footprint() as usize;
+        let sx = (spacing / 2 + i * spacing).min(width - n);
         let sy = if let Some(row) = water_row {
-            if row > 3 { row - 2 } else { row + 3 }.min(height - 1)
+            if row > 3 { row - 2 } else { row + 3 }.min(height - n)
         } else {
-            3 + (rng.next_u64() as usize) % (height - 6).max(1)
+            (3 + (rng.next_u64() as usize) % (height - 6).max(1)).min(height - n)
         };
-        tiles[sy * width + sx] = Terrain::Settlement;
-        for dy in 0..3 {
-            for dx in 0..3 {
+        settlement.map_x = sx as u32;
+        settlement.map_y = sy as u32;
+        for dy in 0..n {
+            for dx in 0..n {
+                tiles[(sy + dy) * width + (sx + dx)] = Terrain::Settlement;
+            }
+        }
+        // Worked land skirts the walls.
+        for dy in 0..n + 2 {
+            for dx in 0..n + 2 {
                 let ty = sy + dy;
                 let tx = sx + dx;
                 if ty < height && tx < width && tiles[ty * width + tx] != Terrain::Settlement {
@@ -422,6 +432,72 @@ fn generate_settlement(
         buildings: Vec::new(),
         festival_until_day: 0,
         famine_days: 0,
+        map_x: 0,
+        map_y: 0,
+    }
+}
+
+/// Backfill settlement anchors for saves written before footprints existed.
+/// The old tile↔settlement mapping was "settlement tiles sorted by x", so
+/// reassign those tiles as anchors in the same order, then paint each
+/// settlement's full footprint so the map matches its size.
+pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
+    for region in world.regions.iter_mut() {
+        if region.settlements.is_empty() {
+            continue;
+        }
+        let (w, h) = (region.terrain.width, region.terrain.height);
+        let any_anchor = region
+            .settlements
+            .iter()
+            .any(|s| s.map_x != 0 || s.map_y != 0);
+        if !any_anchor {
+            let mut tile_pos: Vec<(usize, usize)> = region
+                .terrain
+                .tiles
+                .iter()
+                .enumerate()
+                .filter(|(_, &t)| t == Terrain::Settlement)
+                .map(|(i, _)| (i % w, i / w))
+                .collect();
+            tile_pos.sort_by_key(|&(x, _)| x);
+            if tile_pos.is_empty() {
+                continue;
+            }
+            // Collapse contiguous paint into clusters: a tile within four of
+            // an assigned anchor belongs to that anchor's settlement, not to
+            // the next settlement in line.
+            let mut anchors: Vec<(usize, usize)> = Vec::new();
+            for &(x, y) in &tile_pos {
+                let claimed = anchors.iter().any(|&(ax, ay)| {
+                    (x as i64 - ax as i64).abs() <= 4 && (y as i64 - ay as i64).abs() <= 4
+                });
+                if !claimed {
+                    anchors.push((x, y));
+                }
+            }
+            for (i, s) in region.settlements.iter_mut().enumerate() {
+                let (x, y) = anchors[i.min(anchors.len() - 1)];
+                let n = s.footprint() as usize;
+                s.map_x = x.min(w.saturating_sub(n)) as u32;
+                s.map_y = y.min(h.saturating_sub(n)) as u32;
+            }
+        }
+        // Paint every footprint (idempotent; also grows pre-anchor towns).
+        let prints: Vec<(usize, usize, usize)> = region
+            .settlements
+            .iter()
+            .map(|s| (s.map_x as usize, s.map_y as usize, s.footprint() as usize))
+            .collect();
+        for (ax, ay, n) in prints {
+            for dy in 0..n {
+                for dx in 0..n {
+                    if ay + dy < h && ax + dx < w {
+                        region.terrain.tiles[(ay + dy) * w + (ax + dx)] = Terrain::Settlement;
+                    }
+                }
+            }
+        }
     }
 }
 

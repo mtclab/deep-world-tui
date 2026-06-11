@@ -173,6 +173,8 @@ mod minimap_tests {
                 buildings: Vec::new(),
                 festival_until_day: 0,
                 famine_days: 0,
+                map_x: 0,
+                map_y: 0,
             }],
             terrain: TerrainMap {
                 width: 2,
@@ -252,6 +254,8 @@ mod minimap_tests {
             buildings: Vec::new(),
             festival_until_day: 0,
             famine_days: 0,
+            map_x: 0,
+            map_y: 0,
         }];
         let color = dominant_people_color(&settlements, &theme);
         assert_eq!(color, theme.warm_brown());
@@ -278,6 +282,8 @@ mod minimap_tests {
             buildings: Vec::new(),
             festival_until_day: 0,
             famine_days: 0,
+            map_x: 0,
+            map_y: 0,
         }];
         let color = dominant_people_color(&settlements, &theme);
         assert_eq!(color, theme.archive_red());

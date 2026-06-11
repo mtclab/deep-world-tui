@@ -754,6 +754,11 @@ impl App {
         // events) to the saved world's seed.
         self.seed = data.sim.world.seed;
         self.sim = Some(data.sim);
+        // Saves from before settlement footprints carry point-settlements;
+        // give them anchors and paint their ground.
+        if let Some(ref mut sim) = self.sim {
+            crate::gen::world::fixup_settlement_anchors(&mut sim.world);
+        }
         self.player_start = data.player_start;
         self.clock = data.clock;
         self.vitals = data.vitals;
@@ -4787,31 +4792,39 @@ impl App {
     }
 
     pub fn player_on_settlement(&self) -> Option<(usize, usize)> {
-        if let Some(ref pos) = self.player_pos {
-            if let Some(ref sim) = self.sim {
-                if let Some(region) = sim.world.regions.get(pos.region_idx) {
-                    if region.terrain.get(pos.px, pos.py) == Some(Terrain::Settlement) {
-                        let mut settle_positions: Vec<(usize, usize)> = Vec::new();
-                        for (i, &t) in region.terrain.tiles.iter().enumerate() {
-                            if t == Terrain::Settlement {
-                                let sx = i % region.terrain.width;
-                                let sy = i / region.terrain.width;
-                                settle_positions.push((sx, sy));
-                            }
-                        }
-                        settle_positions.sort_by_key(|(x, _)| *x);
-                        if let Some(idx) = settle_positions
-                            .iter()
-                            .position(|&(sx, sy)| sx == pos.px && sy == pos.py)
-                        {
-                            return Some((pos.region_idx, idx.min(region.settlements.len() - 1)));
-                        }
-                        return Some((pos.region_idx, 0));
-                    }
-                }
-            }
+        let pos = self.player_pos?;
+        let sim = self.sim.as_ref()?;
+        let region = sim.world.regions.get(pos.region_idx)?;
+        if region.terrain.get(pos.px, pos.py) != Some(Terrain::Settlement) {
+            return None;
         }
-        None
+        // The settlement whose painted footprint this tile belongs to —
+        // settlements are squares of ground now, not points, so a town's
+        // every street resolves to the same town.
+        if let Some(si) = region
+            .settlements
+            .iter()
+            .position(|s| s.contains_tile(pos.px, pos.py))
+        {
+            return Some((pos.region_idx, si));
+        }
+        if region.settlements.is_empty() {
+            return None;
+        }
+        // No footprint claims the tile (a pre-anchor save, or stray paint):
+        // fall back to the nearest anchor.
+        let nearest = region
+            .settlements
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, s)| {
+                let dx = (s.map_x as i64 - pos.px as i64).abs();
+                let dy = (s.map_y as i64 - pos.py as i64).abs();
+                dx + dy
+            })
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+        Some((pos.region_idx, nearest))
     }
 
     pub fn critical_need_people(&self) -> Vec<(String, String, String, Need, f64)> {

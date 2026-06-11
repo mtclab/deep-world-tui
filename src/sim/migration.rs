@@ -660,6 +660,8 @@ mod tests {
             buildings: Vec::new(),
             festival_until_day: 0,
             famine_days: 0,
+            map_x: 0,
+            map_y: 0,
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(
@@ -694,6 +696,8 @@ mod tests {
             buildings: Vec::new(),
             festival_until_day: 0,
             famine_days: 0,
+            map_x: 0,
+            map_y: 0,
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(
