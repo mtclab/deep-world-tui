@@ -311,6 +311,27 @@ static SCAR_TEMPLATES: &[&str] = &[
     "The mark has faded to the color of memory. Both still pull.",
 ];
 
+/// Rumors that name the wider world — places and affairs from the canon
+/// gazetteer and the post-Fall chronicle, so tavern talk reaches past the
+/// horizon.
+static CANON_RUMORS: &[&str] = &[
+    "They say the ring-market of Velkarath still stands half empty, and the Remnant still calls it a capital.",
+    "A carter swears the Karsath Bridge holds yet — seven thousand years, and the western span never cracked.",
+    "Word from the desert: the Wells-Compact closed another well to outsiders. The She'ar count, and remember.",
+    "A pilgrim claims the old waystones still line the Pilgrimage Road, mile on mile, pointing at nothing.",
+    "Talk of the Tähti coast: five free cities left of the twenty, and each one swears it will outlast the rest.",
+    "They say the Archive at Sampsara opened another sealed wing. They said that last year too.",
+    "A trader out of the mountains speaks of the great elevator at Oltzafell — still running, water-weighted, older than any kingdom.",
+    "Someone's cousin saw the forest edge at Kaelva. Burned ground grows back strange, they say.",
+    "The Tidal Isles confederation raised harbor dues again. The Inland Sea grumbles and pays.",
+    "Old folk still name the Grey Cough when a winter runs wet. Three bad years, and the quarantine sheds stand empty since.",
+    "A peddler swears the Deep-galleries trade fair dealt in copper this season — and that the Tzäkhar counted faster than he could.",
+    "Down from Fort Verath: the treaty holds, the garrison drills, and both flags fly over one gate.",
+    "They tell of a waystation on the western route where the message-register simply stops mid-line.",
+    "A bargeman says the River Sampa leagues settled their toll war without a single drawn knife. Nobody quite believes it.",
+    "Steppe traders speak of the aurora as a voice. They do not say whose.",
+];
+
 static RUMOR_TEMPLATES: &[&str] = &[
     "I heard something. Whether it is true, I cannot say.",
     "A whisper reached me. I carry it now.",
@@ -366,7 +387,12 @@ pub fn scar_text(rng: &mut SeedRng) -> String {
 }
 
 pub fn rumor_text(rng: &mut SeedRng) -> String {
-    pick_template(rng, RUMOR_TEMPLATES).into()
+    // Half the talk is local color, half names the wider world.
+    if rng.gen_range(2) == 0 {
+        pick_template(rng, CANON_RUMORS).to_string()
+    } else {
+        pick_template(rng, RUMOR_TEMPLATES).to_string()
+    }
 }
 
 pub fn rest_quality_label(
