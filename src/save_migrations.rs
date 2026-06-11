@@ -74,6 +74,7 @@ mod tests {
             founding_check_day: 0,
             spouse_id: None,
             widowed_day: 0,
+            household_children: Vec::new(),
         }
     }
 

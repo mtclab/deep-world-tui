@@ -727,6 +727,15 @@ impl PeopleKind {
     }
 }
 
+/// A child of the player's household: a name and a birthday, grown against
+/// the same compressed aging calendar as the player. Becomes a full Person
+/// only if they inherit.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HouseholdChild {
+    pub name: String,
+    pub born_day: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct InterPeopleBias {
     pub player_people: PeopleKind,
