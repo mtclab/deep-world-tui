@@ -768,6 +768,13 @@ impl App {
         // events) to the saved world's seed.
         self.seed = data.sim.world.seed;
         self.sim = Some(data.sim);
+        // Saves from before the 80x40 sectors get upscaled 2x (the world
+        // keeps its exact shape); player-side coordinates follow below.
+        let upscaled = self
+            .sim
+            .as_mut()
+            .map(crate::gen::world::upscale_world_2x)
+            .unwrap_or(false);
         // Saves from before settlement footprints carry point-settlements;
         // give them anchors and paint their ground.
         if let Some(ref mut sim) = self.sim {
@@ -777,6 +784,12 @@ impl App {
         self.clock = data.clock;
         self.vitals = data.vitals;
         self.player_pos = data.player_pos;
+        if upscaled {
+            if let Some(ref mut pos) = self.player_pos {
+                pos.px *= 2;
+                pos.py *= 2;
+            }
+        }
         self.god_affinity = data.god_affinity;
         self.inter_people_bias = data.inter_people_bias;
         self.encounters_had = data.encounters_had;
@@ -788,6 +801,15 @@ impl App {
         self.milestones = data.milestones;
         self.encounter_log = data.encounter_log;
         self.player_farms = data.player_farms;
+        if upscaled {
+            for f in self.player_farms.iter_mut() {
+                f.x *= 2;
+                f.y *= 2;
+            }
+            for e in self.explored.iter_mut() {
+                *e = e.upscale(2);
+            }
+        }
         self.homestead_settlers = data.homestead_settlers;
         self.homestead_rumored = data.homestead_rumored;
         self.founding_check_day = data.founding_check_day;
@@ -2600,10 +2622,11 @@ impl App {
                     if !farmed {
                         continue;
                     }
-                    // Wild ground: no settlement within six tiles.
-                    let near_town = (sy.saturating_sub(6)..(sy + 7).min(region.terrain.height))
+                    // Wild ground: no settlement within twelve tiles — the
+                    // same ground the old six covered on the coarser grid.
+                    let near_town = (sy.saturating_sub(12)..(sy + 13).min(region.terrain.height))
                         .any(|ty| {
-                            (sx.saturating_sub(6)..(sx + 7).min(region.terrain.width))
+                            (sx.saturating_sub(12)..(sx + 13).min(region.terrain.width))
                                 .any(|tx| region.terrain.get(tx, ty) == Some(Terrain::Settlement))
                         });
                     if near_town {

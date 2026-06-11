@@ -27,7 +27,7 @@ fn trapping_draws_the_land_down_and_an_empty_land_gives_nothing() {
     }
     // Walk clear of the settlement's footprint (towns are squares of
     // ground now, not single tiles).
-    for _ in 0..6 {
+    for _ in 0..12 {
         if a.player_on_settlement().is_none() {
             break;
         }
