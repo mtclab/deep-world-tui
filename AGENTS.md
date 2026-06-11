@@ -111,3 +111,17 @@ strategy). The core (`rng`/`charts`/`gen`/`model`/`sim`) must stay testable
 
 `fmt`+`clippy`+`build`+`test` green · determinism asserted · distributions sane ·
 LLM optional/off-by-default still builds · canon-grounded · PR explains testing.
+
+## AI Play (headless)
+
+`cargo run --bin playtest -- <seed>` — a stdin/stdout REPL driving the real
+App. Commands: status, move <dir>, map, gather, rest [h], enter <ri> <si>,
+exit, inventory, craft [n], use <svc>, buy/sell/steal <item>, build, quests,
+journal [n], region, encounter <action>, talk [idx], collapse-dismiss,
+save/load [slot], record <file>, replay <file>.
+
+The programmatic surface is `App::apply_choice(&PlayerChoice)` — every player
+action as a serializable enum. `record` writes a `CompactSave` (seed +
+choices); `replay` re-applies it; same seed + same choices = same world
+(tests/ai_play_test.rs enforces this). Collapses/deaths during rest are
+printed, so a scripted session sees everything a TUI player would.

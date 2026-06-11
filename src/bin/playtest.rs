@@ -2,6 +2,7 @@ use std::io::{self, BufRead, Write};
 
 use deep_world_tui::charts::load::load_charts;
 use deep_world_tui::model::{EncounterAction, ItemType, PeopleKind, SettlementService};
+use deep_world_tui::save::{CompactSave, PlayerChoice};
 use deep_world_tui::ui::app::App;
 use deep_world_tui::voice::people_banks::PeopleBanks;
 use deep_world_tui::voice::{self, Situation};
@@ -18,10 +19,14 @@ fn main() -> anyhow::Result<()> {
     app.running = true;
     app.enter_map(0);
 
+    let mut recorded: Vec<PlayerChoice> = Vec::new();
+
     println!("=== Deep World Playtest (seed={}) ===", seed);
-    println!("Commands: status, move <dir>, map, gather, rest,");
+    println!("Commands: status, move <dir>, map, gather, rest [h],");
     println!("  enter <ri> <si>, exit, inventory, craft [n], use <svc>,");
-    println!("  encounter <action>, talk [idx], collapse-dismiss, save, load, help, quit");
+    println!("  buy/sell/steal <item>, build, quests, journal [n], region,");
+    println!("  encounter <action>, talk [idx], collapse-dismiss,");
+    println!("  save [slot], load [slot], record <file>, replay <file>, help, quit");
     println!();
 
     let stdin = io::stdin();
@@ -58,6 +63,13 @@ fn main() -> anyhow::Result<()> {
                     }
                 };
                 app.move_player(dx, dy);
+                if let Some(p) = app.player_pos {
+                    recorded.push(PlayerChoice::TravelTo {
+                        region_idx: p.region_idx,
+                        px: p.px as u32,
+                        py: p.py as u32,
+                    });
+                }
                 if let Some(enc) = app.encounter {
                     println!("  *** Encounter! {:?} on {:?}", enc.kind, enc.terrain);
                 }
@@ -82,12 +94,14 @@ fn main() -> anyhow::Result<()> {
                 continue;
             }
             "gather" | "g" => {
+                recorded.push(PlayerChoice::Gather);
                 app.gather();
                 print_msg(&app);
             }
             "rest" | "r" => {
                 let before = app.collapse_log.len();
                 let hours: u32 = parts.get(1).and_then(|h| h.parse().ok()).unwrap_or(8);
+                recorded.push(PlayerChoice::Rest);
                 app.rest_hours(hours);
                 if app.collapse_log.len() > before {
                     println!("  *** You collapsed during the rest!");
@@ -100,10 +114,15 @@ fn main() -> anyhow::Result<()> {
             "enter" => {
                 let ri: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
                 let si: usize = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
+                recorded.push(PlayerChoice::EnterSettlement {
+                    region_idx: ri,
+                    settlement_idx: si,
+                });
                 app.enter_settlement(ri, si);
                 print_msg(&app);
             }
             "exit" => {
+                recorded.push(PlayerChoice::ExitSettlement);
                 app.exit_settlement();
                 print_msg(&app);
             }
@@ -135,6 +154,7 @@ fn main() -> anyhow::Result<()> {
             "craft" => {
                 if parts.len() > 1 {
                     let idx: usize = parts[1].parse().unwrap_or(0);
+                    recorded.push(PlayerChoice::CraftRecipe { recipe_idx: idx });
                     app.enter_craft();
                     app.craft_recipe(idx);
                     app.exit_craft();
@@ -155,6 +175,9 @@ fn main() -> anyhow::Result<()> {
                         continue;
                     }
                 };
+                recorded.push(PlayerChoice::UseService {
+                    service: parts.get(1).copied().unwrap_or("").to_string(),
+                });
                 app.use_service(svc);
                 print_msg(&app);
             }
@@ -219,10 +242,139 @@ fn main() -> anyhow::Result<()> {
                         continue;
                     }
                 };
+                recorded.push(PlayerChoice::ResolveEncounter {
+                    action: parts.get(1).copied().unwrap_or("").to_string(),
+                });
                 app.resolve_encounter(action);
                 print_msg(&app);
             }
+            "buy" | "sell" | "steal" => {
+                let Some(name) = parts.get(1) else {
+                    println!("  Usage: {} <item>", parts[0]);
+                    continue;
+                };
+                let Some(item) = App::item_from_name(name) else {
+                    println!("  Unknown item: {}", name);
+                    continue;
+                };
+                let choice = match parts[0] {
+                    "buy" => PlayerChoice::BuyItem {
+                        item: item.name().into(),
+                    },
+                    "sell" => PlayerChoice::SellItem {
+                        item: item.name().into(),
+                    },
+                    _ => PlayerChoice::StealItem {
+                        item: item.name().into(),
+                    },
+                };
+                recorded.push(choice.clone());
+                app.apply_choice(&choice);
+                print_msg(&app);
+            }
+            "build" => {
+                recorded.push(PlayerChoice::Build);
+                app.start_build();
+                print_msg(&app);
+            }
+            "quests" => {
+                if let Some(ref sim) = app.sim {
+                    if sim.quests.is_empty() {
+                        println!("  No quests on the board.");
+                    }
+                    for (i, q) in sim.quests.iter().enumerate() {
+                        println!(
+                            "  [{}] {} ({}/{}, due day {}) — {}",
+                            i,
+                            q.description,
+                            q.progress,
+                            q.target,
+                            q.deadline_day,
+                            q.progress_hint()
+                        );
+                    }
+                }
+            }
+            "journal" => {
+                let n: usize = parts.get(1).and_then(|x| x.parse().ok()).unwrap_or(5);
+                if let Some(ref sim) = app.sim {
+                    for e in sim
+                        .journal
+                        .iter_rev()
+                        .take(n)
+                        .collect::<Vec<_>>()
+                        .iter()
+                        .rev()
+                    {
+                        println!("  [{}] {}", e.voice.label(), e.text);
+                    }
+                }
+            }
+            "region" => {
+                if let (Some(pos), Some(ref sim)) = (app.player_pos, &app.sim) {
+                    if let Some(r) = sim.world.regions.get(pos.region_idx) {
+                        println!(
+                            "  {} — weather {}, game {:.0}%",
+                            r.name,
+                            r.weather.name(),
+                            r.game_richness * 100.0
+                        );
+                        for s in &r.settlements {
+                            let fest = if s.in_festival(app.clock.day) {
+                                " FESTIVAL"
+                            } else {
+                                ""
+                            };
+                            println!(
+                                "    {}: pop {}, stores {:.0}, {} farms, {} buildings{}",
+                                s.name,
+                                s.population,
+                                s.food_stock,
+                                s.farms.len(),
+                                s.buildings.iter().filter(|b| b.is_complete()).count(),
+                                fest
+                            );
+                        }
+                    }
+                }
+            }
+            "record" => {
+                let Some(file) = parts.get(1) else {
+                    println!("  Usage: record <file>");
+                    continue;
+                };
+                let compact = CompactSave {
+                    seed,
+                    player_choices: recorded.clone(),
+                    tick: app.sim.as_ref().map_or(0, |s| s.world.tick),
+                };
+                match deep_world_tui::save::save_compact(&compact, file) {
+                    Ok(()) => println!("  Recorded {} choices to {}", recorded.len(), file),
+                    Err(e) => println!("  Record failed: {}", e),
+                }
+            }
+            "replay" => {
+                let Some(file) = parts.get(1) else {
+                    println!("  Usage: replay <file>");
+                    continue;
+                };
+                match deep_world_tui::save::load_compact(file) {
+                    Ok(compact) => {
+                        println!(
+                            "  Replaying {} choices (recorded on seed {})...",
+                            compact.player_choices.len(),
+                            compact.seed
+                        );
+                        for c in &compact.player_choices {
+                            app.apply_choice(c);
+                        }
+                        print_msg(&app);
+                    }
+                    Err(e) => println!("  Replay failed: {}", e),
+                }
+            }
             "collapse-dismiss" => {
+                recorded.push(PlayerChoice::DismissCollapse);
                 app.dismiss_collapse();
                 print_msg(&app);
             }

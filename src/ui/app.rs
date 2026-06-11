@@ -603,6 +603,106 @@ impl App {
 
     pub const MAX_REST_HOURS: u32 = MAX_REST_HOURS;
 
+    /// Parse an item by its display name (case-insensitive) — the string form
+    /// used by the recorded-choice API.
+    pub fn item_from_name(name: &str) -> Option<ItemType> {
+        ItemType::tradeable_items()
+            .into_iter()
+            .chain([ItemType::Coin])
+            .find(|i| i.name().eq_ignore_ascii_case(name))
+    }
+
+    /// Apply one recorded player choice — the headless action API used by
+    /// AI play, session recording, and deterministic replay. The
+    /// PlayerChoice/CompactSave types existed with serialization support but
+    /// nothing ever applied or recorded them.
+    pub fn apply_choice(&mut self, choice: &crate::save::PlayerChoice) {
+        use crate::save::PlayerChoice as C;
+        match choice {
+            C::TravelTo { region_idx, px, py } => {
+                // Recorded as the resulting tile; replays as a relative step
+                // when adjacent, else a direct reposition within the region.
+                if let Some(pos) = self.player_pos {
+                    if pos.region_idx == *region_idx {
+                        let dx = *px as i32 - pos.px as i32;
+                        let dy = *py as i32 - pos.py as i32;
+                        if dx.abs() <= 1 && dy.abs() <= 1 {
+                            self.move_player(dx, dy);
+                            return;
+                        }
+                    }
+                }
+                self.enter_map(*region_idx);
+            }
+            C::EnterSettlement {
+                region_idx,
+                settlement_idx,
+            } => self.enter_settlement(*region_idx, *settlement_idx),
+            C::ExitSettlement => self.exit_settlement(),
+            C::Gather => self.gather(),
+            C::Rest => self.rest(),
+            C::UseService { service } => {
+                let svc = match service.to_ascii_lowercase().as_str() {
+                    "tavern" => Some(SettlementService::Tavern),
+                    "temple" => Some(SettlementService::Temple),
+                    "forge" => Some(SettlementService::Forge),
+                    "hearth" => Some(SettlementService::Hearth),
+                    "trapworkshop" | "trap" => Some(SettlementService::TrapWorkshop),
+                    "archive" => Some(SettlementService::Archive),
+                    "tradepost" => Some(SettlementService::TradePost),
+                    "shrine" => Some(SettlementService::Shrine),
+                    _ => None,
+                };
+                if let Some(svc) = svc {
+                    self.use_service(svc);
+                }
+            }
+            C::CraftRecipe { recipe_idx } => {
+                self.enter_craft();
+                self.craft_recipe(*recipe_idx);
+                self.exit_craft();
+            }
+            C::ResolveEncounter { action } => {
+                let act = match action.to_ascii_lowercase().as_str() {
+                    "flee" => Some(EncounterAction::Flee),
+                    "bribe" => Some(EncounterAction::Bribe),
+                    "calm" => Some(EncounterAction::Calm),
+                    "intimidate" => Some(EncounterAction::Intimidate),
+                    "talk" => Some(EncounterAction::Talk),
+                    "trade" => Some(EncounterAction::Trade),
+                    "shelter" => Some(EncounterAction::Shelter),
+                    "push" | "pushthrough" => Some(EncounterAction::PushThrough),
+                    _ => None,
+                };
+                if let Some(a) = act {
+                    self.resolve_encounter(a);
+                }
+            }
+            C::DismissCollapse => self.dismiss_collapse(),
+            C::BuyItem { item } => {
+                if let Some(i) = Self::item_from_name(item) {
+                    self.buy_item(i);
+                }
+            }
+            C::SellItem { item } => {
+                if let Some(i) = Self::item_from_name(item) {
+                    self.sell_item(i);
+                }
+            }
+            C::StealItem { item } => {
+                if let Some(i) = Self::item_from_name(item) {
+                    self.steal_item(i);
+                }
+            }
+            C::Build => self.start_build(),
+            C::Talk { person_idx } => {
+                if let Some(pos) = self.player_pos {
+                    self.enter_talk(pos.region_idx, 0, *person_idx);
+                }
+            }
+        }
+    }
+
     /// The seed driving player-facing RNG (encounters, collapses, tension).
     pub fn seed(&self) -> u64 {
         self.seed
