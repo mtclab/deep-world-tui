@@ -2365,7 +2365,7 @@ impl App {
             ));
             return;
         }
-        if kind.needs_tool() && !(inv.has(ItemType::Tool) && !inv.is_broken(ItemType::Tool)) {
+        if kind.needs_tool() && (!inv.has(ItemType::Tool) || inv.is_broken(ItemType::Tool)) {
             self.status_msg = Some(format!(
                 "Raising a {} needs a proper Tool in hand.",
                 kind.label()
