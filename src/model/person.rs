@@ -1459,6 +1459,7 @@ mod tests {
                 famine_days: 0,
                 map_x: 0,
                 map_y: 0,
+                district: 0,
             }],
             weather: crate::model::Weather::Clear,
             game_richness: 1.0,

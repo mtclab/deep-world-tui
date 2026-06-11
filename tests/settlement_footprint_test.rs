@@ -3,7 +3,7 @@
 // to the same settlement, the footprint grows on promotion, and pre-anchor
 // saves are backfilled so old worlds keep working.
 use deep_world_tui::charts::load::load_charts;
-use deep_world_tui::model::{PlayerPos, Settlement, Terrain};
+use deep_world_tui::model::{PlayerPos, Terrain};
 use deep_world_tui::sim::SimState;
 use deep_world_tui::ui::app::App;
 
@@ -25,19 +25,25 @@ fn footprints_match_size_and_are_painted() {
         for s in &region.settlements {
             let n = s.footprint() as usize;
             assert_eq!(
-                n,
-                Settlement::footprint_for_size(&s.size) as usize,
-                "{} footprint follows its size",
+                n, s.district as usize,
+                "{} containment matches the painted district",
                 s.name
             );
+            assert!(n >= 2, "{} has ground", s.name);
             for dy in 0..n {
                 for dx in 0..n {
                     let t = region
                         .terrain
                         .get(s.map_x as usize + dx, s.map_y as usize + dy);
                     assert!(
-                        matches!(t, Some(Terrain::Settlement) | Some(Terrain::House)),
-                        "{} ({}) tile ({},{}) must be street or roof, got {:?}",
+                        matches!(
+                            t,
+                            Some(Terrain::Settlement)
+                                | Some(Terrain::House)
+                                | Some(Terrain::Water)
+                                | Some(Terrain::Coast)
+                        ),
+                        "{} ({}) tile ({},{}) must be street, roof, or stream, got {:?}",
                         s.name,
                         s.size,
                         s.map_x as usize + dx,
@@ -95,11 +101,16 @@ fn every_street_resolves_to_its_own_town() {
 fn promotion_paints_new_houses_past_the_old_wall() {
     let charts = load_charts().expect("charts");
     let mut sim = SimState::new(42, charts);
+    // Alone in its valley: growth is neighbor-aware, so the test clears
+    // the rest of the region's roster to give the city room.
+    sim.world.regions[0].settlements.truncate(1);
     let (ax, ay, old_n) = {
         let s = &mut sim.world.regions[0].settlements[0];
-        let old = s.footprint() as usize;
-        s.population = 900; // city head-count
-        (s.map_x as usize, s.map_y as usize, old)
+        // A small painted district with a city's head-count arriving: the
+        // canon hierarchy says 15k+ is a city, and the map must follow.
+        s.district = 8;
+        s.population = 20_000;
+        (s.map_x as usize, s.map_y as usize, 8usize)
     };
     sim.world.tick = 23;
     sim.step(); // day boundary: settlement life runs
@@ -107,13 +118,27 @@ fn promotion_paints_new_houses_past_the_old_wall() {
     let s = &region.settlements[0];
     assert_eq!(s.size, "city", "promotion happened");
     let n = s.footprint() as usize;
-    assert!(n > old_n, "a city stands wider than what it grew from");
+    assert!(
+        n > old_n,
+        "a city stands wider than what it grew from (district {})",
+        s.district
+    );
+    let region = &sim.world.regions[0];
+    let s = &region.settlements[0];
     let (ax2, ay2) = (s.map_x as usize, s.map_y as usize);
     for dy in 0..n {
         for dx in 0..n {
             let t = region.terrain.get(ax2 + dx, ay2 + dy);
+            // A stream through town keeps its bed; everything else is
+            // street or roof.
             assert!(
-                matches!(t, Some(Terrain::Settlement) | Some(Terrain::House)),
+                matches!(
+                    t,
+                    Some(Terrain::Settlement)
+                        | Some(Terrain::House)
+                        | Some(Terrain::Water)
+                        | Some(Terrain::Coast)
+                ),
                 "grown ground painted at ({},{}): {:?}",
                 ax2 + dx,
                 ay2 + dy,
@@ -165,7 +190,10 @@ fn pre_anchor_saves_are_backfilled() {
                     .get(s.map_x as usize + dx, s.map_y as usize + dy);
                 assert!(matches!(
                     t,
-                    Some(Terrain::Settlement) | Some(Terrain::House)
+                    Some(Terrain::Settlement)
+                        | Some(Terrain::House)
+                        | Some(Terrain::Water)
+                        | Some(Terrain::Coast)
                 ));
             }
         }

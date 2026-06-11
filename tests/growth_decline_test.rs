@@ -20,8 +20,8 @@ fn a_swelling_hamlet_becomes_a_village_with_a_temple() {
         let s = &mut sim.world.regions[0].settlements[0];
         s.size = "hamlet".into();
         s.services.retain(|sv| *sv != SettlementService::Temple);
-        s.population = 90; // over the village threshold
-        s.food_stock = 500.0;
+        s.population = 600; // over the canon village threshold (500)
+        s.food_stock = 2_000.0;
     }
     run_days(&mut sim, 1);
     let s = &sim.world.regions[0].settlements[0];

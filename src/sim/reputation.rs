@@ -249,6 +249,7 @@ mod tests {
                         famine_days: 0,
                         map_x: 0,
                         map_y: 0,
+                        district: 0,
                     },
                     crate::model::Settlement {
                         id: "s2".into(),
@@ -272,6 +273,7 @@ mod tests {
                         famine_days: 0,
                         map_x: 0,
                         map_y: 0,
+                        district: 0,
                     },
                 ],
                 weather: crate::model::Weather::Clear,

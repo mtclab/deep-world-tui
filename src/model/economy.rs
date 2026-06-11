@@ -691,25 +691,45 @@ pub struct Settlement {
     pub map_x: u32,
     #[serde(default)]
     pub map_y: u32,
+    /// The district edge actually painted on the map (0 = not yet laid).
+    /// Kept so tile containment always matches the drawn town even while
+    /// the population (and so the wanted footprint) moves.
+    #[serde(default)]
+    pub district: u32,
 }
 
 impl Settlement {
-    /// Footprint edge in tiles for a size tier: a hamlet is one rooftop, a
-    /// city is a 4x4 quarter of the map's ground.
+    /// District edge in tiles for a head-count: roofs follow households
+    /// (one roof per ~7 souls), the edge follows the roofs (roofs fill the
+    /// even/even cells of the square), quantized to steps of 4 so the town
+    /// is not repainted every birth. Clamped to what a sector can hold —
+    /// the full sprawl of the great towns lands with the sector rescale.
+    pub fn footprint_for_population(population: u32) -> u32 {
+        let roofs = (population.max(7) / 7).max(1) as f64;
+        let edge = 2.0 * roofs.sqrt().ceil();
+        let q = ((edge / 4.0).ceil() * 4.0) as u32;
+        q.max(2)
+    }
+
+    /// Footprint edge in tiles for a size tier (legacy callers; the real
+    /// sizing is by population).
     pub fn footprint_for_size(size: &str) -> u32 {
-        // On the 80x40 grid a settlement is a district, not a dot: room for
-        // streets and houses (laid down by the town generator).
         match size {
-            "city" => 8,
-            "town" => 6,
-            "village" => 4,
+            "city" | "town" => 16,
+            "village" => 8,
+            "hamlet" => 4,
             _ => 2,
         }
     }
 
-    /// This settlement's footprint edge in tiles.
+    /// This settlement's footprint edge in tiles: the painted district if
+    /// one is laid, else what the head-count wants.
     pub fn footprint(&self) -> u32 {
-        Self::footprint_for_size(&self.size)
+        if self.district > 0 {
+            self.district
+        } else {
+            Self::footprint_for_population(self.population)
+        }
     }
 
     /// Whether the given map tile lies inside this settlement's footprint.
@@ -747,17 +767,21 @@ impl Settlement {
             .any(|b| b.building_type == kind && b.is_complete())
     }
 
-    /// Size tier from the head-count: settlements grow into villages, towns,
-    /// and cities — and shrink back — as their population moves.
+    /// Size tier from the head-count, on the CANON hierarchy (Rennik's
+    /// survey, 155 AF): steading 5–50, hamlet 50–500, village 500–3,000,
+    /// town 3,000–15,000, city 15,000+. Settlements grow into their tier and
+    /// shrink back as their population moves.
     pub fn size_for_population(population: u32) -> &'static str {
-        if population >= 800 {
+        if population >= 15_000 {
             "city"
-        } else if population >= 250 {
+        } else if population >= 3_000 {
             "town"
-        } else if population >= 60 {
+        } else if population >= 500 {
             "village"
-        } else {
+        } else if population >= 50 {
             "hamlet"
+        } else {
+            "steading"
         }
     }
 
@@ -1507,6 +1531,7 @@ mod tests {
             famine_days: 0,
             map_x: 0,
             map_y: 0,
+            district: 0,
         };
 
         roundtrip(&s);

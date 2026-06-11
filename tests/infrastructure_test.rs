@@ -36,14 +36,19 @@ fn put(a: &mut App, kind: BuildKind, ri: usize, x: u32, y: u32) {
         });
 }
 
-/// A grass tile whose east neighbor is also grass (a plain walk).
-fn grass_pair(a: &App) -> Option<(usize, usize)> {
-    let terr = &a.sim.as_ref().unwrap().world.regions[0].terrain;
-    for y in 0..terr.height {
-        for x in 0..terr.width.saturating_sub(1) {
-            if terr.get(x, y) == Some(Terrain::Grass) && terr.get(x + 1, y) == Some(Terrain::Grass)
-            {
-                return Some((x, y));
+/// A slow tile whose east neighbor is also slow (forest: 2h ground on the
+/// rebalanced grid — open grass already walks at the 1h floor, so only slow
+/// ground can show a trail's cut). Searches every region.
+fn slow_pair(a: &App) -> Option<(usize, usize, usize)> {
+    for (ri, region) in a.sim.as_ref().unwrap().world.regions.iter().enumerate() {
+        let terr = &region.terrain;
+        for y in 0..terr.height {
+            for x in 0..terr.width.saturating_sub(1) {
+                if terr.get(x, y) == Some(Terrain::Forest)
+                    && terr.get(x + 1, y) == Some(Terrain::Forest)
+                {
+                    return Some((ri, x, y));
+                }
             }
         }
     }
@@ -73,13 +78,30 @@ fn water_with_bank(a: &App) -> Option<((usize, usize), (usize, usize))> {
 fn a_trail_cuts_the_walk() {
     let mut plain = app();
     let mut trailed = app();
-    let Some((x, y)) = grass_pair(&plain) else {
-        return; // no flat pair on this seed: vacuous
+    let Some((ri, x, y)) = slow_pair(&plain) else {
+        return; // forestless seed: vacuous
     };
-    put(&mut trailed, BuildKind::Trail, 0, (x + 1) as u32, y as u32);
+    {
+        let tick = trailed.sim.as_ref().unwrap().world.tick;
+        trailed.sim.as_mut().unwrap().world.regions[ri]
+            .structures
+            .push(Structure {
+                kind: BuildKind::Trail,
+                region_idx: ri,
+                x: (x + 1) as u32,
+                y: y as u32,
+                built_tick: 0,
+                last_maintenance_tick: tick,
+                name: None,
+                is_npc_built: false,
+                stash: Default::default(),
+            });
+    }
     for a in [&mut plain, &mut trailed] {
+        // Pin the sky: this is about the path, not the weather.
+        a.sim.as_mut().unwrap().world.regions[ri].weather = deep_world_tui::model::Weather::Clear;
         a.player_pos = Some(PlayerPos {
-            region_idx: 0,
+            region_idx: ri,
             px: x,
             py: y,
         });
@@ -98,8 +120,8 @@ fn a_trail_cuts_the_walk() {
         "a laid trail never walks slower ({trail_hours} vs {plain_hours})"
     );
     assert!(
-        trail_hours < plain_hours || plain_hours == 1,
-        "on slow ground the trail must actually cut the walk"
+        trail_hours < plain_hours,
+        "on slow ground the trail must actually cut the walk ({trail_hours} vs {plain_hours})"
     );
 }
 

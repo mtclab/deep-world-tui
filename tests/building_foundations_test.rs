@@ -98,7 +98,11 @@ fn big_builds_need_a_tool_and_working_hands() {
     // around the clock ends in an exhaustion collapse that carries the
     // builder off to recovery — the sim is right about that.)
     for _ in 0..9 {
+        // Pin the sky: the test is about labor, not about a storm-luck
+        // collapse mid-rest (weather drains are covered elsewhere).
+        a.sim.as_mut().unwrap().world.regions[0].weather = deep_world_tui::model::Weather::Clear;
         a.work_site();
+        a.sim.as_mut().unwrap().world.regions[0].weather = deep_world_tui::model::Weather::Clear;
         a.rest_hours(10);
     }
     a.advance_clock(1); // completion tick

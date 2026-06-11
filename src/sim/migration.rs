@@ -527,10 +527,11 @@ mod tests {
         // All population counts match people.len()
         for region in &sim.world.regions {
             for settlement in &region.settlements {
-                assert_eq!(
-                    settlement.population,
-                    settlement.people.len() as u32,
-                    "population count mismatch in settlement {}",
+                // The people vec is a SAMPLE of the population on the canon
+                // scale: the roll never exceeds the head-count.
+                assert!(
+                    settlement.population >= settlement.people.len() as u32,
+                    "sample exceeds head-count in settlement {}",
                     settlement.id
                 );
             }
@@ -564,10 +565,9 @@ mod tests {
 
         for region in &sim.world.regions {
             for settlement in &region.settlements {
-                assert_eq!(
-                    settlement.population,
-                    settlement.people.len() as u32,
-                    "population should match people count in {}",
+                assert!(
+                    settlement.population >= settlement.people.len() as u32,
+                    "sample exceeds head-count in {}",
                     settlement.name
                 );
             }
@@ -662,6 +662,7 @@ mod tests {
             famine_days: 0,
             map_x: 0,
             map_y: 0,
+            district: 0,
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(
@@ -698,6 +699,7 @@ mod tests {
             famine_days: 0,
             map_x: 0,
             map_y: 0,
+            district: 0,
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(

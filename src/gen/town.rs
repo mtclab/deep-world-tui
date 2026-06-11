@@ -14,6 +14,78 @@
 use crate::model::economy::Settlement;
 use crate::model::{SettlementService, Terrain, TerrainMap};
 
+/// How much trade reach a spot has: roads carry grain, harbors carry more.
+/// 1.0 = subsistence only; >= 1.4 = a real hinterland connection.
+pub fn trade_factor(terrain: &TerrainMap, x: usize, y: usize) -> f64 {
+    let (w, h) = (terrain.width, terrain.height);
+    let mut roads = 0;
+    let mut harbor = false;
+    for ty in y.saturating_sub(12)..(y + 13).min(h) {
+        for tx in x.saturating_sub(12)..(x + 13).min(w) {
+            match terrain.tiles[ty * w + tx] {
+                Terrain::Road => roads += 1,
+                Terrain::Water | Terrain::Coast => harbor = true,
+                _ => {}
+            }
+        }
+    }
+    1.0 + if roads >= 3 { 0.6 } else { 0.0 } + if harbor { 0.4 } else { 0.0 }
+}
+
+/// Carrying capacity of a spot, computed from the canon's own hydraulic
+/// principles (population_scale_and_settlement_hierarchy.md): people settle
+/// where water runs (off-water densities one-fifth the riverine standard),
+/// arable hinterland feeds the head-count, terrain sets the base, and trade
+/// reach moves surplus grain. Nothing here is authored per-settlement: the
+/// land decides what it can carry.
+pub fn carrying_capacity(terrain: &TerrainMap, x: usize, y: usize, region_type: &str) -> u32 {
+    let (w, h) = (terrain.width, terrain.height);
+    let base: f64 = match region_type {
+        "delta" => 3_500.0,
+        "river_valley" => 3_000.0,
+        "coast" => 2_000.0,
+        "steppe" => 700.0,
+        "forest" => 600.0,
+        "upland" => 400.0,
+        _ => 1_000.0,
+    };
+    // Water within reach: the river-corridor principle.
+    let mut water = 0;
+    for ty in y.saturating_sub(12)..(y + 13).min(h) {
+        for tx in x.saturating_sub(12)..(x + 13).min(w) {
+            if matches!(terrain.tiles[ty * w + tx], Terrain::Water | Terrain::Coast) {
+                water += 1;
+            }
+        }
+    }
+    let water_factor = match water {
+        0 => 0.2,
+        1..=5 => 1.0,
+        _ => 1.5,
+    };
+    // Arable hinterland: grass and worked land within walking reach. The
+    // town's own paint (streets, roofs) is excluded from the measure — the
+    // ground was arable before the town stood on it, and a settlement must
+    // not erode its own ceiling by existing.
+    let mut arable = 0usize;
+    let mut total = 0usize;
+    for ty in y.saturating_sub(14)..(y + 15).min(h) {
+        for tx in x.saturating_sub(14)..(x + 15).min(w) {
+            match terrain.tiles[ty * w + tx] {
+                Terrain::Settlement | Terrain::House => {}
+                Terrain::Grass | Terrain::Farmland => {
+                    arable += 1;
+                    total += 1;
+                }
+                _ => total += 1,
+            }
+        }
+    }
+    let arable_factor = 0.4 + 1.6 * (arable as f64 / total.max(1) as f64);
+    let cap = base * water_factor * arable_factor * trade_factor(terrain, x, y);
+    (cap as u32).max(12)
+}
+
 /// The house cells of a footprint, in reading order (left-right, top-down).
 pub fn house_cells(anchor_x: usize, anchor_y: usize, footprint: usize) -> Vec<(usize, usize)> {
     let mut out = Vec::new();
@@ -35,6 +107,11 @@ pub fn lay_town(terrain: &mut TerrainMap, anchor_x: usize, anchor_y: usize, foot
         for dx in 0..footprint {
             let (tx, ty) = (anchor_x + dx, anchor_y + dy);
             if tx < w && ty < h {
+                // The river keeps its bed: towns stand beside water, never
+                // over it (a bridge is built, not painted).
+                if matches!(terrain.tiles[ty * w + tx], Terrain::Water | Terrain::Coast) {
+                    continue;
+                }
                 let t = if dx.is_multiple_of(2) && dy.is_multiple_of(2) {
                     Terrain::House
                 } else {
@@ -44,7 +121,8 @@ pub fn lay_town(terrain: &mut TerrainMap, anchor_x: usize, anchor_y: usize, foot
             }
         }
     }
-    // Worked land skirts the walls (the same hand worldgen always used).
+    // Worked land skirts the walls (the same hand worldgen always used) —
+    // and the water keeps its bed here too.
     for dy in 0..footprint + 2 {
         for dx in 0..footprint + 2 {
             let (tx, ty) = (anchor_x + dx, anchor_y + dy);
@@ -52,7 +130,7 @@ pub fn lay_town(terrain: &mut TerrainMap, anchor_x: usize, anchor_y: usize, foot
                 && ty < h
                 && !matches!(
                     terrain.tiles[ty * w + tx],
-                    Terrain::House | Terrain::Settlement
+                    Terrain::House | Terrain::Settlement | Terrain::Water | Terrain::Coast
                 )
             {
                 terrain.tiles[ty * w + tx] = Terrain::Farmland;
