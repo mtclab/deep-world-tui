@@ -44,6 +44,7 @@ fn make_save(version: u32) -> SaveData {
         spouse_id: None,
         widowed_day: 0,
         household_children: Vec::new(),
+        travel_debt: 0.0,
     }
 }
 
@@ -119,6 +120,7 @@ fn roundtrip_preserves_all_fields() {
         spouse_id: None,
         widowed_day: 0,
         household_children: Vec::new(),
+        travel_debt: 0.0,
     };
 
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");
