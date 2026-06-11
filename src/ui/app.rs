@@ -1718,7 +1718,10 @@ impl App {
             self.status_msg = Some(event.flavor(a, b));
         }
         self.check_milestones();
-        if self.elder {
+        // An elder's regard grows by the day, not by the deed — it used to
+        // tick on every action, so a busy elder saturated the town's esteem
+        // in an afternoon.
+        if self.elder && self.clock.day != day_before {
             let elder_settlement_id = self
                 .sim
                 .as_ref()
