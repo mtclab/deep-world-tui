@@ -15,6 +15,7 @@ fn put(sim: &mut SimState, kind: BuildKind) {
         last_maintenance_tick: 0,
         name: None,
         is_npc_built: false,
+        stash: Default::default(),
     };
     sim.world.regions[0].structures.push(s.clone());
     sim.structures.push(s);

@@ -704,6 +704,16 @@ impl App {
                     .and_then(crate::sim::structures::BuildKind::from_name);
                 self.start_build_kind(wanted);
             }
+            C::StashItem { item, count } => {
+                if let Some(i) = Self::item_from_name(item) {
+                    self.stash_item(i, *count);
+                }
+            }
+            C::TakeItem { item, count } => {
+                if let Some(i) = Self::item_from_name(item) {
+                    self.take_item(i, *count);
+                }
+            }
             C::Plant => self.plant(),
             C::Harvest => self.harvest(),
             C::Talk { person_idx } => {
@@ -2459,6 +2469,70 @@ impl App {
         }
     }
 
+    /// The player's own storing structure (Cabin+) on this tile, if any.
+    fn own_store_here(&mut self) -> Option<&mut crate::sim::structures::Structure> {
+        use crate::sim::structures::BuildKind;
+        let pos = self.player_pos?;
+        let region = self
+            .sim
+            .as_mut()
+            .and_then(|s| s.world.regions.get_mut(pos.region_idx))?;
+        region.structures.iter_mut().find(|st| {
+            !st.is_npc_built
+                && st.x == pos.px as u32
+                && st.y == pos.py as u32
+                && matches!(
+                    st.kind,
+                    BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home
+                )
+        })
+    }
+
+    /// Put goods into the house. The stash stays with the building — and the
+    /// building stays with the line: heirs inherit the house and what's in it.
+    pub fn stash_item(&mut self, item: ItemType, count: u32) {
+        let held = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.get(item))
+            .unwrap_or(0);
+        let n = count.min(held);
+        if n == 0 {
+            self.status_msg = Some(format!("No {} to stash.", item.name()));
+            return;
+        }
+        let Some(store) = self.own_store_here() else {
+            self.status_msg = Some("No house of yours here to keep things in.".into());
+            return;
+        };
+        store.stash.add(item, n);
+        let label = store.kind.label().to_string();
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(item, n);
+        }
+        self.status_msg = Some(format!("Stashed {} {} in the {}.", n, item.name(), label));
+    }
+
+    /// Take goods back out of the house.
+    pub fn take_item(&mut self, item: ItemType, count: u32) {
+        let Some(store) = self.own_store_here() else {
+            self.status_msg = Some("No house of yours here.".into());
+            return;
+        };
+        let kept = store.stash.get(item);
+        let n = count.min(kept);
+        if n == 0 {
+            self.status_msg = Some(format!("No {} in the stash.", item.name()));
+            return;
+        }
+        store.stash.remove(item, n);
+        let label = store.kind.label().to_string();
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.add(item, n);
+        }
+        self.status_msg = Some(format!("Took {} {} from the {}.", n, item.name(), label));
+    }
+
     pub fn start_build(&mut self) {
         self.start_build_kind(None);
     }
@@ -2525,16 +2599,45 @@ impl App {
                 return;
             }
         };
+        let terrain = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(region_idx))
+            .and_then(|r| r.terrain.get(pos.px, pos.py))
+            .unwrap_or(Terrain::Grass);
+        // Building on a settlement's ground needs the settlement's consent:
+        // the council grants ground to those it does not distrust.
+        if terrain == Terrain::Settlement {
+            let bias = self
+                .sim
+                .as_ref()
+                .and_then(|s| s.world.regions.get(region_idx))
+                .and_then(|r| r.settlements.first())
+                .and_then(|st| st.people.first())
+                .map(|p| {
+                    self.inter_people_bias
+                        .effective_bias(crate::model::PeopleKind::from_name(&p.people))
+                })
+                .unwrap_or(0.0);
+            let standing = self.reputation_in_current_settlement();
+            if bias < -0.15 || standing < 0.45 {
+                self.status_msg =
+                    Some("The council will not grant you ground. Earn their regard first.".into());
+                return;
+            }
+            if let Some(ref mut sim2) = self.sim {
+                let t = sim2.world.tick;
+                sim2.log(
+                    t,
+                    crate::sim::journal::Voice::Travel,
+                    "The council walked the plot with me and drove the corner-stakes. I build among neighbors now.".into(),
+                );
+            }
+        }
         let sim = match self.sim.as_mut() {
             Some(s) => s,
             None => return,
         };
-        let terrain = sim
-            .world
-            .regions
-            .get(region_idx)
-            .and_then(|r| r.terrain.get(pos.px, pos.py))
-            .unwrap_or(Terrain::Grass);
         let affordable = |k: &crate::sim::structures::BuildKind| {
             !k.cost().is_empty()
                 && k.cost()
@@ -2609,6 +2712,7 @@ impl App {
                 last_maintenance_tick: sim.world.tick,
                 name: None,
                 is_npc_built: false,
+                stash: Default::default(),
             };
             if let Some(region) = sim.world.regions.get_mut(region_idx) {
                 region.structures.push(structure.clone());
@@ -3615,16 +3719,41 @@ impl App {
         {
             cost = (cost / 2).max(1);
         }
-        // A friend in town vouches for you: a coin off, never below one.
-        let has_friend = self.current_settlement().is_some_and(|s| {
-            s.people.iter().any(|p| {
+        // A resident pays neighbor's prices: owning a finished house on this
+        // settlement's ground counts like a friend's vouching.
+        let is_resident = self
+            .player_pos
+            .map(|pos| {
                 self.sim
                     .as_ref()
-                    .and_then(|sim| sim.npc_memories.get(&p.id))
-                    .map(|m| m.cumulative_trust() >= 0.15)
+                    .and_then(|s| s.world.regions.get(pos.region_idx))
+                    .map(|r| {
+                        r.structures.iter().any(|st| {
+                            !st.is_npc_built
+                                && matches!(
+                                    st.kind,
+                                    crate::sim::structures::BuildKind::Cabin
+                                        | crate::sim::structures::BuildKind::Longhouse
+                                        | crate::sim::structures::BuildKind::Home
+                                )
+                                && r.terrain.get(st.x as usize, st.y as usize)
+                                    == Some(Terrain::Settlement)
+                        })
+                    })
                     .unwrap_or(false)
             })
-        });
+            .unwrap_or(false);
+        // A friend in town vouches for you: a coin off, never below one.
+        let has_friend = is_resident
+            || self.current_settlement().is_some_and(|s| {
+                s.people.iter().any(|p| {
+                    self.sim
+                        .as_ref()
+                        .and_then(|sim| sim.npc_memories.get(&p.id))
+                        .map(|m| m.cumulative_trust() >= 0.15)
+                        .unwrap_or(false)
+                })
+            });
         if has_friend {
             cost = cost.saturating_sub(1).max(1);
         }

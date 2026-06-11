@@ -47,6 +47,7 @@ fn give_cabin_here(a: &mut App) {
             last_maintenance_tick: 0,
             name: None,
             is_npc_built: false,
+            stash: Default::default(),
         });
 }
 

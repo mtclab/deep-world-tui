@@ -211,6 +211,10 @@ pub struct Structure {
     pub last_maintenance_tick: u64,
     pub name: Option<String>,
     pub is_npc_built: bool,
+    /// What's kept inside (Cabin and better). Stays with the house — heirs
+    /// inherit the building and everything in it.
+    #[serde(default)]
+    pub stash: crate::model::Inventory,
 }
 
 impl Structure {
@@ -262,6 +266,7 @@ pub fn generate_npc_structures(
             last_maintenance_tick: 0,
             name: None,
             is_npc_built: true,
+            stash: Default::default(),
         });
     }
 
@@ -280,6 +285,7 @@ pub fn generate_npc_structures(
                 last_maintenance_tick: 0,
                 name: None,
                 is_npc_built: true,
+                stash: Default::default(),
             });
         }
     }
@@ -372,6 +378,7 @@ mod tests {
             last_maintenance_tick: 0,
             name: None,
             is_npc_built: false,
+            stash: Default::default(),
         };
         assert!(s.decay_tick(1000, 24).is_none());
     }
@@ -387,6 +394,7 @@ mod tests {
             last_maintenance_tick: 0,
             name: None,
             is_npc_built: false,
+            stash: Default::default(),
         };
         let early = s.decay_tick(1000, 24).unwrap();
         let later = s.decay_tick(100000, 24).unwrap();
@@ -444,6 +452,7 @@ mod tests {
             last_maintenance_tick: 0,
             name: None,
             is_npc_built: false,
+            stash: Default::default(),
         };
         assert!(s.at_position(2, 10, 20));
         assert!(!s.at_position(2, 11, 20));

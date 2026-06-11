@@ -111,6 +111,7 @@ fn deep_night_in_own_home_is_not_out_in_the_cold() {
             last_maintenance_tick: 0,
             name: None,
             is_npc_built: false,
+            stash: Default::default(),
         });
     a.rest_hours(8);
     let msg = a.status_msg.clone().unwrap_or_default();
