@@ -5,6 +5,7 @@ use crate::rng::SeedRng;
 
 pub mod collapse_log;
 pub mod effects;
+pub mod founding;
 pub mod god;
 pub mod hints;
 pub mod illness;

@@ -82,6 +82,13 @@ pub struct SaveData {
     /// The player's worked fields.
     #[serde(default)]
     pub player_farms: Vec<crate::model::economy::PlayerFarm>,
+    /// Settlers camped by the homestead, waiting to become a hamlet.
+    #[serde(default)]
+    pub homestead_settlers: Vec<crate::model::Person>,
+    #[serde(default)]
+    pub homestead_rumored: bool,
+    #[serde(default)]
+    pub founding_check_day: u32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -297,6 +304,9 @@ pub fn restore_from_compact(
         lifespan_years: 0,
         encounter_log: Default::default(),
         player_farms: Vec::new(),
+        homestead_settlers: Vec::new(),
+        homestead_rumored: false,
+        founding_check_day: 0,
     })
 }
 
@@ -333,6 +343,9 @@ mod tests {
             lifespan_years: 0,
             encounter_log: Default::default(),
             player_farms: Vec::new(),
+            homestead_settlers: Vec::new(),
+            homestead_rumored: false,
+            founding_check_day: 0,
         };
         save_game(&data, "test_save.ron").expect("save should succeed");
         let loaded = load_game("test_save.ron").expect("load should succeed");
@@ -424,6 +437,9 @@ mod tests {
             lifespan_years: 0,
             encounter_log: Default::default(),
             player_farms: Vec::new(),
+            homestead_settlers: Vec::new(),
+            homestead_rumored: false,
+            founding_check_day: 0,
         };
         let compact_data = CompactSave {
             seed: 42,

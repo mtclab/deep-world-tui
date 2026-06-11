@@ -380,15 +380,7 @@ fn generate_settlement(
     let settlement_id = format!("{}-set-{:04x}", region_id, index);
     // Stems come from a region-appropriate naming tradition, not always the
     // Arkit register (places read like the people who named them).
-    let stem_people = match region_type {
-        "river_valley" => "vayla",
-        "coast" => "merak",
-        "forest" => "metsik",
-        "upland" => "sepat",
-        "steppe" => "khor",
-        "delta" => "laakso",
-        _ => "arkit",
-    };
+    let stem_people = naming_tradition(region_type);
     let base_name = crate::gen::name::generate_place_stem(&mut rng, stem_people, charts)
         .unwrap_or_else(|_| format!("Settlement {}", index));
     let suffix = charts
@@ -433,7 +425,21 @@ fn generate_settlement(
     }
 }
 
-fn settlement_services(size: &str, people: &str) -> Vec<SettlementService> {
+/// The naming tradition a region's places are named in — places read like
+/// the people who named them, whoever later lives there.
+pub fn naming_tradition(region_type: &str) -> &'static str {
+    match region_type {
+        "river_valley" => "vayla",
+        "coast" => "merak",
+        "forest" => "metsik",
+        "upland" => "sepat",
+        "steppe" => "khor",
+        "delta" => "laakso",
+        _ => "arkit",
+    }
+}
+
+pub(crate) fn settlement_services(size: &str, people: &str) -> Vec<SettlementService> {
     let mut svcs = match size {
         "hamlet" => vec![SettlementService::Tavern],
         "village" => vec![SettlementService::Tavern, SettlementService::Temple],
