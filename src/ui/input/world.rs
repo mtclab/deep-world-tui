@@ -20,8 +20,10 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
             app.advance_clock(1);
         }
         KeyCode::Enter => {
+            // The town is walked, not entered (#372): doors serve, people
+            // talk when bumped — Enter opens the market stall for trade.
             if let Some((ri, si)) = app.player_on_settlement() {
-                app.enter_settlement(ri, si);
+                app.enter_market(ri, si);
             }
         }
         KeyCode::Char(' ') => {
