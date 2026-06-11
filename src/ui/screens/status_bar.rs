@@ -64,7 +64,7 @@ pub(crate) fn draw_status_bar(f: &mut Frame, app: &App) {
                 Style::default().fg(theme.warm_brown()),
             ),
             Span::styled(
-                format!("| {} d{}", season_name, day),
+                format!("| {} d{}, {} AF", season_name, day, app.clock.year_af()),
                 Style::default().fg(theme.dark_ink()),
             ),
         ]);
@@ -130,7 +130,12 @@ pub(crate) fn draw_status_bar(f: &mut Frame, app: &App) {
         f.render_widget(status, status_area);
     } else {
         let line = Line::from(Span::styled(
-            format!(" {} d{} | Press Enter to begin", season_name, day),
+            format!(
+                " {} d{}, {} AF | Press Enter to begin",
+                season_name,
+                day,
+                app.clock.year_af()
+            ),
             Style::default().fg(theme.dark_ink()),
         ));
         let status =

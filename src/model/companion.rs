@@ -17,6 +17,8 @@ pub enum Animal {
     DesertCaravanDog,
     HighlandGoat,
     MarshCrane,
+    /// Canon herd-beast of the Metsik border-clans and the Porokansa.
+    Reindeer,
 }
 
 impl Animal {
@@ -38,6 +40,7 @@ impl Animal {
             Animal::DesertCaravanDog => 'C',
             Animal::HighlandGoat => 'G',
             Animal::MarshCrane => 'M',
+            Animal::Reindeer => 'R',
         }
     }
 
@@ -59,6 +62,7 @@ impl Animal {
             Animal::DesertCaravanDog => "desert_caravan_dog",
             Animal::HighlandGoat => "highland_goat",
             Animal::MarshCrane => "marsh_crane",
+            Animal::Reindeer => "reindeer",
         }
     }
 
@@ -80,6 +84,9 @@ impl Animal {
             Animal::DesertCaravanDog => "hardy trail-runner bred for sand and heat",
             Animal::HighlandGoat => "sure-footed provider for the high places",
             Animal::MarshCrane => "tall wader that knows the safe passages",
+            Animal::Reindeer => {
+                "A steady-eyed herd beast; milk, carry-strength, and a back that knows the snow."
+            }
         }
     }
 
@@ -101,6 +108,7 @@ impl Animal {
         match self {
             Animal::Ox => 10,
             Animal::Donkey => 8,
+            Animal::Reindeer => 6,
             _ => 0,
         }
     }
@@ -116,6 +124,7 @@ impl Animal {
         match self {
             Animal::Goat => 1,
             Animal::HighlandGoat => 1,
+            Animal::Reindeer => 1,
             _ => 0,
         }
     }
@@ -138,6 +147,7 @@ impl Animal {
             Animal::DesertCaravanDog => 9,
             Animal::HighlandGoat => 8,
             Animal::MarshCrane => 5,
+            Animal::Reindeer => 13,
         }
     }
 
@@ -155,6 +165,7 @@ impl Animal {
             Animal::DesertCaravanDog => 1,
             Animal::HighlandGoat => 1,
             Animal::MarshCrane => 0,
+            Animal::Reindeer => 1,
         }
     }
 
@@ -172,6 +183,7 @@ impl Animal {
             Animal::DesertCaravanDog => 1,
             Animal::HighlandGoat => 1,
             Animal::MarshCrane => 0,
+            Animal::Reindeer => 2,
         }
     }
 }

@@ -280,12 +280,13 @@ fn main() -> anyhow::Result<()> {
 fn print_status(app: &App) {
     if let Some(ref ps) = app.player_start {
         println!(
-            "[{}] E:{:.0}% H:{:.0}% | Day {} h{} | Pos {:?}",
+            "[{}] E:{:.0}% H:{:.0}% | Day {} h{} ({} AF) | Pos {:?}",
             ps.person.name,
             app.vitals.energy * 100.0,
             app.vitals.hunger * 100.0,
             app.clock.day,
             app.clock.hour,
+            app.clock.year_af(),
             app.player_pos.map(|p| (p.px, p.py)).unwrap_or((0, 0)),
         );
     }

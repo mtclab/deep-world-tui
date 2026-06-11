@@ -334,7 +334,7 @@ impl PeopleKind {
             PeopleKind::Merak => "Sea-people",
             PeopleKind::Shear => "Desert people",
             PeopleKind::Hal => "Canopy people",
-            PeopleKind::Khor => "Tundra people",
+            PeopleKind::Khor => "Steppe people",
         }
     }
 
@@ -394,12 +394,18 @@ impl PeopleKind {
             PeopleKind::Haramaki => Some(GodName::Kukri),
             PeopleKind::Jamavaki => Some(GodName::Kukri),
             PeopleKind::Pohjavaki => Some(GodName::Kukri),
-            // Non-human
+            // Non-human — first encounters per canon
+            // (races/00_sapient_races_overview.md "Relationship with the Five
+            // Gods"): Tzäkhar met Kukri underground; Mëräk met Keuru and Masa
+            // at the tide-line (Masa as patron of their trade-facing life);
+            // She'ar hear Kukri in the desert's silence; Häl met Keuru in the
+            // canopy; Khör's primary divine relationship is Kukri,
+            // Talven-Hiljaisuus, "Winter's-Silence".
             PeopleKind::Tzakhar => Some(GodName::Kukri),
             PeopleKind::Merak => Some(GodName::Masa),
-            PeopleKind::Shear => None,
+            PeopleKind::Shear => Some(GodName::Kukri),
             PeopleKind::Hal => Some(GodName::Keuru),
-            PeopleKind::Khor => Some(GodName::Sampsa),
+            PeopleKind::Khor => Some(GodName::Kukri),
         }
     }
 
