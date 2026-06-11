@@ -1,17 +1,13 @@
-// Ahjo name grammar — eastern forge-naming tradition
-// Roots: forge-oven, mountain, ore, fire, discipline, eastern
+// Ahjo — craft-priests (Oltkar family, Ugric-calibrated)
+// More open vowels (a, o, e) than sepät; keeps w-/š- onsets and -ŋk-/-rt- clusters.
+// Opaque coinages only — no dictionary words, no god-name substrings.
 NameGrammar(
-    prefixes: ["Vuori", "Syvä", "Kova", "Itä", "Rauta", "Pimeä", "Tuli", "Harmaa", "Kuura", "Jää"],
+    prefixes: ["waŋ", "šor", "kor", "tew", "noš", "šeŋ", "wam", "tor"],
     roots: [
-        "Ahjo", "Hiili", "Malmi", "Kipinä", "Valo", "Kymi", "Kuura",
-        "Tuli", "Pääsky", "Nuoli", "Peits", "Kilpi", "Miekka",
-        "Kypärä", "Rauta", "Teräs", "Kivi", "Kallio", "Huippu",
-        "Solmu", "Ketju", "Piippu", "Savu", "Hehku", "Hohde",
-        "Liekki", "Kajo", "Säde", "Pii", "Kaas",
+        "waŋket", "šorem", "kawert", "woŋar", "wertaš", "noškat",
+        "šawert", "korteš", "waŋoš", "šeŋkat", "wamort", "toršek",
+        "weŋal", "šokart", "naŋket", "wošker", "tewart", "šoŋket",
     ],
-    suffixes: [
-        "nen", "la", "kanta", "kkä", "vahdi", "alkar", "inen", "nen",
-        "vuori", "kallio", "ahjo", "tuli", "kivi", "seppä",
-    ],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["at", "oš", "ek", "ert", "aŋ", "ot", "eš"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

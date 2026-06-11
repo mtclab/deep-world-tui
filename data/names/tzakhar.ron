@@ -1,11 +1,13 @@
-// Tzakhar name grammar — deep-cave naming tradition
-// Roots: stone, echo, depth, shadow, mineral
+// Tzakhar — Deep people (isolate, underground stone register)
+// tz-/kh- onsets, gutturals, dark vowels (a, o, u), sparse glottal-stop apostrophes.
+// Opaque coinages only — no dictionary words, no god-name substrings.
 NameGrammar(
-    prefixes: ["Tol", "Zek", "Khr", "Vash", "Dul", "Nar", "Zal", "Grim"],
+    prefixes: ["tzog", "khar", "vuk", "gor", "tzu", "okh", "dur", "vak"],
     roots: [
-        "Khar", "Zek", "Dra", "Tol", "Vash", "Nar", "Khol", "Zul",
-        "Sha", "Grun", "Thal", "Bor", "Dvek", "Morn", "Stal",
+        "tzogur", "kharod", "vukhar", "tzor’uk", "gorvak", "ukhtar",
+        "tzakun", "vokhur", "khurt", "tzuvor", "akhrod", "ur’gat",
+        "tzomak", "khovur", "durgak", "votzak", "khargu", "tzubak",
     ],
-    suffixes: ["ak", "oth", "ul", "ar", "esh", "im", "on"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["ak", "ur", "okh", "od", "’ut", "gar", "un"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

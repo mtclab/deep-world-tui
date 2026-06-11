@@ -1,13 +1,13 @@
-// Varhaiset name grammar — earliest-ones naming tradition
-// Keurish family: conservative, preserves pre-lenition consonants, no vowel harmony
-// Roots: headwaters, meadows, seasonal cycles, herding, ancient things
+// Varhaiset name grammar — the oldest people, archaic Keurish stratum
+// Sámic-calibrated invented roots: long conservative roots, heavy consonant length (geminates)
+// Flavor: weathered, slow — pre-lenition forms the younger bands no longer speak
 NameGrammar(
-    prefixes: ["Perä", "Vana", "Alku", "Ysi", "Kauko", "Enno", "Ilta", "Aamu"],
+    prefixes: ["vuony", "ärvy", "tylly", "norvy", "völly", "šuorr", "ievvä", "kolly"],
     roots: [
-        "Korva", "Pyy", "Härkä", "Lammas", "Vuohi", "Niitty", "Lähde",
-        "Puro", "Harju", "Kumpu", "Aho", "Keto", "Niemi", "Salmi",
-        "Vaara", "Tunturi", "Räme", "Korpi", "Selkä", "Rinne",
+        "vuolnna", "šärvve", "čuorvva", "niellva", "tyrrvä", "jyvrre",
+        "huolnne", "vuorrne", "lievvja", "källvo", "tuonnve", "šuollma",
+        "myörrkä", "viesska", "ärvvane", "čallvy", "kuollme", "ševvni",
     ],
-    suffixes: ["nen", "lä", "kkä", "ja", "sto", "maa", "kko"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["nnä", "vvi", "rre", "llo", "nja", "rne", "mme"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

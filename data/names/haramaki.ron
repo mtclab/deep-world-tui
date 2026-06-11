@@ -1,13 +1,12 @@
-// Härämäki name grammar — steep-valley naming tradition
-// Kukresh family: Permic/Udmurt profile with affricates, rounded vowels, open finals
-// Roots: steep valley, dry terraces, terrace farming, mountain-valley
+// Härämäki — Kukresh steep-valley folk (Mari-calibrated register).
+// Harder k clusters (šk, kt, rk) against the family's š/ñ frame; -am/-em finals.
 NameGrammar(
-    prefixes: ["Härä", "Kukri", "Rinne", "Teras", "Rinte", "Vuori", "Kallio", "Jyrkk"],
+    prefixes: ["kaš", "ñerk", "hošk", "mukt", "škar", "keñ", "ašk", "korš"],
     roots: [
-        "Kiš", "Här", "Vuor", "Rin", "Ter", "Mäki", "Kukk",
-        "Kivi", "Sär", "Vako", "Kuru", "Rako", "Piha", "Kylä",
-        "Pelt", "Niit", "Lato", "Aita", "Vart", "Sisk",
+        "karšem", "ñoktam", "škovem", "keršam", "muktam", "oškñem", "ñakrem",
+        "tyškam", "korñem", "ekšam", "ñurkam", "šaktem", "hörkam", "äkšem",
+        "miktaš", "ñoršem", "kuštam", "arkñem",
     ],
-    suffixes: ["äs", "äm", "kä", "kkä", "mä", "lä", "ntä"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["kam", "kem", "ak", "ška", "ñek", "am", "ko"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

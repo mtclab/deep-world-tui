@@ -135,7 +135,16 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts) -> Region {
     let n_settlements = region_settlement_count(&mut rng, &region_type, charts);
 
     let region_id = format!("region-{:04x}", index);
-    let region_name = crate::gen::name::generate_name(&mut rng, "laakso", "f", charts)
+    let region_stem_people = match region_type.as_str() {
+        "river_valley" => "vayla",
+        "coast" => "merak",
+        "forest" => "metsik",
+        "upland" => "sepat",
+        "steppe" => "khor",
+        "delta" => "laakso",
+        _ => "arkit",
+    };
+    let region_name = crate::gen::name::generate_place_stem(&mut rng, region_stem_people, charts)
         .unwrap_or_else(|_| format!("Region {}", index));
 
     let region_subtype = charts
@@ -369,7 +378,18 @@ fn generate_settlement(
     let population: u32 = pop_str.parse().unwrap_or(40).max(1);
 
     let settlement_id = format!("{}-set-{:04x}", region_id, index);
-    let base_name = crate::gen::name::generate_name(&mut rng, "arkit", "f", charts)
+    // Stems come from a region-appropriate naming tradition, not always the
+    // Arkit register (places read like the people who named them).
+    let stem_people = match region_type {
+        "river_valley" => "vayla",
+        "coast" => "merak",
+        "forest" => "metsik",
+        "upland" => "sepat",
+        "steppe" => "khor",
+        "delta" => "laakso",
+        _ => "arkit",
+    };
+    let base_name = crate::gen::name::generate_place_stem(&mut rng, stem_people, charts)
         .unwrap_or_else(|_| format!("Settlement {}", index));
     let suffix = charts
         .settlement_suffixes

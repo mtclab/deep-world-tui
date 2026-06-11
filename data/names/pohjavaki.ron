@@ -1,13 +1,12 @@
-// Pohjaväki name grammar — deep-bottom naming tradition
-// Kukresh family: Permic/Udmurt profile with affricates, rounded vowels, open finals
-// Roots: deep places, roots, silence, underground, depth, old things
+// Pohjaväki — Kukresh deep-bottom folk (Mari-calibrated register).
+// Darkest vowels (o, u) in the family's š/ñ frame; heavy -om/-um/-am finals.
 NameGrammar(
-    prefixes: ["Pohja", "Syvä", "Ukk", "Juure", "Varjo", "Ala", "Syy", "Kipe"],
+    prefixes: ["ñur", "šomu", "huk", "molš", "ñok", "umš", "šur", "hoñ"],
     roots: [
-        "Väš", "Pohj", "Juur", "Käm", "Maa", "Kiv", "Savi",
-        "Mult", "Juo", "Ukk", "Ura", "Ämm", "Värt", "Huok",
-        "Vär", "Kää", "Sau", "Tuh", "Mär", "Ääsk",
+        "ñolum", "šukram", "hovum", "muršam", "oñkum", "šulmo", "ñukšam",
+        "homšur", "ulñam", "šorkum", "ñumol", "kušmam", "ohšum", "ñurmo",
+        "šombul", "hukšam", "molñum", "uškom",
     ],
-    suffixes: ["äm", "äs", "kä", "kkä", "mä", "lä", "ntä"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["om", "um", "ñum", "šum", "mo", "uk", "am"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

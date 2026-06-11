@@ -1,13 +1,13 @@
-// Muistikansa name grammar — memory-keeper naming tradition
-// Sampsaran family: Mordvinic profile with front æ and final t
-// Roots: memory, oral tradition, song, ancient stories, elders
+// Muistikansa — memory-keepers (Sampsaran family, Mordvinic-calibrated)
+// Softer register than arkit: long vowels (ee, ää, ii), nasal/liquid consonants.
+// Opaque coinages only — no dictionary words, no god-name substrings.
 NameGrammar(
-    prefixes: ["Vanha", "Muis", "Iksi", "Esi", "Eno", "Sana", "Laulu", "Säke"],
+    prefixes: ["vee", "sää", "mii", "nää", "lee", "äle", "vei", "sii"],
     roots: [
-        "Sär", "Vel", "Tär", "Muis", "Laul", "Säke", "Iks",
-        "Vano", "Perä", "Laulu", "Sana", "Kiel", "Ääni", "Silmä",
-        "Korva", "Sydan", "Miele", "Rinn", "Huul", "Rinta",
+        "veeläs", "säänet", "leevän", "miinet", "ääles", "neevät",
+        "seelmä", "elnäs", "määnit", "veemät", "näälev", "miemäs",
+        "lääven", "sevään", "veimäs", "älvee", "miernä", "sälvii",
     ],
-    suffixes: ["ät", "än", "oi", "ik", "as", "es", "ot"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["en", "äs", "ne", "vä", "il", "mä", "et"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

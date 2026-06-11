@@ -1,17 +1,13 @@
-// Sepät name grammar — forge/craft-naming tradition
-// Roots: iron, forge, craft, hammer, anvil, spark, compound names
+// Sepät — mountain forge-folk (Oltkar family, Ugric-calibrated)
+// Dense register: short hard roots, w- onsets, y vowel, -šk-/-ŋk-/-rt- clusters.
+// Opaque coinages only — no dictionary words, no god-name substrings.
 NameGrammar(
-    prefixes: ["Rauta", "Malmi", "Takko", "Ahjo", "Hiomo", "Kova", "Terä", "Kipinä", "Pääsky", "Hämärä"],
+    prefixes: ["wyr", "tyš", "koŋ", "weš", "šur", "nyk", "wul", "pyr"],
     roots: [
-        "Tako", "Vaski", "Kipinä", "Hiili", "Kynsi", "Silta", "Nokka",
-        "Pääsky", "Kirves", "Vasara", "Takk", "Ahjo", "Kansi",
-        "Puikko", "Silmä", "Tuli", "Säde", "Malmi", "Kaas",
-        "Hohde", "Kide", "Kupari", "Peltti", "Rauta", "Taonta",
-        "Valu", "Kangas", "Koukku", "Saran", "Nivel",
+        "wyrt", "tyšk", "woŋk", "kyrt", "wešk", "nyšk",
+        "wošt", "pyŋk", "šyrk", "wuŋt", "kešk", "tyrš",
+        "wyŋk", "pyrt", "košk", "wyšt", "tyrt", "šuŋk",
     ],
-    suffixes: [
-        "nen", "lä", "kari", "kkä", "ja", "kki", "nnen", "lä",
-        "seppä", "takko", "kari", "huone", "paja", "ahjo",
-    ],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["yt", "ek", "uš", "ka", "yš", "ut", "ŋi"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

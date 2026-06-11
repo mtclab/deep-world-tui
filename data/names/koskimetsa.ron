@@ -1,13 +1,13 @@
-// Koskimetsä name grammar — river-rapids forest people naming tradition
-// Keurish family: full p>v lenition, water-forest vocabulary, rapids/river ecology
-// Roots: rapids, rivers, fish, riverbank forest, water-folk
+// Koskimetsä name grammar — river-rapids forest folk, Keurish naming tradition
+// Sámic-calibrated invented roots: liquid-heavy (l, r), names that run and eddy
+// like white water under the trees
 NameGrammar(
-    prefixes: ["Koski", "Vesi", "Virta", "Noki", "Hopea", "Terä", "Kulta", "Rauta"],
+    prefixes: ["lirva", "vuoll", "rielo", "lyrva", "šolle", "virla", "luorv", "relvy"],
     roots: [
-        "Koski", "Pirta", "Mylly", "Vanha", "Syvä", "Uiva", "Lohi",
-        "Taimen", "Hauki", "Särki", "Nieriä", "Kuha", "Made",
-        "Saukko", "Lodju", "Uistin", "Verkko", "Laukka", "Vanha",
+        "lourva", "lyrvve", "rielva", "vuorla", "šurle", "larvvo",
+        "lielly", "norrla", "čirla", "myrla", "luolva", "rievvo",
+        "lalvve", "rilvo", "rouli", "lervä", "vuolri", "rälvvo",
     ],
-    suffixes: ["nen", "lä", "kki", "ja", "koski", "virta", "pirta", "mylly"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["lvä", "rro", "llo", "rva", "lu", "rri", "ly"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

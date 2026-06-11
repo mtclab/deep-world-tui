@@ -1,13 +1,13 @@
-// Taulukansa name grammar — tablet-people naming tradition
-// Sampsaran family: Mordvinic profile with front æ and final t
-// Roots: tablets, inscriptions, independent scribes, carved words
+// Taulukansa — tablet-scribes (Sampsaran family, Mordvinic-calibrated)
+// Harder register: dense t/k stops on front vowels, clipped -t/-s finals.
+// Opaque coinages only — no dictionary words, no god-name substrings.
 NameGrammar(
-    prefixes: ["Taulu", "Kivi", "Rauta", "Puu", "Grani", "Piir", "Hakka", "Kolv"],
+    prefixes: ["tek", "kär", "tit", "ket", "tär", "kiv", "tet", "kir"],
     roots: [
-        "Vel", "Tär", "Mer", "Kiel", "Taul", "Piirt", "Kirj",
-        "Hakka", "Kolva", "Rive", "Sivu", "Kans", "Luku", "Merk",
-        "Sauv", "Pats", "Stee", "Kipp", "Mool", "Kartt",
+        "tekrät", "ketkär", "terkät", "kitvet", "täkren", "ketrit",
+        "tikvet", "kärtet", "tetkäs", "kivret", "täktes", "kätvet",
+        "tirket", "kektär", "titvek", "kirtek", "tävket", "ketnit",
     ],
-    suffixes: ["ät", "än", "oi", "ik", "as", "es", "ot"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["et", "ät", "kit", "te", "käs", "it", "ket"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

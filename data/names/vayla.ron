@@ -1,17 +1,12 @@
-// Väylä name grammar — maritime/tide-naming tradition
-// Roots: water, channel, passage, harbor, wave, trade
+// Väylä — Masaran river-traders (Permic-calibrated register).
+// Current/flow feel: v- and l-heavy, voiced z/d, flowing two-syllable roots, frequent -i finals.
 NameGrammar(
-    prefixes: ["Meri", "Saari", "Ranta", "Satama", "Aalto", "Vesi", "Vuoksi", "Luoto", "Kivi", "Kuutu"],
+    prefixes: ["vyl", "ledvi", "virze", "lazu", "völi", "delu", "zavi", "luve"],
     roots: [
-        "Virta", "Laine", "Purje", "Haven", "Salmi", "Riutta", "Tuuli",
-        "Mast", "Köli", "Päivä", "Kaja", "Huuto", "Soitto", "Laiva",
-        "Ruori", "Ankkuri", "Köysi", "Täh", "Sumu", "Etä", "Ranta",
-        "Kallio", "Hiekk", "Liek", "Vuoro", "Kuorm", "Kaupp",
-        "Markk", "Virt", "Satama", "Kanaali",
+        "velzi", "vildza", "luvi", "zavri", "vyldi", "voldi", "lävri",
+        "vizli", "delvi", "vulza", "lyvdi", "ilvi", "vedri", "lozvi",
+        "vylva", "delri", "uvzi", "zelvi",
     ],
-    suffixes: [
-        "nen", "la", "kka", "ri", "tär", "inen", "ainen", "nen",
-        "saari", "ranta", "virta", "salmi", "luoto", "niemi",
-    ],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["vi", "li", "di", "zi", "väi", "ri", "la"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

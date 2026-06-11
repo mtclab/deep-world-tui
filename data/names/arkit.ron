@@ -1,17 +1,13 @@
-// Arkit name grammar — archive-naming tradition
-// Roots: preservation, knowledge, memory, text, wisdom
+// Arkit — archive scholars (Sampsaran family, Mordvinic-calibrated)
+// Measured, clipped invented roots; front vowels ä/e, ś palatal, frequent -t finals.
+// Opaque coinages only — no dictionary words, no god-name substrings.
 NameGrammar(
-    prefixes: ["Vanh", "Kirj", "Ark", "Tiet", "Uusi", "Syv", "Pikk", "Kirk", "Pime", "Valo"],
+    prefixes: ["vel", "mär", "ten", "śir", "erm", "verm", "mel", "ärt"],
     roots: [
-        "Sampo", "Muisto", "Taulu", "Käänn", "Luku", "Sana", "Vihko", "Pöytä",
-        "Luett", "Viisas", "Silmä", "Korva", "Kieli", "Mieli", "Aivot",
-        "Kirja", "Vuosi", "Aika", "Päivä", "Ilta", "Aamu", "Yö",
-        "Kuutamo", "Hämärä", "Sarja", "Luku", "Rivi", "Sivu",
-        "Kansi", "Sidottu", "Pii", "Määre", "Koe", "Totuus",
+        "vänet", "mervet", "śelnet", "tärmit", "veldet", "ärśet",
+        "kelnit", "ternät", "miret", "esket", "värnet", "lemtet",
+        "nirvet", "śimret", "etvet", "kervät", "melśit", "verśät",
     ],
-    suffixes: [
-        "nen", "ri", "la", "tär", "kkä", "ius", "inen", "ainen",
-        "mies", "tär", "kko", "la", "nen", "ja", "ari",
-    ],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["et", "ät", "vet", "mit", "ent", "śet", "ne"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )
