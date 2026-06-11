@@ -19,6 +19,17 @@ impl GodName {
         }
     }
 
+    pub fn from_label(s: &str) -> Option<GodName> {
+        match s.to_ascii_lowercase().as_str() {
+            "oltzed" => Some(GodName::Oltzed),
+            "keuru" => Some(GodName::Keuru),
+            "sampsa" => Some(GodName::Sampsa),
+            "masa" => Some(GodName::Masa),
+            "kukri" => Some(GodName::Kukri),
+            _ => None,
+        }
+    }
+
     pub fn domains(self) -> &'static str {
         match self {
             GodName::Oltzed => "labor, invention, engineering",

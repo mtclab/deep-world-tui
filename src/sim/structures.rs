@@ -12,6 +12,9 @@ pub enum BuildKind {
     Cabin,
     Longhouse,
     Home,
+    /// A god-site, raised as devotional practice — not a summons. The god is
+    /// chosen at the raising and kept in Structure::name.
+    Shrine,
 }
 
 impl BuildKind {
@@ -25,6 +28,7 @@ impl BuildKind {
             BuildKind::Cabin,
             BuildKind::Longhouse,
             BuildKind::Home,
+            BuildKind::Shrine,
         ]
     }
 
@@ -46,6 +50,11 @@ impl BuildKind {
             BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home => matches!(
                 terrain,
                 T::Grass | T::Farmland | T::Forest | T::Coast | T::Settlement
+            ),
+            // A shrine stands on quiet ground — not in someone's street.
+            BuildKind::Shrine => matches!(
+                terrain,
+                T::Grass | T::Tundra | T::Farmland | T::Forest | T::Coast
             ),
         }
     }
@@ -74,6 +83,7 @@ impl BuildKind {
             "cabin" => Some(BuildKind::Cabin),
             "longhouse" => Some(BuildKind::Longhouse),
             "home" | "house" => Some(BuildKind::Home),
+            "shrine" => Some(BuildKind::Shrine),
             _ => None,
         }
     }
@@ -88,6 +98,7 @@ impl BuildKind {
             BuildKind::Cabin => "cabin",
             BuildKind::Longhouse => "longhouse",
             BuildKind::Home => "home",
+            BuildKind::Shrine => "shrine",
         }
     }
 
@@ -101,6 +112,7 @@ impl BuildKind {
             BuildKind::Cabin => '#',
             BuildKind::Longhouse => '▒',
             BuildKind::Home => '▓',
+            BuildKind::Shrine => '†',
         }
     }
 
@@ -114,6 +126,7 @@ impl BuildKind {
             BuildKind::Cabin => 72,
             BuildKind::Longhouse => 168,
             BuildKind::Home => 336,
+            BuildKind::Shrine => 12,
         }
     }
 
@@ -127,6 +140,7 @@ impl BuildKind {
             BuildKind::Cabin => "cabin",
             BuildKind::Longhouse => "longhouse",
             BuildKind::Home => "home",
+            BuildKind::Shrine => "shrine",
         }
     }
 
@@ -159,6 +173,8 @@ impl BuildKind {
                 (ItemType::Thatch, 20),
                 (ItemType::Glass, 3),
             ],
+            // Same materials as the NPC kind: stone and cloth, nothing grand.
+            BuildKind::Shrine => vec![(ItemType::Stone, 6), (ItemType::Cloth, 3)],
         }
     }
 
@@ -173,6 +189,7 @@ impl BuildKind {
             BuildKind::Laavu => Some(3.0),
             BuildKind::Kota => Some(5.0),
             BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home => Some(30.0),
+            BuildKind::Shrine => Some(10.0),
         }
     }
 }
@@ -192,6 +209,10 @@ pub struct BuildSite {
     pub y: u32,
     pub hours_done: u32,
     pub started_tick: u64,
+    /// For a Shrine: the god it is raised to, carried into Structure::name
+    /// at completion.
+    #[serde(default)]
+    pub dedication: Option<String>,
 }
 
 impl BuildSite {
@@ -410,6 +431,7 @@ mod tests {
             y: 5,
             hours_done: 0,
             started_tick: 0,
+            dedication: None,
         };
         assert!(!site.progress_fraction(BuildKind::Cabin).is_nan());
         assert_eq!(site.progress_fraction(BuildKind::Cabin), 0.0);
@@ -424,6 +446,7 @@ mod tests {
             y: 5,
             hours_done: 36,
             started_tick: 0,
+            dedication: None,
         };
         let pct = site.progress_fraction(BuildKind::Cabin);
         assert!(pct > 0.4 && pct < 0.6);
