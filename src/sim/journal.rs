@@ -328,6 +328,12 @@ static CANON_RUMORS: &[&str] = &[
     "A peddler swears the Deep-galleries trade fair dealt in copper this season — and that the Tzäkhar counted faster than he could.",
     "Down from Fort Verath: the treaty holds, the garrison drills, and both flags fly over one gate.",
     "They tell of a waystation on the western route where the message-register simply stops mid-line.",
+    "A bargeman out of Sampa Crossing says the granaries stand full to the rafters — fifty thousand mouths and grain to spare.",
+    "Word from Vessenath: the Masa temples cleared more contracts this season than any year since the Fall.",
+    "Halkess set the grain price again. The whole Inland Sea pays it, and grumbles, and pays.",
+    "A salvager out of Velkarath sells imperial doorstones by the cartload. The old capital is its own quarry now.",
+    "They say Keuramark's rope-bridges carried fifteen thousand through the last frost without one fall.",
+    "A drover claims the road to Sampa Crossing is wagons nose to tail for the last ten miles. Nobody doubts him.",
     "A bargeman says the River Sampa leagues settled their toll war without a single drawn knife. Nobody quite believes it.",
     "Steppe traders speak of the aurora as a voice. They do not say whose.",
 ];
