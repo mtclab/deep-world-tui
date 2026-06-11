@@ -354,19 +354,12 @@ pub fn spawn_settlement(
         buildings: Vec::new(),
         festival_until_day: 0,
         famine_days: 0,
+        map_x: x as u32,
+        map_y: y as u32,
     };
-    // The tile↔settlement mapping sorts Settlement tiles by x; insert the new
-    // settlement at its x-rank so every existing index keeps meaning itself.
-    let insert_at = {
-        let mut rank = 0usize;
-        for (i, &t) in region.terrain.tiles.iter().enumerate() {
-            if t == Terrain::Settlement && i % region.terrain.width < x {
-                rank += 1;
-            }
-        }
-        rank.min(region.settlements.len())
-    };
-    region.settlements.insert(insert_at, settlement);
+    // Tile→settlement resolution is by footprint containment (anchor set
+    // above), so vec order carries no meaning — append.
+    region.settlements.push(settlement);
     // Mark the ground: the site itself, with worked land around it (the same
     // hand worldgen uses).
     if y < region.terrain.height && x < region.terrain.width {

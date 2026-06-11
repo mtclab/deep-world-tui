@@ -317,6 +317,8 @@ fn tick_settlement_life(sim: &mut SimState) {
         let weather = region.weather;
         let region_richness = region.game_richness;
         let mut richness_draw = 0.0_f64;
+        let mut grown_footprints: Vec<(u32, u32, u32)> = Vec::new();
+        let (map_w, map_h) = (region.terrain.width, region.terrain.height);
         let coastal = matches!(
             region.region_type.as_str(),
             "coast" | "delta" | "river_valley"
@@ -410,6 +412,17 @@ fn tick_settlement_life(sim: &mut SimState) {
                 );
                 settlement.size = new_size.to_string();
                 if grew {
+                    // The place grows on the map too: new houses past the
+                    // old wall (footprint painted after this loop). Clamp the
+                    // anchor so the grown square stays on the map.
+                    let n = settlement.footprint();
+                    settlement.map_x = settlement
+                        .map_x
+                        .min(map_w.saturating_sub(n as usize) as u32);
+                    settlement.map_y = settlement
+                        .map_y
+                        .min(map_h.saturating_sub(n as usize) as u32);
+                    grown_footprints.push((settlement.map_x, settlement.map_y, n));
                     if !settlement
                         .services
                         .contains(&crate::model::SettlementService::Temple)
@@ -549,6 +562,18 @@ fn tick_settlement_life(sim: &mut SimState) {
                             ));
                         }
                         break; // one project at a time
+                    }
+                }
+            }
+        }
+        // Paint grown footprints: the settlement's square of ground expands
+        // with its size, clamped to the map's edge.
+        for (ax, ay, n) in grown_footprints {
+            for dy in 0..n as usize {
+                for dx in 0..n as usize {
+                    let (tx, ty) = (ax as usize + dx, ay as usize + dy);
+                    if ty < map_h && tx < map_w {
+                        region.terrain.tiles[ty * map_w + tx] = crate::model::Terrain::Settlement;
                     }
                 }
             }
