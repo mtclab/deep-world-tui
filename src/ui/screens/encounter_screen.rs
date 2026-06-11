@@ -33,8 +33,12 @@ pub(crate) fn draw_encounter_screen(f: &mut Frame, app: &App) {
     let mut lines: Vec<Line> = Vec::new();
     lines.push(Line::from(""));
     if let Some(enc) = app.encounter {
+        let desc = enc
+            .species
+            .map(|s| s.line())
+            .unwrap_or_else(|| enc.kind.description());
         lines.push(Line::from(Span::styled(
-            enc.kind.description(),
+            desc,
             Style::default()
                 .fg(theme.ink())
                 .add_modifier(Modifier::BOLD),

@@ -24,6 +24,7 @@ fn push_through_spends_energy_and_hunger() {
     app.encounter = Some(Encounter {
         kind: EncounterKind::Wildlife,
         terrain: Terrain::Grass,
+        species: None,
     });
     app.resolve_encounter(EncounterAction::PushThrough);
     // PushThrough: energy_cost 0.2, hunger_cost 0.1.
@@ -46,6 +47,7 @@ fn calm_raises_keuru_affinity() {
     app.encounter = Some(Encounter {
         kind: EncounterKind::Wildlife,
         terrain: Terrain::Grass,
+        species: None,
     });
     app.resolve_encounter(EncounterAction::Calm);
     // Calm -> Keuru +0.05.

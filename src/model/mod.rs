@@ -13,6 +13,7 @@ pub mod relation;
 pub mod terrain;
 pub mod vitals;
 pub mod weather;
+pub mod wildlife;
 
 // Re-export everything so call sites don't change
 pub use companion::*;
@@ -24,6 +25,7 @@ pub use quest::{Quest, QuestKind, QuestReward};
 pub use terrain::*;
 pub use vitals::*;
 pub use weather::*;
+pub use wildlife::*;
 
 // Keep existing re-exports from submodules that define their own types
 pub use memorial::Memorial;
