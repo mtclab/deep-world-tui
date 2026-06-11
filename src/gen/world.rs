@@ -316,28 +316,61 @@ fn generate_terrain(
     let n_settle = settlements.len().max(1);
     let spacing = width / n_settle;
     let mut settle_positions: Vec<(usize, usize)> = Vec::new();
+    let mut next_free_x = 2usize;
     for (i, settlement) in settlements.iter_mut().enumerate() {
-        // A settlement is not a point: its footprint scales with its size, so
-        // a town reads as a town from the road. Anchor = top-left tile.
-        let n = settlement.footprint() as usize;
-        // Stay two tiles clear of every region seam: the seam-smoothing pass
-        // copies edge rows between neighbors, and a town must never be
-        // cloned into the next region as phantom paint.
-        let sx = (spacing / 2 + i * spacing).clamp(2, width.saturating_sub(n + 2));
-        let sy = if let Some(row) = water_row {
-            if row > 3 { row - 2 } else { row + 3 }.clamp(2, height.saturating_sub(n + 2))
+        // Position first (the seam margin keeps towns from being cloned
+        // into neighbors), capacity second — sampled where the town will
+        // actually stand, so the gen-time ceiling and the daily sim agree.
+        let cx = (spacing / 2 + i * spacing).clamp(2, width.saturating_sub(3));
+        let cy = if let Some(row) = water_row {
+            if row > 3 { row - 2 } else { row + 3 }.clamp(2, height.saturating_sub(3))
         } else {
-            (3 + (rng.next_u64() as usize) % (height - 6).max(1))
-                .clamp(2, height.saturating_sub(n + 2))
+            (3 + (rng.next_u64() as usize) % (height - 6).max(1)).clamp(2, height.saturating_sub(3))
         };
+        let sx = cx.min(width.saturating_sub(10)).max(2).max(next_free_x);
+        let sy = cy.min(height.saturating_sub(10)).max(2);
+        // The land decides what this spot can carry (canon's hydraulic
+        // principles), and the head-count follows: a delta crossroads seeds
+        // a town of thousands, a dry upland shelf seeds a steading.
+        let room = 24usize
+            .min(spacing.saturating_sub(4))
+            .min(width.saturating_sub(sx + 2))
+            .min(height.saturating_sub(sy + 2))
+            .max(2);
+        let probe = (room / 2).max(1);
+        let cap = crate::gen::town::carrying_capacity(
+            &TerrainMap {
+                width,
+                height,
+                tiles: tiles.clone(),
+            },
+            sx + probe,
+            sy + probe,
+            region_type,
+        );
+        let frac = 35 + (rng.next_u64() % 36) as u32; // 35–70% of capacity
+        settlement.population = (cap.saturating_mul(frac) / 100).max(8);
+        settlement.size =
+            crate::model::economy::Settlement::size_for_population(settlement.population)
+                .to_string();
+        settlement.food_stock = settlement.population as f64 * 2.0;
+        // District edge from the head-count, grown into the room available.
+        let mut n =
+            (crate::model::economy::Settlement::footprint_for_population(settlement.population)
+                as usize)
+                .min(room)
+                .max(2);
+        n -= n % 2;
+        settlement.district = n as u32;
         settlement.map_x = sx as u32;
         settlement.map_y = sy as u32;
-        // The district itself — streets and houses — is laid after the
-        // terrain map exists (generate_terrain returns first); see the
-        // lay_town pass in generate_region.
+        next_free_x = sx + n + 3;
         for dy in 0..n {
             for dx in 0..n {
-                tiles[(sy + dy) * width + (sx + dx)] = Terrain::Settlement;
+                let idx = (sy + dy) * width + (sx + dx);
+                if !matches!(tiles[idx], Terrain::Water | Terrain::Coast) {
+                    tiles[idx] = Terrain::Settlement;
+                }
             }
         }
         for dy in 0..n + 2 {
@@ -477,6 +510,7 @@ fn generate_settlement(
         famine_days: 0,
         map_x: 0,
         map_y: 0,
+        district: 0,
     }
 }
 
@@ -565,15 +599,25 @@ pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
             if tile_pos.is_empty() {
                 continue;
             }
-            // Collapse contiguous paint into clusters: a tile within four of
-            // an assigned anchor belongs to that anchor's settlement, not to
-            // the next settlement in line.
+            // Collapse contiguous paint into clusters by bounding box:
+            // a tile within two of a cluster's box belongs to that cluster
+            // (districts are contiguous; separate towns sit further apart).
+            let mut boxes: Vec<(usize, usize, usize, usize)> = Vec::new(); // x0,y0,x1,y1
             let mut anchors: Vec<(usize, usize)> = Vec::new();
             for &(x, y) in &tile_pos {
-                let claimed = anchors.iter().any(|&(ax, ay)| {
-                    (x as i64 - ax as i64).abs() <= 4 && (y as i64 - ay as i64).abs() <= 4
-                });
+                let mut claimed = false;
+                for b in boxes.iter_mut() {
+                    if x + 2 >= b.0 && x <= b.2 + 2 && y + 2 >= b.1 && y <= b.3 + 2 {
+                        b.0 = b.0.min(x);
+                        b.1 = b.1.min(y);
+                        b.2 = b.2.max(x);
+                        b.3 = b.3.max(y);
+                        claimed = true;
+                        break;
+                    }
+                }
                 if !claimed {
+                    boxes.push((x, y, x, y));
                     anchors.push((x, y));
                 }
             }
@@ -588,7 +632,10 @@ pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
         let prints: Vec<(usize, usize, usize)> = region
             .settlements
             .iter()
-            .map(|s| (s.map_x as usize, s.map_y as usize, s.footprint() as usize))
+            .map(|s| {
+                let n = (s.footprint() as usize).clamp(2, 24.min(w.saturating_sub(6)));
+                (s.map_x as usize, s.map_y as usize, n)
+            })
             .collect();
         for (ax, ay, n) in prints {
             crate::gen::town::lay_town(&mut region.terrain, ax, ay, n);
@@ -724,15 +771,13 @@ mod tests {
     #[test]
     fn generate_world_settlement_sizes_valid() {
         let world = make_world(42);
-        let charts = charts::load_charts().unwrap();
+        // Sizes follow the canon hierarchy now (Rennik's survey), not the
+        // sampling chart: tier must match the head-count.
         for region in &world.regions {
             for settlement in &region.settlements {
-                assert!(
-                    charts
-                        .settlement_size
-                        .base
-                        .entries
-                        .contains_key(&settlement.size),
+                assert_eq!(
+                    settlement.size,
+                    crate::model::economy::Settlement::size_for_population(settlement.population),
                     "settlement size '{}' not in chart",
                     settlement.size
                 );

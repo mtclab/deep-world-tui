@@ -319,15 +319,40 @@ fn tick_settlement_life(sim: &mut SimState) {
         let mut richness_draw = 0.0_f64;
         let mut grown_footprints: Vec<(u32, u32, u32)> = Vec::new();
         let (map_w, map_h) = (region.terrain.width, region.terrain.height);
+        let rtype = region.region_type.clone();
+        let region_terrain_snapshot = region.terrain.clone();
+        // Today's district boxes (with their farmland skirt): growth may
+        // only claim ground no neighbor already holds.
+        let district_boxes: Vec<(usize, usize, usize, usize)> = region
+            .settlements
+            .iter()
+            .map(|s| {
+                let (x, y, d) = (s.map_x as usize, s.map_y as usize, s.district as usize);
+                (x, y, x + d + 2, y + d + 2)
+            })
+            .collect();
         let coastal = matches!(
             region.region_type.as_str(),
             "coast" | "delta" | "river_valley"
         );
 
-        for settlement in region.settlements.iter_mut() {
+        for (s_idx, settlement) in region.settlements.iter_mut().enumerate() {
             let sample = settlement.people.len().max(1) as f64;
-            // The people vec is a sample of the population; scale producers up.
-            let scale = (settlement.population.max(1) as f64 / sample).max(1.0);
+            // What this ground can carry, by the canon's hydraulic
+            // principles — and how far its trade reach extends.
+            let half = (settlement.footprint() / 2) as usize;
+            let (cx, cy) = (
+                settlement.map_x as usize + half,
+                settlement.map_y as usize + half,
+            );
+            let cap = crate::gen::town::carrying_capacity(&region_terrain_snapshot, cx, cy, &rtype);
+            let trade = crate::gen::town::trade_factor(&region_terrain_snapshot, cx, cy);
+            // The people vec is a sample of the population; scale producers
+            // up — but local fields feed at most what the land carries. The
+            // rest must ride the road.
+            let scale = (settlement.population.max(1) as f64 / sample)
+                .min((cap.max(1) as f64 / sample).max(1.0))
+                .max(1.0);
 
             // --- farms: plant, grow, harvest ---
             let farmers = settlement.profession_count("farmer");
@@ -378,7 +403,11 @@ fn tick_settlement_life(sim: &mut SimState) {
                 0.0
             };
             richness_draw += trap_food * 0.002 + handlers as f64 * 0.001;
-            settlement.food_stock += harvested + gathered + trap_food;
+            // The land yields at most what it can carry (a small margin over
+            // its own mouths): everything beyond that must arrive by road or
+            // water. This is the hinterland principle made arithmetic.
+            let land_yield_cap = cap as f64 * 0.18;
+            settlement.food_stock += (harvested + gathered + trap_food).min(land_yield_cap);
 
             // --- consumption + spoilage ---
             let eaten = settlement.population as f64 * 0.15;
@@ -437,6 +466,52 @@ fn tick_settlement_life(sim: &mut SimState) {
                     ));
                 }
             }
+            // The hinterland feeds what the fields cannot: a settlement past
+            // its land's capacity lives on grain moved by road and water —
+            // and without that reach, the shortfall stands and the famine
+            // machinery below does the canon's work.
+            if settlement.population > cap && trade >= 1.4 {
+                // One day's meals for every head the land cannot feed.
+                settlement.food_stock += (settlement.population - cap) as f64 * 0.15;
+            }
+            // Slow recovery toward what the land can carry (the Fall's
+            // long tail: roughly a tenth of a percent a day, fed places only).
+            let per_head_now = settlement.food_stock / settlement.population.max(1) as f64;
+            if per_head_now >= 1.5 && settlement.population < cap {
+                settlement.population += (settlement.population / 1000).max(1);
+            }
+            // The district grows with the households. The anchor shifts
+            // up/left only as far as the map edge forces it, and growth only
+            // claims ground no neighbor holds — a town is hemmed by its
+            // neighbors and the land, exactly as real towns are.
+            let mut wanted =
+                (crate::model::Settlement::footprint_for_population(settlement.population)
+                    as usize)
+                    .min(24)
+                    .min(map_w.saturating_sub(6))
+                    .min(map_h.saturating_sub(6));
+            wanted -= wanted % 2;
+            if wanted > settlement.district as usize {
+                let ax = (settlement.map_x as usize)
+                    .min(map_w.saturating_sub(wanted + 2))
+                    .max(2);
+                let ay = (settlement.map_y as usize)
+                    .min(map_h.saturating_sub(wanted + 2))
+                    .max(2);
+                let gx1 = ax + wanted + 2;
+                let gy1 = ay + wanted + 2;
+                let blocked = district_boxes
+                    .iter()
+                    .enumerate()
+                    .any(|(j, b)| j != s_idx && ax < b.2 && b.0 < gx1 && ay < b.3 && b.1 < gy1);
+                if !blocked {
+                    settlement.map_x = ax as u32;
+                    settlement.map_y = ay as u32;
+                    settlement.district = wanted as u32;
+                    grown_footprints.push((ax as u32, ay as u32, wanted as u32));
+                }
+            }
+
             // Famine: empty stores for a week start an exodus; a month of it
             // leaves the place standing empty.
             if settlement.population > 0 {

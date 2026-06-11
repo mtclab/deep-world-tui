@@ -356,6 +356,7 @@ pub fn spawn_settlement(
         famine_days: 0,
         map_x: x as u32,
         map_y: y as u32,
+        district: 0,
     };
     // Tile→settlement resolution is by footprint containment (anchor set
     // above), so vec order carries no meaning — append.
