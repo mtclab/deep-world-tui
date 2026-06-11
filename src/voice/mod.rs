@@ -298,7 +298,8 @@ fn pick_line(rng: &mut SeedRng, lines: &[&str]) -> usize {
 }
 
 fn fill_template(template: &str, person: &Person) -> String {
-    let people = &person.people;
+    // Display name, not the raw chart key ("Hoskam", not "jamavaki").
+    let people = crate::model::PeopleKind::from_name(&person.people).label();
     let craft_flavor = craft_flavor(&person.craft_affinity);
     let prof_flavor = profession_flavor(&person.profession);
     template

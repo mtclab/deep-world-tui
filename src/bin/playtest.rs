@@ -86,7 +86,15 @@ fn main() -> anyhow::Result<()> {
                 print_msg(&app);
             }
             "rest" | "r" => {
-                app.rest();
+                let before = app.collapse_log.len();
+                let hours: u32 = parts.get(1).and_then(|h| h.parse().ok()).unwrap_or(8);
+                app.rest_hours(hours);
+                if app.collapse_log.len() > before {
+                    println!("  *** You collapsed during the rest!");
+                }
+                if let Some(d) = app.death_cause {
+                    println!("  *** DEATH: {}", d.label());
+                }
                 print_msg(&app);
             }
             "enter" => {
@@ -116,7 +124,10 @@ fn main() -> anyhow::Result<()> {
                             println!("    {:?}: {}", item, count);
                         }
                     }
-                    println!("  People: {}", ps.person.people);
+                    println!(
+                        "  People: {}",
+                        deep_world_tui::model::PeopleKind::from_name(&ps.person.people).label()
+                    );
                     println!("  Profession: {}", ps.person.profession);
                 }
                 continue;
