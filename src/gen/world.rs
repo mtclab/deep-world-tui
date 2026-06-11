@@ -333,7 +333,20 @@ fn generate_terrain(
         // The land decides what this spot can carry (canon's hydraulic
         // principles), and the head-count follows: a delta crossroads seeds
         // a town of thousands, a dry upland shelf seeds a steading.
-        let room = 48usize
+        // A city candidate (the land could carry 15k+) gets a wider berth:
+        // the rare Tier-II city rightly dominates its sector.
+        let probe_cap = crate::gen::town::carrying_capacity(
+            &TerrainMap {
+                width,
+                height,
+                tiles: tiles.clone(),
+            },
+            sx + 1,
+            sy + 1,
+            region_type,
+        );
+        let max_edge = if probe_cap >= 15_000 { 72 } else { 48 };
+        let room = max_edge
             .min(spacing.saturating_sub(4))
             .min(width.saturating_sub(sx + 2))
             .min(height.saturating_sub(sy + 2))

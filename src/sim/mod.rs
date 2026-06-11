@@ -482,10 +482,18 @@ fn tick_settlement_life(sim: &mut SimState) {
             // up/left only as far as the map edge forces it, and growth only
             // claims ground no neighbor holds — a town is hemmed by its
             // neighbors and the land, exactly as real towns are.
+            // Towns sprawl to 48 tiles; a city (15k+ on the canon
+            // hierarchy) to 72 — the Tier-II city rightly dominates its
+            // sector.
+            let max_edge = if settlement.population >= 15_000 {
+                72
+            } else {
+                48
+            };
             let mut wanted =
                 (crate::model::Settlement::footprint_for_population(settlement.population)
                     as usize)
-                    .min(24)
+                    .min(max_edge)
                     .min(map_w.saturating_sub(6))
                     .min(map_h.saturating_sub(6));
             wanted -= wanted % 2;
@@ -655,6 +663,19 @@ fn tick_settlement_life(sim: &mut SimState) {
 /// Spawn trade caravans between settlements and retire them once their goods
 /// have dispersed. An arrived caravan lowers prices for the goods it carried at
 /// its destination (see App::caravan_price_modifier).
+/// The named cities of the wider continent (the Archive's register, by way
+/// of great_cities_of_the_ages.md): the playable province is one corner of a
+/// world of twelve to fifteen million, and these are where its long roads
+/// lead. They never appear on the map — they appear in the goods, the talk,
+/// and the caravan manifests.
+pub const CANON_CITIES: &[(&str, &str)] = &[
+    ("Sampa Crossing", "grain off the Basin surplus"),
+    ("Vessenath", "furs, steel, and lake fish"),
+    ("Halkess", "grain at the price Halkess sets"),
+    ("Velkarath", "salvage and harbor-goods from the old capital"),
+    ("Keuramark", "northern timber and amber"),
+];
+
 fn tick_caravans(sim: &mut SimState) {
     let tick = sim.world.tick;
     // Goods disperse ~2 days after arrival.
@@ -680,14 +701,22 @@ fn tick_caravans(sim: &mut SimState) {
     if rng.gen_range(2) == 0 {
         return;
     }
-    let o = rng.gen_range(names.len() as u32) as usize;
+    // A third of the caravans ride the LONG roads: they come from the named
+    // cities of the continent the province is a corner of.
+    let origin = if rng.gen_range(3) == 0 {
+        let (city, _) = CANON_CITIES[rng.gen_range(CANON_CITIES.len() as u32) as usize];
+        city.to_string()
+    } else {
+        let o = rng.gen_range(names.len() as u32) as usize;
+        names[o].clone()
+    };
     let mut d = rng.gen_range(names.len() as u32) as usize;
-    if d == o {
+    if names[d] == origin {
         d = (d + 1) % names.len();
     }
     let caravan = crate::model::economy::Caravan::generate(
         sim.world.seed.wrapping_add(tick),
-        names[o].clone(),
+        origin,
         names[d].clone(),
         tick,
     );
