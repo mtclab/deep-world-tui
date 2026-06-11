@@ -640,7 +640,8 @@ fn tick_build_sites(sim: &mut SimState) {
                 y: site.y,
                 built_tick: tick,
                 last_maintenance_tick: tick,
-                name: None,
+                // A shrine keeps the name of the god it was raised to.
+                name: site.dedication.clone(),
                 is_npc_built: false,
                 stash: Default::default(),
             });

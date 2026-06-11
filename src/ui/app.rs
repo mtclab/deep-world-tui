@@ -1256,7 +1256,15 @@ impl App {
             .into_iter()
             .filter(|r| r.people.is_none() || r.people == Some(player_people))
             .collect();
+        // Meal-type crafts at your own hearth yield one more: a kota (or any
+        // homestead with a hearth-pit) cooks better than a traveler's pot.
+        let at_own_hearth = self.own_hearth_here();
         if let Some(recipe) = recipes.get(recipe_idx) {
+            let hearth_bonus = if at_own_hearth && recipe.output == ItemType::Food {
+                1
+            } else {
+                0
+            };
             if let Some(ref mut ps) = self.player_start {
                 let inv = &mut ps.inventory;
                 let can_craft = recipe
@@ -1267,8 +1275,10 @@ impl App {
                     for (item, count) in &recipe.inputs {
                         inv.remove(*item, *count);
                     }
-                    let output_count = recipe.output_count + bias_bonus;
-                    let flavor = if bias_bonus > 0 {
+                    let output_count = recipe.output_count + bias_bonus + hearth_bonus;
+                    let flavor = if hearth_bonus > 0 {
+                        " A real fire beats a traveler's pot."
+                    } else if bias_bonus > 0 {
                         " Skilled hands guide yours."
                     } else {
                         ""
@@ -1699,10 +1709,12 @@ impl App {
         self.check_aging();
         self.check_player_illness();
         self.tick_player_farms();
-        // The founding check asks the roads every ten days.
+        // The founding check asks the roads every ten days; the waystation
+        // ledger keeps the same calendar.
         if self.clock.day / 10 > self.founding_check_day / 10 {
             self.founding_check_day = self.clock.day;
             self.tick_founding();
+            self.tick_waystations();
         }
     }
 
@@ -2635,6 +2647,62 @@ impl App {
         }
     }
 
+    /// Longhouse waystation (#347): an own completed Longhouse within two
+    /// tiles of a road shelters travelers — the dying waystation network,
+    /// one node quietly restarted. Each ten-day check it earns a small
+    /// trickle of standing with the region's settlement, and now and then
+    /// word of it travels.
+    pub fn tick_waystations(&mut self) {
+        use crate::sim::structures::BuildKind;
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        if player_id.is_empty() {
+            return;
+        }
+        let day = self.clock.day;
+        let Some(ref mut sim) = self.sim else { return };
+        let seed = sim.world.seed;
+        let mut earned: Vec<(String, String)> = Vec::new(); // (settlement_id, region name)
+        for region in sim.world.regions.iter() {
+            for st in &region.structures {
+                if st.is_npc_built || st.kind != BuildKind::Longhouse {
+                    continue;
+                }
+                let (sx, sy) = (st.x as usize, st.y as usize);
+                let near_road =
+                    (sy.saturating_sub(2)..(sy + 3).min(region.terrain.height)).any(|ty| {
+                        (sx.saturating_sub(2)..(sx + 3).min(region.terrain.width))
+                            .any(|tx| region.terrain.get(tx, ty) == Some(Terrain::Road))
+                    });
+                if !near_road {
+                    continue;
+                }
+                if let Some(s) = region.settlements.first() {
+                    earned.push((s.id.clone(), region.name.clone()));
+                }
+            }
+        }
+        for (sid, region_name) in earned {
+            sim.reputation.adjust_settlement(&player_id, &sid, 0.02);
+            let mut rng = SeedRng::new(seed).fork_for(&format!("waystation-{day}-{sid}"));
+            if rng.gen_range(3) == 0 {
+                let t = sim.world.tick;
+                sim.log(
+                    t,
+                    crate::sim::journal::Voice::Rumor,
+                    format!(
+                        "The long hall on the {} road took in the storm-bound again, \
+                         they say. Travelers speak well of it.",
+                        region_name
+                    ),
+                );
+            }
+        }
+    }
+
     /// The player's own storing structure (Cabin+) on this tile, if any.
     fn own_store_here(&mut self) -> Option<&mut crate::sim::structures::Structure> {
         use crate::sim::structures::BuildKind;
@@ -2652,6 +2720,50 @@ impl App {
                     BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home
                 )
         })
+    }
+
+    /// Standing at one's own hearth: a completed Kota or better on this tile.
+    fn own_hearth_here(&self) -> bool {
+        use crate::sim::structures::BuildKind;
+        let Some(pos) = self.player_pos else {
+            return false;
+        };
+        self.sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(pos.region_idx))
+            .map(|r| {
+                r.structures.iter().any(|st| {
+                    !st.is_npc_built
+                        && st.x == pos.px as u32
+                        && st.y == pos.py as u32
+                        && matches!(
+                            st.kind,
+                            BuildKind::Kota
+                                | BuildKind::Cabin
+                                | BuildKind::Longhouse
+                                | BuildKind::Home
+                        )
+                })
+            })
+            .unwrap_or(false)
+    }
+
+    /// The god of one's own shrine within a tile of here, if any.
+    fn own_shrine_god_near(&self) -> Option<GodName> {
+        use crate::sim::structures::BuildKind;
+        let pos = self.player_pos?;
+        let region = self.sim.as_ref()?.world.regions.get(pos.region_idx)?;
+        region
+            .structures
+            .iter()
+            .find(|st| {
+                !st.is_npc_built
+                    && st.kind == BuildKind::Shrine
+                    && st.x.abs_diff(pos.px as u32) <= 1
+                    && st.y.abs_diff(pos.py as u32) <= 1
+            })
+            .and_then(|st| st.name.as_deref())
+            .and_then(GodName::from_label)
     }
 
     /// Put goods into the house. The stash stays with the building — and the
@@ -2887,6 +2999,26 @@ impl App {
             self.fire_hint(hints::HINT_FIRST_STRUCTURE);
             self.status_msg = Some(format!("Built {}!", kind.label()));
         } else {
+            // A shrine is raised TO someone: the god the player carries
+            // closest. Devotional practice, chosen at the first stone.
+            let dedication = if kind == crate::sim::structures::BuildKind::Shrine {
+                let ga = &self.god_affinity;
+                let mut best = (GodName::Kukri, f64::MIN);
+                for g in [
+                    GodName::Oltzed,
+                    GodName::Keuru,
+                    GodName::Sampsa,
+                    GodName::Masa,
+                    GodName::Kukri,
+                ] {
+                    if ga.get(g) > best.1 {
+                        best = (g, ga.get(g));
+                    }
+                }
+                Some(best.0.label().to_string())
+            } else {
+                None
+            };
             let site = crate::sim::structures::BuildSite {
                 kind,
                 region_idx,
@@ -2894,6 +3026,7 @@ impl App {
                 y: py,
                 hours_done: 0,
                 started_tick: sim.world.tick,
+                dedication,
             };
             sim.build_sites.push(site);
             self.status_msg = Some(format!(
@@ -4118,6 +4251,8 @@ impl App {
             crate::sim::structures::BuildKind::Cabin
             | crate::sim::structures::BuildKind::Longhouse
             | crate::sim::structures::BuildKind::Home => RestQuality::Inn,
+            // A shrine is no shelter — it shades nothing but the spirit.
+            crate::sim::structures::BuildKind::Shrine => RestQuality::Campfire,
         });
         let sheltered = structure_tier.is_some() || on_settlement;
         let base_quality = if was_deep_night && !sheltered {
@@ -4240,6 +4375,7 @@ impl App {
                 crate::sim::structures::BuildKind::Cabin => 0.45,
                 crate::sim::structures::BuildKind::Longhouse => 0.60,
                 crate::sim::structures::BuildKind::Home => 0.80,
+                crate::sim::structures::BuildKind::Shrine => 0.0,
             },
             None => 0.0,
         };
@@ -4251,6 +4387,30 @@ impl App {
         self.vitals.energy = (self.vitals.energy + stamina_gain / 8.0).min(1.0);
         self.god_affinity
             .adjust(GodName::Kukri, 0.02 + morale_gain * 0.1);
+        // Rest beside your own shrine: a slow, small pull toward the god it
+        // was raised to. Devotional practice, not a summons — the gods are
+        // withdrawn, and a new shrine changes the rester, not the world.
+        if let Some(god) = self.own_shrine_god_near() {
+            self.god_affinity.adjust(god, 0.01 * dur_frac);
+            let t = self.sim.as_ref().map_or(0, |s| s.world.tick);
+            let mut prng =
+                crate::rng::SeedRng::new(self.seed).fork_for(&format!("shrine-pilgrims-{}", t));
+            // Pilgrims are ordinary people on ordinary roads; sometimes they
+            // pass, nod, and walk on.
+            if prng.gen_range(6) == 0 {
+                if let Some(ref mut sim) = self.sim {
+                    sim.log(
+                        t,
+                        crate::sim::journal::Voice::Encounter,
+                        format!(
+                            "Pilgrims in road-grey stopped at the {} shrine while I rested. \
+                             They left a ribbon and walked on.",
+                            god.label()
+                        ),
+                    );
+                }
+            }
+        }
         if quality == RestQuality::Inn {
             self.vitals.energy = (self.vitals.energy + 0.05 * dur_frac).min(1.0);
         }
