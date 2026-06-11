@@ -129,6 +129,7 @@ fn full_pipeline_seed_generate_enter_talk() {
         founding_check_day: 0,
         spouse_id: None,
         widowed_day: 0,
+        household_children: Vec::new(),
     };
 
     save::save_game(&data, "integration_save.ron").expect("save should succeed");

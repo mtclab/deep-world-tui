@@ -116,6 +116,9 @@ pub struct App {
     pub spouse_id: Option<String>,
     /// Day the player was widowed (0 = never); grief holds the door a while.
     pub widowed_day: u32,
+    /// Children of the house, by birth order. The eldest grown child is the
+    /// heir before any friend is.
+    pub household_children: Vec<crate::model::HouseholdChild>,
     pub collapses_had: u32,
     pub collapse_log: Vec<CollapseEvent>,
     pub lineage: Vec<LineageRecord>,
@@ -202,6 +205,7 @@ impl App {
             founding_check_day: 0,
             spouse_id: None,
             widowed_day: 0,
+            household_children: Vec::new(),
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
@@ -491,6 +495,7 @@ impl App {
             founding_check_day: self.founding_check_day,
             spouse_id: self.spouse_id.clone(),
             widowed_day: self.widowed_day,
+            household_children: self.household_children.clone(),
         })
     }
 
@@ -788,6 +793,7 @@ impl App {
         self.founding_check_day = data.founding_check_day;
         self.spouse_id = data.spouse_id;
         self.widowed_day = data.widowed_day;
+        self.household_children = data.household_children;
         self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
         self.elder = self
             .milestones
@@ -1748,6 +1754,7 @@ impl App {
             self.founding_check_day = self.clock.day;
             self.tick_founding();
             self.tick_waystations();
+            self.tick_household();
         }
     }
 
@@ -2883,6 +2890,59 @@ impl App {
         }
     }
 
+    /// A child's age in life-years on the compressed aging calendar.
+    fn child_age_years(&self, child: &crate::model::HouseholdChild) -> u32 {
+        self.clock.day.saturating_sub(child.born_day) / AGING_DAYS_PER_LIFE_YEAR
+    }
+
+    /// Births of the house (#363), on the ten-day calendar: a living
+    /// marriage and a fed larder now and then bring a child. The pace is
+    /// ordinary and the house has limits — no dynasty factories.
+    pub fn tick_household(&mut self) {
+        if self.spouse_id.is_none() || self.household_children.len() >= 4 {
+            return;
+        }
+        let fed = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.get(ItemType::Food) >= 10)
+            .unwrap_or(false);
+        if !fed {
+            return;
+        }
+        let day = self.clock.day;
+        let mut rng = SeedRng::new(self.seed).fork_for(&format!("household-{day}"));
+        if rng.gen_range(4) != 0 {
+            return;
+        }
+        let people = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.people.clone())
+            .unwrap_or_default();
+        let name = self
+            .sim
+            .as_ref()
+            .and_then(|s| crate::gen::name::generate_name(&mut rng, &people, "", &s.charts).ok())
+            .unwrap_or_else(|| "the little one".into());
+        self.household_children.push(crate::model::HouseholdChild {
+            name: name.clone(),
+            born_day: day,
+        });
+        if let Some(ref mut sim) = self.sim {
+            let t = sim.world.tick;
+            sim.log(
+                t,
+                crate::sim::journal::Voice::Scar,
+                format!(
+                    "Born to us: {}. The house is louder and better for it.",
+                    name
+                ),
+            );
+        }
+        self.status_msg = Some(format!("A child is born to the house: {name}."));
+    }
+
     /// Longhouse waystation (#347): an own completed Longhouse within two
     /// tiles of a road shelters travelers — the dying waystation network,
     /// one node quietly restarted. Each ten-day check it earns a small
@@ -3943,6 +4003,7 @@ impl App {
                     founding_check_day: self.founding_check_day,
                     spouse_id: self.spouse_id.clone(),
                     widowed_day: self.widowed_day,
+                    household_children: self.household_children.clone(),
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }
@@ -4088,19 +4149,50 @@ impl App {
         let dead_person = dead_ps.person.clone();
         let settlement_id = dead_person.settlement.clone();
 
-        // Find a related NPC
-        let npc_idx = match self.find_related_npc(&dead_person) {
-            Some(idx) => idx,
-            None => {
-                self.screen = Screen::GameOver;
-                return;
-            }
-        };
+        // Blood before friendship: the eldest grown child of the house is
+        // the heir, if there is one. Friends inherit only a childless line.
+        let grown_child_idx = self
+            .household_children
+            .iter()
+            .position(|c| self.child_age_years(c) >= 16);
+        let (npc_person, heir_settlement_id) = if let Some(ci) = grown_child_idx {
+            let child = self.household_children.remove(ci);
+            let settlement_id = self
+                .player_pos
+                .and_then(|pos| {
+                    self.sim
+                        .as_ref()
+                        .and_then(|s| s.world.regions.get(pos.region_idx))
+                        .and_then(|r| r.settlements.first())
+                        .map(|s| s.id.clone())
+                })
+                .unwrap_or_else(|| dead_person.settlement.clone());
+            let mut heir = dead_person.clone();
+            heir.id = format!("heir-{}-{}", self.lineage.len(), self.seed % 0xFFFF);
+            heir.name = child.name;
+            heir.age_band = "young".into();
+            heir.age_years = self.child_age_years(&crate::model::HouseholdChild {
+                name: String::new(),
+                born_day: child.born_day,
+            });
+            heir.has_spouse = false;
+            heir.children_count = 0;
+            heir.illnesses.clear();
+            (heir, settlement_id)
+        } else {
+            // Find a related NPC
+            let npc_idx = match self.find_related_npc(&dead_person) {
+                Some(idx) => idx,
+                None => {
+                    self.screen = Screen::GameOver;
+                    return;
+                }
+            };
 
-        // Get the NPC person (and the settlement the heir actually lives in —
-        // reputation used to be keyed by the dead's stored settlement string,
-        // which can differ from any real settlement id).
-        let (npc_person, heir_settlement_id) = {
+            // Get the NPC person (and the settlement the heir actually lives
+            // in — reputation used to be keyed by the dead's stored
+            // settlement string, which can differ from any real settlement
+            // id).
             let pos = match self.player_pos {
                 Some(p) => p,
                 None => {
@@ -4135,6 +4227,9 @@ impl App {
             };
             (person, settlement.id.clone())
         };
+        // A widow(er)'s grief does not pass down; the heir starts unwed.
+        self.spouse_id = None;
+        self.widowed_day = 0;
 
         // Add lineage record. The authoritative cause is `death_cause` — both
         // death paths (collapse and old age) set it. The old code read

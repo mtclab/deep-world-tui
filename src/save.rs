@@ -94,6 +94,8 @@ pub struct SaveData {
     pub spouse_id: Option<String>,
     #[serde(default)]
     pub widowed_day: u32,
+    #[serde(default)]
+    pub household_children: Vec<crate::model::HouseholdChild>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -317,6 +319,7 @@ pub fn restore_from_compact(
         founding_check_day: 0,
         spouse_id: None,
         widowed_day: 0,
+        household_children: Vec::new(),
     })
 }
 
@@ -358,6 +361,7 @@ mod tests {
             founding_check_day: 0,
             spouse_id: None,
             widowed_day: 0,
+            household_children: Vec::new(),
         };
         save_game(&data, "test_save.ron").expect("save should succeed");
         let loaded = load_game("test_save.ron").expect("load should succeed");
@@ -454,6 +458,7 @@ mod tests {
             founding_check_day: 0,
             spouse_id: None,
             widowed_day: 0,
+            household_children: Vec::new(),
         };
         let compact_data = CompactSave {
             seed: 42,
