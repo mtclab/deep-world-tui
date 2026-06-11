@@ -21,6 +21,12 @@ pub enum BuildKind {
     /// Planks over a stream. Water becomes crossable while the bridge stands;
     /// an untended footbridge is a private Velkarmoss.
     Footbridge,
+    /// A dug and stone-lined well: water where the land gives none.
+    Well,
+    /// A stacked cairn that marks the way — the ground around it stays known.
+    Waymarker,
+    /// A timber palisade: a quieter night inside its line.
+    Palisade,
 }
 
 impl BuildKind {
@@ -37,6 +43,9 @@ impl BuildKind {
             BuildKind::Shrine,
             BuildKind::Trail,
             BuildKind::Footbridge,
+            BuildKind::Well,
+            BuildKind::Waymarker,
+            BuildKind::Palisade,
         ]
     }
 
@@ -69,6 +78,18 @@ impl BuildKind {
             BuildKind::Trail => terrain.passable() && !matches!(terrain, T::Road | T::Settlement),
             // The only thing that stands on water.
             BuildKind::Footbridge => matches!(terrain, T::Water),
+            // A well belongs to the dry lands.
+            BuildKind::Well => matches!(
+                terrain,
+                T::Grass | T::Farmland | T::Sand | T::Tundra | T::DeepDesert
+            ),
+            BuildKind::Waymarker => {
+                terrain.passable() && !matches!(terrain, T::Road | T::Settlement)
+            }
+            BuildKind::Palisade => matches!(
+                terrain,
+                T::Grass | T::Farmland | T::Forest | T::Coast | T::Tundra
+            ),
         }
     }
 
@@ -76,7 +97,12 @@ impl BuildKind {
     pub fn needs_tool(self) -> bool {
         matches!(
             self,
-            BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home | BuildKind::Footbridge
+            BuildKind::Cabin
+                | BuildKind::Longhouse
+                | BuildKind::Home
+                | BuildKind::Footbridge
+                | BuildKind::Well
+                | BuildKind::Palisade
         )
     }
 
@@ -99,6 +125,9 @@ impl BuildKind {
             "shrine" => Some(BuildKind::Shrine),
             "trail" => Some(BuildKind::Trail),
             "footbridge" | "bridge" => Some(BuildKind::Footbridge),
+            "well" => Some(BuildKind::Well),
+            "waymarker" | "cairn" => Some(BuildKind::Waymarker),
+            "palisade" => Some(BuildKind::Palisade),
             _ => None,
         }
     }
@@ -116,6 +145,9 @@ impl BuildKind {
             BuildKind::Shrine => "shrine",
             BuildKind::Trail => "trail",
             BuildKind::Footbridge => "footbridge",
+            BuildKind::Well => "well",
+            BuildKind::Waymarker => "waymarker",
+            BuildKind::Palisade => "palisade",
         }
     }
 
@@ -132,6 +164,9 @@ impl BuildKind {
             BuildKind::Shrine => '†',
             BuildKind::Trail => ':',
             BuildKind::Footbridge => '=',
+            BuildKind::Well => 'o',
+            BuildKind::Waymarker => '^',
+            BuildKind::Palisade => '#',
         }
     }
 
@@ -148,6 +183,9 @@ impl BuildKind {
             BuildKind::Shrine => 12,
             BuildKind::Trail => 8,
             BuildKind::Footbridge => 24,
+            BuildKind::Well => 16,
+            BuildKind::Waymarker => 2,
+            BuildKind::Palisade => 48,
         }
     }
 
@@ -164,6 +202,9 @@ impl BuildKind {
             BuildKind::Shrine => "shrine",
             BuildKind::Trail => "trail",
             BuildKind::Footbridge => "footbridge",
+            BuildKind::Well => "well",
+            BuildKind::Waymarker => "waymarker",
+            BuildKind::Palisade => "palisade",
         }
     }
 
@@ -204,6 +245,9 @@ impl BuildKind {
                 (ItemType::Nails, 12),
                 (ItemType::Cordage, 4),
             ],
+            BuildKind::Well => vec![(ItemType::Stone, 10), (ItemType::Wood, 6)],
+            BuildKind::Waymarker => vec![(ItemType::Stone, 3)],
+            BuildKind::Palisade => vec![(ItemType::Wood, 60), (ItemType::Nails, 20)],
         }
     }
 
@@ -223,6 +267,9 @@ impl BuildKind {
             // A path grows over in a couple of years; planks rot in five.
             BuildKind::Trail => Some(2.0),
             BuildKind::Footbridge => Some(5.0),
+            BuildKind::Well => Some(8.0),
+            BuildKind::Waymarker => Some(4.0),
+            BuildKind::Palisade => Some(10.0),
         }
     }
 }

@@ -3062,6 +3062,25 @@ impl App {
             .and_then(GodName::from_label)
     }
 
+    /// An own structure of the given kind within `range` tiles of the player.
+    fn own_structure_near(&self, kind: crate::sim::structures::BuildKind, range: u32) -> bool {
+        let Some(pos) = self.player_pos else {
+            return false;
+        };
+        self.sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(pos.region_idx))
+            .map(|r| {
+                r.structures.iter().any(|st| {
+                    !st.is_npc_built
+                        && st.kind == kind
+                        && st.x.abs_diff(pos.px as u32) <= range
+                        && st.y.abs_diff(pos.py as u32) <= range
+                })
+            })
+            .unwrap_or(false)
+    }
+
     /// A laid path structure (trail or footbridge) standing on this tile.
     fn path_structure_at(
         &self,
@@ -4675,10 +4694,14 @@ impl App {
             crate::sim::structures::BuildKind::Cabin
             | crate::sim::structures::BuildKind::Longhouse
             | crate::sim::structures::BuildKind::Home => RestQuality::Inn,
-            // A shrine, a trail, a bridge: none of them is shelter.
+            // A shrine, a trail, a bridge, a well, a cairn, a fence line:
+            // none of them is shelter.
             crate::sim::structures::BuildKind::Shrine
             | crate::sim::structures::BuildKind::Trail
-            | crate::sim::structures::BuildKind::Footbridge => RestQuality::Campfire,
+            | crate::sim::structures::BuildKind::Footbridge
+            | crate::sim::structures::BuildKind::Well
+            | crate::sim::structures::BuildKind::Waymarker
+            | crate::sim::structures::BuildKind::Palisade => RestQuality::Campfire,
         });
         let sheltered = structure_tier.is_some() || on_settlement;
         let base_quality = if was_deep_night && !sheltered {
@@ -4692,7 +4715,11 @@ impl App {
         };
         let stamina_gain = quality.stamina_per_hour() * h;
         let morale_gain = quality.morale_per_hour() * h;
-        let encounter_risk = quality.encounter_risk_per_hour() * h;
+        let mut encounter_risk = quality.encounter_risk_per_hour() * h;
+        // A palisade line within two tiles quiets the night.
+        if self.own_structure_near(crate::sim::structures::BuildKind::Palisade, 2) {
+            encounter_risk *= 0.5;
+        }
 
         let quality_label = crate::sim::journal::rest_quality_label(
             on_settlement,
@@ -4803,7 +4830,10 @@ impl App {
                 crate::sim::structures::BuildKind::Home => 0.80,
                 crate::sim::structures::BuildKind::Shrine
                 | crate::sim::structures::BuildKind::Trail
-                | crate::sim::structures::BuildKind::Footbridge => 0.0,
+                | crate::sim::structures::BuildKind::Footbridge
+                | crate::sim::structures::BuildKind::Well
+                | crate::sim::structures::BuildKind::Waymarker
+                | crate::sim::structures::BuildKind::Palisade => 0.0,
             },
             None => 0.0,
         };
@@ -4815,6 +4845,11 @@ impl App {
         self.vitals.energy = (self.vitals.energy + stamina_gain / 8.0).min(1.0);
         self.god_affinity
             .adjust(GodName::Kukri, 0.02 + morale_gain * 0.1);
+        // A well within a tile slakes the rest for free — water where the
+        // land gives none.
+        if self.own_structure_near(crate::sim::structures::BuildKind::Well, 1) {
+            self.vitals.thirst = (self.vitals.thirst + 0.5 * dur_frac).min(1.0);
+        }
         // A shared roof rests better: at one's own Cabin+ with a living
         // marriage, the night gives a little more back.
         if self.spouse_id.is_some() && self.own_hearth_here() {
@@ -5037,6 +5072,27 @@ impl App {
                 self.advance_clock(hours);
                 self.log_travel(terrain);
                 self.reveal_around(region_idx, px, py);
+                // A waymarker within two tiles keeps the ground around it
+                // known — the cairn shows the path onward.
+                let marks: Vec<(usize, usize)> = self
+                    .sim
+                    .as_ref()
+                    .and_then(|s| s.world.regions.get(region_idx))
+                    .map(|r| {
+                        r.structures
+                            .iter()
+                            .filter(|st| {
+                                st.kind == crate::sim::structures::BuildKind::Waymarker
+                                    && st.x.abs_diff(px as u32) <= 2
+                                    && st.y.abs_diff(py as u32) <= 2
+                            })
+                            .map(|st| (st.x as usize, st.y as usize))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                for (mx, my) in marks {
+                    self.reveal_around(region_idx, mx, my);
+                }
                 self.check_encounter(terrain);
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
