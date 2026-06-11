@@ -37,6 +37,7 @@ fn make_save(version: u32) -> SaveData {
         birth_day: 0,
         lifespan_years: 0,
         encounter_log: Default::default(),
+        player_farms: Vec::new(),
     }
 }
 
@@ -105,6 +106,7 @@ fn roundtrip_preserves_all_fields() {
         birth_day: 0,
         lifespan_years: 0,
         encounter_log: Default::default(),
+        player_farms: Vec::new(),
     };
 
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");

@@ -123,6 +123,7 @@ fn full_pipeline_seed_generate_enter_talk() {
         birth_day: 0,
         lifespan_years: 0,
         encounter_log: Default::default(),
+        player_farms: Vec::new(),
     };
 
     save::save_game(&data, "integration_save.ron").expect("save should succeed");

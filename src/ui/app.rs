@@ -103,6 +103,8 @@ pub struct App {
     pub previous_screen: Option<Screen>,
     pub encounters_had: u32,
     pub encounter_log: EncounterLog,
+    /// The player's worked fields (plant/harvest at the homestead).
+    pub player_farms: Vec<crate::model::economy::PlayerFarm>,
     pub collapses_had: u32,
     pub collapse_log: Vec<CollapseEvent>,
     pub lineage: Vec<LineageRecord>,
@@ -183,6 +185,7 @@ impl App {
             previous_screen: None,
             encounters_had: 0,
             encounter_log: EncounterLog::new(),
+            player_farms: Vec::new(),
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
@@ -466,6 +469,7 @@ impl App {
             birth_day: self.birth_day,
             lifespan_years: self.lifespan_years,
             encounter_log: self.encounter_log.clone(),
+            player_farms: self.player_farms.clone(),
         })
     }
 
@@ -700,6 +704,8 @@ impl App {
                     .and_then(crate::sim::structures::BuildKind::from_name);
                 self.start_build_kind(wanted);
             }
+            C::Plant => self.plant(),
+            C::Harvest => self.harvest(),
             C::Talk { person_idx } => {
                 if let Some(pos) = self.player_pos {
                     self.enter_talk(pos.region_idx, 0, *person_idx);
@@ -739,6 +745,7 @@ impl App {
         self.explored = data.explored;
         self.milestones = data.milestones;
         self.encounter_log = data.encounter_log;
+        self.player_farms = data.player_farms;
         self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
         self.elder = self
             .milestones
@@ -1665,6 +1672,7 @@ impl App {
         self.check_collapse();
         self.check_aging();
         self.check_player_illness();
+        self.tick_player_farms();
     }
 
     /// Recover from any run-out illnesses, then roll for contracting a new one
@@ -2238,6 +2246,217 @@ impl App {
         self.advance_clock(2);
         self.status_msg = Some(format!("Maintained {label} (1 Wood, 2h)"));
         true
+    }
+
+    /// Plot allowance from the homestead tier: a cabin works one field, a
+    /// longhouse two, a home three. No homestead, no farm.
+    fn plot_allowance_near(&self, region_idx: usize, px: u32, py: u32) -> usize {
+        use crate::sim::structures::BuildKind;
+        let Some(region) = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(region_idx))
+        else {
+            return 0;
+        };
+        region
+            .structures
+            .iter()
+            .filter(|st| !st.is_npc_built && st.x.abs_diff(px) <= 2 && st.y.abs_diff(py) <= 2)
+            .map(|st| match st.kind {
+                BuildKind::Cabin => 1,
+                BuildKind::Longhouse => 2,
+                BuildKind::Home => 3,
+                _ => 0,
+            })
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// Plant a field on this tile. Costs a measure of Food as seed — nothing
+    /// from nothing — and farming against the forest edge costs standing with
+    /// the forest's people and its god (the Kaelva tension, in miniature).
+    pub fn plant(&mut self) {
+        use crate::model::economy::{CropType, PlayerFarm};
+        let Some(pos) = self.player_pos else {
+            self.status_msg = Some("No position".into());
+            return;
+        };
+        let (region_idx, px, py) = (pos.region_idx, pos.px as u32, pos.py as u32);
+        let terrain = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(region_idx))
+            .and_then(|r| r.terrain.get(pos.px, pos.py))
+            .unwrap_or(Terrain::Grass);
+        if !matches!(terrain, Terrain::Farmland | Terrain::Grass) {
+            self.status_msg = Some("This ground will not take a crop.".into());
+            return;
+        }
+        if self.clock.season() == crate::model::Season::Frost {
+            self.status_msg = Some("Nothing planted in the frost survives the week.".into());
+            return;
+        }
+        if self
+            .player_farms
+            .iter()
+            .any(|f| f.region_idx == region_idx && f.x == px && f.y == py)
+        {
+            self.status_msg = Some("A field already works this ground.".into());
+            return;
+        }
+        let allowance = self.plot_allowance_near(region_idx, px, py);
+        let worked = self
+            .player_farms
+            .iter()
+            .filter(|f| f.region_idx == region_idx)
+            .count();
+        if allowance == 0 {
+            self.status_msg =
+                Some("A field needs a homestead — raise a cabin within two tiles first.".into());
+            return;
+        }
+        if worked >= allowance {
+            self.status_msg = Some(format!(
+                "The homestead can work {} field{} — no hands for more.",
+                allowance,
+                if allowance == 1 { "" } else { "s" }
+            ));
+            return;
+        }
+        // Seed: nothing from nothing.
+        let paid = self
+            .player_start
+            .as_mut()
+            .map(|ps| ps.inventory.remove(ItemType::Food, 1))
+            .unwrap_or(false);
+        if !paid {
+            self.status_msg = Some("No seed to plant (needs 1 Food).".into());
+            return;
+        }
+        // Forest-edge tension: clearing ground against the wood is not free.
+        let forest_adjacent = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(region_idx))
+            .map(|r| {
+                let (ix, iy) = (pos.px as i32, pos.py as i32);
+                (-1..=1).any(|dy: i32| {
+                    (-1..=1).any(|dx: i32| {
+                        let (nx, ny) = (ix + dx, iy + dy);
+                        nx >= 0
+                            && ny >= 0
+                            && r.terrain.get(nx as usize, ny as usize) == Some(Terrain::Forest)
+                    })
+                })
+            })
+            .unwrap_or(false);
+        if forest_adjacent {
+            self.god_affinity.adjust(GodName::Keuru, -0.05);
+            self.inter_people_bias
+                .mod_toward(crate::model::PeopleKind::Metsik, -0.03);
+            if let Some(ref mut sim) = self.sim {
+                let t = sim.world.tick;
+                sim.log(
+                    t,
+                    crate::sim::journal::Voice::Scar,
+                    "I put the plough to ground at the forest's edge. The wood watched me do it."
+                        .into(),
+                );
+            }
+        }
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let crop = CropType::all()
+            .into_iter()
+            .max_by(|a, b| {
+                a.regional_suitability(terrain)
+                    .partial_cmp(&b.regional_suitability(terrain))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap_or(CropType::Grain);
+        let farm_seed = self.seed.wrapping_add(tick) ^ ((px as u64) << 16) ^ (py as u64);
+        self.player_farms.push(PlayerFarm {
+            farm: crate::model::economy::Farm::new(farm_seed, crop, tick, terrain),
+            region_idx,
+            x: px,
+            y: py,
+        });
+        self.advance_clock(2);
+        self.status_msg = Some(format!(
+            "Planted {} (1 Food as seed, 2h){}",
+            crop.name(),
+            if forest_adjacent {
+                " — the forest marks the clearing"
+            } else {
+                ""
+            }
+        ));
+    }
+
+    /// Harvest a ready field on this tile.
+    pub fn harvest(&mut self) {
+        let Some(pos) = self.player_pos else {
+            self.status_msg = Some("No position".into());
+            return;
+        };
+        let (region_idx, px, py) = (pos.region_idx, pos.px as u32, pos.py as u32);
+        let Some(idx) = self
+            .player_farms
+            .iter()
+            .position(|f| f.region_idx == region_idx && f.x == px && f.y == py)
+        else {
+            self.status_msg = Some("No field of yours here.".into());
+            return;
+        };
+        if !self.player_farms[idx].farm.is_ready() {
+            self.status_msg = Some(format!(
+                "The {} stands {} — not ready.",
+                self.player_farms[idx].farm.crop.name(),
+                self.player_farms[idx].farm.stage.name()
+            ));
+            return;
+        }
+        // A harvest is sacks, not meals: the base yield is a settlement-scale
+        // unit; for one pair of hands it converts at 5 meals the sack. The
+        // math has to clear subsistence (~4 meals/day) or no farmer in the
+        // world could feed themself — the first test draft proved they
+        // couldn't.
+        let yield_n = self.player_farms[idx].farm.harvest_yield() * 5;
+        let crop = self.player_farms[idx].farm.crop;
+        self.player_farms.remove(idx);
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.add(ItemType::Food, yield_n);
+        }
+        self.advance_clock(3);
+        self.status_msg = Some(format!(
+            "Harvested {} — {} Food (3h). The field wants seed again.",
+            crop.name(),
+            yield_n
+        ));
+    }
+
+    /// Player fields grow with the days; frost kills what stands.
+    fn tick_player_farms(&mut self) {
+        let frost = self.clock.season() == crate::model::Season::Frost;
+        let Some(ref sim) = self.sim else { return };
+        let tick = sim.world.tick;
+        let weathers: Vec<_> = sim.world.regions.iter().map(|r| r.weather).collect();
+        let mut killed = false;
+        self.player_farms.retain_mut(|f| {
+            if frost {
+                killed = true;
+                return false;
+            }
+            let w = weathers
+                .get(f.region_idx)
+                .copied()
+                .unwrap_or(crate::model::Weather::Clear);
+            f.farm.update_growth(tick, w);
+            true
+        });
+        if killed {
+            self.status_msg = Some("The frost took the standing crops.".into());
+        }
     }
 
     pub fn start_build(&mut self) {
@@ -3010,6 +3229,7 @@ impl App {
                     birth_day: self.birth_day,
                     lifespan_years: self.lifespan_years,
                     encounter_log: self.encounter_log.clone(),
+                    player_farms: self.player_farms.clone(),
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }

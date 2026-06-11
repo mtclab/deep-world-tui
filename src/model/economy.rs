@@ -1194,6 +1194,15 @@ impl Farm {
     }
 }
 
+/// A field the player works: the Farm machinery, pinned to a tile.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PlayerFarm {
+    pub farm: Farm,
+    pub region_idx: usize,
+    pub x: u32,
+    pub y: u32,
+}
+
 // Quest struct moved to quest.rs — re-exported via pub use
 #[cfg(test)]
 mod tests {
