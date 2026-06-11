@@ -68,6 +68,7 @@ mod tests {
             birth_day: 0,
             lifespan_years: 0,
             encounter_log: Default::default(),
+            player_farms: Vec::new(),
         }
     }
 

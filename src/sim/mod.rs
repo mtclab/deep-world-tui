@@ -321,7 +321,9 @@ fn tick_settlement_life(sim: &mut SimState) {
             let farmers = settlement.profession_count("farmer");
             let farm_cap = farmers.min(4);
             let frost = season == crate::model::Season::Frost;
-            while settlement.farms.len() < farm_cap && !frost {
+            while settlement.farms.len() < farm_cap && !frost && settlement.food_stock >= 1.0 {
+                // Seed comes out of the stores — nothing from nothing.
+                settlement.food_stock -= 1.0;
                 let crop = best_crop_for(terrain);
                 let farm_seed = seed
                     .wrapping_add(tick)

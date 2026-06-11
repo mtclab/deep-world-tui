@@ -24,7 +24,9 @@ fn main() -> anyhow::Result<()> {
     println!("=== Deep World Playtest (seed={}) ===", seed);
     println!("Commands: status, move <dir>, map, gather, rest [h],");
     println!("  enter <ri> <si>, exit, inventory, craft [n], use <svc>,");
-    println!("  buy/sell/steal <item>, build [kind], work, quests, journal [n], region,");
+    println!(
+        "  buy/sell/steal <item>, build [kind], work, plant, harvest, quests, journal [n], region,"
+    );
     println!("  encounter <action>, talk [idx], collapse-dismiss,");
     println!("  save [slot], load [slot], record <file>, replay <file>, help, quit");
     println!();
@@ -270,6 +272,16 @@ fn main() -> anyhow::Result<()> {
                 };
                 recorded.push(choice.clone());
                 app.apply_choice(&choice);
+                print_msg(&app);
+            }
+            "plant" => {
+                recorded.push(PlayerChoice::Plant);
+                app.plant();
+                print_msg(&app);
+            }
+            "harvest" => {
+                recorded.push(PlayerChoice::Harvest);
+                app.harvest();
                 print_msg(&app);
             }
             "build" => {
