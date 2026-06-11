@@ -244,42 +244,42 @@ Charts(
     },
     // ---- region description templates per region type ----
     region_descriptions: {
-        "river_valley": [
+        "river_valley": ["Old waystones of the Pilgrimage Road cross the valley floor, mile on mile, pointing at nothing.", "Bridge-stumps stand in the current — the Fall took the span, the river kept the piers.", 
             "Fertile lowlands hugging a broad river",
             "Rich alluvial plains with winding waterways",
             "A well-watered corridor between hills",
             "Muddy banks and verdant fields stretch along the river",
             "Fish-houses line the slow bend of deep water",
         ],
-        "coast": [
+        "coast": ["On clear days the Tähti shipping lanes show as sails strung along the horizon of the Inland Sea.", "A toll-post of some harbor confederation stands at the headland, painted, manned, and argued about.", 
             "A windswept coastline with rocky harbours",
             "Sheltered bays and tidal flats",
             "Salt-washed shores where fisher-folk dwell",
             "White cliffs rise above a narrow strand of sand",
             "Nets dry in the salt breeze along the boardwalk",
         ],
-        "forest": [
+        "forest": ["The forest edge here grows back strange over old burned ground, the way they say it does at Kaelva.", "A carved lantern-post leans by the path — the old forest roads were marked so, and kept off every map.", 
             "Dense old-growth forest with scattered clearings",
             "Shadowed woods where ancient roots run deep",
             "A vast woodland broken by narrow trails",
             "Canopy so thick the sky is only memory",
             "Moss and fern claim every fallen trunk",
         ],
-        "upland": [
+        "upland": ["The high passes carry mountain trade the way they have since the elevator at Oltzafell first turned.", "Toll-cairns of three forgotten polities stand within a day of each other, each claiming the same pass.", 
             "Rocky highlands with thin soil and hardy folk",
             "Wind-swept ridges above the treeline",
             "Crags and meadows alternating under grey skies",
             "Sheep paths wind between granite shoulders",
             "Thin air and long shadows define the high places",
         ],
-        "steppe": [
+        "steppe": ["Herd-tracks braid the grass to the horizon; the steppe tribes follow them as their grandmothers did.", "A waystation of the old imperial route stands roofless here, its message-register stopped mid-line.", 
             "Grass ocean stretching to a pale horizon",
             "Endless plains where herders follow the seasons",
             "Open grassland with scattered watering holes",
             "Wind hums through tall grass, world without end",
             "A solitary tree marks the only shade for a day's walk",
         ],
-        "delta": [
+        "delta": ["The leagues of the river basin settled their toll war in these marshes, and the channel-stakes still show it.", "Reed-cutters trade salt and rumor with the coast; the Fall never quite reached this far into the mud.", 
             "Labyrinthine waterways and reed-bound islets",
             "A shifting mosaic of silt and tide",
             "Marshy lowlands where river meets sea",
