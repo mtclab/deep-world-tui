@@ -632,6 +632,7 @@ fn tick_build_sites(sim: &mut SimState) {
                 last_maintenance_tick: tick,
                 name: None,
                 is_npc_built: false,
+                stash: Default::default(),
             });
         }
     }

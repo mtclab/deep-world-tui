@@ -125,6 +125,14 @@ pub enum PlayerChoice {
     },
     Plant,
     Harvest,
+    StashItem {
+        item: String,
+        count: u32,
+    },
+    TakeItem {
+        item: String,
+        count: u32,
+    },
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

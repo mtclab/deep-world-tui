@@ -25,7 +25,7 @@ fn main() -> anyhow::Result<()> {
     println!("Commands: status, move <dir>, map, gather, rest [h],");
     println!("  enter <ri> <si>, exit, inventory, craft [n], use <svc>,");
     println!(
-        "  buy/sell/steal <item>, build [kind], work, plant, harvest, quests, journal [n], region,"
+        "  buy/sell/steal <item>, build [kind], work, plant, harvest, stash/take <item> [n], quests, journal [n], region,"
     );
     println!("  encounter <action>, talk [idx], collapse-dismiss,");
     println!("  save [slot], load [slot], record <file>, replay <file>, help, quit");
@@ -269,6 +269,31 @@ fn main() -> anyhow::Result<()> {
                     _ => PlayerChoice::StealItem {
                         item: item.name().into(),
                     },
+                };
+                recorded.push(choice.clone());
+                app.apply_choice(&choice);
+                print_msg(&app);
+            }
+            "stash" | "take" => {
+                let Some(name) = parts.get(1) else {
+                    println!("  Usage: {} <item> [n]", parts[0]);
+                    continue;
+                };
+                let Some(item) = App::item_from_name(name) else {
+                    println!("  Unknown item: {}", name);
+                    continue;
+                };
+                let n: u32 = parts.get(2).and_then(|x| x.parse().ok()).unwrap_or(1);
+                let choice = if parts[0] == "stash" {
+                    PlayerChoice::StashItem {
+                        item: item.name().into(),
+                        count: n,
+                    }
+                } else {
+                    PlayerChoice::TakeItem {
+                        item: item.name().into(),
+                        count: n,
+                    }
                 };
                 recorded.push(choice.clone());
                 app.apply_choice(&choice);

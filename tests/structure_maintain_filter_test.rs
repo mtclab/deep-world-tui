@@ -29,6 +29,7 @@ fn maintain_skips_colocated_npc_structure() {
         last_maintenance_tick: 0,
         name: None,
         is_npc_built: false,
+        stash: Default::default(),
     };
     let theirs = Structure {
         kind: BuildKind::Kota,
@@ -38,7 +39,8 @@ fn maintain_skips_colocated_npc_structure() {
         built_tick: 0,
         last_maintenance_tick: 0,
         name: None,
-        is_npc_built: true, // not maintainable by the player
+        is_npc_built: true,
+        stash: Default::default(), // not maintainable by the player
     };
     {
         let region = &mut app.sim.as_mut().unwrap().world.regions[ri];
