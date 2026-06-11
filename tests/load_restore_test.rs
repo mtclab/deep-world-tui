@@ -23,6 +23,7 @@ fn played_app(seed: u64) -> App {
     a.encounter = Some(Encounter {
         kind: EncounterKind::Traveler,
         terrain: Terrain::Grass,
+        species: None,
     });
     a.resolve_encounter(EncounterAction::Talk);
     a

@@ -73,7 +73,15 @@ fn main() -> anyhow::Result<()> {
                     });
                 }
                 if let Some(enc) = app.encounter {
-                    println!("  *** Encounter! {:?} on {:?}", enc.kind, enc.terrain);
+                    match enc.species {
+                        Some(sp) => println!(
+                            "  *** Encounter! {:?} ({}) on {:?}",
+                            enc.kind,
+                            sp.name(),
+                            enc.terrain
+                        ),
+                        None => println!("  *** Encounter! {:?} on {:?}", enc.kind, enc.terrain),
+                    }
                 }
                 if app.collapse.is_some() {
                     println!("  *** You collapsed!");

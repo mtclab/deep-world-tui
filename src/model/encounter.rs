@@ -585,6 +585,9 @@ impl EncounterAction {
 pub struct Encounter {
     pub kind: EncounterKind,
     pub terrain: Terrain,
+    /// For Wildlife: which animal it actually is (terrain- and season-true).
+    #[serde(default)]
+    pub species: Option<crate::model::wildlife::WildSpecies>,
 }
 
 impl Encounter {
@@ -676,6 +679,7 @@ impl Encounter {
             return Some(Encounter {
                 kind: rare_kind,
                 terrain,
+                species: None,
             });
         }
 
@@ -686,6 +690,7 @@ impl Encounter {
                 return Some(Encounter {
                     kind: EncounterKind::SpringBloom,
                     terrain,
+                    species: None,
                 });
             }
             // Meltwater: thaw floods the low ground.
@@ -696,12 +701,14 @@ impl Encounter {
                 return Some(Encounter {
                     kind: EncounterKind::RiverFlood,
                     terrain,
+                    species: None,
                 });
             }
             Season::Frost if season_val < 6 && matches!(terrain, Terrain::Tundra) => {
                 return Some(Encounter {
                     kind: EncounterKind::AuroraVeil,
                     terrain,
+                    species: None,
                 });
             }
             Season::Green
@@ -711,12 +718,14 @@ impl Encounter {
                 return Some(Encounter {
                     kind: EncounterKind::HarvestMarket,
                     terrain,
+                    species: None,
                 });
             }
             Season::Frost if season_val < 4 => {
                 return Some(Encounter {
                     kind: EncounterKind::WinterSurvivor,
                     terrain,
+                    species: None,
                 });
             }
             _ => {}
@@ -827,7 +836,11 @@ impl Encounter {
         }
         let threshold = (threshold as f64 * weather_mult.clamp(0.0, 3.0)).round() as u64;
         if (val % 100) < threshold {
-            Some(Encounter { kind, terrain })
+            Some(Encounter {
+                kind,
+                terrain,
+                species: None,
+            })
         } else {
             None
         }

@@ -1849,6 +1849,20 @@ impl App {
             weather_mult,
         ) {
             self.encounter = Some(enc);
+            // Wildlife gets a face: a terrain- and season-true species.
+            if enc.kind == crate::model::EncounterKind::Wildlife {
+                let sp_seed = self
+                    .seed
+                    .wrapping_add(((self.clock.day as u64) << 8) | self.clock.hour as u64);
+                let species = crate::model::wildlife::WildSpecies::roll(
+                    terrain,
+                    self.clock.season(),
+                    sp_seed,
+                );
+                if let Some(ref mut e) = self.encounter {
+                    e.species = species;
+                }
+            }
             self.encounters_had += 1;
             self.fire_hint(hints::HINT_FIRST_ENCOUNTER);
             self.screen = Screen::Encounter;
@@ -3125,6 +3139,7 @@ impl App {
 
     pub fn resolve_encounter(&mut self, action: EncounterAction) {
         let terrain = self.encounter.map(|e| e.terrain).unwrap_or(Terrain::Grass);
+        let species = self.encounter.and_then(|e| e.species);
         let witness = WitnessLevel::roll(self.seed.wrapping_mul(7919), terrain);
         let rep_mult = witness.reputation_multiplier();
         let enc_mod = match terrain {
@@ -3346,6 +3361,17 @@ impl App {
                 let voice_text = crate::sim::journal::encounter_text(&mut rng);
                 let journal_text = format!("{} — {} — {}", voice_text, action.label(), msg);
                 sim.log_journal(sim.world.tick, journal_text);
+                if let Some(sp) = species {
+                    if sp.uncanny() {
+                        // The strange gets written down in its own words —
+                        // and stays deniable on the page too.
+                        sim.log(
+                            sim.world.tick,
+                            crate::sim::journal::Voice::Scar,
+                            format!("{} I have decided not to wonder about it.", sp.line()),
+                        );
+                    }
+                }
                 if let Some(ref note) = outside_intervention {
                     sim.log_journal(sim.world.tick, format!("  * {}", note));
                 }
