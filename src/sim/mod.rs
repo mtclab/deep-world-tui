@@ -210,6 +210,15 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_weather_fronts(sim);
     tick_settlement_life(sim);
     lifecycle::tick_lifecycle(sim);
+    // Each season-turn the world builds back a little: ghost towns reopen,
+    // founding parties take rich empty land — slowly, the way the Fall's
+    // long tail allows.
+    if current_tick.is_multiple_of(24) {
+        let day = (current_tick / 24) as u32;
+        if day > 0 && day.is_multiple_of(30) {
+            founding::tick_world_building(sim, day / 30);
+        }
+    }
 }
 
 /// Daily weather fronts: each region's sky persists (~55%), drifts in from a

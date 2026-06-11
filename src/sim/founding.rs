@@ -58,6 +58,234 @@ pub fn draw_settlers(
     drawn
 }
 
+/// Draw up to `n` souls out of one settlement — the sponsor pays. Population
+/// moves soul by soul; person records move with them while the roster can
+/// spare them (the people vec is a sample of the population, kept viable).
+/// Returns (records moved, souls moved). Stops at the 20-soul floor.
+pub fn draw_from_settlement(
+    sim: &mut SimState,
+    region_idx: usize,
+    settlement_idx: usize,
+    n: u32,
+    rng: &mut SeedRng,
+) -> (Vec<Person>, u32) {
+    let Some(s) = sim
+        .world
+        .regions
+        .get_mut(region_idx)
+        .and_then(|r| r.settlements.get_mut(settlement_idx))
+    else {
+        return (Vec::new(), 0);
+    };
+    let mut records = Vec::new();
+    let mut souls = 0u32;
+    for _ in 0..n {
+        if s.population <= 20 {
+            break;
+        }
+        s.population -= 1;
+        souls += 1;
+        if s.people.len() > 3 {
+            let pi = rng.gen_range(s.people.len() as u32) as usize;
+            records.push(s.people.remove(pi));
+        }
+    }
+    (records, souls)
+}
+
+/// The world builds back without the player (#346), checked each season-turn.
+/// Reopenings first — the chronicle is full of them — then, rarely, a founding
+/// party into the rich frontier. Disciplines from the §8 audit: the sponsor
+/// PAYS (population and stores actually move), and the pace stays slow and
+/// rare — the Fall's tail is long, and some ghost towns simply stay empty.
+pub fn tick_world_building(sim: &mut SimState, season_idx: u32) {
+    let seed = sim.world.seed;
+    let tick = sim.world.tick;
+
+    // --- Resettlement: a prosperous neighbor reopens a ghost town. ---
+    let ghost_sites: Vec<(usize, usize)> = sim
+        .world
+        .regions
+        .iter()
+        .enumerate()
+        .flat_map(|(ri, r)| {
+            r.settlements
+                .iter()
+                .enumerate()
+                .filter(|(_, s)| s.population == 0)
+                .map(move |(si, _)| (ri, si))
+        })
+        .collect();
+    for (gri, gsi) in ghost_sites {
+        let ghost_id = sim.world.regions[gri].settlements[gsi].id.clone();
+        let mut rng = SeedRng::new(seed).fork_for(&format!("reopen-{season_idx}-{ghost_id}"));
+        // Slow and rare; some wounds don't close.
+        if rng.gen_range(3) != 0 {
+            continue;
+        }
+        let Some((sri, ssi)) = best_sponsor(sim, gri, Some((gri, gsi))) else {
+            continue;
+        };
+        let want = 10 + rng.gen_range(11); // 10–20 souls
+        let (mut records, souls) = draw_from_settlement(sim, sri, ssi, want, &mut rng);
+        if souls < 10 {
+            // Not enough hands to reopen a town: send them home.
+            let s = &mut sim.world.regions[sri].settlements[ssi];
+            s.population += souls;
+            s.people.append(&mut records);
+            continue;
+        }
+        // Stores travel with the party — the sponsor's larder pays for it.
+        let moved_food = {
+            let sp = &mut sim.world.regions[sri].settlements[ssi];
+            let take = (sp.food_stock * 0.25).min(2.0 * souls as f64).max(0.0);
+            sp.food_stock -= take;
+            take
+        };
+        let sponsor_name = sim.world.regions[sri].settlements[ssi].name.clone();
+        let (ghost_region_id, dominant) = {
+            let r = &sim.world.regions[gri];
+            let dom = records
+                .first()
+                .map(|p| p.people.clone())
+                .unwrap_or_default();
+            (r.id.clone(), dom)
+        };
+        let ghost = &mut sim.world.regions[gri].settlements[gsi];
+        for p in records.iter_mut() {
+            p.settlement = ghost.id.clone();
+            p.region = ghost_region_id.clone();
+        }
+        ghost.population = souls;
+        ghost.people = records;
+        ghost.size = "hamlet".into();
+        ghost.services = crate::gen::world::settlement_services("hamlet", &dominant);
+        ghost.food_stock = moved_food;
+        ghost.famine_days = 0;
+        ghost.description = String::new();
+        let ghost_name = ghost.name.clone();
+        sim.log(
+            tick,
+            crate::sim::journal::Voice::Rumor,
+            format!(
+                "{} sends families to reopen {} — carts on the road, doors coming off \
+                 their boards.",
+                sponsor_name, ghost_name
+            ),
+        );
+    }
+
+    // --- Land-taking: a founding party into the rich frontier, rarely. ---
+    let region_count = sim.world.regions.len();
+    for ri in 0..region_count {
+        {
+            let r = &sim.world.regions[ri];
+            let living = r.settlements.iter().filter(|s| s.population > 0).count();
+            if r.game_richness <= 0.85 || living > 1 || r.settlements.len() >= 3 {
+                continue;
+            }
+        }
+        let mut rng = SeedRng::new(seed).fork_for(&format!("landtake-{season_idx}-{ri}"));
+        if rng.gen_range(8) != 0 {
+            continue;
+        }
+        // Open ground well clear of any settled tile.
+        let site = {
+            let terr = &sim.world.regions[ri].terrain;
+            let mut found = None;
+            'o: for y in 0..terr.height {
+                for x in 0..terr.width {
+                    if terr.get(x, y) != Some(Terrain::Grass) {
+                        continue;
+                    }
+                    let near = (y.saturating_sub(8)..(y + 9).min(terr.height)).any(|ty| {
+                        (x.saturating_sub(8)..(x + 9).min(terr.width))
+                            .any(|tx| terr.get(tx, ty) == Some(Terrain::Settlement))
+                    });
+                    if !near {
+                        found = Some((x, y));
+                        break 'o;
+                    }
+                }
+            }
+            found
+        };
+        let Some((x, y)) = site else { continue };
+        let Some((sri, ssi)) = best_sponsor(sim, ri, None) else {
+            continue;
+        };
+        let want = 10 + rng.gen_range(5); // 10–14 souls
+        let (mut records, souls) = draw_from_settlement(sim, sri, ssi, want, &mut rng);
+        if souls < 10 || records.is_empty() {
+            let s = &mut sim.world.regions[sri].settlements[ssi];
+            s.population += souls;
+            s.people.append(&mut records);
+            continue;
+        }
+        let sponsor_name = sim.world.regions[sri].settlements[ssi].name.clone();
+        if let Some((new_id, new_name)) = spawn_settlement(sim, ri, x, y, records, &mut rng) {
+            // The party is larger than its named record — population counts
+            // every soul the sponsor sent, not just the sampled roster.
+            if let Some(s) = sim.world.regions[ri]
+                .settlements
+                .iter_mut()
+                .find(|s| s.id == new_id)
+            {
+                s.population = souls;
+                s.food_stock = souls as f64 * 2.0;
+            }
+            let region_name = sim.world.regions[ri].name.clone();
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Rumor,
+                format!(
+                    "{} has sent a founding party into {} — they are calling the new \
+                     place {}.",
+                    sponsor_name, region_name, new_name
+                ),
+            );
+        }
+    }
+}
+
+/// The most prosperous settlement in a region or its neighbors that can spare
+/// people: population past 30 with better than a meal and a half per head.
+/// `exclude` keeps a ghost town from sponsoring itself.
+fn best_sponsor(
+    sim: &SimState,
+    region_idx: usize,
+    exclude: Option<(usize, usize)>,
+) -> Option<(usize, usize)> {
+    let mut idxs = vec![region_idx];
+    if let Some(r) = sim.world.regions.get(region_idx) {
+        let nb = &r.neighbors;
+        for cand in [nb.north, nb.east, nb.south, nb.west].into_iter().flatten() {
+            if cand < sim.world.regions.len() && !idxs.contains(&cand) {
+                idxs.push(cand);
+            }
+        }
+    }
+    let mut best: Option<(usize, usize, f64)> = None;
+    for &ri in &idxs {
+        for (si, s) in sim.world.regions[ri].settlements.iter().enumerate() {
+            if exclude == Some((ri, si)) {
+                continue;
+            }
+            if s.population <= 30 {
+                continue;
+            }
+            let per_head = s.food_stock / s.population as f64;
+            if per_head <= 1.5 {
+                continue;
+            }
+            if best.map(|(_, _, b)| per_head > b).unwrap_or(true) {
+                best = Some((ri, si, per_head));
+            }
+        }
+    }
+    best.map(|(ri, si, _)| (ri, si))
+}
+
 /// Raise a new hamlet at a tile: named by the region's naming tradition,
 /// peopled by the settlers handed in (their mix carried as-is — god-peoples
 /// stay minorities), inserted so the tile↔settlement x-order mapping holds,
