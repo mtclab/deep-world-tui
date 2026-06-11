@@ -5025,6 +5025,30 @@ impl App {
                 }
             }
         }
+        // A person is not a tile either: stepping into someone in the street
+        // greets them (#372 PR 4) — what you see is who you can meet.
+        if let Some(pos) = self.player_pos {
+            let (nx, ny) = (pos.px as i32 + dx, pos.py as i32 + dy);
+            if nx >= 0 && ny >= 0 {
+                let (ux, uy) = (nx as usize, ny as usize);
+                let hit = self
+                    .sim
+                    .as_ref()
+                    .and_then(|s| s.world.regions.get(pos.region_idx))
+                    .and_then(|r| {
+                        let si = r.settlements.iter().position(|s| s.contains_tile(ux, uy))?;
+                        let s = &r.settlements[si];
+                        crate::gen::town::npc_street_positions(s, self.clock.day, self.clock.hour)
+                            .into_iter()
+                            .find(|&(_, x, y)| x == ux && y == uy)
+                            .map(|(pi, _, _)| (si, pi))
+                    });
+                if let Some((si, pi)) = hit {
+                    self.enter_talk(pos.region_idx, si, pi);
+                    return;
+                }
+            }
+        }
         // A door is not a wall: stepping into a house enters it (#372 PR 3) —
         // the tavern serves, the temple blesses, a home answers the knock.
         if let Some(pos) = self.player_pos {
