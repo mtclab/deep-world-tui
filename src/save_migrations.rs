@@ -75,6 +75,7 @@ mod tests {
             spouse_id: None,
             widowed_day: 0,
             household_children: Vec::new(),
+            travel_debt: 0.0,
         }
     }
 

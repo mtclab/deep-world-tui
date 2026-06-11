@@ -119,6 +119,9 @@ pub struct App {
     /// Children of the house, by birth order. The eldest grown child is the
     /// heir before any friend is.
     pub household_children: Vec<crate::model::HouseholdChild>,
+    /// Fractional walking time owed to the clock: on the fine grid two open
+    /// tiles pass to the hour, and the half-hours accumulate here.
+    pub travel_debt: f64,
     pub collapses_had: u32,
     pub collapse_log: Vec<CollapseEvent>,
     pub lineage: Vec<LineageRecord>,
@@ -206,6 +209,7 @@ impl App {
             spouse_id: None,
             widowed_day: 0,
             household_children: Vec::new(),
+            travel_debt: 0.0,
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
@@ -504,6 +508,7 @@ impl App {
             spouse_id: self.spouse_id.clone(),
             widowed_day: self.widowed_day,
             household_children: self.household_children.clone(),
+            travel_debt: self.travel_debt,
         })
     }
 
@@ -778,11 +783,15 @@ impl App {
         self.sim = Some(data.sim);
         // Saves from before the 80x40 sectors get upscaled 2x (the world
         // keeps its exact shape); player-side coordinates follow below.
-        let upscaled = self
-            .sim
-            .as_mut()
-            .map(crate::gen::world::upscale_world_2x)
-            .unwrap_or(false);
+        let mut upscale_factor = 1usize;
+        if let Some(ref mut sim) = self.sim {
+            // Old saves double until they reach the current sector size
+            // (40x20 and 80x40 both arrive at 160x80, shape intact).
+            while crate::gen::world::upscale_world_2x(sim) {
+                upscale_factor *= 2;
+            }
+        }
+        let upscaled = upscale_factor > 1;
         // Saves from before settlement footprints carry point-settlements;
         // give them anchors and paint their ground.
         if let Some(ref mut sim) = self.sim {
@@ -794,8 +803,8 @@ impl App {
         self.player_pos = data.player_pos;
         if upscaled {
             if let Some(ref mut pos) = self.player_pos {
-                pos.px *= 2;
-                pos.py *= 2;
+                pos.px *= upscale_factor;
+                pos.py *= upscale_factor;
             }
         }
         self.god_affinity = data.god_affinity;
@@ -811,11 +820,11 @@ impl App {
         self.player_farms = data.player_farms;
         if upscaled {
             for f in self.player_farms.iter_mut() {
-                f.x *= 2;
-                f.y *= 2;
+                f.x *= upscale_factor as u32;
+                f.y *= upscale_factor as u32;
             }
             for e in self.explored.iter_mut() {
-                *e = e.upscale(2);
+                *e = e.upscale(upscale_factor);
             }
         }
         self.homestead_settlers = data.homestead_settlers;
@@ -824,6 +833,7 @@ impl App {
         self.spouse_id = data.spouse_id;
         self.widowed_day = data.widowed_day;
         self.household_children = data.household_children;
+        self.travel_debt = data.travel_debt;
         self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
         self.elder = self
             .milestones
@@ -4057,6 +4067,7 @@ impl App {
                     spouse_id: self.spouse_id.clone(),
                     widowed_day: self.widowed_day,
                     household_children: self.household_children.clone(),
+                    travel_debt: self.travel_debt,
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }
@@ -5162,10 +5173,18 @@ impl App {
                 } else {
                     terrain.travel_hours()
                 };
-                let hours = ((tile_hours as f64 * weather_mult * companion_travel).round() as i32
-                    + bias_mod)
-                    .max(1) as u32;
-                self.advance_clock(hours);
+                // Finer tiles walk in half-hours: two open tiles to the
+                // hour. The fraction is owed to the clock and paid when it
+                // accumulates to whole hours.
+                let cost = (tile_hours as f64 * 0.5 * weather_mult * companion_travel
+                    + bias_mod as f64 * 0.5)
+                    .max(0.25);
+                self.travel_debt += cost;
+                let whole = self.travel_debt.floor() as u32;
+                if whole > 0 {
+                    self.travel_debt -= whole as f64;
+                    self.advance_clock(whole);
+                }
                 self.log_travel(terrain);
                 self.reveal_around(region_idx, px, py);
                 self.check_encounter(terrain);
@@ -5203,10 +5222,18 @@ impl App {
                 } else {
                     terrain.travel_hours()
                 };
-                let hours = ((tile_hours as f64 * weather_mult * companion_travel).round() as i32
-                    + bias_mod)
-                    .max(1) as u32;
-                self.advance_clock(hours);
+                // Finer tiles walk in half-hours: two open tiles to the
+                // hour. The fraction is owed to the clock and paid when it
+                // accumulates to whole hours.
+                let cost = (tile_hours as f64 * 0.5 * weather_mult * companion_travel
+                    + bias_mod as f64 * 0.5)
+                    .max(0.25);
+                self.travel_debt += cost;
+                let whole = self.travel_debt.floor() as u32;
+                if whole > 0 {
+                    self.travel_debt -= whole as f64;
+                    self.advance_clock(whole);
+                }
                 self.log_travel(terrain);
                 self.reveal_around(region_idx, px, py);
                 // A waymarker within two tiles keeps the ground around it

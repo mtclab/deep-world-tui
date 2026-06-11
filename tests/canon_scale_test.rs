@@ -56,11 +56,10 @@ fn generated_worlds_settle_to_canon_plausibility() {
     let mut village_or_better = 0;
     for region in &sim.world.regions {
         for s in &region.settlements {
-            let half = (s.footprint() / 2) as usize;
             let cap = carrying_capacity(
                 &region.terrain,
-                s.map_x as usize + half,
-                s.map_y as usize + half,
+                s.map_x as usize + 1,
+                s.map_y as usize + 1,
                 &region.region_type,
             );
             assert!(
@@ -120,8 +119,7 @@ fn the_road_feeds_what_the_fields_cannot() {
                 }
             }
         }
-        let half = (r.settlements[0].footprint() / 2) as usize;
-        let tf = trade_factor(&r.terrain, ax + half, ay + half);
+        let tf = trade_factor(&r.terrain, ax + 1, ay + 1);
         assert!(tf < 1.4, "the cut town has no reach ({tf})");
     }
     for _ in 0..20 {

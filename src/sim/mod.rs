@@ -340,11 +340,9 @@ fn tick_settlement_life(sim: &mut SimState) {
             let sample = settlement.people.len().max(1) as f64;
             // What this ground can carry, by the canon's hydraulic
             // principles — and how far its trade reach extends.
-            let half = (settlement.footprint() / 2) as usize;
-            let (cx, cy) = (
-                settlement.map_x as usize + half,
-                settlement.map_y as usize + half,
-            );
+            // The founding corner: the same fixed point worldgen sampled,
+            // however wide the district has grown since.
+            let (cx, cy) = (settlement.map_x as usize + 1, settlement.map_y as usize + 1);
             let cap = crate::gen::town::carrying_capacity(&region_terrain_snapshot, cx, cy, &rtype);
             let trade = crate::gen::town::trade_factor(&region_terrain_snapshot, cx, cy);
             // The people vec is a sample of the population; scale producers

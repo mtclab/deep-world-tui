@@ -130,6 +130,7 @@ fn full_pipeline_seed_generate_enter_talk() {
         spouse_id: None,
         widowed_day: 0,
         household_children: Vec::new(),
+        travel_debt: 0.0,
     };
 
     save::save_game(&data, "integration_save.ron").expect("save should succeed");

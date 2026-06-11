@@ -208,10 +208,11 @@ fn generate_terrain(
     region_type: &str,
     settlements: &mut [Settlement],
 ) -> TerrainMap {
-    // One map, walkable towns (#372): sectors carry enough ground that a
-    // city's every house fits on the same grid as the forests around it.
-    let width = 80usize;
-    let height = 40usize;
+    // Canon scale, stage 2 (#378): sectors carry enough ground that a
+    // town of thousands shows its full sprawl beside the forests and
+    // rivers that feed it.
+    let width = 160usize;
+    let height = 80usize;
     let base = match region_type {
         "river_valley" => Terrain::Grass,
         "coast" => Terrain::Sand,
@@ -332,23 +333,25 @@ fn generate_terrain(
         // The land decides what this spot can carry (canon's hydraulic
         // principles), and the head-count follows: a delta crossroads seeds
         // a town of thousands, a dry upland shelf seeds a steading.
-        let room = 24usize
+        let room = 48usize
             .min(spacing.saturating_sub(4))
             .min(width.saturating_sub(sx + 2))
             .min(height.saturating_sub(sy + 2))
             .max(2);
-        let probe = (room / 2).max(1);
+        let frac = 35 + (rng.next_u64() % 36) as u32; // 35–70% of capacity
+                                                      // Capacity is sampled at the founding corner (anchor street cell) —
+                                                      // towns grow FROM their water outward, and the daily sim reads the
+                                                      // same fixed point, so gen-time and runtime ceilings always agree.
         let cap = crate::gen::town::carrying_capacity(
             &TerrainMap {
                 width,
                 height,
                 tiles: tiles.clone(),
             },
-            sx + probe,
-            sy + probe,
+            sx + 1,
+            sy + 1,
             region_type,
         );
-        let frac = 35 + (rng.next_u64() % 36) as u32; // 35–70% of capacity
         settlement.population = (cap.saturating_mul(frac) / 100).max(8);
         settlement.size =
             crate::model::economy::Settlement::size_for_population(settlement.population)
@@ -522,7 +525,7 @@ pub fn upscale_world_2x(sim: &mut crate::sim::SimState) -> bool {
     let mut scaled = false;
     for region in sim.world.regions.iter_mut() {
         let (w, h) = (region.terrain.width, region.terrain.height);
-        if w == 0 || w >= 80 {
+        if w == 0 || w >= 160 {
             continue;
         }
         scaled = true;
@@ -545,6 +548,8 @@ pub fn upscale_world_2x(sim: &mut crate::sim::SimState) -> bool {
         for s in region.settlements.iter_mut() {
             s.map_x *= 2;
             s.map_y *= 2;
+            // The painted edge covers twice the tiles on the finer grid.
+            s.district *= 2;
         }
         for st in region.structures.iter_mut() {
             st.x *= 2;
@@ -633,7 +638,7 @@ pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
             .settlements
             .iter()
             .map(|s| {
-                let n = (s.footprint() as usize).clamp(2, 24.min(w.saturating_sub(6)));
+                let n = (s.footprint() as usize).clamp(2, 48.min(w.saturating_sub(6)));
                 (s.map_x as usize, s.map_y as usize, n)
             })
             .collect();
@@ -1063,12 +1068,12 @@ mod tests {
         let charts = charts::load_charts().unwrap();
         let w = generate_world(42, &charts);
         for region in &w.regions {
-            assert_eq!(region.terrain.width, 80, "terrain width must be 80");
-            assert_eq!(region.terrain.height, 40, "terrain height must be 40");
+            assert_eq!(region.terrain.width, 160, "terrain width must be 160");
+            assert_eq!(region.terrain.height, 80, "terrain height must be 80");
             assert_eq!(
                 region.terrain.tiles.len(),
-                3200,
-                "terrain must have 3200 tiles"
+                12800,
+                "terrain must have 12800 tiles"
             );
         }
     }

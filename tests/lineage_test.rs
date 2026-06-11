@@ -49,6 +49,7 @@ fn make_save_data(seed: u64, charts: &charts::Charts) -> SaveData {
         spouse_id: None,
         widowed_day: 0,
         household_children: Vec::new(),
+        travel_debt: 0.0,
     }
 }
 
