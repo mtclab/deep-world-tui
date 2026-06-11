@@ -96,7 +96,7 @@ fn every_choice_variant_is_applicable() {
     for c in [
         PlayerChoice::Gather,
         PlayerChoice::Rest,
-        PlayerChoice::Build,
+        PlayerChoice::Build { kind: None },
         PlayerChoice::DismissCollapse,
         PlayerChoice::ExitSettlement,
         PlayerChoice::CraftRecipe { recipe_idx: 0 },

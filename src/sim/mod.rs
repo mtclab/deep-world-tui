@@ -609,7 +609,17 @@ fn tick_build_sites(sim: &mut SimState) {
     let tick = sim.world.tick;
     let mut completed = Vec::new();
     for site in &mut sim.build_sites {
-        site.hours_done += 1;
+        // Big builds rise only under working hands (see App::work_site);
+        // camps and shelters finish on their own short clocks.
+        if site.kind.needs_labor() {
+            if site.hours_done >= site.kind.build_hours() {
+                // fall through to completion below
+            } else {
+                continue;
+            }
+        } else {
+            site.hours_done += 1;
+        }
         if site.hours_done >= site.kind.build_hours() {
             completed.push(Structure {
                 kind: site.kind,

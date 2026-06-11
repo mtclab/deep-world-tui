@@ -694,7 +694,12 @@ impl App {
                     self.steal_item(i);
                 }
             }
-            C::Build => self.start_build(),
+            C::Build { kind } => {
+                let wanted = kind
+                    .as_deref()
+                    .and_then(crate::sim::structures::BuildKind::from_name);
+                self.start_build_kind(wanted);
+            }
             C::Talk { person_idx } => {
                 if let Some(pos) = self.player_pos {
                     self.enter_talk(pos.region_idx, 0, *person_idx);
@@ -2236,6 +2241,49 @@ impl App {
     }
 
     pub fn start_build(&mut self) {
+        self.start_build_kind(None);
+    }
+
+    /// Work a labor-gated build site on this tile: a day's labor (8h)
+    /// advances it. Frost doubles the groundwork.
+    pub fn work_site(&mut self) {
+        let Some(pos) = self.player_pos else {
+            self.status_msg = Some("No position".into());
+            return;
+        };
+        let frost = self.clock.season() == crate::model::Season::Frost;
+        let Some(ref mut sim) = self.sim else { return };
+        let Some(site) = sim.build_sites.iter_mut().find(|s| {
+            s.region_idx == pos.region_idx && s.x == pos.px as u32 && s.y == pos.py as u32
+        }) else {
+            self.status_msg = Some("No build site here.".into());
+            return;
+        };
+        let gained = if frost { 4 } else { 8 };
+        site.hours_done += gained;
+        let kind = site.kind;
+        let done = site.hours_done;
+        let needed = kind.build_hours();
+        self.advance_clock(8);
+        self.vitals.energy = (self.vitals.energy - 0.15).max(0.0);
+        self.status_msg = Some(if done >= needed {
+            format!(
+                "{} nearly stands — the next hour will finish it.",
+                kind.label()
+            )
+        } else {
+            format!(
+                "Worked the {} site ({}h of {}h{})",
+                kind.label(),
+                done.min(needed),
+                needed,
+                if frost { ", slow in the frost" } else { "" }
+            )
+        });
+        self.fire_hint(hints::HINT_FIRST_STRUCTURE);
+    }
+
+    pub fn start_build_kind(&mut self, wanted: Option<crate::sim::structures::BuildKind>) {
         let pos = match self.player_pos {
             Some(p) => p,
             None => {
@@ -2262,25 +2310,74 @@ impl App {
             Some(s) => s,
             None => return,
         };
-        let candidates: Vec<crate::sim::structures::BuildKind> =
-            crate::sim::structures::BuildKind::all()
-                .iter()
-                .filter(|k| {
-                    k.cost()
-                        .iter()
-                        .all(|(item, count)| inv.get(*item) >= *count)
-                        && !k.cost().is_empty()
-                })
-                .cloned()
-                .collect();
-        if candidates.is_empty() {
-            self.status_msg = Some("Nothing to build — need materials".into());
+        let terrain = sim
+            .world
+            .regions
+            .get(region_idx)
+            .and_then(|r| r.terrain.get(pos.px, pos.py))
+            .unwrap_or(Terrain::Grass);
+        let affordable = |k: &crate::sim::structures::BuildKind| {
+            !k.cost().is_empty()
+                && k.cost()
+                    .iter()
+                    .all(|(item, count)| inv.get(*item) >= *count)
+        };
+        let kind = match wanted {
+            Some(k) => {
+                if !affordable(&k) {
+                    self.status_msg = Some(format!(
+                        "Not enough materials for a {} ({})",
+                        k.label(),
+                        k.cost()
+                            .iter()
+                            .map(|(i, c)| format!("{} {}", c, i.name()))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
+                    return;
+                }
+                k
+            }
+            None => {
+                // No stated intent: raise the best thing this land and these
+                // materials allow (the old behavior, now land-aware).
+                let mut best = None;
+                for k in crate::sim::structures::BuildKind::all() {
+                    if affordable(k) && k.stands_on(terrain) {
+                        best = Some(*k);
+                    }
+                }
+                match best {
+                    Some(k) => k,
+                    None => {
+                        self.status_msg =
+                            Some("Nothing to build here — need materials and fitting land".into());
+                        return;
+                    }
+                }
+            }
+        };
+        if !kind.stands_on(terrain) {
+            self.status_msg = Some(format!(
+                "A {} cannot stand on {}.",
+                kind.label(),
+                format!("{:?}", terrain).to_lowercase()
+            ));
             return;
         }
-        let kind = candidates[0];
+        if kind.needs_tool() && (!inv.has(ItemType::Tool) || inv.is_broken(ItemType::Tool)) {
+            self.status_msg = Some(format!(
+                "Raising a {} needs a proper Tool in hand.",
+                kind.label()
+            ));
+            return;
+        }
         if let Some(ref mut ps) = self.player_start {
             for (item, count) in kind.cost() {
                 ps.inventory.remove(item, count);
+            }
+            if kind.needs_tool() {
+                ps.inventory.use_tool(ItemType::Tool);
             }
         }
         if kind.is_short_build() {
