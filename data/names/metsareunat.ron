@@ -1,13 +1,13 @@
-// Metsäreunat name grammar — forest-edge naming tradition
-// Keurish family: partial p>v lenition, forest-margin ecology vocabulary
-// Roots: edges, borders, transitions, mixed ecology, liminal spaces
+// Metsäreunat name grammar — forest-edge Keurish naming tradition
+// Sámic-calibrated invented roots: liminal register, harder stops (k, t, p) mixed
+// into the soft forest base — border-folk who trade with the open country
 NameGrammar(
-    prefixes: ["Raja", "Reuna", "Piha", "Väli", "Sivu", "Kulma", "Portti", "Kynnys"],
+    prefixes: ["kärvi", "tualv", "pyške", "čolta", "virče", "telvy", "narku", "šolku"],
     roots: [
-        "Metsä", "Lehto", "Aho", "Keto", "Pensas", "Varjo", "Reuna",
-        "Paju", "Koivu", "Haapa", "Pihlaja", "Leppä", "Pääsky", "Varis",
-        "Käki", "Sammal", "Jänis", "Orava", "Sieni", "Marja",
+        "koltva", "tyrkve", "palčče", "vätko", "čalpe", "nurtti",
+        "kävlo", "torkva", "pelvä", "tačča", "kortve", "viltka",
+        "huotka", "čirpe", "kaltvo", "myrtkä", "solpe", "ärtko",
     ],
-    suffixes: ["nen", "lä", "kkä", "ja", "ranta", "salmi", "mäki", "niemi"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["ttä", "lke", "rto", "čä", "pe", "tvä", "ko"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

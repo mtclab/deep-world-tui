@@ -1,13 +1,12 @@
-// Jämäväki name grammar — hidden-valley naming tradition
-// Kukresh family: Permic/Udmurt profile with affricates, rounded vowels, open finals
-// Roots: hidden valley, hermit traditions, silence, depth, solitude
+// Jämäväki — Kukresh hidden-valley folk (Mari-calibrated register).
+// Very short roots (3-4): clipped, quiet, š/ñ-heavy; whispers more than names.
 NameGrammar(
-    prefixes: ["Jämä", "Pime", "Syvä", "Hilj", "Sal", "Ukko", "Halk", "Kuru"],
+    prefixes: ["ñim", "šov", "häm", "ulš", "mik", "ñaš", "hep", "šum"],
     roots: [
-        "Hos", "Käm", "Väk", "Piil", "Ukk", "Hil", "Pim",
-        "Syv", "Ku", "Varj", "Ukko", "Sisä", "Kauk", "Lohk",
-        "Kolk", "Ukk", "Malt", "Hilj", "Tyy", "Sau",
+        "ñam", "šim", "hov", "myš", "ñel", "šak", "hemš",
+        "ñur", "ošm", "šäm", "ñov", "šul", "mäkš", "ñiš",
+        "šom", "hul", "ñakt", "šev",
     ],
-    suffixes: ["äm", "äs", "kä", "kkä", "mä", "lä", "ntä"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["am", "em", "ñi", "ša", "oš", "mä", "ak"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

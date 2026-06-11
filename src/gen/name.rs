@@ -5,6 +5,7 @@ pub enum NamePattern {
     Root,
     RootSuffix,
     PrefixRoot,
+    PrefixRootSuffix,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,8 +44,21 @@ impl NameGrammar {
                 let ri = rng.gen_range(self.roots.len() as u32) as usize;
                 format!("{}{}", self.prefixes[pi], self.roots[ri])
             }
+            NamePattern::PrefixRootSuffix => {
+                let pi = rng.gen_range(self.prefixes.len() as u32) as usize;
+                let ri = rng.gen_range(self.roots.len() as u32) as usize;
+                let si = rng.gen_range(self.suffixes.len() as u32) as usize;
+                format!(
+                    "{}{}{}",
+                    self.prefixes[pi], self.roots[ri], self.suffixes[si]
+                )
+            }
         };
-        let mut chars = raw.chars();
+        // Compound segments join as one word: capitalize only the first
+        // letter ("Poro"+"Sarvi" -> "Porosarvi", not the CamelCase mash that
+        // produced names like "HiljPilkku").
+        let lowered = raw.to_lowercase();
+        let mut chars = lowered.chars();
         match chars.next() {
             Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
             None => raw,
@@ -73,6 +87,31 @@ pub fn generate_name(
 ) -> anyhow::Result<String> {
     let grammar = load_grammar(people, charts)?;
     Ok(grammar.generate(rng))
+}
+
+/// A short stem for place names: a bare root (or root+suffix one time in
+/// three), so settlement names don't bloat once the regional final is added.
+pub fn generate_place_stem(
+    rng: &mut crate::rng::SeedRng,
+    people: &str,
+    charts: &crate::charts::Charts,
+) -> anyhow::Result<String> {
+    let grammar = load_grammar(people, charts)?;
+    if grammar.roots.is_empty() {
+        return Ok("Unnamed".into());
+    }
+    let ri = rng.gen_range(grammar.roots.len() as u32) as usize;
+    let mut raw = grammar.roots[ri].clone();
+    if !grammar.suffixes.is_empty() && rng.gen_range(3) == 0 {
+        let si = rng.gen_range(grammar.suffixes.len() as u32) as usize;
+        raw.push_str(&grammar.suffixes[si]);
+    }
+    let lowered = raw.to_lowercase();
+    let mut chars = lowered.chars();
+    Ok(match chars.next() {
+        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+        None => raw,
+    })
 }
 
 #[cfg(test)]

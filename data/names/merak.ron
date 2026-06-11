@@ -1,12 +1,12 @@
-// Mëräk name grammar — sea-people naming tradition
-// Roots: water, wave, salt, voyage, trade
+// Mëräk — intertidal sea people (non-human isolate).
+// Liquid register: long doubled vowels, ä/õ, soft m/r/l; names roll like swell.
 NameGrammar(
-    prefixes: ["Mer", "Ves", "Kal", "Stran", "Hor", "Sál", "Tid", "Ost"],
+    prefixes: ["mära", "lõu", "rälõ", "mõri", "alõ", "leem", "ravä", "ulmä"],
     roots: [
-        "Mer", "Ves", "Kor", "Tide", "Stran", "Hor", "Sál", "Vag",
-        "Båt", "Fisk", "Sjö", "Hav", "Vind", "Ank", "Rod",
-        "Segl", "Nät", "Ström", "Kust",
+        "maaril", "lõrem", "miiral", "raulim", "leemra", "õmali", "ärvel",
+        "muulai", "relmä", "aaviri", "lumõra", "väälim", "oril", "ämuri",
+        "luuval", "iiral", "mõlavi", "ruulam",
     ],
-    suffixes: ["son", "ek", "en", "strö", "vik", "hamn", "ö"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["äk", "im", "ral", "lõi", "va", "ri", "ämi"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

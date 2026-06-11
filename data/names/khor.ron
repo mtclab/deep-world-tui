@@ -1,12 +1,13 @@
-// Khör name grammar — tundra/steppe-people naming tradition
-// Roots: cold, wind, endurance, oral tradition
+// Khör — endothermic steppe people (isolate, wind register)
+// Breathy h/kh onsets, front-rounded ö and y, short wind-flat roots, ž fricative.
+// Opaque coinages only — no dictionary words, no god-name substrings.
 NameGrammar(
-    prefixes: ["Khor", "Vat", "Sty", "Rök", "Tun", "Fäl", "Gor", "Nar"],
+    prefixes: ["khö", "hyr", "övk", "höm", "khy", "ölk", "hyž", "ymö"],
     roots: [
-        "Khor", "Vat", "Sty", "Rök", "Tun", "Fäl", "Gor", "Nar",
-        "Fro", "Sten", "Is", "Snö", "Vind", "Kall", "Nor",
-        "Mör", "Bär", "Ulv", "Val", "Hed", "Mol",
+        "khöt", "hyrm", "khöž", "hyrt", "övkh", "khys",
+        "hövt", "khyz", "ölkh", "hömyr", "khövr", "öht",
+        "khylt", "höžyr", "ymkh", "ymhör", "khövy", "hyžöt",
     ],
-    suffixes: ["ör", "en", "ar", "ul", "ek", "ir"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["öt", "yr", "ökh", "ym", "öž", "yt", "ör"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

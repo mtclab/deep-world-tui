@@ -1,11 +1,12 @@
-// She'ar name grammar — desert-people naming tradition
-// Roots: sand, sun, stillness, heat, endurance
+// She'ar — desert people who reject writing (non-human isolate).
+// Sparse and short: sh-/sh’- initials, glottal stops, names spoken once and kept.
 NameGrammar(
-    prefixes: ["She", "Kar", "Dun", "Raf", "Zal", "Or", "Khe", "Nir"],
+    prefixes: ["sha", "sh’u", "sho", "za’i", "ash", "s’ai", "shi", "ha’"],
     roots: [
-        "She", "Kar", "Dun", "Raf", "Zal", "Or", "Khe", "Mak",
-        "Dra", "Sul", "Teb", "Har", "Esh", "Kal", "Vor",
+        "shek", "s’ul", "sho’l", "ashk", "shid", "sh’ek", "zash",
+        "shul", "ish’a", "shok", "s’ar", "shazu", "ash’u", "shi’l",
+        "zhul", "shau", "s’ek", "shoz",
     ],
-    suffixes: ["ar", "ak", "esh", "or", "an", "uk"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["’a", "ak", "’ul", "ish", "za", "’ek", "ho"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

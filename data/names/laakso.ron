@@ -1,17 +1,12 @@
-// Laakso name grammar — valley/quiet-naming tradition
-// Roots: valley, quiet, echo, dawn, mist, solitude
+// Laakso — Kukresh valley monastics (Mari-calibrated register).
+// Hushed: š and ñ frequent, soft m, quiet dark vowels; -am/-em finals dominant.
 NameGrammar(
-    prefixes: ["Hilj", "Kuk", "Aamu", "Usva", "Kai", "Pime", "Syv", "Hilj", "Varj", "Sumu"],
+    prefixes: ["šem", "ñola", "myš", "humš", "šovä", "ñem", "omša", "hyl"],
     roots: [
-        "Kukku", "Kaiku", "Sammal", "Piha", "Notko", "Korpi", "Harju",
-        "Laakso", "Vuori", "Puro", "Metsä", "Pelto", "Niitty", "Keto",
-        "Pilkku", "Hilja", "Varjo", "Kajo", "Huokaus", "Hämärä",
-        "Sarastus", "Koitto", "Hämy", "Usva", "Aamu", "Ilta",
-        "Hiljaisuus", "Rauha", "Tyyn", "Lampi", "Vuolle",
+        "šolam", "myškem", "hovam", "ñešem", "šumam", "ošñem", "milšam",
+        "hyñem", "šovam", "emšol", "ñumam", "šelmi", "hožem", "mañvi",
+        "ulšem", "šomñam", "hevam", "ñišem",
     ],
-    suffixes: [
-        "nen", "la", "kkä", "kko", "tär", "nen", "ja", "mäki",
-        "laakso", "notko", "harju", "puro", "korpi", "niitty",
-    ],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["am", "em", "ñam", "šem", "mi", "oš", "äm"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

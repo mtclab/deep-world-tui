@@ -1,13 +1,13 @@
-// Porokansa name grammar — reindeer-people naming tradition
-// Keurish family: full p>v lenition, ejective consonant substrate, cold-country vocabulary
-// Roots: reindeer, migration, tundra, cold, herding, northern lights
+// Porokansa name grammar — reindeer-herders of the cold, Keurish naming tradition
+// Sámic-calibrated invented roots: back-rounded vowels (u, o), -kk- doublings,
+// hoofbeat rhythm of names called across frozen ground
 NameGrammar(
-    prefixes: ["Poro", "Tunt", "Pohj", "Kevät", "Talvi", "Kier", "Kärki", "Jää"],
+    prefixes: ["vuoko", "tuoku", "norku", "čukko", "šulko", "mokku", "kolvu", "urtto"],
     roots: [
-        "Sarvi", "Nousu", "Lumi", "Poro", "Routa", "Kuura", "Halla",
-        "Tunturi", "Eri", "Kyna", "Kko", "Nalkki", "Vasa", "Hieho",
-        "Peura", "Ilves", "Kettu", "Ahma", "Lyy", "Pulmu",
+        "čorkku", "vuolkka", "šuokku", "nulkko", "vorkku", "muolkku",
+        "hokkva", "čunno", "šolkku", "ruolkko", "tuokku", "volkko",
+        "norvvu", "kulčča", "oukko", "šurkku", "čolvvu", "vuonku",
     ],
-    suffixes: ["nen", "kkä", "ja", "kki", "tto", "nna", "pää"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["kko", "kku", "nnu", "rvo", "ttu", "lmo", "ko"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

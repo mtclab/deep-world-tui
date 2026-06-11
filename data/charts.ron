@@ -233,12 +233,14 @@ Charts(
     ),
     // ---- settlement name suffixes per region type ----
     settlement_suffixes: {
-        "river_valley": ["ford", "bridge", "haven", "water", "brook", "mill", "landing", "ferry"],
-        "coast":        ["port", "bay", "haven", "shore", "anchor", "tide", "cove", "dock"],
-        "forest":       ["wood", "glade", "thicket", "grove", "hollow", "shade", "brush", "copse"],
-        "upland":       ["crag", "ridge", "peak", "mount", "stone", "watch", "height", "ledge"],
-        "steppe":       ["field", "plain", "horizon", "grass", "wind", "trail", "wander", "stead"],
-        "delta":        ["marsh", "reed", "isle", "mire", "bog", "fen", "wash", "flow"],
+        // Place-name finals: invented, branch-calibrated (Diverse-Branch
+        // Opacity baseline) — places may carry god-names, peoples may not.
+        "river_valley": ["vuod", "jovk", "šora", "ävri", "kärd", "vonsa", "ojva", "luma"],
+        "coast":        ["luov", "vuodn", "ulva", "ažva", "kõlda", "vir’a", "säri", "njarg"],
+        "forest":       ["vuow", "čähl", "lešna", "ohta", "vyrre", "šuol", "hapse", "kärvo"],
+        "upland":       ["čokk", "urtta", "paut", "vuorč", "halst", "kamč", "ylde", "rokka"],
+        "steppe":       ["ärte", "kavda", "tolva", "šara", "vetlu", "orda", "hövd", "myld"],
+        "delta":        ["ńur", "važa", "saiva", "lomp", "ažu", "vuom", "lutva", "ńäšk"],
     },
     // ---- region description templates per region type ----
     region_descriptions: {

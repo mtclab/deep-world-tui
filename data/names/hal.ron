@@ -1,12 +1,13 @@
-// Häl name grammar — canopy/forest-people naming tradition
-// Roots: canopy, green, commune, gathering
+// Häl name grammar — non-human canopy people (Canopy-Isolate, not Keurish)
+// Airy invented register: vowel-rich, h and l carry the word, almost no hard stops
+// Names should feel like wind moving through leaves; rare glottal stop (’)
 NameGrammar(
-    prefixes: ["Häl", "Sal", "Vip", "Rin", "Kor", "Pol", "Täl", "Fär"],
+    prefixes: ["halia", "oahe", "liel", "huele", "ialo", "oula", "leiha", "hiole"],
     roots: [
-        "Häl", "Sal", "Vip", "Rin", "Kor", "Pol", "Täl", "Löv",
-        "Gren", "Bär", "Ris", "Kvist", "Skog", "Dun", "Moss",
-        "Stam", "Kron", "Korg", "Bål", "Ek", "Asp",
+        "aulo", "hieli", "oalu", "elha", "uale", "hialu",
+        "oihe", "laelo", "ulia", "heano", "illau", "ohea",
+        "auhe", "liolu", "halei", "uolia", "ulaho", "ea’lu",
     ],
-    suffixes: ["el", "ik", "il", "al", "en", "ös"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["ia", "lu", "he", "ali", "eo", "uhe", "ila"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

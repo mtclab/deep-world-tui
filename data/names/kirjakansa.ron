@@ -1,13 +1,13 @@
-// Kirjakansa name grammar — book-people naming tradition
-// Sampsaran family: Mordvinic profile with front æ, river-valley dialect
-// Roots: books, river-valley, written tradition, scribes, manuscript
+// Kirjakansa — book-people (Sampsaran family, Mordvinic-calibrated)
+// Liquid register: l/r blends (-lr-, -rl-, -lv-, -rv-) on front vowels.
+// Opaque coinages only — no dictionary words, no god-name substrings.
 NameGrammar(
-    prefixes: ["Kirj", "Sivu", "Nide", "Tait", "Ote", "Luku", "Sana", "Viisa"],
+    prefixes: ["lär", "riel", "mer", "räl", "vil", "ler", "ärl", "lir"],
     roots: [
-        "Tär", "Sär", "Kirj", "Luku", "Sana", "Vihk", "Pöy",
-        "Ääni", "Kiel", "Merkk", "Pain", "Sid", "Sido", "Leht",
-        "Vihk", "Lanka", "Muste", "Kynä", "Kaavi", "Papyy",
+        "velrit", "lärven", "rielmä", "lervät", "merlit", "ralvet",
+        "lirvet", "ärlet", "vilret", "lemrät", "rälvit", "lervis",
+        "märlet", "verlit", "lärnet", "rilvät", "lirmen", "rävlit",
     ],
-    suffixes: ["ent", "ät", "än", "oi", "ik", "as", "in"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["ät", "el", "rit", "lä", "vet", "ri", "en"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

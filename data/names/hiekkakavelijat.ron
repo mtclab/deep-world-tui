@@ -1,13 +1,12 @@
-// Hiekkakävelijät name grammar — sand-walkers naming tradition
-// Masaran family: Permic/Udmurt profile with front vowels, diphthongs
-// Roots: beach-ridge, lagoon, sand-walking, tidal, shore ecology
+// Hiekkakävelijät — Masaran sand-walkers (Permic-calibrated register).
+// Drier consonant frame: k/t clusters over the family's voiced core; -i finals kept.
 NameGrammar(
-    prefixes: ["Hiekka", "Dyy", "Ranta", "Lagu", "Vuok", "Aalto", "Meri", "Kevät"],
+    prefixes: ["kyt", "tavi", "kidu", "taz", "kolt", "tyk", "vatk", "kedi"],
     roots: [
-        "Tyrv", "Väi", "Hiekk", "Kävel", "Rant", "Lagu", "Dyy",
-        "Kam", "Siiv", "Äks", "Hiet", "Löyh", "Väär", "Karh",
-        "Mut", "Sav", "Lieju", "Pöly", "Tomu", "Kuor",
+        "kytvi", "tavdi", "kotzi", "tylki", "vakti", "kidza", "tukri",
+        "tedki", "katvi", "dukta", "tivka", "koldi", "tazki", "vytka",
+        "tekzi", "kavti", "tydki", "atkvi",
     ],
-    suffixes: ["äi", "väi", "kkä", "kki", "lä", "jä", "ntä"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["ti", "ki", "di", "tai", "kyi", "tvi", "ka"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

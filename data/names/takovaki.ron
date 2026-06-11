@@ -1,13 +1,13 @@
-// Takoväki name grammar — surface-copper forge naming tradition
-// Oltkar family: Ugric/Khanty profile with w-onset, y-vowels, final dental
-// Roots: forge, copper, surface craft, trailing sound, smithing
+// Takoväki — surface-forge folk (Oltkar family, Ugric-calibrated)
+// Mixed register: sepät clusters with ahjo openness; y alongside a/o, ś palatal.
+// Opaque coinages only — no dictionary words, no god-name substrings.
 NameGrammar(
-    prefixes: ["Won", "Tako", "Rauta", "Kupari", "Pelt", "Vask", "Sul", "Ahjo"],
+    prefixes: ["wyš", "tor", "šaŋ", "kaw", "nyŋ", "wor", "šek", "tyŋ"],
     roots: [
-        "Won", "Śyt", "Tak", "Pää", "Vask", "Sul", "Ahjo",
-        "Kupar", "Raut", "Hiili", "Pāls", "Ahjo", "Tako",
-        "Nuot", "Haar", "Häm", "Isku", "Kärä", "Sula", "Val",
+        "wyšat", "torkyt", "šaŋyr", "weškot", "kyrat", "wośket",
+        "nyŋkat", "šyrot", "kawyt", "tyŋkaš", "woryš", "šekyt",
+        "wartoš", "kyŋet", "myŋket", "šawyt", "toŋkar", "wešyt",
     ],
-    suffixes: ["yt", "ot", "är", "yk", "ān", "yt", "ek"],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["yt", "aš", "ek", "ot", "yš", "ka", "at"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )

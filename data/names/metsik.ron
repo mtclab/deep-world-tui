@@ -1,18 +1,13 @@
-// Metsik name grammar — forest-naming tradition
-// Roots: ecological (growth, green, deep, clearing, moss, bark, animals, plants)
+// Metsik name grammar — deep-forest Keurish naming tradition
+// Sámic-calibrated invented roots: affricate-heavy (č-, š-), hushed sibilants, open finals
+// Flavor: hush, resin, shade — names murmured under the canopy
 NameGrammar(
-    prefixes: ["Ala", "Yli", "Piha", "Syvä", "Raja", "Kuus", "Lehti", "Paju", "Havu", "Koivu"],
+    prefixes: ["čune", "šälvy", "čovi", "hyne", "vraje", "čerla", "šylvi", "muoč"],
     roots: [
-        "Honka", "Kuusi", "Sammal", "Lehti", "Orava", "Korpi", "Vihta", "Petäjä",
-        "Rääkkä", "Kuusikko", "Metsä", "Pähkinä", "Marja", "Sieni", "Purto",
-        "Liesi", "Jänis", "Karhu", "Näätä", "Ilves", "Peura", "Hirvi",
-        "Teeri", "Peltopyy", "Varis", "Käki", "Pöllö", "Piha",
-        "Manty", "Kataja", "Pihlaja", "Leppä", "Haapa", "Raita", "Sahal",
-        "Vesa", "Oksa", "Juuri", "Latva", "Puro", "Notko", "Mäki",
+        "čylvä", "šärre", "čuonna", "hyšše", "čirvo", "šlävvy",
+        "večča", "čolma", "nyčče", "čävri", "šuolva", "čenny",
+        "vrišša", "čolve", "häčča", "šyrme", "čukka", "luošča",
     ],
-    suffixes: [
-        "nen", "lä", "kkä", "ja", "kki", "niemi", "ranta", "salmi",
-        "mäki", "koski", "pelto", "nummi", "harju", "lahti", "saari",
-    ],
-    patterns: [Root, RootSuffix, PrefixRoot],
+    suffixes: ["vä", "ččä", "šy", "nne", "čä", "rvo", "le"],
+    patterns: [Root, RootSuffix, PrefixRoot, PrefixRootSuffix],
 )
