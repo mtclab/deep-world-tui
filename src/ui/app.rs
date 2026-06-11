@@ -5025,6 +5025,69 @@ impl App {
                 }
             }
         }
+        // The town gate lives on the map now: stepping from open ground onto
+        // a settlement's footprint passes its guards (#372 PR 5). Hostile
+        // peoples are turned back at the edge; a first step in counts the
+        // visit and rolls the town's politics, as entering always did.
+        if let Some(pos) = self.player_pos {
+            let (nx, ny) = (pos.px as i32 + dx, pos.py as i32 + dy);
+            if nx >= 0 && ny >= 0 {
+                let (ux, uy) = (nx as usize, ny as usize);
+                let entering = self
+                    .sim
+                    .as_ref()
+                    .and_then(|s| s.world.regions.get(pos.region_idx))
+                    .and_then(|r| {
+                        let ti = r.settlements.iter().position(|s| s.contains_tile(ux, uy))?;
+                        let already_inside = r
+                            .settlements
+                            .get(ti)
+                            .map(|s| s.contains_tile(pos.px, pos.py))
+                            .unwrap_or(false);
+                        if already_inside {
+                            None
+                        } else {
+                            Some(ti)
+                        }
+                    });
+                if let Some(si) = entering {
+                    let npc_people = self
+                        .sim
+                        .as_ref()
+                        .and_then(|s| s.world.regions.get(pos.region_idx))
+                        .and_then(|r| r.settlements.get(si))
+                        .and_then(|s| s.people.first())
+                        .map(|p| crate::model::PeopleKind::from_name(&p.people));
+                    if let Some(np) = npc_people {
+                        let bias = self.inter_people_bias.effective_bias(np)
+                            + self.clock.season().bias_modifier();
+                        if bias < -0.20 {
+                            self.status_msg = Some(format!(
+                                "Guards block your path. 'No {} allowed beyond this                                  point.' You turn back.",
+                                self.inter_people_bias.player_people.label()
+                            ));
+                            return;
+                        }
+                    }
+                    self.milestones.settlements_visited += 1;
+                    let event = self
+                        .sim
+                        .as_mut()
+                        .and_then(|s| s.world.regions.get_mut(pos.region_idx))
+                        .and_then(|r| r.settlements.get_mut(si))
+                        .and_then(|s| {
+                            let seed = self
+                                .seed
+                                .wrapping_add(self.clock.day as u64)
+                                .wrapping_add(si as u64);
+                            s.politics.roll_leadership_event(seed)
+                        });
+                    if let Some(ev) = event {
+                        self.status_msg = Some(ev.flavor().to_string());
+                    }
+                }
+            }
+        }
         // A person is not a tile either: stepping into someone in the street
         // greets them (#372 PR 4) — what you see is who you can meet.
         if let Some(pos) = self.player_pos {
