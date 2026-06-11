@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use ratatui::style::{Color, Modifier, Style};
 
 use crate::model::{PeopleKind, Terrain};
-use crate::rng::SeedRng;
 use crate::ui::app::App;
 use crate::ui::theme::Theme;
 
@@ -127,8 +126,8 @@ pub(crate) fn build_npc_map(
 ) -> HashMap<(usize, usize), MapNpc> {
     let mut npcs: HashMap<(usize, usize), MapNpc> = HashMap::new();
 
-    let (seed, tick, regions) = match app.sim.as_ref() {
-        Some(sim) => (sim.world.seed, sim.world.tick, &sim.world.regions),
+    let regions = match app.sim.as_ref() {
+        Some(sim) => &sim.world.regions,
         None => return npcs,
     };
     let region = match regions.get(region_idx) {
@@ -156,54 +155,24 @@ pub(crate) fn build_npc_map(
         }
     }
 
-    let settle_positions: Vec<(usize, usize)> = {
-        let mut sp = Vec::new();
-        for (i, &t) in region.terrain.tiles.iter().enumerate() {
-            if t == Terrain::Settlement {
-                sp.push((i % region.terrain.width, i / region.terrain.width));
-            }
-        }
-        sp.sort_by_key(|(x, _)| *x);
-        sp
-    };
-
-    for (si, settlement) in region.settlements.iter().enumerate() {
-        let (sx, sy) = match settle_positions.get(si) {
-            Some(&pos) => pos,
-            None => continue,
-        };
-
-        let people_count = settlement.people.len().min(8);
-        for pi in 0..people_count {
-            let domain = format!("npc-{}-{}-{}-{}", seed, region_idx, si, pi);
-            let mut rng = SeedRng::new(seed).fork_for(&domain);
-
-            let tick_offset = tick % 24;
-            let ox = (rng.gen_range(7u32) as i32).saturating_sub(3);
-            let oy = (rng.gen_range(5u32) as i32).saturating_sub(2);
-            let ox = (ox + (tick_offset as i32 % 3) - 1).clamp(-3, 3);
-            let oy = (oy + (tick_offset as i32 % 2) - 1).clamp(-2, 2);
-            let nx = (sx as i32 + ox) as usize;
-            let ny = (sy as i32 + oy) as usize;
-
+    for settlement in region.settlements.iter() {
+        for (pi, nx, ny) in
+            crate::gen::town::npc_street_positions(settlement, app.clock.day, app.clock.hour)
+        {
             if nx == vp.px && ny == vp.py {
                 continue;
             }
-
             if nx >= vp.cam_x
                 && ny >= vp.cam_y
                 && nx < vp.cam_x + vp.view_w
                 && ny < vp.cam_y + vp.view_h
             {
-                let person = &settlement.people[pi];
-                let pk = PeopleKind::from_name(&person.people);
-                let npcs_entry = npcs.entry((nx, ny)).or_insert(MapNpc {
-                    glyph: pk.glyph(),
-                    color: Color::Yellow,
-                });
-                if npcs_entry.glyph == ' ' {
-                    npcs_entry.glyph = pk.glyph();
-                    npcs_entry.color = Color::Yellow;
+                if let Some(person) = settlement.people.get(pi) {
+                    let pk = PeopleKind::from_name(&person.people);
+                    npcs.entry((nx, ny)).or_insert(MapNpc {
+                        glyph: pk.glyph(),
+                        color: Color::Yellow,
+                    });
                 }
             }
         }

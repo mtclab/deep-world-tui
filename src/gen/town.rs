@@ -73,6 +73,50 @@ pub fn service_at(settlement: &Settlement, x: usize, y: usize) -> Option<Settlem
     settlement.services.get(idx).copied()
 }
 
+/// Where the settlement's people stand in its streets, by the clock:
+/// out and about through the day (06–20), home behind their doors at night
+/// (empty vec — the streets go quiet). Deterministic per (person, day):
+/// the same woman keeps the same corner all day, and a different one
+/// tomorrow. Used by both the renderer and the bump-to-talk layer, so what
+/// you see is exactly who you can meet.
+pub fn npc_street_positions(
+    settlement: &Settlement,
+    day: u32,
+    hour: u32,
+) -> Vec<(usize, usize, usize)> {
+    if !(6..21).contains(&hour) {
+        return Vec::new();
+    }
+    let (ax, ay, n) = (
+        settlement.map_x as usize,
+        settlement.map_y as usize,
+        settlement.footprint() as usize,
+    );
+    let mut streets: Vec<(usize, usize)> = Vec::new();
+    for dy in 0..n {
+        for dx in 0..n {
+            if !(dx.is_multiple_of(2) && dy.is_multiple_of(2)) {
+                streets.push((ax + dx, ay + dy));
+            }
+        }
+    }
+    if streets.is_empty() {
+        return Vec::new();
+    }
+    let mut taken: Vec<usize> = Vec::new();
+    let mut out = Vec::new();
+    for pi in 0..settlement.people.len().min(streets.len()) {
+        let mut slot = (pi * 5 + day as usize) % streets.len();
+        while taken.contains(&slot) {
+            slot = (slot + 1) % streets.len();
+        }
+        taken.push(slot);
+        let (x, y) = streets[slot];
+        out.push((pi, x, y));
+    }
+    out
+}
+
 /// Whether this tile is one of the settlement's houses at all.
 pub fn is_house_of(settlement: &Settlement, x: usize, y: usize) -> bool {
     settlement.contains_tile(x, y)
