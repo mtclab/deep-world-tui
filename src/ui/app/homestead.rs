@@ -94,6 +94,13 @@ impl App {
     /// from nothing — and farming against the forest edge costs standing with
     /// the forest's people and its god (the Kaelva tension, in miniature).
     pub fn plant(&mut self) {
+        self.plant_crop(None);
+    }
+
+    /// Put seed to ground. With no named crop the land picks: the highest
+    /// regional suitability among food crops. Naming a crop (flax, winter-rye)
+    /// is how the off-menu choices happen.
+    pub fn plant_crop(&mut self, wanted: Option<crate::model::economy::CropType>) {
         use crate::model::economy::{CropType, PlayerFarm};
         let Some(pos) = self.player_pos else {
             self.status_msg = Some("No position".into());
@@ -110,8 +117,11 @@ impl App {
             self.status_msg = Some("This ground will not take a crop.".into());
             return;
         }
-        if self.clock.season() == crate::model::Season::Frost {
-            self.status_msg = Some("Nothing planted in the frost survives the week.".into());
+        if self.clock.season() == crate::model::Season::Frost
+            && !wanted.is_some_and(|c| c.survives_frost())
+        {
+            self.status_msg =
+                Some("Nothing planted in the frost survives the week — except winter-rye.".into());
             return;
         }
         if self
@@ -183,14 +193,17 @@ impl App {
             }
         }
         let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
-        let crop = CropType::all()
-            .into_iter()
-            .max_by(|a, b| {
-                a.regional_suitability(terrain)
-                    .partial_cmp(&b.regional_suitability(terrain))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .unwrap_or(CropType::Grain);
+        let crop = wanted.unwrap_or_else(|| {
+            CropType::all()
+                .into_iter()
+                .filter(|c| c.is_food())
+                .max_by(|a, b| {
+                    a.regional_suitability(terrain)
+                        .partial_cmp(&b.regional_suitability(terrain))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .unwrap_or(CropType::Grain)
+        });
         let farm_seed = self.seed.wrapping_add(tick) ^ ((px as u64) << 16) ^ (py as u64);
         self.player_farms.push(PlayerFarm {
             farm: crate::model::economy::Farm::new(farm_seed, crop, tick, terrain),
@@ -241,14 +254,16 @@ impl App {
         let yield_n = self.player_farms[idx].farm.harvest_yield() * 5;
         let crop = self.player_farms[idx].farm.crop;
         self.player_farms.remove(idx);
+        let item = crop.harvest_item();
         if let Some(ref mut ps) = self.player_start {
-            ps.inventory.add(ItemType::Food, yield_n);
+            ps.inventory.add(item, yield_n);
         }
         self.advance_clock(3);
         self.status_msg = Some(format!(
-            "Harvested {} — {} Food (3h). The field wants seed again.",
+            "Harvested {} — {} {} (3h). The field wants seed again.",
             crop.name(),
-            yield_n
+            yield_n,
+            item.name()
         ));
     }
 
@@ -260,7 +275,7 @@ impl App {
         let weathers: Vec<_> = sim.world.regions.iter().map(|r| r.weather).collect();
         let mut killed = false;
         self.player_farms.retain_mut(|f| {
-            if frost {
+            if frost && !f.farm.crop.survives_frost() {
                 killed = true;
                 return false;
             }

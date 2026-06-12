@@ -1097,17 +1097,65 @@ pub enum CropType {
     Mushroom,
     Berry,
     Flatroot,
+    /// Autumn field, spring bread: the one crop the frost does not take.
+    WinterRye,
+    /// The insurance crop of sand and dry steppe — low yield, never zero.
+    DroughtMillet,
+    /// Grown for fiber, not the pot: the harvest is cloth.
+    Flax,
+    /// The cold garden's fast crop, at home on tundra ground.
+    SnowPea,
 }
 
 impl CropType {
     pub fn name(self) -> &'static str {
         match self {
-            CropType::Grain => "grain",
+            CropType::Grain => "flood-barley",
             CropType::RootVegetable => "root vegetables",
             CropType::Herb => "herbs",
             CropType::Mushroom => "mushrooms",
             CropType::Berry => "berries",
             CropType::Flatroot => "flatroot",
+            CropType::WinterRye => "winter-rye",
+            CropType::DroughtMillet => "drought-millet",
+            CropType::Flax => "flax",
+            CropType::SnowPea => "snow-peas",
+        }
+    }
+
+    /// What the harvest puts in the sack. Flax is fiber, everything else food.
+    pub fn harvest_item(self) -> ItemType {
+        match self {
+            CropType::Flax => ItemType::Cloth,
+            _ => ItemType::Food,
+        }
+    }
+
+    /// Whether the crop feeds anyone. Settlement farms plant only these;
+    /// flax is a choice someone makes on their own ground.
+    pub fn is_food(self) -> bool {
+        !matches!(self, CropType::Flax)
+    }
+
+    /// Winter-rye holds through the Frost; everything else dies standing.
+    pub fn survives_frost(self) -> bool {
+        matches!(self, CropType::WinterRye)
+    }
+
+    /// Parse a crop from the player's word.
+    pub fn from_name(name: &str) -> Option<CropType> {
+        match name.to_ascii_lowercase().as_str() {
+            "flood-barley" | "barley" | "grain" => Some(CropType::Grain),
+            "roots" | "rootvegetable" | "root-vegetables" => Some(CropType::RootVegetable),
+            "herb" | "herbs" => Some(CropType::Herb),
+            "mushroom" | "mushrooms" => Some(CropType::Mushroom),
+            "berry" | "berries" => Some(CropType::Berry),
+            "flatroot" => Some(CropType::Flatroot),
+            "winter-rye" | "winterrye" | "rye" => Some(CropType::WinterRye),
+            "drought-millet" | "millet" => Some(CropType::DroughtMillet),
+            "flax" => Some(CropType::Flax),
+            "snow-peas" | "snowpea" | "snowpeas" | "peas" => Some(CropType::SnowPea),
+            _ => None,
         }
     }
 
@@ -1119,6 +1167,10 @@ impl CropType {
             CropType::Mushroom => 60,
             CropType::Berry => 36,
             CropType::Flatroot => 84,
+            CropType::WinterRye => 120,
+            CropType::DroughtMillet => 84,
+            CropType::Flax => 96,
+            CropType::SnowPea => 48,
         }
     }
 
@@ -1130,6 +1182,10 @@ impl CropType {
             CropType::Mushroom => 4,
             CropType::Berry => 3,
             CropType::Flatroot => 5,
+            CropType::WinterRye => 3,
+            CropType::DroughtMillet => 2,
+            CropType::Flax => 2,
+            CropType::SnowPea => 2,
         }
     }
 
@@ -1141,13 +1197,17 @@ impl CropType {
             (CropType::Mushroom, Terrain::Forest | Terrain::Swamp | Terrain::Cave) => 1.3,
             (CropType::Berry, Terrain::Forest | Terrain::Tundra) => 1.2,
             (CropType::Flatroot, Terrain::Sand | Terrain::Grass) => 1.1,
+            (CropType::WinterRye, Terrain::Farmland | Terrain::Grass) => 1.05,
+            (CropType::DroughtMillet, Terrain::Sand | Terrain::DeepDesert) => 1.25,
+            (CropType::Flax, Terrain::Farmland | Terrain::Grass) => 1.1,
+            (CropType::SnowPea, Terrain::Tundra) => 1.25,
             (_, Terrain::Farmland) => 1.0,
             _ => 0.7,
         }
     }
 
-    /// Every crop a settlement might plant.
-    pub fn all() -> [CropType; 6] {
+    /// Every crop anyone might plant.
+    pub fn all() -> [CropType; 10] {
         [
             CropType::Grain,
             CropType::RootVegetable,
@@ -1155,6 +1215,10 @@ impl CropType {
             CropType::Mushroom,
             CropType::Berry,
             CropType::Flatroot,
+            CropType::WinterRye,
+            CropType::DroughtMillet,
+            CropType::Flax,
+            CropType::SnowPea,
         ]
     }
 }
@@ -1851,7 +1915,7 @@ mod tests {
     #[test]
 
     fn crop_type_properties() {
-        assert_eq!(CropType::Grain.name(), "grain");
+        assert_eq!(CropType::Grain.name(), "flood-barley");
 
         assert_eq!(CropType::Grain.growth_ticks(), 72);
 
