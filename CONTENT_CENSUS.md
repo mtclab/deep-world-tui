@@ -2,7 +2,8 @@
 
 A full inventory of the game's content axes against the design baseline:
 **everything has a purpose, the world is living and breathing, decisions have
-consequences.** Updated 2026-06-10 after the wiring pass (PRs #307–#309).
+consequences.** Updated 2026-06-12 after the living-settlements and real-items
+passes (PRs #312–#313) closed every gap from the original wiring pass (#307–#310).
 
 Verdicts: **load-bearing** (mechanically distinct and applied in play),
 **flavor** (sampled/displayed but no mechanical effect), **dead** (defined but
@@ -14,9 +15,9 @@ load-bearing; what remains is listed under *Open gaps*.
 | Peoples (PeopleKind) | 25 | 25 | patron god, terrain gather bonus, inter-people bias, trade modifier, fetch-quest item, voice bank, wants table |
 | Gods | 5 | 5 | collapse weighting, gather boon (>0.5), encounter actions, service affinity, titles, profession bias |
 | Animals (companions) | 16 | 16 | gather (Dog/Hound), travel (Horse), carry (Ox/Donkey), scout sight (Falcon/Crow), milk (Goat/HighlandGoat), per-animal upkeep rates (incl. zero-upkeep Eel/Crane/Lizard); rest yields, mood, departure |
-| Professions | 21 | 9 | farmer/herder/smith/trader/scribe/priest schedules, healer+herbalist (illness), trader (trade); 12 remain schedule-default flavor — see gaps |
+| Professions | 21 | 21 | schedules + illness/trade hooks; fisher/sailor/herder/beast-handler feed the food economy, soldier/fence-builder/path-finder grant Safety, singer grants Presence, carpenter/labourer/forester/miner/weaver drive NPC construction (#312) |
 | Personality traits | 19 | 19 | all traits now hit personality/trade/encounter modifiers |
-| Diseases | 10 | 10 | terrain contraction, recovery window, vitals-decay rate; childbirth gated to those who can give birth; `severity` field unused — see gaps |
+| Diseases | 10 | 10 | terrain contraction, recovery window, vitals-decay rate; childbirth gated to those who can give birth; `severity` grows while untreated and scales vitals decay (#313) |
 | Encounter kinds | 12 | 12 | terrain/season/rarity-gated spawn incl. MerchantCaravan (roads); distinct action sets |
 | Encounter actions | 8 | 8 | time/energy/hunger costs, god affinity, reputation + NPC-memory deltas |
 | Collapse outcomes | 10 | 10 | distinct losses/restores/hours, god-affinity weighted, all reachable |
@@ -30,26 +31,15 @@ load-bearing; what remains is listed under *Open gaps*.
 | Build kinds (player) | 8 | 8 | cost/hours/decay/maintain + rest tier (Tarp→Campfire … Home→Inn) |
 | Terrains | 13 | 13 | passability, travel hours, gather item, people bonus, patron god, encounters, disease |
 | Region types / sizes | 6 / 4 | all | chart-driven terrain mix, settlement count/size, services, companion capacity |
-| Craft recipes | 6 | 6 wired | 3 outputs semantically off (Bandage→Food, Tool→Iron, Trap→Herb) pending Tool/Bandage/Trap item types |
-| Discoveries | 12 | flavor | observable once, journal lore only (by design, for now) |
+| Craft recipes | 6 | 6 wired | Tool/Bandage/Trap are real ItemTypes with prices and recipe outputs (#313) |
+| Discoveries | 12 | 12 | per-kind effects: god affinity, thirst/energy refresh, map reveal (#313) |
 | charts.ron | 17 sections | all | generation fully data-driven |
 
-## Open gaps (tracked, deliberate)
+## Open gaps
 
-- **Farm/CropType system (3 crops)** — fully modeled (growth stages, weather
-  bonus, yields), zero instances created in the world. Wire into settlement
-  food economy or remove. (#310)
-- **BuildingType (5, NPC construction)** — modeled with materials/ticks/energy,
-  never instantiated; NPCs don't build. (#310)
-- **12 schedule-default professions** — generate and color voice lines but have
-  no mechanical hook (fisher, weaver, soldier, singer, …). Profession-depth
-  pass. (#310)
-- **Disease.severity** — persisted field, always 1.0, never read. Apply as a
-  decay scalar or drop in a save-version bump. (#310)
-- **Discovery rewards** — currently pure lore; candidate: small god-affinity
-  or reveal effects per kind. (#310)
-- **Craft output item types** — Tool/Bandage/Trap as real items (deferred with
-  lore/content work).
+None. The #310 deferred list was closed by #312 (settlement food economy with
+real farms/CropTypes, NPC construction of BuildingTypes, profession depth) and
+#313 (Tool/Bandage/Trap items, Disease.severity, discovery effects).
 
 ## Consequence chains (the "decisions matter" audit)
 
