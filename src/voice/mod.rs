@@ -166,110 +166,56 @@ fn profession_flavor(profession: &str) -> &'static str {
     }
 }
 
-fn greeting_lines() -> &'static [&'static str] {
-    &[
-        "regards you steadily. \"Another day in the Archive's shadow.\"",
-        "nods. \"The path finds its own.\"",
-        "looks up. \"Welcome. What brings you?\"",
-        "sets aside work. \"The {people} remember their friends.\"",
-        "studies you. \"The old roads still hold, if you know where to look.\"",
-    ]
+fn greeting_lines() -> &'static [String] {
+    crate::banks::bank("GREETING_LINES")
 }
 
-fn greeting_hungry_lines() -> &'static [&'static str] {
-    &[
-        "nods weakly. \"I cannot think past my hunger.\"",
-        "presses a hand to stomach. \"The void eats thought.\"",
-        "waves dismissively. \"Not now. The belly rules.\"",
-    ]
+fn greeting_hungry_lines() -> &'static [String] {
+    crate::banks::bank("GREETING_HUNGRY_LINES")
 }
 
-fn greeting_crafty_lines() -> &'static [&'static str] {
-    &[
-        "sets down {craft_flavor}. \"Welcome. The {people} remember their friends.\"",
-        "wipes {craft_flavor}. \"Good timing — the work was getting lonely.\"",
-        "gestures from the {craft_flavor}. \"Come. Sit. There is always room.\"",
-    ]
+fn greeting_crafty_lines() -> &'static [String] {
+    crate::banks::bank("GREETING_CRAFTY_LINES")
 }
 
-fn trade_lines() -> &'static [&'static str] {
-    &[
-        "gestures toward the goods. \"Fair exchange keeps the world turning.\"",
-        "counts carefully. \"The {people} trade honestly, or not at all.\"",
-        "spreads hands. \"What have you, and what do you need?\"",
-    ]
+fn trade_lines() -> &'static [String] {
+    crate::banks::bank("TRADE_LINES")
 }
 
-fn trade_broke_lines() -> &'static [&'static str] {
-    &[
-        "shakes head slowly. \"I have nothing to trade but my word.\"",
-        "turns away. \"Coin speaks. Without it, silence answers.\"",
-        "shows empty palms. \"The {profession_flavor} knows poverty when it sees it.\"",
-    ]
+fn trade_broke_lines() -> &'static [String] {
+    crate::banks::bank("TRADE_BROKE_LINES")
 }
 
-fn need_dire_hungry_lines() -> &'static [&'static str] {
-    &[
-        "clutches stomach. \"The hunger eats my thoughts.\"",
-        "leans against the wall. \"Empty. Everything is empty.\"",
-        "stares at nothing. \"When the belly hollows, the mind follows.\"",
-    ]
+fn need_dire_hungry_lines() -> &'static [String] {
+    crate::banks::bank("NEED_DIRE_HUNGRY_LINES")
 }
 
-fn need_dire_broke_lines() -> &'static [&'static str] {
-    &[
-        "stares at empty hands. \"Debts are stones around my neck.\"",
-        "voice drops. \"The {people} see all — and they see my poverty.\"",
-        "shakes head. \"There is nothing left. Nothing.\"",
-    ]
+fn need_dire_broke_lines() -> &'static [String] {
+    crate::banks::bank("NEED_DIRE_BROKE_LINES")
 }
 
-fn need_dire_general_lines() -> &'static [&'static str] {
-    &[
-        "looks away. \"Some needs go deeper than coin or bread.\"",
-        "voice tightens. \"Do not ask. The {people} bear what they must.\"",
-        "exhales. \"The weight does not lift. It only shifts.\"",
-    ]
+fn need_dire_general_lines() -> &'static [String] {
+    crate::banks::bank("NEED_DIRE_GENERAL_LINES")
 }
 
-fn need_fine_lines() -> &'static [&'static str] {
-    &[
-        "stands easy. \"The {people} have known worse seasons. This one holds.\"",
-        "looks around. \"Enough. More than enough, for once.\"",
-        "shrugs. \"Steady days. Long may they last.\"",
-    ]
+fn need_fine_lines() -> &'static [String] {
+    crate::banks::bank("NEED_FINE_LINES")
 }
 
-fn farewell_lines() -> &'static [&'static str] {
-    &[
-        "steps back. \"Until the next turning.\"",
-        "nods firmly. \"May the Archive hold what we have built.\"",
-        "turns to go. \"The road calls us both. Walk well.\"",
-    ]
+fn farewell_lines() -> &'static [String] {
+    crate::banks::bank("FAREWELL_LINES")
 }
 
-fn farewell_crafty_lines() -> &'static [&'static str] {
-    &[
-        "returns to the {craft_flavor}. \"May the Archive hold what we have built.\"",
-        "resumes work at {craft_flavor}. \"Until next time.\"",
-        "gathers {craft_flavor}. \"Go well. The work continues.\"",
-    ]
+fn farewell_crafty_lines() -> &'static [String] {
+    crate::banks::bank("FAREWELL_CRAFTY_LINES")
 }
 
-fn gossip_lines() -> &'static [&'static str] {
-    &[
-        "speaks low. \"Word travels the river roads. Listen, and the {people} will tell you.\"",
-        "glances around. \"They say things are changing. The {people} feel it.\"",
-        "leans in. \"I heard something. Whether it is true... the {people} will see.\"",
-    ]
+fn gossip_lines() -> &'static [String] {
+    crate::banks::bank("GOSSIP_LINES")
 }
 
-fn gossip_hungry_lines() -> &'static [&'static str] {
-    &[
-        "leans close. \"They say the storehouses thin. The {people} are watching.\"",
-        "whispers. \"Hunger sharpens the ears. The {people} hear more than they let on.\"",
-        "looks grave. \"The {people} keep count. The count does not favor us.\"",
-    ]
+fn gossip_hungry_lines() -> &'static [String] {
+    crate::banks::bank("GOSSIP_HUNGRY_LINES")
 }
 
 fn bias_prefix_hostile(situation: Situation) -> &'static str {
@@ -290,7 +236,7 @@ fn bias_prefix_cold(situation: Situation) -> &'static str {
     }
 }
 
-fn pick_line(rng: &mut SeedRng, lines: &[&str]) -> usize {
+fn pick_line(rng: &mut SeedRng, lines: &[String]) -> usize {
     if lines.is_empty() {
         return 0;
     }
@@ -325,15 +271,15 @@ pub fn voice_line_situation(person: &Person, situation: Situation) -> String {
             if low_food {
                 let bank = greeting_hungry_lines();
                 let idx = pick_line(&mut rng, bank);
-                format!("{name} {}", fill_template(bank[idx], person))
+                format!("{name} {}", fill_template(&bank[idx], person))
             } else if has_craft {
                 let bank = greeting_crafty_lines();
                 let idx = pick_line(&mut rng, bank);
-                format!("{name} {}", fill_template(bank[idx], person))
+                format!("{name} {}", fill_template(&bank[idx], person))
             } else {
                 let bank = greeting_lines();
                 let idx = pick_line(&mut rng, bank);
-                format!("{name} {}", fill_template(bank[idx], person))
+                format!("{name} {}", fill_template(&bank[idx], person))
             }
         }
         Situation::Trade => {
@@ -343,7 +289,7 @@ pub fn voice_line_situation(person: &Person, situation: Situation) -> String {
                 format!(
                     "{name} the {} {}",
                     person.profession,
-                    fill_template(bank[idx], person)
+                    fill_template(&bank[idx], person)
                 )
             } else {
                 let bank = trade_lines();
@@ -351,7 +297,7 @@ pub fn voice_line_situation(person: &Person, situation: Situation) -> String {
                 format!(
                     "{name} the {} {}",
                     person.profession,
-                    fill_template(bank[idx], person)
+                    fill_template(&bank[idx], person)
                 )
             }
         }
@@ -364,7 +310,7 @@ pub fn voice_line_situation(person: &Person, situation: Situation) -> String {
                 need_dire_general_lines()
             };
             let idx = pick_line(&mut rng, bank);
-            format!("{name} {}", fill_template(bank[idx], person))
+            format!("{name} {}", fill_template(&bank[idx], person))
         }
         Situation::NeedFine => {
             let bank = need_fine_lines();
@@ -372,18 +318,18 @@ pub fn voice_line_situation(person: &Person, situation: Situation) -> String {
             format!(
                 "{name} the {} {}",
                 person.profession,
-                fill_template(bank[idx], person)
+                fill_template(&bank[idx], person)
             )
         }
         Situation::Farewell => {
             if has_craft {
                 let bank = farewell_crafty_lines();
                 let idx = pick_line(&mut rng, bank);
-                format!("{name} {}", fill_template(bank[idx], person))
+                format!("{name} {}", fill_template(&bank[idx], person))
             } else {
                 let bank = farewell_lines();
                 let idx = pick_line(&mut rng, bank);
-                format!("{name} {}", fill_template(bank[idx], person))
+                format!("{name} {}", fill_template(&bank[idx], person))
             }
         }
         Situation::Gossip => {
@@ -391,7 +337,7 @@ pub fn voice_line_situation(person: &Person, situation: Situation) -> String {
             if low_food {
                 let bank = gossip_hungry_lines();
                 let idx = pick_line(&mut rng, bank);
-                let base = format!("{name} {}", fill_template(bank[idx], person));
+                let base = format!("{name} {}", fill_template(&bank[idx], person));
                 if flavor.is_empty() {
                     base
                 } else {
@@ -403,7 +349,7 @@ pub fn voice_line_situation(person: &Person, situation: Situation) -> String {
                 let base = format!(
                     "{name} the {} {}",
                     person.profession,
-                    fill_template(bank[idx], person)
+                    fill_template(&bank[idx], person)
                 );
                 if flavor.is_empty() {
                     base

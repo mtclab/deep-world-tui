@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod banks;
 pub mod charts;
 pub mod config;
 pub mod gen;
