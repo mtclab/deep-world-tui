@@ -140,6 +140,11 @@ pub enum PlayerChoice {
         person_idx: usize,
     },
     Plant,
+    /// Plant a named crop (flax, winter-rye, …). `Plant` keeps the land's
+    /// own pick; old recordings parse unchanged.
+    PlantCrop {
+        crop: String,
+    },
     Harvest,
     StashItem {
         item: String,

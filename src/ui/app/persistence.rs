@@ -185,6 +185,9 @@ impl App {
                 }
             }
             C::Plant => self.plant(),
+            C::PlantCrop { crop } => {
+                self.plant_crop(crate::model::economy::CropType::from_name(crop))
+            }
             C::Harvest => self.harvest(),
             C::Talk { person_idx } => {
                 if let Some(pos) = self.player_pos {

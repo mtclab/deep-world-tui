@@ -314,8 +314,22 @@ fn main() -> anyhow::Result<()> {
                 print_msg(&app);
             }
             "plant" => {
-                recorded.push(PlayerChoice::Plant);
-                app.plant();
+                let arg = parts.get(1).map(|s| s.to_string());
+                match arg {
+                    Some(name) => {
+                        let crop = deep_world_tui::model::economy::CropType::from_name(&name);
+                        if crop.is_none() {
+                            println!("  Unknown crop: {name}");
+                            continue;
+                        }
+                        recorded.push(PlayerChoice::PlantCrop { crop: name });
+                        app.plant_crop(crop);
+                    }
+                    None => {
+                        recorded.push(PlayerChoice::Plant);
+                        app.plant();
+                    }
+                }
                 print_msg(&app);
             }
             "harvest" => {

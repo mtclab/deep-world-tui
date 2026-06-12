@@ -283,8 +283,11 @@ pub(crate) fn region_work_terrain(region_type: &str) -> crate::model::Terrain {
 /// The crop a settlement's farmers favor on the given ground.
 fn best_crop_for(terrain: crate::model::Terrain) -> crate::model::economy::CropType {
     use crate::model::economy::CropType;
+    // A settlement's farmers plant what feeds the stores; fiber crops are a
+    // choice someone makes on their own ground.
     CropType::all()
         .into_iter()
+        .filter(|c| c.is_food())
         .max_by(|a, b| {
             a.regional_suitability(terrain)
                 .partial_cmp(&b.regional_suitability(terrain))
@@ -379,9 +382,10 @@ fn tick_settlement_life(sim: &mut SimState) {
                     farm.stage = crate::model::economy::GrowthStage::Planted;
                 }
             }
-            // Frost kills standing crops.
+            // Frost kills standing crops — except the winter-rye, which is
+            // why anyone plants it.
             if frost {
-                settlement.farms.clear();
+                settlement.farms.retain(|f| f.crop.survives_frost());
             }
 
             // --- other food producers (per sampled person, scaled) ---
