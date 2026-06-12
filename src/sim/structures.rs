@@ -27,6 +27,9 @@ pub enum BuildKind {
     Waymarker,
     /// A timber palisade: a quieter night inside its line.
     Palisade,
+    /// A signal fire on open ground: seen from far, and the lit dark stays
+    /// quieter near it while someone keeps it fed.
+    Beacon,
 }
 
 impl BuildKind {
@@ -46,6 +49,7 @@ impl BuildKind {
             BuildKind::Well,
             BuildKind::Waymarker,
             BuildKind::Palisade,
+            BuildKind::Beacon,
         ]
     }
 
@@ -90,6 +94,8 @@ impl BuildKind {
                 terrain,
                 T::Grass | T::Farmland | T::Forest | T::Coast | T::Tundra
             ),
+            // Open sight-line ground — a fire no forest swallows.
+            BuildKind::Beacon => matches!(terrain, T::Mountain | T::Grass | T::Tundra | T::Coast),
         }
     }
 
@@ -103,6 +109,7 @@ impl BuildKind {
                 | BuildKind::Footbridge
                 | BuildKind::Well
                 | BuildKind::Palisade
+                | BuildKind::Beacon
         )
     }
 
@@ -128,6 +135,7 @@ impl BuildKind {
             "well" => Some(BuildKind::Well),
             "waymarker" | "cairn" => Some(BuildKind::Waymarker),
             "palisade" => Some(BuildKind::Palisade),
+            "beacon" | "signalfire" | "signal-fire" => Some(BuildKind::Beacon),
             _ => None,
         }
     }
@@ -148,6 +156,7 @@ impl BuildKind {
             BuildKind::Well => "well",
             BuildKind::Waymarker => "waymarker",
             BuildKind::Palisade => "palisade",
+            BuildKind::Beacon => "signal fire",
         }
     }
 
@@ -167,6 +176,7 @@ impl BuildKind {
             BuildKind::Well => 'o',
             BuildKind::Waymarker => '^',
             BuildKind::Palisade => '#',
+            BuildKind::Beacon => '!',
         }
     }
 
@@ -186,6 +196,7 @@ impl BuildKind {
             BuildKind::Well => 16,
             BuildKind::Waymarker => 2,
             BuildKind::Palisade => 48,
+            BuildKind::Beacon => 24,
         }
     }
 
@@ -205,6 +216,7 @@ impl BuildKind {
             BuildKind::Well => "well",
             BuildKind::Waymarker => "waymarker",
             BuildKind::Palisade => "palisade",
+            BuildKind::Beacon => "beacon",
         }
     }
 
@@ -248,6 +260,7 @@ impl BuildKind {
             BuildKind::Well => vec![(ItemType::Stone, 10), (ItemType::Wood, 6)],
             BuildKind::Waymarker => vec![(ItemType::Stone, 3)],
             BuildKind::Palisade => vec![(ItemType::Wood, 60), (ItemType::Nails, 20)],
+            BuildKind::Beacon => vec![(ItemType::Wood, 30), (ItemType::Stone, 8)],
         }
     }
 
@@ -270,6 +283,8 @@ impl BuildKind {
             BuildKind::Well => Some(8.0),
             BuildKind::Waymarker => Some(4.0),
             BuildKind::Palisade => Some(10.0),
+            // A fire-stack weathers fast; the frame chars and the stack slumps.
+            BuildKind::Beacon => Some(3.0),
         }
     }
 }
@@ -567,5 +582,36 @@ mod tests {
         assert_eq!(BuildKind::Tarp.rest_quality(), "campfire");
         assert_eq!(BuildKind::Cabin.rest_quality(), "cabin");
         assert_eq!(BuildKind::Home.rest_quality(), "home");
+    }
+
+    #[test]
+    fn beacon_stands_on_open_sight_lines_only() {
+        use crate::model::Terrain as T;
+        for t in [T::Mountain, T::Grass, T::Tundra, T::Coast] {
+            assert!(BuildKind::Beacon.stands_on(t), "{t:?}");
+        }
+        for t in [
+            T::Forest,
+            T::Swamp,
+            T::Water,
+            T::Road,
+            T::Settlement,
+            T::House,
+        ] {
+            assert!(!BuildKind::Beacon.stands_on(t), "{t:?}");
+        }
+    }
+
+    #[test]
+    fn beacon_is_real_construction_that_rots_fast() {
+        assert!(BuildKind::Beacon.needs_tool());
+        assert!(BuildKind::Beacon.needs_labor());
+        assert_eq!(BuildKind::Beacon.build_hours(), 24);
+        // Infrastructure decays from day one; a fire-stack goes fastest of
+        // the watch-works.
+        let beacon = BuildKind::Beacon.decay_years().unwrap();
+        assert!(beacon < BuildKind::Waymarker.decay_years().unwrap());
+        assert_eq!(BuildKind::from_name("beacon"), Some(BuildKind::Beacon));
+        assert_eq!(BuildKind::from_name("signalfire"), Some(BuildKind::Beacon));
     }
 }

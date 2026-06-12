@@ -424,7 +424,8 @@ impl App {
             | crate::sim::structures::BuildKind::Footbridge
             | crate::sim::structures::BuildKind::Well
             | crate::sim::structures::BuildKind::Waymarker
-            | crate::sim::structures::BuildKind::Palisade => RestQuality::Campfire,
+            | crate::sim::structures::BuildKind::Palisade
+            | crate::sim::structures::BuildKind::Beacon => RestQuality::Campfire,
         });
         let sheltered = structure_tier.is_some() || on_settlement;
         let base_quality = if was_deep_night && !sheltered {
@@ -556,7 +557,8 @@ impl App {
                 | crate::sim::structures::BuildKind::Footbridge
                 | crate::sim::structures::BuildKind::Well
                 | crate::sim::structures::BuildKind::Waymarker
-                | crate::sim::structures::BuildKind::Palisade => 0.0,
+                | crate::sim::structures::BuildKind::Palisade
+                | crate::sim::structures::BuildKind::Beacon => 0.0,
             },
             None => 0.0,
         };
