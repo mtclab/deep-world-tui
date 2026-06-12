@@ -1,0 +1,777 @@
+use crate::model::{
+    Collapse, CollapseOutcome, DeathCause, Encounter, EncounterAction, EncounterLogEntry, GodName,
+    InterPeopleBias, ItemType, PeopleKind, Terrain, WitnessLevel,
+};
+use crate::save::{self, SaveData};
+use crate::save_migrations;
+use crate::sim::collapse_log::CollapseEvent;
+use crate::sim::hints;
+use crate::sim::SimState;
+
+use super::*;
+
+impl App {
+    pub fn open_encounter_log(&mut self) {
+        self.previous_screen = Some(self.screen.clone());
+        self.screen = Screen::EncounterLog { scroll: 0 };
+    }
+
+    pub fn exit_encounter_log(&mut self) {
+        self.screen = self
+            .previous_screen
+            .clone()
+            .unwrap_or_else(|| self.world_screen());
+    }
+
+    pub fn check_encounter(&mut self, terrain: Terrain) {
+        let pp = Some(self.inter_people_bias.player_people);
+        // Weather stirs or settles the land: storms raise encounter chance,
+        // clear skies lower it (encounter_rate_modifier was never wired).
+        let weather_mult = self
+            .player_pos
+            .map(|pos| {
+                let base = crate::sim::weather::encounter_rate_modifier(
+                    self.region_weather(pos.region_idx),
+                );
+                // Empty land is quiet land: wild terrain spawns scale with game.
+                let wild = matches!(
+                    terrain,
+                    Terrain::Forest | Terrain::Swamp | Terrain::Cave | Terrain::Tundra
+                );
+                if wild {
+                    let richness = self
+                        .sim
+                        .as_ref()
+                        .and_then(|s| s.world.regions.get(pos.region_idx))
+                        .map(|r| r.game_richness)
+                        .unwrap_or(1.0);
+                    base * (0.5 + 0.5 * richness)
+                } else {
+                    base
+                }
+            })
+            .unwrap_or(1.0);
+        if let Some(enc) = Encounter::roll_biased_weather(
+            terrain,
+            self.clock.hour,
+            self.clock.day,
+            self.seed,
+            pp,
+            weather_mult,
+        ) {
+            self.encounter = Some(enc);
+            // Wildlife gets a face: a terrain- and season-true species.
+            if enc.kind == crate::model::EncounterKind::Wildlife {
+                let sp_seed = self
+                    .seed
+                    .wrapping_add(((self.clock.day as u64) << 8) | self.clock.hour as u64);
+                let species = crate::model::wildlife::WildSpecies::roll(
+                    terrain,
+                    self.clock.season(),
+                    sp_seed,
+                );
+                if let Some(ref mut e) = self.encounter {
+                    e.species = species;
+                }
+            }
+            self.encounters_had += 1;
+            self.fire_hint(hints::HINT_FIRST_ENCOUNTER);
+            self.screen = Screen::Encounter;
+            self.trigger_flash();
+            if let Some(ref enc) = self.encounter {
+                let sound = match enc.kind {
+                    crate::model::EncounterKind::Storm => crate::audio::SoundEvent::Weather,
+                    crate::model::EncounterKind::Bandit | crate::model::EncounterKind::Wildlife => {
+                        crate::audio::SoundEvent::Combat
+                    }
+                    crate::model::EncounterKind::HarvestMarket
+                    | crate::model::EncounterKind::MerchantCaravan => {
+                        crate::audio::SoundEvent::Trade
+                    }
+                    _ => crate::audio::SoundEvent::UiClick,
+                };
+                self.play_sound(sound);
+            }
+        }
+    }
+
+    pub fn check_discovery(&mut self, region_idx: usize, px: usize, py: usize) {
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let px_u32 = px as u32;
+        let py_u32 = py as u32;
+        let mut found_kind = None;
+        if let Some(ref mut sim) = self.sim {
+            let disc_id = match sim.discoveries.at_position(region_idx, px_u32, py_u32) {
+                Some(d) => d.id.clone(),
+                None => return,
+            };
+            if sim.discoveries.observe(&disc_id, tick, player_id) {
+                let kind = sim
+                    .discoveries
+                    .entries
+                    .iter()
+                    .find(|d| d.id == disc_id)
+                    .map(|d| d.kind);
+                if let Some(kind) = kind {
+                    sim.log_journal(tick, kind.observe_text().to_string());
+                    self.status_msg = Some(format!("I found a {}!", kind.label()));
+                    found_kind = Some(kind);
+                }
+            }
+        }
+        // Finding a place leaves a mark — discoveries were pure lore before.
+        if let Some(kind) = found_kind {
+            match kind.observe_effect() {
+                crate::model::discovery::DiscoveryEffect::God(god, delta) => {
+                    self.god_affinity.adjust(god, delta);
+                }
+                crate::model::discovery::DiscoveryEffect::Refresh { thirst, energy } => {
+                    self.vitals.thirst = (self.vitals.thirst + thirst).min(1.0);
+                    self.vitals.energy = (self.vitals.energy + energy).min(1.0);
+                }
+                crate::model::discovery::DiscoveryEffect::Reveal => {
+                    // The land makes sense from here: see twice as far once.
+                    self.reveal_around(region_idx, px, py);
+                    let wider = crate::model::ExploredMap::reveal_radius_for_elder(self.elder) * 2;
+                    if region_idx < self.explored.len() {
+                        self.explored[region_idx].reveal(px, py, wider);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn dismiss_encounter(&mut self) {
+        self.resolve_encounter(EncounterAction::Flee);
+    }
+
+    pub fn resolve_encounter(&mut self, action: EncounterAction) {
+        let terrain = self.encounter.map(|e| e.terrain).unwrap_or(Terrain::Grass);
+        let species = self.encounter.and_then(|e| e.species);
+        let witness = WitnessLevel::roll(self.seed.wrapping_mul(7919), terrain);
+        let rep_mult = witness.reputation_multiplier();
+        let enc_mod = match terrain {
+            Terrain::Settlement | Terrain::Road => self
+                .sim
+                .as_ref()
+                .and_then(|sim| {
+                    let pos = self.player_pos?;
+                    let region = sim.world.regions.get(pos.region_idx)?;
+                    let settlement = region.settlements.first()?;
+                    let person = settlement.people.first()?;
+                    Some(InterPeopleBias::encounter_modifier(&person.personality))
+                })
+                .unwrap_or_default(),
+            _ => InterPeopleBias::encounter_modifier(&[]),
+        };
+        // Weather colors the mood of whoever you meet — rain sours a talk,
+        // a clear sky warms it (npc_mood_modifier was never applied).
+        let weather_mood = self
+            .player_pos
+            .map(|pos| self.region_weather(pos.region_idx).npc_mood_modifier())
+            .unwrap_or(0.0);
+        let people_bias_mod = self.current_settlement_people().map_or(0.0, |npc_people| {
+            self.inter_people_bias.effective_bias(npc_people)
+                + self.clock.season().bias_modifier()
+                + weather_mood
+        });
+        let god_calm_bonus = if self.god_affinity.get(GodName::Keuru) > 0.4 {
+            0.03
+        } else {
+            0.0
+        };
+        let god_intimidate_bonus = if self.god_affinity.get(GodName::Oltzed) > 0.4 {
+            0.03
+        } else {
+            0.0
+        };
+        // Trust bonus from NPC memory (if we know this person)
+        let trust_bonus = self.current_settlement_people().map_or(0.0, |_npc_people| {
+            if let Some(ref sim) = self.sim {
+                let pos = match self.player_pos {
+                    Some(p) => p,
+                    None => return 0.0,
+                };
+                let region = sim.world.regions.get(pos.region_idx);
+                let settlement = region.and_then(|r| r.settlements.first());
+                let person = settlement.and_then(|s| s.people.first());
+                if let Some(p) = person {
+                    sim.npc_memories
+                        .get(&p.id)
+                        .map_or(0.0, |m| m.cumulative_trust().clamp(-0.3, 0.3))
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            }
+        });
+        let elder_talk_bonus = if self.elder { 0.10 } else { 0.0 };
+        let companion_mood_bonus: f64 = self
+            .player_start
+            .as_ref()
+            .and_then(|ps| ps.companions.first())
+            .map(|c| c.mood().encounter_bonus())
+            .unwrap_or(0.0);
+        let talk_success =
+            people_bias_mod + trust_bonus + elder_talk_bonus + companion_mood_bonus > -0.20;
+        let trade_bonus = people_bias_mod + trust_bonus + companion_mood_bonus > 0.05;
+        let msg = match action {
+            EncounterAction::Flee => {
+                if enc_mod.flee > 0.05 {
+                    "You fled quickly! Your instincts served you.".into()
+                } else {
+                    "You fled! (cost some energy)".into()
+                }
+            }
+            EncounterAction::Bribe => {
+                let base_cost: u32 = 2;
+                let effective_cost =
+                    ((base_cost as f64) * (1.0 + enc_mod.bribe_cost.abs())).max(1.0) as u32;
+                if let Some(ref mut ps) = self.player_start {
+                    if ps.inventory.get(ItemType::Coin) >= effective_cost {
+                        ps.inventory.remove(ItemType::Coin, effective_cost);
+                        format!("You paid {} coins to be left alone.", effective_cost)
+                    } else {
+                        ps.inventory
+                            .remove(ItemType::Coin, ps.inventory.get(ItemType::Coin));
+                        "You gave what you had. They seemed satisfied.".into()
+                    }
+                } else {
+                    "You gestured peacefully. They let you pass.".into()
+                }
+            }
+            EncounterAction::Calm => {
+                if enc_mod.calm + god_calm_bonus > 0.03 {
+                    "Your calm presence soothed the beast. It bows its head.".into()
+                } else {
+                    "The beast settled. It watches you leave.".into()
+                }
+            }
+            EncounterAction::Intimidate => {
+                self.play_sound(crate::audio::SoundEvent::Combat);
+                if enc_mod.intimidate + god_intimidate_bonus > 0.03 {
+                    "You loomed large. They scattered before you.".into()
+                } else {
+                    "You stared them down. They backed off.".into()
+                }
+            }
+            EncounterAction::Talk => {
+                if !talk_success {
+                    "They turned away coldly. No wisdom shared.".into()
+                } else if self.elder && enc_mod.talk + elder_talk_bonus > 0.08 {
+                    "An elder speaks. Even the hostile listen. Wisdom flows freely.".into()
+                } else if enc_mod.talk > 0.03 {
+                    "The traveler warmed to you quickly. Wisdom flows freely.".into()
+                } else if enc_mod.talk < -0.02 {
+                    "Words came slow. They barely shared a thing.".into()
+                } else {
+                    "The traveler shared road wisdom (1h).".into()
+                }
+            }
+            EncounterAction::Trade => {
+                if let Some(ref mut ps) = self.player_start {
+                    let base_herbs = if trade_bonus { 2 } else { 1 };
+                    let herbs = if enc_mod.trade > 0.02 {
+                        base_herbs + 1
+                    } else {
+                        base_herbs
+                    };
+                    ps.inventory.add(ItemType::Herb, herbs);
+                    self.play_sound(crate::audio::SoundEvent::Trade);
+                    if herbs >= 3 {
+                        "A generous trade — three herbs for your news! (1h)".into()
+                    } else if herbs == 2 {
+                        "A good trade — two herbs (1h)".into()
+                    } else {
+                        "Traded news for herbs (1h)".into()
+                    }
+                } else {
+                    "Traded news for herbs (1h)".into()
+                }
+            }
+            EncounterAction::Shelter => "You waited out the storm (1h).".into(),
+            EncounterAction::PushThrough => {
+                if enc_mod.push_through > 0.03 {
+                    "You surged ahead — nothing could slow you!".into()
+                } else {
+                    "You pushed through regardless!".into()
+                }
+            }
+        };
+        // Apply the action's data-driven costs (time, energy, hunger) and its
+        // god-affinity shift. These lived on EncounterAction but were never
+        // wired in — resolution hardcoded a flat 1h + 0.08 energy and ignored
+        // hunger and god affinity entirely.
+        let hours = action.hours();
+        if hours > 0 {
+            self.advance_clock(hours);
+        }
+        self.vitals.energy = (self.vitals.energy - action.energy_cost()).max(0.0);
+        self.vitals.hunger = (self.vitals.hunger - action.hunger_cost()).max(0.0);
+        if let Some((god, delta)) = action.god_affinity_effect() {
+            self.god_affinity.adjust(god, delta);
+        }
+        let encounter_data = self.encounter.map(|e| e.kind);
+        let pos_opt = self.player_pos;
+        let npc_people = self
+            .current_settlement_people()
+            .unwrap_or(PeopleKind::Metsik);
+        let player_people = self.inter_people_bias.player_people;
+        let pid = self.player_start.as_ref().map(|ps| ps.person.id.clone());
+        let world_tick = self.sim.as_ref().map(|s| s.world.tick);
+        let outside_intervention: Option<String> = match (encounter_data, pos_opt, &pid, world_tick)
+        {
+            (Some(kind), Some(pos), Some(pid), Some(tick)) if kind.can_have_outside_help() => {
+                if let Some(sim) = self.sim.as_ref() {
+                    if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                        if let Some(settlement) = region.settlements.first() {
+                            let rep = sim.reputation.get(pid, &settlement.id);
+                            let help_threshold = 0.70_f64;
+                            let avoid_threshold = 0.25_f64;
+                            if rep >= help_threshold || rep <= avoid_threshold {
+                                let mut hasher = self.seed.wrapping_mul(2_654_435_761);
+                                hasher ^= tick;
+                                hasher ^= match kind {
+                                    crate::model::EncounterKind::Wildlife => 0xA1,
+                                    crate::model::EncounterKind::Bandit => 0xB2,
+                                    _ => 0x00,
+                                };
+                                let roll = (hasher.rotate_left(13) as f64) / (u32::MAX as f64);
+                                if roll < 0.02 {
+                                    Some(if rep >= help_threshold {
+                                        "A passing trader steps from the road, recognizing you. The bandit recoils.".to_string()
+                                    } else {
+                                        "The bandit glances at you, then at the road behind. He waves you on, not bothering to clean the act.".to_string()
+                                    })
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+        if let Some(ref mut sim) = self.sim {
+            if let Some(_kind) = encounter_data {
+                let mut rng = crate::rng::SeedRng::new(sim.world.seed)
+                    .fork_for(&format!("encounter-journal-{}", sim.world.tick));
+                let voice_text = crate::sim::journal::encounter_text(&mut rng);
+                let journal_text = format!("{} — {} — {}", voice_text, action.label(), msg);
+                sim.log_journal(sim.world.tick, journal_text);
+                if let Some(sp) = species {
+                    if sp.uncanny() {
+                        // The strange gets written down in its own words —
+                        // and stays deniable on the page too.
+                        sim.log(
+                            sim.world.tick,
+                            crate::sim::journal::Voice::Scar,
+                            format!("{} I have decided not to wonder about it.", sp.line()),
+                        );
+                    }
+                }
+                if let Some(ref note) = outside_intervention {
+                    sim.log_journal(sim.world.tick, format!("  * {}", note));
+                }
+            }
+            if rep_mult > 0.0 {
+                let rep_delta = match action {
+                    EncounterAction::Talk => 0.02,
+                    EncounterAction::Trade => 0.03,
+                    EncounterAction::Calm => 0.01,
+                    EncounterAction::Shelter => 0.01,
+                    EncounterAction::Bribe => 0.005,
+                    EncounterAction::Flee => 0.0,
+                    EncounterAction::Intimidate => -0.01,
+                    EncounterAction::PushThrough => -0.005,
+                };
+                if rep_delta != 0.0 {
+                    if let (Some(ref pid), Some(pos)) = (&pid, pos_opt) {
+                        if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                            if let Some(settlement) = region.settlements.first() {
+                                let sid = settlement.id.clone();
+                                sim.reputation.adjust_local_biased(
+                                    pid,
+                                    &sid,
+                                    rep_delta * rep_mult,
+                                    player_people,
+                                    npc_people,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        let msg = if let Some(note) = outside_intervention {
+            format!("{} {}", msg, note)
+        } else {
+            msg
+        };
+        if let Some(ref mut ps) = self.player_start {
+            let combat_decay = match action {
+                EncounterAction::Flee | EncounterAction::Calm | EncounterAction::Talk => 0.0,
+                EncounterAction::Intimidate | EncounterAction::PushThrough => 0.08,
+                EncounterAction::Shelter => 0.02,
+                EncounterAction::Bribe | EncounterAction::Trade => 0.01,
+            };
+            if combat_decay > 0.0 {
+                for tool in [ItemType::Iron, ItemType::Wood, ItemType::Stone] {
+                    if ps.inventory.has(tool) {
+                        ps.inventory.decay(tool, combat_decay);
+                    }
+                }
+            }
+        }
+        // Record NPC memory for this encounter
+        let trust_delta = match action {
+            EncounterAction::Talk => 0.02,
+            EncounterAction::Trade => 0.03,
+            EncounterAction::Calm => 0.01,
+            EncounterAction::Shelter => 0.01,
+            EncounterAction::Bribe => 0.005,
+            EncounterAction::Flee => 0.0,
+            EncounterAction::Intimidate => -0.02,
+            EncounterAction::PushThrough => -0.01,
+        };
+        if let Some(pos) = self.player_pos {
+            if let Some(ref sim) = self.sim {
+                if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                    if let Some(settlement) = region.settlements.first() {
+                        if let Some(person) = settlement.people.first() {
+                            let person_id = person.id.clone();
+                            let settlement_name = settlement.name.clone();
+                            let tick = (self.clock.day * 24 + self.clock.hour) as u64;
+                            if let Some(ref mut sim) = self.sim {
+                                sim.npc_memories.entry(person_id).or_default().add(
+                                    action,
+                                    tick,
+                                    settlement_name,
+                                    trust_delta,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(kind) = encounter_data {
+            self.encounter_log.push(EncounterLogEntry {
+                day: self.clock.day,
+                hour: self.clock.hour,
+                kind,
+                terrain,
+                action,
+                hostile: kind.is_hostile(),
+            });
+        }
+        self.encounter = None;
+        let msg_with_witness = match witness {
+            WitnessLevel::Unseen | WitnessLevel::Rumored => {
+                let base = msg.trim_end_matches('.').to_string();
+                format!("{}. {}", base, witness.flavor())
+            }
+            WitnessLevel::Seen => msg,
+        };
+        self.status_msg = Some(msg_with_witness);
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        self.screen = Screen::World { region_idx };
+    }
+
+    pub fn check_milestones(&mut self) {
+        use crate::sim::milestones::{core_peoples, faction_key, MilestoneKind};
+
+        let day = self.clock.day;
+        let fired = self.milestones.check_day_milestones(day);
+        for kind in &fired {
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(tick, kind.voice(), kind.journal_text());
+            }
+        }
+
+        // Elderhood is age-based now (see check_aging), not a fixed calendar day.
+
+        let has_player_structure = self
+            .sim
+            .as_ref()
+            .is_some_and(|sim| sim.structures.iter().any(|s| !s.is_npc_built));
+        if has_player_structure && !self.milestones.has(MilestoneKind::FirstStructureBuilt) {
+            self.milestones
+                .record(MilestoneKind::FirstStructureBuilt, day);
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(
+                    tick,
+                    MilestoneKind::FirstStructureBuilt.voice(),
+                    MilestoneKind::FirstStructureBuilt.journal_text(),
+                );
+            }
+        }
+
+        if let Some(ref ps) = self.player_start {
+            if !ps.companions.is_empty()
+                && !self.milestones.has(MilestoneKind::FirstCompanionAdopted)
+            {
+                self.milestones
+                    .record(MilestoneKind::FirstCompanionAdopted, day);
+                if let Some(ref mut sim) = self.sim {
+                    let tick = sim.world.tick;
+                    sim.log(
+                        tick,
+                        MilestoneKind::FirstCompanionAdopted.voice(),
+                        MilestoneKind::FirstCompanionAdopted.journal_text(),
+                    );
+                }
+            }
+        }
+
+        let people_endings_to_fire: Vec<PeopleKind> = {
+            let player_id = match self.player_start {
+                Some(ref ps) => ps.person.id.clone(),
+                None => String::new(),
+            };
+            if player_id.is_empty() {
+                Vec::new()
+            } else if let Some(ref sim) = self.sim {
+                core_peoples()
+                    .iter()
+                    .copied()
+                    .filter(|&people| {
+                        let kind = MilestoneKind::PeopleEnding { people };
+                        if self.milestones.has(kind) {
+                            return false;
+                        }
+                        let fk = faction_key(people);
+                        let total: f64 = sim
+                            .reputation
+                            .entries
+                            .values()
+                            .filter(|e| e.person_id == player_id)
+                            .map(|e| e.reputation.by_faction.get(fk).copied().unwrap_or(0.5))
+                            .sum::<f64>();
+                        let count = sim
+                            .reputation
+                            .entries
+                            .values()
+                            .filter(|e| e.person_id == player_id)
+                            .count();
+                        count > 0 && total / count as f64 >= 0.9
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        };
+
+        for people in people_endings_to_fire {
+            let kind = MilestoneKind::PeopleEnding { people };
+            self.milestones.record(kind, day);
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(tick, kind.voice(), kind.journal_text());
+            }
+        }
+    }
+
+    #[allow(deprecated)]
+    pub fn check_collapse(&mut self) {
+        if self.vitals.hunger > 0.0 && self.vitals.energy > 0.0 {
+            return;
+        }
+        // A collapse advances the clock for its unconscious hours; that nested
+        // advance must not recursively re-trigger another collapse (which would
+        // recurse without bound when vitals stay at zero).
+        if self.in_collapse {
+            return;
+        }
+        let vitals_before = self.vitals;
+        let region_name = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                let region = sim.world.regions.get(pos.region_idx)?;
+                Some(region.name.clone())
+            })
+            .unwrap_or_else(|| "unknown".to_string());
+        let weather = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                let region = sim.world.regions.get(pos.region_idx)?;
+                Some(region.weather.name().to_string())
+            })
+            .unwrap_or_else(|| "unknown".to_string());
+        let local_rep = self
+            .player_start
+            .as_ref()
+            .and_then(|ps| {
+                let pid = &ps.person.id;
+                self.sim.as_ref().and_then(|sim| {
+                    let pos = self.player_pos?;
+                    let region = sim.world.regions.get(pos.region_idx)?;
+                    let settlement = region.settlements.first()?;
+                    Some(sim.reputation.get(pid, &settlement.id))
+                })
+            })
+            .unwrap_or(0.0);
+        let _local_people = self.current_settlement_people();
+        let eff_bias = self
+            .current_settlement_people()
+            .map_or(0.0, |p| self.inter_people_bias.effective_bias(p));
+        let collapse = Collapse::roll_biased(self.seed, &self.god_affinity, local_rep, eff_bias);
+        let outcome = collapse.outcome;
+        let hours = outcome.hours_passed();
+        let died = collapse.died;
+        let rescued_by = collapse.rescued_by;
+        self.vitals.hunger = (self.vitals.hunger + outcome.hunger_restore()).min(1.0);
+        self.vitals.energy = (self.vitals.energy + outcome.energy_restore()).min(1.0);
+        if let Some(ref mut ps) = self.player_start {
+            let loss = outcome.coin_loss();
+            ps.inventory.remove(ItemType::Coin, loss);
+            if let Some(item) = outcome.item_loss() {
+                ps.inventory.remove(item, 1);
+            }
+        }
+        if outcome.is_divine() {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(ItemType::Herb, 3);
+                ps.inventory.add(ItemType::Food, 2);
+            }
+        }
+        if outcome.is_beast_aided() {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(ItemType::Herb, 1);
+            }
+        }
+        if outcome.is_hostile() {
+            self.vitals.hunger = 0.15;
+            self.vitals.energy = 0.1;
+        }
+        self.in_collapse = true;
+        self.advance_clock(hours);
+        self.in_collapse = false;
+        let tick = self.sim.as_ref().map(|sim| sim.world.tick).unwrap_or(0);
+        self.collapse_log.push(CollapseEvent {
+            tick,
+            vitals_before,
+            region: region_name,
+            weather,
+            outcome,
+            died,
+            rescued_by,
+        });
+        self.collapse = Some(collapse);
+        self.collapses_had += 1;
+        self.fire_hint(hints::HINT_FIRST_COLLAPSE);
+        if let Some(ref mut sim) = self.sim {
+            let voice_text = if died {
+                "I collapsed. The dark took me.".into()
+            } else if let Some(god) = rescued_by {
+                format!("I collapsed. {} held me back from the edge.", god.label())
+            } else {
+                "I collapsed. The world swam and went dark.".into()
+            };
+            sim.log(sim.world.tick, crate::sim::journal::Voice::Scar, voice_text);
+        }
+        if let Some(ref mut sim) = self.sim {
+            if let Some(pos) = self.player_pos {
+                let memorial = crate::model::memorial::Memorial::generate(
+                    sim.world.seed,
+                    sim.world.tick,
+                    pos.region_idx,
+                    pos.px as u32,
+                    pos.py as u32,
+                );
+                sim.memorials.push(memorial);
+                if !died {
+                    let recovery_region = crate::model::memorial::pick_recovery_region(
+                        sim.world.seed,
+                        pos.region_idx,
+                        sim.world.regions.len(),
+                    );
+                    let recovery_god = crate::model::memorial::pick_recovery_god(sim.world.seed);
+                    self.god_affinity.adjust(recovery_god, 0.01);
+                    if let Some(ref mut p) = self.player_pos {
+                        p.region_idx = recovery_region;
+                    }
+                }
+            }
+        }
+        if died {
+            let outcome = self
+                .collapse
+                .map(|c| c.outcome)
+                .unwrap_or(CollapseOutcome::Ditch);
+            self.death_cause = Some(DeathCause::from_collapse_and_vitals(outcome, self.vitals));
+            if self.player_start.is_some() {
+                let save_data = SaveData {
+                    sim: self
+                        .sim
+                        .clone()
+                        .unwrap_or_else(|| SimState::new(self.seed, self.charts.clone())),
+                    player_start: self.player_start.clone(),
+                    clock: self.clock,
+                    vitals: self.vitals,
+                    player_pos: self.player_pos,
+                    god_affinity: self.god_affinity,
+                    inter_people_bias: self.inter_people_bias.clone(),
+                    encounters_had: self.encounters_had,
+                    collapses_had: self.collapses_had,
+                    collapse_log: self.collapse_log.clone(),
+                    lineage: self.lineage.clone(),
+                    milestones: self.milestones.clone(),
+                    explored: self.explored.clone(),
+                    version: save_migrations::CURRENT_SAVE_VERSION,
+                    first_run: false,
+                    hint_tracker: self.hint_tracker.clone(),
+                    start_age_years: self.start_age_years,
+                    birth_day: self.birth_day,
+                    lifespan_years: self.lifespan_years,
+                    encounter_log: self.encounter_log.clone(),
+                    player_farms: self.player_farms.clone(),
+                    homestead_settlers: self.homestead_settlers.clone(),
+                    homestead_rumored: self.homestead_rumored,
+                    founding_check_day: self.founding_check_day,
+                    spouse_id: self.spouse_id.clone(),
+                    widowed_day: self.widowed_day,
+                    household_children: self.household_children.clone(),
+                    travel_debt: self.travel_debt,
+                };
+                let _ = save::save_lineage(&save_data, self.seed);
+            }
+            self.continue_as_npc();
+        } else {
+            self.screen = Screen::Collapse;
+        }
+    }
+
+    pub fn dismiss_collapse(&mut self) {
+        self.collapse = None;
+        // A floor on waking, not an assignment. check_collapse already applied
+        // the outcome-specific restores (a settlement bed / divine rescue
+        // recovers far more than a ditch); hardcoding 0.4/0.5 here threw all of
+        // that away, so every non-fatal collapse ended identically.
+        self.vitals.hunger = self.vitals.hunger.max(0.4);
+        self.vitals.energy = self.vitals.energy.max(0.5);
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        self.screen = Screen::World { region_idx };
+    }
+}
