@@ -29,6 +29,16 @@ pub enum WildSpecies {
     HollowStag,
     MireLight,
     CaveBreather,
+    // Tranche 2 (#393): the dry lands, the steppe, the under-places, the
+    // high ledges. All mundane — the strange must stay strange.
+    SandOx,
+    KethVaal,
+    GlassBeetle,
+    HeatShimmer,
+    SteppeBison,
+    SteppeLark,
+    CaveBat,
+    GhostGoat,
 }
 
 impl WildSpecies {
@@ -53,6 +63,14 @@ impl WildSpecies {
             HollowStag,
             MireLight,
             CaveBreather,
+            SandOx,
+            KethVaal,
+            GlassBeetle,
+            HeatShimmer,
+            SteppeBison,
+            SteppeLark,
+            CaveBat,
+            GhostGoat,
         ]
     }
 
@@ -77,6 +95,14 @@ impl WildSpecies {
             HollowStag => "hollow stag",
             MireLight => "mire-light",
             CaveBreather => "something in the dark",
+            SandOx => "sand-ox",
+            KethVaal => "keth-vaal lizard",
+            GlassBeetle => "glass-beetle",
+            HeatShimmer => "heat-shimmer beast",
+            SteppeBison => "steppe bison",
+            SteppeLark => "steppe-lark",
+            CaveBat => "cave bat",
+            GhostGoat => "ghost-goat",
         }
     }
 
@@ -104,6 +130,14 @@ impl WildSpecies {
             HollowStag => &[T::Forest, T::Tundra],
             MireLight => &[T::Swamp],
             CaveBreather => &[T::Cave],
+            SandOx => &[T::Sand, T::DeepDesert],
+            KethVaal => &[T::Sand, T::DeepDesert],
+            GlassBeetle => &[T::Sand, T::DeepDesert],
+            HeatShimmer => &[T::DeepDesert],
+            SteppeBison => &[T::Grass, T::Tundra],
+            SteppeLark => &[T::Grass, T::Tundra],
+            CaveBat => &[T::Cave],
+            GhostGoat => &[T::Mountain],
         }
     }
 
@@ -121,6 +155,10 @@ impl WildSpecies {
             (Wolf, Frost) => 5, // hunger makes the packs bold
             (MireCrane, Frost) => 0,
             (HollowStag | MireLight | CaveBreather, _) => 1, // always rare
+            (SteppeLark, Frost) => 0,                        // gone south with the waterfowl
+            (SteppeBison, Frost) => 2,                       // the herds draw in tight
+            (HeatShimmer, _) => 1,                           // an ambush predator is rarely seen
+            (CaveBat, _) => 5,                               // the under-places are mostly bats
             _ => 3,
         }
     }
@@ -130,9 +168,9 @@ impl WildSpecies {
         use WildSpecies::*;
         match self {
             Hare | RedFox | Capercaillie | Beaver | RingedSeal | MireCrane | EagleOwl
-            | ForestReindeer => 0,
-            Elk | Lynx | Adder | HollowStag | MireLight | CaveBreather => 1,
-            Wolf | BrownBear | Boar | Wolverine => 2,
+            | ForestReindeer | KethVaal | GlassBeetle | SteppeLark | CaveBat | GhostGoat => 0,
+            Elk | Lynx | Adder | HollowStag | MireLight | CaveBreather | SandOx | HeatShimmer => 1,
+            Wolf | BrownBear | Boar | Wolverine | SteppeBison => 2,
         }
     }
 
@@ -177,6 +215,30 @@ impl WildSpecies {
             CaveBreather => {
                 "From deeper in the dark: breathing. Slow, large, even. Air moving through \
                  stone, surely. The dark does not say."
+            }
+            SandOx => {
+                "A sand-ox stands hock-deep in the lee of a dune, chewing what the desert \
+                 grudged it. It does not yield the shade."
+            }
+            KethVaal => {
+                "A keth-vaal lizard flows off the hot stone and is gone — water owed nobody."
+            }
+            GlassBeetle => {
+                "Glass-beetles cross the sand in single file, backs throwing the light like sparks."
+            }
+            HeatShimmer => {
+                "Something low keeps to the shimmer at the edge of sight, patient as thirst. \
+                 It waits where the heat bends."
+            }
+            SteppeBison => {
+                "The steppe bison lift their heads as one — a wall of winter-coated muscle \
+                 deciding whether you matter."
+            }
+            SteppeLark => "A steppe-lark climbs singing out of the grass, straight up, all spring.",
+            CaveBat => "Bats pour past your ears toward the night-mouth, a river of soft leather.",
+            GhostGoat => {
+                "A ghost-goat watches from a ledge no path serves, pale against the rock, \
+                 chewing, unimpressed."
             }
         }
     }
@@ -247,6 +309,47 @@ mod tests {
         for seed in 0..400u64 {
             if let Some(s) = WildSpecies::roll(Terrain::Grass, Season::Frost, seed) {
                 assert_ne!(s, WildSpecies::Adder, "no adders on frost ground");
+            }
+        }
+    }
+
+    #[test]
+    fn the_under_places_are_mostly_bats() {
+        // Cave's only resident used to be the uncanny CaveBreather — every
+        // sighting underground was strange. The strange must stay strange.
+        let mut uncanny = 0;
+        let mut total = 0;
+        for seed in 0..1000u64 {
+            if let Some(s) = WildSpecies::roll(Terrain::Cave, Season::Green, seed) {
+                total += 1;
+                if s.uncanny() {
+                    uncanny += 1;
+                }
+            }
+        }
+        assert!(total > 0);
+        assert!(
+            (uncanny as f64) < (total as f64) * 0.30,
+            "mundane majority underground: {uncanny}/{total}"
+        );
+    }
+
+    #[test]
+    fn the_dry_lands_have_their_own_animals() {
+        // Before tranche 2, Sand rolled only the adder and DeepDesert nothing.
+        assert!(WildSpecies::roll(Terrain::DeepDesert, Season::Green, 7).is_some());
+        for seed in 0..200u64 {
+            if let Some(s) = WildSpecies::roll(Terrain::DeepDesert, Season::Frost, seed) {
+                assert!(s.habitats().contains(&Terrain::DeepDesert));
+            }
+        }
+    }
+
+    #[test]
+    fn the_lark_goes_south_for_the_frost() {
+        for seed in 0..400u64 {
+            if let Some(s) = WildSpecies::roll(Terrain::Grass, Season::Frost, seed) {
+                assert_ne!(s, WildSpecies::SteppeLark, "gone with the waterfowl");
             }
         }
     }
