@@ -492,6 +492,25 @@ impl App {
                 for (mx, my) in marks {
                     self.reveal_around(region_idx, mx, my);
                 }
+                // A signal fire is seen from anywhere in the region — the
+                // ground around it stays known while it stands.
+                let fires: Vec<(usize, usize)> = self
+                    .sim
+                    .as_ref()
+                    .and_then(|s| s.world.regions.get(region_idx))
+                    .map(|r| {
+                        r.structures
+                            .iter()
+                            .filter(|st| st.kind == crate::sim::structures::BuildKind::Beacon)
+                            .map(|st| (st.x as usize, st.y as usize))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                for (fx, fy) in fires {
+                    if region_idx < self.explored.len() {
+                        self.explored[region_idx].reveal(fx, fy, 4);
+                    }
+                }
                 self.check_encounter(terrain);
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);

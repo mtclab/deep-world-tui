@@ -51,6 +51,20 @@ impl App {
                 }
             })
             .unwrap_or(1.0);
+        // A kept signal fire holds the lit dark off: dusk-to-deep-night
+        // encounters near one's own beacon come half as often.
+        let night = matches!(
+            crate::model::TimeOfDay::from_hour(self.clock.hour),
+            crate::model::TimeOfDay::Dusk
+                | crate::model::TimeOfDay::Night
+                | crate::model::TimeOfDay::DeepNight
+        );
+        let weather_mult =
+            if night && self.own_structure_near(crate::sim::structures::BuildKind::Beacon, 2) {
+                weather_mult * 0.5
+            } else {
+                weather_mult
+            };
         if let Some(enc) = Encounter::roll_biased_weather(
             terrain,
             self.clock.hour,
