@@ -1,0 +1,69 @@
+{
+    "GREETING_LINES": [
+        "regards you steadily. \"Another day in the Archive's shadow.\"",
+        "nods. \"The path finds its own.\"",
+        "looks up. \"Welcome. What brings you?\"",
+        "sets aside work. \"The {people} remember their friends.\"",
+        "studies you. \"The old roads still hold, if you know where to look.\"",
+    ],
+    "GREETING_HUNGRY_LINES": [
+        "nods weakly. \"I cannot think past my hunger.\"",
+        "presses a hand to stomach. \"The void eats thought.\"",
+        "waves dismissively. \"Not now. The belly rules.\"",
+    ],
+    "GREETING_CRAFTY_LINES": [
+        "sets down {craft_flavor}. \"Welcome. The {people} remember their friends.\"",
+        "wipes {craft_flavor}. \"Good timing — the work was getting lonely.\"",
+        "gestures from the {craft_flavor}. \"Come. Sit. There is always room.\"",
+    ],
+    "TRADE_LINES": [
+        "gestures toward the goods. \"Fair exchange keeps the world turning.\"",
+        "counts carefully. \"The {people} trade honestly, or not at all.\"",
+        "spreads hands. \"What have you, and what do you need?\"",
+    ],
+    "TRADE_BROKE_LINES": [
+        "shakes head slowly. \"I have nothing to trade but my word.\"",
+        "turns away. \"Coin speaks. Without it, silence answers.\"",
+        "shows empty palms. \"The {profession_flavor} knows poverty when it sees it.\"",
+    ],
+    "NEED_DIRE_HUNGRY_LINES": [
+        "clutches stomach. \"The hunger eats my thoughts.\"",
+        "leans against the wall. \"Empty. Everything is empty.\"",
+        "stares at nothing. \"When the belly hollows, the mind follows.\"",
+    ],
+    "NEED_DIRE_BROKE_LINES": [
+        "stares at empty hands. \"Debts are stones around my neck.\"",
+        "voice drops. \"The {people} see all — and they see my poverty.\"",
+        "shakes head. \"There is nothing left. Nothing.\"",
+    ],
+    "NEED_DIRE_GENERAL_LINES": [
+        "looks away. \"Some needs go deeper than coin or bread.\"",
+        "voice tightens. \"Do not ask. The {people} bear what they must.\"",
+        "exhales. \"The weight does not lift. It only shifts.\"",
+    ],
+    "NEED_FINE_LINES": [
+        "stands easy. \"The {people} have known worse seasons. This one holds.\"",
+        "looks around. \"Enough. More than enough, for once.\"",
+        "shrugs. \"Steady days. Long may they last.\"",
+    ],
+    "FAREWELL_LINES": [
+        "steps back. \"Until the next turning.\"",
+        "nods firmly. \"May the Archive hold what we have built.\"",
+        "turns to go. \"The road calls us both. Walk well.\"",
+    ],
+    "FAREWELL_CRAFTY_LINES": [
+        "returns to the {craft_flavor}. \"May the Archive hold what we have built.\"",
+        "resumes work at {craft_flavor}. \"Until next time.\"",
+        "gathers {craft_flavor}. \"Go well. The work continues.\"",
+    ],
+    "GOSSIP_LINES": [
+        "speaks low. \"Word travels the river roads. Listen, and the {people} will tell you.\"",
+        "glances around. \"They say things are changing. The {people} feel it.\"",
+        "leans in. \"I heard something. Whether it is true... the {people} will see.\"",
+    ],
+    "GOSSIP_HUNGRY_LINES": [
+        "leans close. \"They say the storehouses thin. The {people} are watching.\"",
+        "whispers. \"Hunger sharpens the ears. The {people} hear more than they let on.\"",
+        "looks grave. \"The {people} keep count. The count does not favor us.\"",
+    ],
+}
