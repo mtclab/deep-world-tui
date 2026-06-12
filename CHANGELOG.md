@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (master, 2026-06-12)
+## v0.6.0 (2026-06-12)
 
 - **Canon scale epic (#378, PRs #379–#381)** — carrying-capacity population model (water/arable/trade factors), canon tiers to 15k+ cities, hinterland grain imports + famine on road failure, 160×80 sectors with half-hour walking, CANON_CITIES wired into caravans/rumors, 72-tile city sprawl. SCALE.md binding.
 - **Walkable towns (#372, PRs #373–#377)** — town streets/houses on the one map, walk-in doors (tavern serves on step-in), street life, gate on the map (menu retired), 80×40 sectors.
