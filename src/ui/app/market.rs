@@ -1,0 +1,254 @@
+use crate::model::{GodName, ItemType};
+use crate::sim::hints;
+
+use super::*;
+
+impl App {
+    pub fn enter_market(&mut self, region_idx: usize, settlement_idx: usize) {
+        self.screen = Screen::Market {
+            region_idx,
+            settlement_idx,
+            scroll: 0,
+        };
+    }
+
+    pub fn exit_market(&mut self) {
+        let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
+        self.screen = Screen::World { region_idx };
+    }
+
+    /// Supply effect of arrived caravans on the current settlement's price for
+    /// an item (more goods in town → lower price). 1.0 when no caravan applies.
+    fn caravan_price_modifier(&self, item: ItemType) -> f64 {
+        let Some(name) = self.current_settlement().map(|s| s.name.clone()) else {
+            return 1.0;
+        };
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let mut m = 1.0;
+        if let Some(ref sim) = self.sim {
+            for c in &sim.caravans {
+                if c.destination == name && c.has_arrived(tick) {
+                    m *= c.price_modifier(item, tick);
+                }
+            }
+        }
+        m
+    }
+
+    /// Escalation: at deep hostility the market simply closes to the player.
+    fn market_barred(&self) -> bool {
+        self.current_settlement_people()
+            .map(|p| self.inter_people_bias.effective_bias(p) < -0.25)
+            .unwrap_or(false)
+    }
+
+    pub fn buy_item(&mut self, item: ItemType) {
+        if !item.tradeable() {
+            self.status_msg = Some("Cannot buy that".into());
+            return;
+        }
+        if self.market_barred() {
+            self.status_msg = Some("The market is closed to your kind here.".into());
+            return;
+        }
+        // Single source of truth with the displayed quote.
+        let price = self.quote_buy_price(item);
+        if let Some(ref mut ps) = self.player_start {
+            if ps.inventory.remove(ItemType::Coin, price) {
+                ps.inventory.add(item, 1);
+                self.advance_clock_hour();
+                self.fire_hint(hints::HINT_FIRST_TRADE);
+                self.check_quests_on_tick();
+                self.status_msg =
+                    Some(format!("Bought 1 {} for {} coins (1h)", item.name(), price));
+                self.god_affinity.adjust(GodName::Masa, 0.02);
+                // Honest trade slowly mends what tension breaks.
+                if let Some(np) = self.current_settlement_people() {
+                    self.inter_people_bias.mod_toward(np, 0.005);
+                }
+            } else {
+                self.status_msg = Some(format!("Need {} coins", price));
+            }
+        }
+    }
+
+    pub fn sell_item(&mut self, item: ItemType) {
+        if !item.tradeable() {
+            self.status_msg = Some("Cannot sell that".into());
+            return;
+        }
+        if self.market_barred() {
+            self.status_msg = Some("The market is closed to your kind here.".into());
+            return;
+        }
+        // Single source of truth with the displayed quote (spread-clamped so
+        // selling never pays more than buying costs).
+        let price = self.quote_sell_price(item);
+        if let Some(ref mut ps) = self.player_start {
+            if ps.inventory.remove(item, 1) {
+                ps.inventory.add(ItemType::Coin, price);
+                self.advance_clock_hour();
+                self.fire_hint(hints::HINT_FIRST_TRADE);
+                self.check_quests_on_tick();
+                self.status_msg = Some(format!("Sold 1 {} for {} coins (1h)", item.name(), price));
+                self.god_affinity.adjust(GodName::Masa, 0.01);
+                if let Some(np) = self.current_settlement_people() {
+                    self.inter_people_bias.mod_toward(np, 0.005);
+                }
+            } else {
+                self.status_msg = Some(format!("No {} to sell", item.name()));
+            }
+        }
+    }
+
+    /// Try to palm an item off a market stall. The witness roll decides:
+    /// unseen takes it clean, rumored takes it with a whisper attached, seen
+    /// gets nothing and a name for thieving. Crime is a choice with weight.
+    pub fn steal_item(&mut self, item: ItemType) {
+        if !item.tradeable() {
+            self.status_msg = Some("Cannot steal that".into());
+            return;
+        }
+        if self.current_settlement().is_none() {
+            self.status_msg = Some("Nothing here to steal.".into());
+            return;
+        }
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let mut rng = crate::rng::SeedRng::new(self.seed.wrapping_add(tick)).fork_for("steal");
+        let roll = rng.gen_range(100);
+        let pid = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let sid = self
+            .current_settlement()
+            .map(|s| s.id.clone())
+            .unwrap_or_default();
+        let npc_people = self.current_settlement_people();
+        // More eyes in a city: witness odds scale with the place. A hamlet's
+        // lanes are empty half the day; a city street is never unwatched.
+        let (clean_under, whisper_under) = match self
+            .current_settlement()
+            .map(|s| s.size.clone())
+            .unwrap_or_default()
+            .as_str()
+        {
+            "hamlet" => (60, 85),
+            "town" => (40, 70),
+            "city" => (25, 60),
+            _ => (50, 80), // village — the old odds
+        };
+        self.advance_clock_hour();
+        if roll < clean_under {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(item, 1);
+            }
+            self.god_affinity.adjust(GodName::Masa, -0.03);
+            self.status_msg = Some(format!("No one saw. The {} is yours.", item.name()));
+        } else if roll < whisper_under {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(item, 1);
+            }
+            self.god_affinity.adjust(GodName::Masa, -0.05);
+            if let Some(ref mut sim) = self.sim {
+                sim.reputation.adjust_local(&pid, &sid, -0.05);
+            }
+            self.status_msg = Some(format!(
+                "The {} is yours — but someone is whispering already.",
+                item.name()
+            ));
+        } else {
+            self.god_affinity.adjust(GodName::Masa, -0.05);
+            if let Some(ref mut sim) = self.sim {
+                sim.reputation.adjust_local(&pid, &sid, -0.15);
+            }
+            if let Some(np) = npc_people {
+                self.inter_people_bias.mod_toward(np, -0.03);
+            }
+            self.status_msg = Some("Caught with your hand out. They will remember this.".into());
+        }
+    }
+
+    pub fn reputation_in_current_settlement(&self) -> f64 {
+        let mut rep = 0.5;
+        if let (Some(ref ps), Some(ref sim), Some(pos)) =
+            (&self.player_start, &self.sim, self.player_pos)
+        {
+            if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                if let Some(settlement) = region.settlements.first() {
+                    rep = sim.reputation.get(&ps.person.id, &settlement.id);
+                }
+            }
+        }
+        rep
+    }
+
+    pub fn politics_price_modifier(&self) -> f64 {
+        if let (Some(ref sim), Some(pos)) = (&self.sim, self.player_pos) {
+            if let Some(region) = sim.world.regions.get(pos.region_idx) {
+                if let Some(settlement) = region.settlements.first() {
+                    return settlement.politics.price_modifier();
+                }
+            }
+        }
+        1.0
+    }
+
+    /// What the market charges the player. Includes ALL the modifiers the
+    /// transaction applies (politics + caravan supply too — the quotes used to
+    /// omit those, so the displayed price could differ from the charged one).
+    pub fn quote_buy_price(&self, item: ItemType) -> u32 {
+        let base = item.base_price();
+        let inter_mod = self
+            .current_settlement_people()
+            .map(|sp| self.inter_people_bias.price_modifier(sp))
+            .unwrap_or(1.0);
+        let rep_mod =
+            crate::sim::signals::reputation_price_modifier(self.reputation_in_current_settlement());
+        let m = inter_mod
+            * rep_mod
+            * self.politics_price_modifier()
+            * self.caravan_price_modifier(item)
+            * self.food_scarcity_modifier(item);
+        ((base as f64 * m).ceil() as u32).max(1)
+    }
+
+    /// Hunger in the settlement moves the price of what can be eaten: lean
+    /// stores raise Food/Herb prices, full ones lower them.
+    fn food_scarcity_modifier(&self, item: ItemType) -> f64 {
+        if !matches!(item, ItemType::Food | ItemType::Herb) {
+            return 1.0;
+        }
+        self.current_settlement()
+            .map(|s| s.food_scarcity_modifier())
+            .unwrap_or(1.0)
+    }
+
+    /// What the market pays the player — always below the buy price, merchants
+    /// take a margin. Without the clamp, high reputation inverted the spread
+    /// (buy at 0.6x base, sell at 1.4x) and buy->sell was an infinite-coin loop.
+    pub fn quote_sell_price(&self, item: ItemType) -> u32 {
+        let base = item.base_price();
+        let inter_mod = self
+            .current_settlement_people()
+            .map(|bp| 2.0 - self.inter_people_bias.price_modifier(bp))
+            .unwrap_or(1.0);
+        let rep_mod = 2.0
+            - crate::sim::signals::reputation_price_modifier(
+                self.reputation_in_current_settlement(),
+            );
+        let m = inter_mod
+            * rep_mod
+            * self.politics_price_modifier()
+            * self.caravan_price_modifier(item)
+            * self.food_scarcity_modifier(item);
+        let raw = ((base as f64 * m).floor() as u32).max(1);
+        let buy = self.quote_buy_price(item);
+        if buy > 1 {
+            raw.clamp(1, buy - 1)
+        } else {
+            1
+        }
+    }
+}
