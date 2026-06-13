@@ -174,6 +174,12 @@ impl WildSpecies {
         }
     }
 
+    /// A creature whose bite carries venom, not just teeth. A strike that lands
+    /// courses the blood — the wound is the least of it.
+    pub fn venomous(self) -> bool {
+        matches!(self, WildSpecies::Adder)
+    }
+
     /// Not natural — post-Fall strangeness, always written deniable.
     pub fn uncanny(self) -> bool {
         matches!(

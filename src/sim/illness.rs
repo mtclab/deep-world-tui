@@ -18,6 +18,31 @@ pub fn tick_illness(
     has_healer: bool,
     existing_count: usize,
 ) -> Option<ActiveDisease> {
+    tick_illness_luck(
+        person_seed,
+        tick,
+        terrain,
+        needs,
+        has_healer,
+        existing_count,
+        1.0,
+    )
+}
+
+/// As `tick_illness`, but `luck_mult` leans the contraction odds (a life's
+/// hidden star: < 1 for the blessed, > 1 for the cursed). NPCs pass 1.0; the
+/// player passes their fortune's bad-outcome multiplier — so the unlucky
+/// sicken sooner in the very same swamp.
+#[allow(clippy::too_many_arguments)]
+pub fn tick_illness_luck(
+    person_seed: u64,
+    tick: u64,
+    terrain: Terrain,
+    needs: &Needs,
+    has_healer: bool,
+    existing_count: usize,
+    luck_mult: f64,
+) -> Option<ActiveDisease> {
     if existing_count >= MAX_ILLNESSES_PER_PERSON {
         return None;
     }
@@ -35,6 +60,7 @@ pub fn tick_illness(
         prob *= HEALER_MISSING_MULTIPLIER;
     }
     prob += Disease::Fever.contraction_probability(terrain) / 200.0;
+    prob *= luck_mult.max(0.0);
     let roll = rng.gen_range(10000) as f64 / 10000.0;
     if roll >= prob {
         return None;
