@@ -383,7 +383,11 @@ impl App {
                 }
             }
             EncounterAction::Calm => {
-                if enc_mod.calm + god_calm_bonus > 0.03 {
+                // The still-sense settles a wild thing surely — the Laakso gift
+                // (#439). Its cost is charged after the match, below.
+                if self.gift.sense().map(|s| s.aids_calm()).unwrap_or(false) {
+                    "The quiet in you reaches the beast. It stills, and lets you pass.".into()
+                } else if enc_mod.calm + god_calm_bonus > 0.03 {
                     "Your calm presence soothed the beast. It bows its head.".into()
                 } else {
                     "The beast settled. It watches you leave.".into()
@@ -648,11 +652,20 @@ impl App {
                 }
             }
         }
-        let msg = if let Some(note) = outside_intervention {
+        let mut msg = if let Some(note) = outside_intervention {
             format!("{} {}", msg, note)
         } else {
             msg
         };
+        // The still-sense settling a beast is the gift at work — it costs the
+        // body like any other gift act (#439).
+        if action == EncounterAction::Calm
+            && self.gift.sense().map(|s| s.aids_calm()).unwrap_or(false)
+        {
+            if let Some(note) = self.use_gift() {
+                msg.push_str(&note);
+            }
+        }
         if let Some(ref mut ps) = self.player_start {
             let combat_decay = match action {
                 EncounterAction::Flee | EncounterAction::Calm | EncounterAction::Talk => 0.0,

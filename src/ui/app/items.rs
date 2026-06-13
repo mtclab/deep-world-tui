@@ -311,26 +311,41 @@ impl App {
                 }
                 let mut msg = msg;
                 if gift_used {
-                    // The gift surfaces the first time it is used (#431).
-                    if !self.gift_revealed {
-                        if let Some(sense) = self.gift.sense() {
-                            self.gift_revealed = true;
-                            msg = format!("{} {}", sense.revelation(), msg);
-                            if let Some(sim) = self.sim.as_mut() {
-                                sim.log(
-                                    sim.world.tick,
-                                    crate::sim::journal::Voice::Scar,
-                                    sense.revelation().to_string(),
-                                );
-                            }
-                        }
-                    }
-                    if let Some(cost) = self.pay_gift_strain() {
-                        msg.push_str(&cost);
+                    if let Some(note) = self.use_gift() {
+                        msg.push_str(&note);
                     }
                 }
                 self.status_msg = Some(msg);
             }
+        }
+    }
+
+    /// Use the gift for any act (craft, trade, calm — #439): surface it the
+    /// first time (#431), then pay the body (#427/#428). Returns the combined
+    /// note, if the body answered or the gift first showed.
+    pub(crate) fn use_gift(&mut self) -> Option<String> {
+        let sense = self.gift.sense()?;
+        let mut note = String::new();
+        if !self.gift_revealed {
+            self.gift_revealed = true;
+            note.push(' ');
+            note.push_str(sense.revelation());
+            let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+            if let Some(sim) = self.sim.as_mut() {
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Scar,
+                    sense.revelation().to_string(),
+                );
+            }
+        }
+        if let Some(cost) = self.pay_gift_strain() {
+            note.push_str(&cost);
+        }
+        if note.is_empty() {
+            None
+        } else {
+            Some(note)
         }
     }
 
