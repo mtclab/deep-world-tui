@@ -144,9 +144,15 @@ pub struct App {
     /// every risk a little; the cautious are safer, never safe.
     pub fortune: crate::model::Fortune,
     /// The craft-gift this life was born with — almost always none. Innate,
-    /// hidden, shows in childhood or never (#426). The craft it grants will
-    /// cost the body to use (later issues of the gift epic).
+    /// hidden, shows in childhood or never (#426). The craft it grants costs
+    /// the body to use (#427).
     pub gift: crate::model::Gift,
+    /// Today's accumulated gift-strain: working the gift past a day's measure
+    /// brings the flame-fever (#427). Resets at the day's turn.
+    pub gift_strain: f64,
+    /// Consecutive days the gift was worked to the bone — sustained overuse
+    /// settles into the chronic iron-ache (#427).
+    pub gift_overworked_days: u32,
     /// Day the last omen showed, so the sky does not babble every step.
     pub last_omen_day: u32,
     /// Consecutive seasons a resident has owed the polity its hearth-tax and
@@ -242,6 +248,8 @@ impl App {
             lifespan_years: 0,
             fortune: crate::model::Fortune::default(),
             gift: crate::model::Gift::default(),
+            gift_strain: 0.0,
+            gift_overworked_days: 0,
             last_omen_day: 0,
             tax_unpaid_seasons: 0,
             last_tax_day: 0,
