@@ -103,6 +103,7 @@ mod tests {
             }],
             charts_version: "0.1.0".into(),
             region_cols: 1,
+            polity: Default::default(),
         }
     }
 

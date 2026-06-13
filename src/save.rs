@@ -78,6 +78,11 @@ pub struct SaveData {
     /// The luck this life was born with. Old saves default to middling.
     #[serde(default)]
     pub fortune: crate::model::Fortune,
+    /// Seasons of unpaid hearth-tax the player owes the polity.
+    #[serde(default)]
+    pub tax_unpaid_seasons: u32,
+    #[serde(default)]
+    pub last_tax_day: u32,
     // The player's encounter history (day/hour/kind/action) lived in App but
     // was never saved, so the log reset on every load.
     #[serde(default)]
@@ -323,6 +328,8 @@ pub fn restore_from_compact(
         birth_day: 0,
         lifespan_years: 0,
         fortune: Default::default(),
+        tax_unpaid_seasons: 0,
+        last_tax_day: 0,
         encounter_log: Default::default(),
         player_farms: Vec::new(),
         homestead_settlers: Vec::new(),
@@ -367,6 +374,8 @@ mod tests {
             birth_day: 0,
             lifespan_years: 0,
             fortune: Default::default(),
+            tax_unpaid_seasons: 0,
+            last_tax_day: 0,
             encounter_log: Default::default(),
             player_farms: Vec::new(),
             homestead_settlers: Vec::new(),
@@ -466,6 +475,8 @@ mod tests {
             birth_day: 0,
             lifespan_years: 0,
             fortune: Default::default(),
+            tax_unpaid_seasons: 0,
+            last_tax_day: 0,
             encounter_log: Default::default(),
             player_farms: Vec::new(),
             homestead_settlers: Vec::new(),

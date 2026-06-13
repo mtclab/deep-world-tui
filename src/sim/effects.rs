@@ -323,6 +323,7 @@ mod tests {
             }],
             charts_version: "0.1.0".into(),
             region_cols: 1,
+            polity: Default::default(),
         }
     }
 
@@ -489,6 +490,7 @@ mod tests {
             ],
             charts_version: "0.1.0".into(),
             region_cols: 1,
+            polity: Default::default(),
         };
         let mut rels = RelationshipTracker::new();
         let mut rep = ReputationStore::new();

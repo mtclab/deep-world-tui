@@ -3,6 +3,107 @@ use crate::model::{GodName, InterPeopleBias, ItemType, SettlementService, Terrai
 use super::*;
 
 impl App {
+    /// Four seasons in arrears and the polity revokes your standing: the
+    /// council's protections lapse (resident prices, room to grow your fields).
+    /// Your houses still stand — you simply hold them on sufferance now.
+    pub fn residency_revoked(&self) -> bool {
+        self.tax_unpaid_seasons >= 4
+    }
+
+    /// The season's reckoning: a resident owes the polity its hearth-tax, by
+    /// the tier of the roofs they keep on a settlement's ground, leaned by the
+    /// polity's hand and the settlement's prosperity. Paid in coin, then in
+    /// grain to the local granary; a shortfall is a season of debt. Called on
+    /// the season-turn (#396).
+    pub(super) fn assess_hearth_tax(&mut self) {
+        use crate::sim::structures::BuildKind;
+        let Some(sim) = self.sim.as_ref() else {
+            return;
+        };
+        let polity = sim.world.polity;
+        // Find the residence: finished houses of yours on a settlement's ground.
+        let mut residence: Option<(usize, u32, f64)> = None; // region, tier-sum, prosperity
+        for (ri, region) in sim.world.regions.iter().enumerate() {
+            let mut tier_sum = 0u32;
+            for st in &region.structures {
+                if !st.is_npc_built
+                    && region.terrain.get(st.x as usize, st.y as usize) == Some(Terrain::Settlement)
+                {
+                    tier_sum += match st.kind {
+                        BuildKind::Cabin => 1,
+                        BuildKind::Longhouse => 2,
+                        BuildKind::Home => 3,
+                        _ => 0,
+                    };
+                }
+            }
+            if tier_sum > 0 {
+                let prosperity = region
+                    .settlements
+                    .first()
+                    .map(|s| (s.food_stock / (s.population.max(1) as f64)).clamp(0.4, 1.6))
+                    .unwrap_or(1.0);
+                residence = Some((ri, tier_sum, prosperity));
+                break;
+            }
+        }
+        let Some((ri, tier_sum, prosperity)) = residence else {
+            // Not a resident: you owe nothing, and any old debt lapses with the
+            // ground you no longer hold.
+            self.tax_unpaid_seasons = 0;
+            return;
+        };
+        let tax = ((tier_sum as f64) * polity.levy_multiplier() * prosperity)
+            .round()
+            .max(1.0) as u32;
+        let mut owed = tax;
+        let mut grain_paid = 0u32;
+        if let Some(ps) = self.player_start.as_mut() {
+            let coin = ps.inventory.get(ItemType::Coin);
+            let pay = coin.min(owed);
+            ps.inventory.remove(ItemType::Coin, pay);
+            owed -= pay;
+            if owed > 0 {
+                let food = ps.inventory.get(ItemType::Food);
+                grain_paid = food.min(owed);
+                ps.inventory.remove(ItemType::Food, grain_paid);
+                owed -= grain_paid;
+            }
+        }
+        // Grain settled in kind goes to the local granary — a transfer, not a
+        // sink (the coin levy the polity carries off).
+        if grain_paid > 0 {
+            if let Some(region) = self.sim.as_mut().and_then(|s| s.world.regions.get_mut(ri)) {
+                if let Some(s) = region.settlements.first_mut() {
+                    s.food_stock += grain_paid as f64;
+                }
+            }
+        }
+        let (pname, levy) = (polity.name(), polity.levy_name());
+        if owed == 0 {
+            self.tax_unpaid_seasons = 0;
+            self.status_msg = Some(format!(
+                "You met the {levy} to {pname} ({tax}). Your hearth stands square."
+            ));
+        } else {
+            self.tax_unpaid_seasons += 1;
+            self.status_msg =
+                Some(format!(
+                "You fell {owed} short of the {levy}. {pname} keeps the ledger ({} season{} owed).",
+                self.tax_unpaid_seasons,
+                if self.tax_unpaid_seasons == 1 { "" } else { "s" }
+            ));
+        }
+        if let Some(sim) = self.sim.as_mut() {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Rumor,
+                format!("The assessor of {pname} walked the ward; the {levy} came due."),
+            );
+        }
+    }
+
     pub fn enter_journal(&mut self) {
         self.screen = Screen::Journal { scroll: 0 };
     }
@@ -112,29 +213,31 @@ impl App {
             cost = (cost / 2).max(1);
         }
         // A resident pays neighbor's prices: owning a finished house on this
-        // settlement's ground counts like a friend's vouching.
-        let is_resident = self
-            .player_pos
-            .map(|pos| {
-                self.sim
-                    .as_ref()
-                    .and_then(|s| s.world.regions.get(pos.region_idx))
-                    .map(|r| {
-                        r.structures.iter().any(|st| {
-                            !st.is_npc_built
-                                && matches!(
-                                    st.kind,
-                                    crate::sim::structures::BuildKind::Cabin
-                                        | crate::sim::structures::BuildKind::Longhouse
-                                        | crate::sim::structures::BuildKind::Home
-                                )
-                                && r.terrain.get(st.x as usize, st.y as usize)
-                                    == Some(Terrain::Settlement)
+        // settlement's ground counts like a friend's vouching — unless the
+        // polity has revoked your standing for unpaid tax.
+        let is_resident = !self.residency_revoked()
+            && self
+                .player_pos
+                .map(|pos| {
+                    self.sim
+                        .as_ref()
+                        .and_then(|s| s.world.regions.get(pos.region_idx))
+                        .map(|r| {
+                            r.structures.iter().any(|st| {
+                                !st.is_npc_built
+                                    && matches!(
+                                        st.kind,
+                                        crate::sim::structures::BuildKind::Cabin
+                                            | crate::sim::structures::BuildKind::Longhouse
+                                            | crate::sim::structures::BuildKind::Home
+                                    )
+                                    && r.terrain.get(st.x as usize, st.y as usize)
+                                        == Some(Terrain::Settlement)
+                            })
                         })
-                    })
-                    .unwrap_or(false)
-            })
-            .unwrap_or(false);
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
         // A friend in town vouches for you: a coin off, never below one.
         let has_friend = is_resident
             || self.current_settlement().is_some_and(|s| {

@@ -26,13 +26,43 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
 
     seamless_terrain_edges(&mut regions);
 
+    // The land decides the master: the province answers to the polity its
+    // most common region type belongs to (canon the_37_polities.md).
+    let polity = dominant_polity(&regions);
+
     World {
         seed,
         tick: 0,
         regions,
         charts_version: "0.1.0".into(),
         region_cols,
+        polity,
     }
+}
+
+/// The polity holding a province, from the region type that occurs most across
+/// its regions. Ties break by the first such region — deterministic.
+fn dominant_polity(regions: &[crate::model::Region]) -> crate::model::Polity {
+    use std::collections::HashMap;
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for r in regions {
+        *counts.entry(r.region_type.as_str()).or_default() += 1;
+    }
+    // Walk the regions in order and pick the type with the highest count,
+    // first-seen winning ties — avoids HashMap iteration nondeterminism.
+    let mut best_type = regions
+        .first()
+        .map(|r| r.region_type.as_str())
+        .unwrap_or("");
+    let mut best_count = 0usize;
+    for r in regions {
+        let c = counts[r.region_type.as_str()];
+        if c > best_count {
+            best_count = c;
+            best_type = r.region_type.as_str();
+        }
+    }
+    crate::model::Polity::for_region_type(best_type)
 }
 
 fn compute_grid_cols(n: usize) -> usize {

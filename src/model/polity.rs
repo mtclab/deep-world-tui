@@ -12,7 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Polity {
     /// River Sampa Basin Leagues — twelve league-cities, one toll-signature.
     /// Revenue is the toll, and the toll is not gentle.
@@ -23,7 +23,9 @@ pub enum Polity {
     /// Kelta Delta League — eight delta harbours under the Tidal Exchange.
     KeltaDelta,
     /// The Velkari Remnant — imperial continuation, a grain-ration and a
-    /// debased coin, taxing as of ancient right.
+    /// debased coin, taxing as of ancient right. The default master of any
+    /// province whose land does not clearly answer to another.
+    #[default]
     VelkariRemnant,
     /// The Northern Forest Principalities (Keurimä reach) — hospitality law,
     /// the lightest levy in the Known World.
