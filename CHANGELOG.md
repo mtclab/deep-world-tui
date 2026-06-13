@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.9.0 (2026-06-13)
+
+**The Gift and Its Price (epic #424)** — the Deep World's signature magic finally enters the game: the rare, innate, body-costing craft-sensitivity of the novels.
+
+- **The hidden Gift (#426)** — a per-life `Gift` rolled from the life-seed like Fortune; ~2.5% carry one of four senses (iron-ear/root-eye/still-sense/scale-hand → Oltzed/Keuru/Kukri/Masa), the rest craftless. Hidden, persisted, shows young or never.
+- **The craft act and its cost (#427)** — a gifted crafter masters the work their sense answers (no botch, +1 yield) but pays the body: gift-strain past a day brings the flame-fever (lieska-kuume), three worked-to-the-bone days the chronic iron-ache (rauta-särky). Fortune-leaned.
+- **Burnout & rupture (#428)** — reaching for the gift while doubly spent (flame-fever AND iron-ache) risks the rauta-huuta: the sense is gone forever, irreversible.
+- **Heredity (#429)** — the gift runs in the blood: a gifted parent's heir is gifted ~35% (vs base 2.5%), usually the same sense, but the line can still go quiet.
+- **Craftless worth (#430)** — the ~97.5% are not lesser: the undivided, un-taxed hand is steadier (craft-botch ×0.55) and never pays the gift's price.
+- **Surfacing (#431)** — the gift reveals itself on first use; the cost and rupture speak in the journal; a rare gifted NPC crafter is heard of on the road.
+
+## v0.8.0 (2026-06-13)
+
+**Depth & consequence (epic #411)** — close the loops between luck, gear, wildlife, and polity.
+
+- **Finish luck's reach (#412)** — fortune leans the last rolls: craft botch, NPC childbirth complication (by the mother's fortune), NPC aid in encounters.
+- **Wildlife as a resource (#413)** — hunt & trap: `ItemType::Hide`, a Hunt action on danger ≤1 non-uncanny wildlife, drawing down (and recovering) region game-richness.
+- **Gear that closes loops (#414)** — Hide → Leather → Warm Coat (softens harsh-weather decay) and Herb → Salve (speeds Infection/Venom recovery).
+- **Polity depth + canon currency (#415)** — paired rivalries + deterministic seasonal tension → war-rumors, road-watch travel penalty, war-levy; residency-revoked gates new field claims; per-polity coin acceptance (no universal currency: merchant leagues full value, Remnant debased, grain/in-kind economies discount coin).
+- **Wild species tranche 3 (#416)** — roster 26 → 35: water/high/geothermal/coast/deep-desert species + the uncanny sand-spirit.
+- **A felt world calendar (#417)** — seasonal events (market fair, hard winter, plague year), deterministic, announced on the wind, each moving one mechanic.
+
 ## v0.7.0 (2026-06-13)
 
 - **The luck system (#397–#409)** — a hidden per-life Fortune (one star, never shown, surfaced only as uncertain omens) leans the consequence rolls across the whole game: flee outcomes (#398, fleeing is a gamble not an exit), mortal run-downs + collapse-death reprieve (#400, #402), illness contraction / wound infection / venom (#404), gather yield + trade prices (#407), and weather exposure — the cursed bear the cold worse (#409). Cautious is not safe; you never know your luck.
