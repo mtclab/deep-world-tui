@@ -42,6 +42,8 @@ fn make_save_data(seed: u64, charts: &charts::Charts) -> SaveData {
         birth_day: 0,
         lifespan_years: 0,
         fortune: Default::default(),
+        tax_unpaid_seasons: 0,
+        last_tax_day: 0,
         encounter_log: Default::default(),
         player_farms: Vec::new(),
         homestead_settlers: Vec::new(),

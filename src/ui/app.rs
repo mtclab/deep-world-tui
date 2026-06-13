@@ -145,6 +145,12 @@ pub struct App {
     pub fortune: crate::model::Fortune,
     /// Day the last omen showed, so the sky does not babble every step.
     pub last_omen_day: u32,
+    /// Consecutive seasons a resident has owed the polity its hearth-tax and
+    /// not paid in full. Drives the debt ladder: market closed, then residency
+    /// revoked. Reset to zero on a season paid clear.
+    pub tax_unpaid_seasons: u32,
+    /// Day of the last hearth-tax assessment, so a season is reckoned once.
+    pub last_tax_day: u32,
     pub tick_count: u64,
     pub flash_frames: u8,
     pub perf_slow_frames: u32,
@@ -232,6 +238,8 @@ impl App {
             lifespan_years: 0,
             fortune: crate::model::Fortune::default(),
             last_omen_day: 0,
+            tax_unpaid_seasons: 0,
+            last_tax_day: 0,
             tick_count: 0,
             flash_frames: 0,
             perf_slow_frames: 0,

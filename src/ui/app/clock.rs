@@ -129,6 +129,13 @@ impl App {
             self.check_spouse();
             self.maybe_omen();
         }
+        // The season-turn reckoning: every thirty days the polity's assessor
+        // comes for the hearth-tax (#396), once per season.
+        let day = self.clock.day;
+        if day > 0 && day.is_multiple_of(30) && day != self.last_tax_day {
+            self.last_tax_day = day;
+            self.assess_hearth_tax();
+        }
         // The founding check asks the roads every ten days; the waystation
         // ledger keeps the same calendar.
         if self.clock.day / 10 > self.founding_check_day / 10 {

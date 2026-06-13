@@ -37,6 +37,11 @@ impl App {
 
     /// Escalation: at deep hostility the market simply closes to the player.
     fn market_barred(&self) -> bool {
+        // Two seasons of unpaid hearth-tax and the polity shuts the stalls to
+        // you (#396); a deep grudge does the same.
+        if self.tax_unpaid_seasons >= 2 {
+            return true;
+        }
         self.current_settlement_people()
             .map(|p| self.inter_people_bias.effective_bias(p) < -0.25)
             .unwrap_or(false)

@@ -9,6 +9,7 @@ pub mod encounter;
 pub mod fortune;
 pub mod memorial;
 pub mod person;
+pub mod polity;
 pub mod quest;
 pub mod relation;
 pub mod terrain;
@@ -23,6 +24,7 @@ pub use economy::*;
 pub use encounter::*;
 pub use fortune::Fortune;
 pub use person::*;
+pub use polity::Polity;
 pub use quest::{Quest, QuestKind, QuestReward};
 pub use terrain::*;
 pub use vitals::*;
@@ -41,6 +43,10 @@ pub struct World {
     pub charts_version: String,
     #[serde(default)]
     pub region_cols: usize,
+    /// The territorial power this province answers to — its tax, its law. Old
+    /// saves default to the Remnant until a fresh world re-derives it.
+    #[serde(default)]
+    pub polity: Polity,
 }
 
 impl World {
