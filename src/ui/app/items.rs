@@ -311,6 +311,20 @@ impl App {
                 }
                 let mut msg = msg;
                 if gift_used {
+                    // The gift surfaces the first time it is used (#431).
+                    if !self.gift_revealed {
+                        if let Some(sense) = self.gift.sense() {
+                            self.gift_revealed = true;
+                            msg = format!("{} {}", sense.revelation(), msg);
+                            if let Some(sim) = self.sim.as_mut() {
+                                sim.log(
+                                    sim.world.tick,
+                                    crate::sim::journal::Voice::Scar,
+                                    sense.revelation().to_string(),
+                                );
+                            }
+                        }
+                    }
                     if let Some(cost) = self.pay_gift_strain() {
                         msg.push_str(&cost);
                     }
