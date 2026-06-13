@@ -165,17 +165,24 @@ impl App {
     }
 
     fn die_of_old_age(&mut self) {
-        self.death_cause = Some(DeathCause::OldAge);
+        self.die_in_wilds(
+            DeathCause::OldAge,
+            "Age took me, quiet as dusk. The world remembers, and life goes on.",
+        );
+    }
+
+    /// End the current life of a given cause: record it, save the lineage, mark
+    /// the scar in the journal, and pass to the heir. The shared spine behind
+    /// old age and the deaths the wilds deal directly (a beast that does not
+    /// let go).
+    pub(super) fn die_in_wilds(&mut self, cause: DeathCause, scar: &str) {
+        self.death_cause = Some(cause);
         if let Some(data) = self.build_save_data() {
             let _ = save::save_lineage(&data, self.seed);
         }
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;
-            sim.log(
-                tick,
-                crate::sim::journal::Voice::Scar,
-                "Age took me, quiet as dusk. The world remembers, and life goes on.".into(),
-            );
+            sim.log(tick, crate::sim::journal::Voice::Scar, scar.into());
         }
         self.continue_as_npc();
     }

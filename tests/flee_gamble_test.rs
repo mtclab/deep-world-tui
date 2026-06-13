@@ -41,28 +41,39 @@ struct Tally {
     run_down: u32,
 }
 
-// Sweep many turns against `species`, classifying each flee. Reuses one app
-// (the roll depends only on seed/tick/danger/guard), resetting state per turn.
+// Sweep many turns against `species`, classifying each flee. Reuses one app,
+// re-pinning the life's controllable state each turn — a run-down can now kill
+// outright and swap in an heir (fresh star, no dog), which would otherwise
+// drift the measurement. Fortune is held neutral so the rates are the bare
+// mechanic; the fortune lean is tested separately.
 fn sweep(seed: u64, species: WildSpecies, guarded: bool, n: u64) -> Tally {
+    use deep_world_tui::model::Fortune;
     let mut a = app(seed);
-    if guarded {
-        if let Some(ps) = a.player_start.as_mut() {
-            ps.companions
-                .push(Companion::new(Animal::Dog, "Guard".into(), 0));
-        }
-    }
     let mut t = Tally::default();
     for tick in 0..n {
+        // Pin the life: neutral star, full vitals, and (if guarded) a dog at
+        // heel — restored each turn in case a fatal run-down reset the body.
+        a.fortune = Fortune::from_value(0.0);
+        if let Some(ps) = a.player_start.as_mut() {
+            ps.companions.retain(|c| c.animal == Animal::Dog);
+            if guarded && ps.companions.is_empty() {
+                ps.companions
+                    .push(Companion::new(Animal::Dog, "Guard".into(), 0));
+            } else if !guarded {
+                ps.companions.clear();
+            }
+        }
         a.sim.as_mut().unwrap().world.tick = tick;
         a.vitals.energy = 1.0;
         a.vitals.hunger = 1.0;
         a.vitals.thirst = 1.0;
         a.collapse = None;
+        a.death_cause = None;
         let before = a.collapses_had;
         set_encounter(&mut a, species);
         a.resolve_encounter(EncounterAction::Flee);
-        if a.collapses_had > before {
-            t.run_down += 1; // emptied → collapse funnel
+        if a.death_cause.is_some() || a.collapses_had > before {
+            t.run_down += 1; // run down: killed outright or emptied into collapse
         } else if a.vitals.energy < 0.8 {
             t.wounded += 1; // a gash (clean flee costs only 0.15)
         } else {
@@ -130,27 +141,29 @@ fn a_guardian_shortens_the_odds_but_never_to_zero() {
 }
 
 #[test]
-fn run_down_feeds_the_collapse_funnel() {
-    // The cautious traveler who fled the rumored road meets a beast on the
-    // "safer" one — and being run down hands them to the same funnel that
-    // hunger and cold do. Over a sweep, that funnel sometimes does not let go.
+fn being_run_down_by_a_predator_is_often_fatal() {
+    // The traveler who fled the rumored road meets a bear on the "safer" one,
+    // already worn — and a beast that runs you down is mortal danger, not a
+    // stumble. Across a worn sweep many run-downs end in death; the rest leave
+    // you emptied. This is where caution stops being immunity.
+    use deep_world_tui::model::{DeathCause, Fortune};
     let mut a = app(13);
     let mut deaths = 0;
     let mut run_downs = 0;
     for tick in 0..4000u64 {
-        if a.death_cause.is_some() {
-            // continue_as_npc already swapped the body; reset for measurement.
-            a = app(13 + tick);
-        }
+        a.fortune = Fortune::from_value(0.0);
+        a.death_cause = None;
+        a.collapse = None;
         a.sim.as_mut().unwrap().world.tick = tick;
         a.vitals.energy = 0.2; // worn thin, far from any bed
         a.vitals.hunger = 0.3;
-        let before = a.collapses_had;
+        let before_collapse = a.collapses_had;
         set_encounter(&mut a, WildSpecies::BrownBear);
         a.resolve_encounter(EncounterAction::Flee);
-        if a.collapses_had > before {
+        let killed = a.death_cause == Some(DeathCause::Wounds);
+        if killed || a.collapses_had > before_collapse {
             run_downs += 1;
-            if a.death_cause.is_some() {
+            if killed {
                 deaths += 1;
             }
         }
@@ -158,6 +171,11 @@ fn run_down_feeds_the_collapse_funnel() {
     assert!(run_downs > 0, "bears run down the worn ({run_downs})");
     assert!(
         deaths > 0,
-        "you never know your luck — the wilds claim some ({deaths} of {run_downs})"
+        "and the wilds keep some of what they catch ({deaths} of {run_downs})"
+    );
+    // It is mortal, not certain death — most run-downs are survived, emptied.
+    assert!(
+        deaths < run_downs,
+        "but not every catch is fatal ({deaths} of {run_downs})"
     );
 }
