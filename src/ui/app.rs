@@ -153,6 +153,9 @@ pub struct App {
     /// Consecutive days the gift was worked to the bone — sustained overuse
     /// settles into the chronic iron-ache (#427).
     pub gift_overworked_days: u32,
+    /// Whether the gift has surfaced to its bearer yet — it reveals itself the
+    /// first time it is used (#431). Ephemeral; re-announces on a fresh load.
+    pub gift_revealed: bool,
     /// Day the last omen showed, so the sky does not babble every step.
     pub last_omen_day: u32,
     /// Consecutive seasons a resident has owed the polity its hearth-tax and
@@ -250,6 +253,7 @@ impl App {
             gift: crate::model::Gift::default(),
             gift_strain: 0.0,
             gift_overworked_days: 0,
+            gift_revealed: false,
             last_omen_day: 0,
             tax_unpaid_seasons: 0,
             last_tax_day: 0,

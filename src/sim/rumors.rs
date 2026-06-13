@@ -36,6 +36,19 @@ pub fn informed_rumor(sim: &SimState, day: u32, salt: u64) -> Option<String> {
                     s.name
                 ));
             }
+            // A rare gifted crafter, surfaced as word on the road (#431).
+            // Deterministic per settlement; the gift is as rare here as anywhere.
+            let g = crate::model::Gift::roll(sim.world.seed, crate::rng::fnv1a_hash(&s.id));
+            if let Some(sense) = g.sense() {
+                if let Some(p) = s.people.iter().find(|p| {
+                    matches!(
+                        p.profession.as_str(),
+                        "smith" | "herbalist" | "healer" | "weaver" | "trader"
+                    )
+                }) {
+                    candidates.push(sense.npc_rumor(&p.name, &s.name));
+                }
+            }
         }
     }
     let tick = sim.world.tick;

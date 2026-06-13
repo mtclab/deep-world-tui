@@ -45,6 +45,49 @@ impl CraftSense {
         }
     }
 
+    /// The line that surfaces the gift to its bearer the first time they use
+    /// it — the moment the unnamed knack becomes a known thing (#431).
+    pub fn revelation(self) -> &'static str {
+        match self {
+            CraftSense::IronEar => {
+                "The metal answered before your hands did. You know it now: you have the \
+                 iron-ear, the Sepät gift — the forge's song, and its price."
+            }
+            CraftSense::RootEye => {
+                "The green opened its order to you, plain as a road. You have the root-eye, \
+                 the Metsik gift — the living world's deep grain, and its price."
+            }
+            CraftSense::StillSense => {
+                "The quiet under things turned toward you. You have the still-sense, the \
+                 Laakso gift — the deep's silence, and its price."
+            }
+            CraftSense::ScaleHand => {
+                "The weight and the tide settled true in your hand. You have the scale-hand, \
+                 the Väylä gift — the water's reckoning, and its price."
+            }
+        }
+    }
+
+    /// A rumor that a settlement keeps a crafter of this sense (#431).
+    pub fn npc_rumor(self, who: &str, place: &str) -> String {
+        match self {
+            CraftSense::IronEar => {
+                format!(
+                    "They say {who} of {place} has the iron-ear — the blades sing off the anvil."
+                )
+            }
+            CraftSense::RootEye => {
+                format!("They say {who} of {place} has the root-eye — nothing rots in that one's store.")
+            }
+            CraftSense::StillSense => {
+                format!("They say {who} of {place} has the still-sense — sits with the dying and the room goes calm.")
+            }
+            CraftSense::ScaleHand => {
+                format!("They say {who} of {place} has the scale-hand — never once short-weighted a trade.")
+            }
+        }
+    }
+
     /// The god whose domain the sense belongs to.
     pub fn god(self) -> GodName {
         match self {
@@ -255,6 +298,23 @@ mod tests {
             (0.015..0.035).contains(&rate),
             "craftless-line rate off: {rate}"
         );
+    }
+
+    #[test]
+    fn every_sense_surfaces_and_rumors() {
+        for s in [
+            CraftSense::IronEar,
+            CraftSense::RootEye,
+            CraftSense::StillSense,
+            CraftSense::ScaleHand,
+        ] {
+            assert!(
+                s.revelation().contains(s.name()),
+                "revelation names the sense"
+            );
+            let r = s.npc_rumor("Vare", "Ovrat");
+            assert!(r.contains("Vare") && r.contains("Ovrat") && r.contains(s.name()));
+        }
     }
 
     #[test]

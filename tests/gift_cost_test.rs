@@ -126,6 +126,24 @@ fn a_healthy_gift_does_not_rupture() {
 }
 
 #[test]
+fn the_gift_reveals_itself_on_first_use_then_stays_known() {
+    let mut a = app(7, Some(CraftSense::IronEar));
+    assert!(!a.gift_revealed);
+    let idx = tool_index();
+    a.craft_recipe(idx);
+    assert!(a.gift_revealed, "first gift-aided craft reveals the gift");
+    let revealed_msg = a.status_msg.clone().unwrap_or_default();
+    assert!(
+        revealed_msg.contains("iron-ear"),
+        "the reveal names the sense: {revealed_msg}"
+    );
+    // It does not announce itself again.
+    a.craft_recipe(idx);
+    let again = a.status_msg.clone().unwrap_or_default();
+    assert!(!again.contains("you have the iron-ear") && !again.contains("You have the"));
+}
+
+#[test]
 fn the_gift_masters_its_craft_no_botch() {
     // Over many gift-aided crafts the Tool count rises every time — the gift
     // does not spoil the work it was born to.

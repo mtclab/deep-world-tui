@@ -279,6 +279,7 @@ impl App {
         // Gift-strain is a fresh-day matter; it does not survive a reload.
         self.gift_strain = 0.0;
         self.gift_overworked_days = 0;
+        self.gift_revealed = false;
         self.tax_unpaid_seasons = data.tax_unpaid_seasons;
         self.last_tax_day = data.last_tax_day;
         self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
