@@ -515,7 +515,10 @@ impl App {
                                     _ => 0x00,
                                 };
                                 let roll = (hasher.rotate_left(13) as f64) / (u32::MAX as f64);
-                                if roll < 0.02 {
+                                // Who shows up at the right moment is luck too:
+                                // the fortunate are likelier to have a friend on
+                                // the road, the cursed to stand alone.
+                                if roll < self.fortune.tilt_good(0.02) {
                                     Some(if rep >= help_threshold {
                                         "A passing trader steps from the road, recognizing you. The bandit recoils.".to_string()
                                     } else {
