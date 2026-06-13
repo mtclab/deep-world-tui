@@ -4,6 +4,14 @@ use crate::sim::hints;
 use super::*;
 
 impl App {
+    /// The seasonal world-event gripping the world right now, if any (#417):
+    /// a market fair, a hard winter, a plague year. Deterministic per
+    /// seed + season + year (a 90-day, three-season year).
+    pub fn current_world_event(&self) -> Option<crate::model::WorldEvent> {
+        let year = self.clock.day / 90;
+        crate::model::WorldEvent::current(self.seed, self.clock.season(), year)
+    }
+
     /// Today's sky over a region (the weather-front system's state).
     pub fn region_weather(&self, region_idx: usize) -> Weather {
         self.sim
@@ -38,6 +46,11 @@ impl App {
             .map(|ps| ps.inventory.has(ItemType::Coat) && !ps.inventory.is_broken(ItemType::Coat))
             .unwrap_or(false);
         let coat_factor = if has_coat { 0.5 } else { 1.0 };
+        // A declared hard winter bites deeper than an ordinary Frost (#417).
+        let event_weather = self
+            .current_world_event()
+            .map(|e| e.weather_decay_modifier())
+            .unwrap_or(1.0);
         let mut weather_harsh = false;
         let weather_mult = self
             .player_pos
@@ -45,7 +58,7 @@ impl App {
                 let raw = self.region_weather(pos.region_idx).need_decay_modifier();
                 let harsh_excess = (raw - 1.0).max(0.0);
                 weather_harsh = harsh_excess > 0.0;
-                1.0 + harsh_excess * coat_factor * self.fortune.bad_multiplier()
+                1.0 + harsh_excess * coat_factor * event_weather * self.fortune.bad_multiplier()
             })
             .unwrap_or(1.0);
         let mut departed: Vec<String> = Vec::new();

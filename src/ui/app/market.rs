@@ -227,12 +227,18 @@ impl App {
         // Coin worth less here means it takes more of it to buy: divide the
         // price by how well coin trades in this polity.
         let coin = self.coin_value_here();
+        // A market fair makes goods cheaper this season (#417).
+        let event = self
+            .current_world_event()
+            .map(|e| e.buy_price_modifier())
+            .unwrap_or(1.0);
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
             * self.caravan_price_modifier(item)
             * self.food_scarcity_modifier(item)
             * luck
+            * event
             / coin;
         ((base as f64 * m).ceil() as u32).max(1)
     }

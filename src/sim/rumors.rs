@@ -66,6 +66,15 @@ pub fn informed_rumor(sim: &SimState, day: u32, salt: u64) -> Option<String> {
         ));
     }
 
+    // The season's world-event, if any, is on every tongue (#417).
+    if let Some(event) = crate::model::WorldEvent::current(
+        sim.world.seed,
+        crate::model::Season::from_day(day),
+        day / 90,
+    ) {
+        candidates.push(event.rumor().to_string());
+    }
+
     if candidates.is_empty() {
         return None;
     }
