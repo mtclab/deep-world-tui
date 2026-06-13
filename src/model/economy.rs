@@ -84,6 +84,14 @@ pub enum ItemType {
     /// A wild creature's hide, taken by hunting or trapping. Tans to leather,
     /// trades well, the start of the warm-coat chain.
     Hide,
+    /// Tanned hide — the intermediate between a raw skin and a worn coat.
+    Leather,
+    /// A warm coat of leather and cloth: worn, it softens the bite of harsh
+    /// weather. Wears with the seasons.
+    Coat,
+    /// A herb poultice: applied at rest, it speeds an infection or venom
+    /// through its course faster than a plain bandage.
+    Salve,
 }
 
 impl ItemType {
@@ -107,6 +115,9 @@ impl ItemType {
             ItemType::Bandage => "Bandage",
             ItemType::Trap => "Trap",
             ItemType::Hide => "Hide",
+            ItemType::Leather => "Leather",
+            ItemType::Coat => "Coat",
+            ItemType::Salve => "Salve",
         }
     }
 
@@ -130,6 +141,9 @@ impl ItemType {
             ItemType::Bandage => 4,
             ItemType::Trap => 5,
             ItemType::Hide => 6,
+            ItemType::Leather => 9,
+            ItemType::Coat => 18,
+            ItemType::Salve => 6,
         }
     }
 
@@ -156,6 +170,9 @@ impl ItemType {
             ItemType::Bandage,
             ItemType::Trap,
             ItemType::Hide,
+            ItemType::Leather,
+            ItemType::Coat,
+            ItemType::Salve,
         ]
     }
 
@@ -335,6 +352,30 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
             inputs: vec![(ItemType::Wood, 2), (ItemType::Iron, 1)],
             output: ItemType::Tool,
             output_count: 1,
+            people: None,
+        },
+        // The hide -> leather -> coat chain (#414): hunting feeds the warmth
+        // that softens harsh-weather decay; a salve closes the luck-body loop.
+        // Appended after Tool so existing recipe indices stay put.
+        CraftRecipe {
+            name: "Leather".into(),
+            inputs: vec![(ItemType::Hide, 2)],
+            output: ItemType::Leather,
+            output_count: 1,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Warm Coat".into(),
+            inputs: vec![(ItemType::Leather, 2), (ItemType::Cloth, 1)],
+            output: ItemType::Coat,
+            output_count: 1,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Salve".into(),
+            inputs: vec![(ItemType::Herb, 3)],
+            output: ItemType::Salve,
+            output_count: 2,
             people: None,
         },
         CraftRecipe {
@@ -1009,6 +1050,13 @@ impl ActiveDisease {
         self.severity = (self.severity - 0.25).max(1.0);
         self.contracted_tick = self.contracted_tick.saturating_sub(24);
     }
+
+    /// A salved illness eases harder and runs its course two days faster — for
+    /// the wounds a poultice actually answers (infection, venom).
+    pub fn tend_strong(&mut self) {
+        self.severity = (self.severity - 0.5).max(1.0);
+        self.contracted_tick = self.contracted_tick.saturating_sub(48);
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -1433,9 +1481,9 @@ mod tests {
 
         assert!(!items.contains(&ItemType::Coin));
 
-        // 17 = all item kinds minus Coin (Tool/Bandage/Trap added with #310,
-        // Hide with #413).
-        assert_eq!(items.len(), 17);
+        // 20 = all item kinds minus Coin (Tool/Bandage/Trap added with #310,
+        // Hide with #413, Leather/Coat/Salve with #414).
+        assert_eq!(items.len(), 20);
     }
 
     #[test]
@@ -1474,6 +1522,39 @@ mod tests {
 
             assert!(recipe.output_count > 0, "must produce something");
         }
+    }
+
+    #[test]
+    fn gear_chain_recipes_close_the_loop() {
+        let r = craft_recipes();
+        let find = |out| r.iter().find(|c| c.output == out);
+        // Hide -> Leather -> Coat, and Herb -> Salve.
+        let leather = find(ItemType::Leather).expect("leather recipe");
+        assert!(leather.inputs.iter().any(|(i, _)| *i == ItemType::Hide));
+        let coat = find(ItemType::Coat).expect("coat recipe");
+        assert!(coat.inputs.iter().any(|(i, _)| *i == ItemType::Leather));
+        let salve = find(ItemType::Salve).expect("salve recipe");
+        assert!(salve.inputs.iter().any(|(i, _)| *i == ItemType::Herb));
+    }
+
+    #[test]
+    fn salve_tends_harder_than_a_bandage() {
+        let mut bandaged = ActiveDisease::new(Disease::Infection, 1000);
+        let mut salved = ActiveDisease::new(Disease::Infection, 1000);
+        bandaged.worsen(100); // drive severity to the cap
+        salved.worsen(100);
+        bandaged.tend();
+        salved.tend_strong();
+        assert!(
+            salved.severity < bandaged.severity,
+            "salve should ease severity more: salve={} bandage={}",
+            salved.severity,
+            bandaged.severity
+        );
+        assert!(
+            salved.contracted_tick < bandaged.contracted_tick,
+            "salve should shorten the course more"
+        );
     }
 
     #[test]

@@ -70,6 +70,9 @@ pub(crate) fn draw_inventory_screen(f: &mut Frame, app: &App) {
             ItemType::Bandage => Color::Rgb(0xd2, 0xc2, 0xb2),
             ItemType::Trap => Color::Rgb(0x6a, 0x7a, 0x5a),
             ItemType::Hide => Color::Rgb(0x8a, 0x5a, 0x3a),
+            ItemType::Leather => Color::Rgb(0x9a, 0x6a, 0x3a),
+            ItemType::Coat => Color::Rgb(0x7a, 0x4a, 0x2a),
+            ItemType::Salve => Color::Rgb(0x7a, 0x9a, 0x6a),
         };
         let dur = inv.durability(*item);
         let quality = crate::model::QualityTier::from_durability(dur);
