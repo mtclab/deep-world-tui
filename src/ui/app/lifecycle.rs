@@ -463,7 +463,12 @@ impl App {
         // The heir is a fresh life: reset aging, salted by lineage depth so each
         // generation rolls its own lifespan.
         self.death_cause = None;
-        self.begin_life_aging(&heir_band, self.lineage.len() as u64);
+        // The gift runs in the blood (#429): the heir's gift is leaned by the
+        // parent's. Captured before begin_life_aging re-rolls a plain one.
+        let parent_gift = self.gift;
+        let heir_salt = self.lineage.len() as u64;
+        self.begin_life_aging(&heir_band, heir_salt);
+        self.gift = crate::model::Gift::roll_heir(self.seed, heir_salt, parent_gift);
 
         // Continue on Map screen
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
