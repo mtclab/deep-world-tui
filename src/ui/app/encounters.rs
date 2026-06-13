@@ -216,6 +216,76 @@ impl App {
         }
     }
 
+    /// Add an affliction to the player, if there is room for it and it is not
+    /// already running. Marks the scar in the journal. Whether it lands is the
+    /// caller's roll; this only carries it in.
+    fn afflict(&mut self, disease: crate::model::Disease, scar: &str) -> bool {
+        let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+        let added = if let Some(ref mut ps) = self.player_start {
+            const MAX_PLAYER_ILLNESSES: usize = 2;
+            if ps.person.illnesses.len() >= MAX_PLAYER_ILLNESSES
+                || ps.person.illnesses.iter().any(|d| d.disease == disease)
+            {
+                false
+            } else {
+                ps.person
+                    .illnesses
+                    .push(crate::model::ActiveDisease::new(disease, tick));
+                true
+            }
+        } else {
+            false
+        };
+        if added {
+            if let Some(ref mut sim) = self.sim {
+                sim.log(tick, crate::sim::journal::Voice::Scar, scar.into());
+            }
+        }
+        added
+    }
+
+    /// A wound is not only what it costs at the moment. A bite carries what was
+    /// on the teeth; dirty ground sours an open gash. Roll, fortune-leaned, for
+    /// the wound to turn — a venomous strike to venom, anything else to a
+    /// festering infection. Treatment (a healer, herbs) is the counter; luck
+    /// decides only whether the turn comes. Returns a note if something took.
+    fn roll_wound_affliction(
+        &mut self,
+        species: Option<crate::model::wildlife::WildSpecies>,
+        terrain: Terrain,
+        dirty_base: f64,
+    ) -> Option<&'static str> {
+        let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+        let venomous = species.is_some_and(|s| s.venomous());
+        // A venomous strike that broke skin is very likely to envenom; an
+        // ordinary wound festers by the dirt of the teeth and the ground.
+        let (disease, base, scar): (crate::model::Disease, f64, &'static str) = if venomous {
+            (
+                crate::model::Disease::Venom,
+                0.6,
+                "The bite burns cold, then hot. Venom — it is in me now.",
+            )
+        } else {
+            let dirty_ground = matches!(terrain, Terrain::Swamp | Terrain::Coast | Terrain::Cave);
+            (
+                crate::model::Disease::Infection,
+                dirty_base + if dirty_ground { 0.12 } else { 0.0 },
+                "The wound will not close clean. By morning it is hot and angry — it has turned.",
+            )
+        };
+        let p = self.fortune.tilt_bad(base);
+        let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x00AF_F11C));
+        if crate::rng::unit_from_hash(h) < p && self.afflict(disease, scar) {
+            Some(if venomous {
+                " The strike was venomous."
+            } else {
+                " The wound has turned — it festers."
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn resolve_encounter(&mut self, action: EncounterAction) {
         let terrain = self.encounter.map(|e| e.terrain).unwrap_or(Terrain::Grass);
         let species = self.encounter.and_then(|e| e.species);
@@ -389,6 +459,7 @@ impl App {
         // the odds without ever making flight free. The worst roll feeds the
         // collapse funnel below (`flee_run_down`).
         let mut flee_wound_note: Option<&'static str> = None;
+        let mut affliction_note: Option<&'static str> = None;
         let mut flee_run_down = false;
         if action == EncounterAction::Flee {
             let danger = match encounter_data {
@@ -405,12 +476,17 @@ impl App {
                     self.vitals.hunger = (self.vitals.hunger - 0.06).max(0.0);
                     flee_wound_note =
                         Some("It caught you as you turned — a gash, bleeding, but you broke free.");
+                    // The gash may carry what was on the teeth, or sour in dirty
+                    // ground — luck decides whether it turns.
+                    affliction_note = self.roll_wound_affliction(species, terrain, 0.15);
                 }
                 FleeOutcome::RunDown => {
                     self.vitals.energy = 0.0;
                     flee_run_down = true;
                     flee_wound_note =
                         Some("It ran you down. Teeth, weight, the ground rushing up to meet you.");
+                    // Affliction for a survived mauling is rolled after the
+                    // lethal check below (a dead traveler takes no fever).
                 }
             }
         }
@@ -591,11 +667,10 @@ impl App {
             }
             WitnessLevel::Seen => msg,
         };
-        let msg_with_witness = match flee_wound_note {
+        let mut msg_with_witness = match flee_wound_note {
             Some(note) => format!("{} {}", msg_with_witness.trim_end(), note),
             None => msg_with_witness,
         };
-        self.status_msg = Some(msg_with_witness);
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         self.screen = Screen::World { region_idx };
         // Being run down by a thing big enough to catch you (a run-down only
@@ -615,7 +690,14 @@ impl App {
                 );
                 return;
             }
+            // Survived the mauling — but a predator's torn flesh is dirty work;
+            // the wound may yet turn.
+            affliction_note = self.roll_wound_affliction(species, terrain, 0.30);
         }
+        if let Some(note) = affliction_note {
+            msg_with_witness = format!("{}{}", msg_with_witness.trim_end(), note);
+        }
+        self.status_msg = Some(msg_with_witness);
         // A wound that emptied you (or a survived run-down) hands you to the
         // collapse funnel — which decides, by luck and your state, whether you
         // rise. (check_collapse self-gates on vitals and overrides the screen

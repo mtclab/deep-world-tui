@@ -232,8 +232,14 @@ impl App {
         };
         ps.person.illnesses.retain(|d| !d.is_recovered(tick));
         let count = ps.person.illnesses.len();
-        let contracted = crate::sim::illness::tick_illness(
-            self.seed, tick, terrain, &needs, 0, has_healer, count,
+        let contracted = crate::sim::illness::tick_illness_luck(
+            self.seed,
+            tick,
+            terrain,
+            &needs,
+            has_healer,
+            count,
+            self.fortune.bad_multiplier(),
         )
         .filter(|d| {
             d.disease != crate::model::Disease::ChildbirthComplication

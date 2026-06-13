@@ -887,6 +887,9 @@ pub enum Disease {
     BloodAche,
     ForgeBlindness,
     ChildbirthComplication,
+    /// Not caught from the land — carried in on a bite. A venomous strike
+    /// (adder, keth-vaal) courses the blood; it is never contracted by terrain.
+    Venom,
 }
 
 impl Disease {
@@ -902,6 +905,7 @@ impl Disease {
             Disease::BloodAche => "blood_ache",
             Disease::ForgeBlindness => "forge_blindness",
             Disease::ChildbirthComplication => "childbirth_complication",
+            Disease::Venom => "venom",
         }
     }
 
@@ -917,6 +921,7 @@ impl Disease {
             Disease::BloodAche => 1.25,
             Disease::ForgeBlindness => 1.1,
             Disease::ChildbirthComplication => 1.6,
+            Disease::Venom => 1.5,
         }
     }
 
@@ -932,6 +937,7 @@ impl Disease {
             Disease::BloodAche => 48,
             Disease::ForgeBlindness => 200,
             Disease::ChildbirthComplication => 30,
+            Disease::Venom => 54,
         }
     }
 
@@ -947,6 +953,8 @@ impl Disease {
             (Disease::BloodAche, _) => 0.005,
             (Disease::ForgeBlindness, Terrain::Mountain | Terrain::Settlement) => 0.01,
             (Disease::ChildbirthComplication, _) => 0.003,
+            // Venom is never taken from the land — only from a bite.
+            (Disease::Venom, _) => 0.0,
             _ => 0.002,
         }
     }

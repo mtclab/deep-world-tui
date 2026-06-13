@@ -45,11 +45,18 @@ impl Fortune {
         self.0
     }
 
+    /// The multiplier fortune applies to a *bad* outcome's odds — good fortune
+    /// below 1, ill fortune above. For callers that compute a probability
+    /// internally and want to lean it without re-deriving the tilt.
+    pub fn bad_multiplier(self) -> f64 {
+        1.0 - self.0 * TILT
+    }
+
     /// Tilt the probability of a *bad* outcome. Good fortune lowers it, ill
     /// fortune raises it; the result stays in [0, 1] and never collapses to a
     /// certainty either way.
     pub fn tilt_bad(self, p: f64) -> f64 {
-        (p * (1.0 - self.0 * TILT)).clamp(0.0, 1.0)
+        (p * self.bad_multiplier()).clamp(0.0, 1.0)
     }
 
     /// Tilt the probability of a *good* outcome — the mirror of `tilt_bad`.
