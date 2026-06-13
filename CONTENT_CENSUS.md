@@ -2,8 +2,9 @@
 
 A full inventory of the game's content axes against the design baseline:
 **everything has a purpose, the world is living and breathing, decisions have
-consequences.** Updated 2026-06-12 after the living-settlements and real-items
-passes (PRs #312–#313) closed every gap from the original wiring pass (#307–#310).
+consequences.** Updated 2026-06-13 for v0.7.0 — added Crops (10), Polities (6),
+Venom (Diseases 10→11), and the hidden Fortune/omens axis; the living-settlements
+and real-items passes (#312–#313) had already closed the original wiring gaps.
 
 Verdicts: **load-bearing** (mechanically distinct and applied in play),
 **flavor** (sampled/displayed but no mechanical effect), **dead** (defined but
@@ -17,7 +18,7 @@ load-bearing; what remains is listed under *Open gaps*.
 | Animals (companions) | 16 | 16 | gather (Dog/Hound), travel (Horse), carry (Ox/Donkey), scout sight (Falcon/Crow), milk (Goat/HighlandGoat), per-animal upkeep rates (incl. zero-upkeep Eel/Crane/Lizard); rest yields, mood, departure |
 | Professions | 21 | 21 | schedules + illness/trade hooks; fisher/sailor/herder/beast-handler feed the food economy, soldier/fence-builder/path-finder grant Safety, singer grants Presence, carpenter/labourer/forester/miner/weaver drive NPC construction (#312) |
 | Personality traits | 19 | 19 | all traits now hit personality/trade/encounter modifiers |
-| Diseases | 10 | 10 | terrain contraction, recovery window, vitals-decay rate; childbirth gated to those who can give birth; `severity` grows while untreated and scales vitals decay (#313) |
+| Diseases | 11 | 11 | terrain contraction, recovery window, vitals-decay rate; childbirth gated to those who can give birth; `severity` grows while untreated and scales vitals decay (#313); Venom carried in on a bite, not the land (#404), fortune-leaned contraction/infection |
 | Encounter kinds | 12 | 12 | terrain/season/rarity-gated spawn incl. MerchantCaravan (roads); distinct action sets |
 | Encounter actions | 8 | 8 | time/energy/hunger costs, god affinity, reputation + NPC-memory deltas |
 | Collapse outcomes | 10 | 10 | distinct losses/restores/hours, god-affinity weighted, all reachable |
@@ -33,6 +34,9 @@ load-bearing; what remains is listed under *Open gaps*.
 | Region types / sizes | 6 / 4 | all | chart-driven terrain mix, settlement count/size, services, companion capacity |
 | Craft recipes | 6 | 6 wired | Tool/Bandage/Trap are real ItemTypes with prices and recipe outputs (#313) |
 | Discoveries | 12 | 12 | per-kind effects: god affinity, thirst/energy refresh, map reveal (#313) |
+| Crops (CropType) | 10 | 10 | per-crop terrain/season growth + yield; the Bronze Road four (Flax→Cloth closes the trade-only gap, WinterRye survives Frost, DroughtMillet, SnowPea) plus Grain/RootVegetable/Flatroot/Berry/Herb/Mushroom (#392) |
+| Polities (Polity) | 6 | 6 | province ownership, hearth-tax + debt ladder (the province pays its dues), inter-polity placement: SampaLeagues, TahtiFreeCities, KeltaDelta, VelkariRemnant, ForestPrincipalities, SteppeAlliance (#396/#405) |
+| Fortune / omens | 1 star | load-bearing | one hidden per-life Fortune (deterministic from life-seed, never shown), leans flee outcomes, mortal run-downs, collapse-death reprieve, illness/infection/venom, gather yield, trade prices, weather exposure; surfaced only as uncertain omens that polarity-lean but never lock (#397–#409) |
 | charts.ron | 17 sections | all | generation fully data-driven |
 
 ## Open gaps
@@ -51,4 +55,7 @@ festivals) → encounters, service refusal, prices; NPC memory (per-person trust
 → talk/trade success; lineage (death cause, heirs) → generational play;
 illness (terrain/hunger/shelter choices) → vitals drain → collapse risk;
 weather (when to travel/gather/rest) → time, yield, encounters, decay;
-structures (build/maintain) → rest tier + decay upkeep. Each loop closes.
+structures (build/maintain) → rest tier + decay upkeep;
+fortune (hidden, per-life) → a thumb on every consequence roll above (flee,
+run-down, reprieve, illness/infection/venom, gather, trade, exposure), known
+only as omens — cautious is not safe, you never know your luck. Each loop closes.
