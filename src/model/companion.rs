@@ -97,6 +97,12 @@ impl Animal {
         }
     }
 
+    /// A guardian puts itself between you and a turning predator — it does not
+    /// make flight safe, but it shortens the odds of being caught.
+    pub fn guards(self) -> bool {
+        matches!(self, Animal::Dog | Animal::Hound | Animal::DesertCaravanDog)
+    }
+
     pub fn travel_speed_multiplier(self) -> f64 {
         match self {
             Animal::Horse => 0.7,
