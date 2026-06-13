@@ -8,6 +8,11 @@ use super::*;
 /// feel it — luck rides this roll like every other.
 const BASE_CRAFT_BOTCH_PROB: f64 = 0.10;
 
+/// How much the craftless reduce their botch chance: the undivided, un-taxed
+/// hand is steadier at ordinary work than the gifted reaching outside their
+/// sense (#430). The craftless are not lesser.
+const CRAFTLESS_RELIABILITY: f64 = 0.55;
+
 /// Strain added by one gift-aided craft. About three a day reaches the
 /// flame-fever threshold (#427).
 const GIFT_STRAIN_PER_CRAFT: f64 = 0.34;
@@ -23,6 +28,17 @@ const BASE_GIFT_RUPTURE_PROB: f64 = 0.10;
 /// botch less, the cursed more; never certain either way.
 pub(crate) fn craft_botch_chance(fortune: crate::model::Fortune) -> f64 {
     fortune.tilt_bad(BASE_CRAFT_BOTCH_PROB)
+}
+
+/// The botch chance for a given crafter: the craftless steadier than the
+/// gifted reaching outside their sense (#430).
+pub(crate) fn craft_botch_chance_for(fortune: crate::model::Fortune, craftless: bool) -> f64 {
+    let base = craft_botch_chance(fortune);
+    if craftless {
+        base * CRAFTLESS_RELIABILITY
+    } else {
+        base
+    }
 }
 
 impl App {
@@ -224,6 +240,10 @@ impl App {
                 .sense()
                 .map(|s| s.aids_craft(recipe))
                 .unwrap_or(false);
+            // The craftless are not lesser (#430): the undivided, un-taxed hand
+            // is steadier at ordinary work — it botches less, and it never pays
+            // the gift's bodily price. Worth the gifted house cannot count.
+            let craftless = !self.gift.has();
             // (msg, did_craft, gift_used) — did_craft gates the clock cost,
             // gift_used the bodily strain. Computed inside the inventory borrow,
             // applied after it ends to avoid re-borrowing self while `inv` is live.
@@ -242,7 +262,7 @@ impl App {
                     let mut rng =
                         crate::rng::SeedRng::new(seed ^ crate::rng::fnv1a_hash(&recipe.name))
                             .fork_for(&format!("craft-botch-{day}-{hour}"));
-                    let botch_p = craft_botch_chance(fortune);
+                    let botch_p = craft_botch_chance_for(fortune, craftless);
                     // The gift does not botch the work it was born to.
                     let botched = !gift_aids && rng.gen_f64() < botch_p;
                     for (item, count) in &recipe.inputs {
@@ -441,6 +461,20 @@ mod tests {
             cursed > plain && plain > blessed,
             "botch should rise with ill fortune: cursed={cursed} plain={plain} blessed={blessed}"
         );
+    }
+
+    #[test]
+    fn the_craftless_hand_is_steadier() {
+        use super::craft_botch_chance_for;
+        // At the same luck, the undivided craftless hand botches less than a
+        // gifted one reaching outside its sense (#430).
+        for v in [-1.0, 0.0, 1.0] {
+            let f = Fortune::from_value(v);
+            let craftless = craft_botch_chance_for(f, true);
+            let gifted = craft_botch_chance_for(f, false);
+            assert!(craftless < gifted, "craftless should botch less at {v}");
+            assert!(craftless > 0.0, "still a chance, never impossible");
+        }
     }
 
     #[test]
