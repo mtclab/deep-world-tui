@@ -200,6 +200,16 @@ impl App {
         1.0
     }
 
+    /// How well coin trades in the ruling polity's markets (canon: no universal
+    /// currency). 1.0 in coin economies; a discount where coin is debased
+    /// (Remnant) or a foreign convenience (grain/in-kind economies).
+    pub fn coin_value_here(&self) -> f64 {
+        self.sim
+            .as_ref()
+            .map(|s| s.world.polity.coin_value_modifier())
+            .unwrap_or(1.0)
+    }
+
     /// What the market charges the player. Includes ALL the modifiers the
     /// transaction applies (politics + caravan supply too — the quotes used to
     /// omit those, so the displayed price could differ from the charged one).
@@ -214,12 +224,16 @@ impl App {
         // The fortunate strike a slightly better bargain — a few coppers, not a
         // fortune, and bounded; the cursed pay a little over the odds.
         let luck = 1.0 - self.fortune.value() * 0.08;
+        // Coin worth less here means it takes more of it to buy: divide the
+        // price by how well coin trades in this polity.
+        let coin = self.coin_value_here();
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
             * self.caravan_price_modifier(item)
             * self.food_scarcity_modifier(item)
-            * luck;
+            * luck
+            / coin;
         ((base as f64 * m).ceil() as u32).max(1)
     }
 
@@ -249,12 +263,15 @@ impl App {
             );
         // The fortunate sell a little dearer — the mirror of their buying luck.
         let luck = 1.0 + self.fortune.value() * 0.08;
+        // Coin worth less here means you receive fewer of it for your goods.
+        let coin = self.coin_value_here();
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
             * self.caravan_price_modifier(item)
             * self.food_scarcity_modifier(item)
-            * luck;
+            * luck
+            * coin;
         let raw = ((base as f64 * m).floor() as u32).max(1);
         let buy = self.quote_buy_price(item);
         if buy > 1 {

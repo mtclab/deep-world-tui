@@ -249,6 +249,22 @@ impl App {
         self.screen = Screen::World { region_idx };
     }
 
+    /// Roads watched and partly closed while the province is at war: travel
+    /// costs a little more here (#415). 1.0 in peace. Deterministic per season.
+    fn road_watch_mult(&self) -> f64 {
+        let Some(sim) = self.sim.as_ref() else {
+            return 1.0;
+        };
+        let day = self.clock.day;
+        let season_ord = (day / 30) % 4;
+        let year = day / 120;
+        if sim.world.polity.in_tension(self.seed, season_ord, year) {
+            1.15
+        } else {
+            1.0
+        }
+    }
+
     pub fn move_player(&mut self, dx: i32, dy: i32) {
         let weather = self.sim.as_ref().and_then(|sim| {
             let pos = self.player_pos?;
@@ -411,7 +427,11 @@ impl App {
                 // Finer tiles walk in half-hours: two open tiles to the
                 // hour. The fraction is owed to the clock and paid when it
                 // accumulates to whole hours.
-                let cost = (tile_hours as f64 * 0.5 * weather_mult * companion_travel
+                let cost = (tile_hours as f64
+                    * 0.5
+                    * weather_mult
+                    * companion_travel
+                    * self.road_watch_mult()
                     + bias_mod as f64 * 0.5)
                     .max(0.25);
                 self.travel_debt += cost;
@@ -460,7 +480,11 @@ impl App {
                 // Finer tiles walk in half-hours: two open tiles to the
                 // hour. The fraction is owed to the clock and paid when it
                 // accumulates to whole hours.
-                let cost = (tile_hours as f64 * 0.5 * weather_mult * companion_travel
+                let cost = (tile_hours as f64
+                    * 0.5
+                    * weather_mult
+                    * companion_travel
+                    * self.road_watch_mult()
                     + bias_mod as f64 * 0.5)
                     .max(0.25);
                 self.travel_debt += cost;
