@@ -92,6 +92,28 @@ impl App {
             } else {
                 count
             };
+            // Luck in the everyday: the land gives the fortunate a little extra
+            // now and then, and the cursed a lean haul — leaned by the hidden
+            // star, symmetric at neutral (a find as likely as a shortfall).
+            let mut count = count;
+            if count > 0 {
+                let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+                let find = crate::rng::unit_from_hash(crate::rng::mix_u64(
+                    self.seed ^ crate::rng::mix_u64(tick ^ 0x60A7_F1ED),
+                ));
+                let mishap = crate::rng::unit_from_hash(crate::rng::mix_u64(
+                    self.seed ^ crate::rng::mix_u64(tick ^ 0x9111_8A2D),
+                ));
+                if find < self.fortune.tilt_good(0.10) {
+                    count += 1;
+                    boon_msg = Some("A lucky find — the land gave more than its wont.");
+                } else if mishap < self.fortune.tilt_bad(0.10) {
+                    count -= 1;
+                    if count == 0 {
+                        boon_msg = Some("A poor haul — the day's luck was thin.");
+                    }
+                }
+            }
             if count == 0 {
                 self.status_msg = Some(if weather.gather_modifier() < 0.7 {
                     format!("The {} keeps the land's gifts hidden", weather.name())

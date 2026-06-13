@@ -211,11 +211,15 @@ impl App {
             .unwrap_or(1.0);
         let rep_mod =
             crate::sim::signals::reputation_price_modifier(self.reputation_in_current_settlement());
+        // The fortunate strike a slightly better bargain — a few coppers, not a
+        // fortune, and bounded; the cursed pay a little over the odds.
+        let luck = 1.0 - self.fortune.value() * 0.08;
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
             * self.caravan_price_modifier(item)
-            * self.food_scarcity_modifier(item);
+            * self.food_scarcity_modifier(item)
+            * luck;
         ((base as f64 * m).ceil() as u32).max(1)
     }
 
@@ -243,11 +247,14 @@ impl App {
             - crate::sim::signals::reputation_price_modifier(
                 self.reputation_in_current_settlement(),
             );
+        // The fortunate sell a little dearer — the mirror of their buying luck.
+        let luck = 1.0 + self.fortune.value() * 0.08;
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
             * self.caravan_price_modifier(item)
-            * self.food_scarcity_modifier(item);
+            * self.food_scarcity_modifier(item)
+            * luck;
         let raw = ((base as f64 * m).floor() as u32).max(1);
         let buy = self.quote_buy_price(item);
         if buy > 1 {
