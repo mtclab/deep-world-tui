@@ -13,7 +13,7 @@ pub fn handle_encounter_input(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Char(c) => {
             if let Some(enc) = app.encounter {
-                for action in enc.kind.available_actions() {
+                for action in enc.available_actions() {
                     if action.key() == c {
                         app.resolve_encounter(action);
                         break;

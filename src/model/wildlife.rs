@@ -174,6 +174,33 @@ impl WildSpecies {
         }
     }
 
+    /// Whether the creature can be hunted for hide and meat at all. Danger-2
+    /// animals are a fight, not a harvest; the uncanny are not taken for trade.
+    pub fn huntable(self) -> bool {
+        self.danger() <= 1 && !self.uncanny()
+    }
+
+    /// Base harvest of a clean kill: (hide, meat). Bigger game gives more meat;
+    /// every huntable creature gives at least one hide. Before luck and the
+    /// land's richness lean it. The uncanny and danger-2 give nothing here.
+    pub fn hunt_yield(self) -> (u32, u32) {
+        use WildSpecies::*;
+        if !self.huntable() {
+            return (0, 0);
+        }
+        match self {
+            // Small game: a hide and a little meat.
+            Hare | RedFox | Capercaillie | MireCrane | EagleOwl | GlassBeetle | SteppeLark
+            | CaveBat => (1, 1),
+            // Mid game: a hide and a good portion.
+            Beaver | RingedSeal | KethVaal | GhostGoat | Lynx | Adder => (1, 2),
+            // Large game: a fuller hide and a haul of meat.
+            Elk | ForestReindeer | SandOx => (2, 3),
+            // Anything else huntable: a modest take.
+            _ => (1, 1),
+        }
+    }
+
     /// A creature whose bite carries venom, not just teeth. A strike that lands
     /// courses the blood — the wound is the least of it.
     pub fn venomous(self) -> bool {
@@ -277,6 +304,39 @@ impl WildSpecies {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn danger_two_and_uncanny_are_not_huntable() {
+        // A bear is a fight, not a harvest; the uncanny aren't taken for trade.
+        assert!(
+            !WildSpecies::BrownBear.huntable(),
+            "bear must not be huntable"
+        );
+        assert!(!WildSpecies::Wolf.huntable(), "wolf must not be huntable");
+        assert!(
+            !WildSpecies::HollowStag.huntable(),
+            "uncanny (HollowStag) must not be huntable"
+        );
+        assert!(WildSpecies::Hare.huntable(), "hare must be huntable");
+        assert!(
+            WildSpecies::Elk.huntable(),
+            "elk (danger 1) must be huntable"
+        );
+    }
+
+    #[test]
+    fn hunt_yield_matches_huntability_and_size() {
+        for s in WildSpecies::all() {
+            let (hide, meat) = s.hunt_yield();
+            if s.huntable() {
+                assert!(hide >= 1 && meat >= 1, "{s:?} huntable but yields nothing");
+            } else {
+                assert_eq!((hide, meat), (0, 0), "{s:?} not huntable but yields");
+            }
+        }
+        // Big game gives more than small.
+        assert!(WildSpecies::Elk.hunt_yield().1 > WildSpecies::Hare.hunt_yield().1);
+    }
 
     #[test]
     fn no_seals_in_the_spruce() {

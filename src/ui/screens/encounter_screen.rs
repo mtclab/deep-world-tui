@@ -91,7 +91,7 @@ pub(crate) fn draw_encounter_screen(f: &mut Frame, app: &App) {
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )));
-        for action in enc.kind.available_actions() {
+        for action in enc.available_actions() {
             lines.push(Line::from(vec![
                 Span::styled(
                     format!(" [{}] ", action.key()),
