@@ -30,13 +30,22 @@ impl App {
         // was defined per-weather but never applied to the player). The life's
         // hidden star leans the harshness — only the penalty over fair weather,
         // so a blessed soul bears the cold a little better and the cursed a
-        // little worse; clear skies fall on everyone the same.
+        // little worse; clear skies fall on everyone the same. A worn coat
+        // halves the harsh-weather penalty (#414) — the hunt-to-warmth loop.
+        let has_coat = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.has(ItemType::Coat) && !ps.inventory.is_broken(ItemType::Coat))
+            .unwrap_or(false);
+        let coat_factor = if has_coat { 0.5 } else { 1.0 };
+        let mut weather_harsh = false;
         let weather_mult = self
             .player_pos
             .map(|pos| {
                 let raw = self.region_weather(pos.region_idx).need_decay_modifier();
                 let harsh_excess = (raw - 1.0).max(0.0);
-                1.0 + harsh_excess * self.fortune.bad_multiplier()
+                weather_harsh = harsh_excess > 0.0;
+                1.0 + harsh_excess * coat_factor * self.fortune.bad_multiplier()
             })
             .unwrap_or(1.0);
         let mut departed: Vec<String> = Vec::new();
@@ -58,6 +67,10 @@ impl App {
                 season,
                 illness_mult * weather_mult,
             );
+            // The coat earns its keep by wearing out: harsh weather frays it.
+            if has_coat && weather_harsh {
+                ps.inventory.decay(ItemType::Coat, 0.02 * hours as f64);
+            }
             for companion in &mut ps.companions {
                 companion.decay_needs(hours as u64);
             }
@@ -523,6 +536,25 @@ impl App {
                     d.tend();
                 }
                 self.status_msg = Some("You dress your sickness with a bandage.".into());
+            }
+            // A salve answers what a bandage can't: infection and venom run
+            // their course faster under a poultice (#414, the luck-body loop).
+            let has_treatable = ps.person.illnesses.iter().any(|d| {
+                matches!(
+                    d.disease,
+                    crate::model::Disease::Infection | crate::model::Disease::Venom
+                )
+            });
+            if has_treatable && ps.inventory.remove(ItemType::Salve, 1) {
+                for d in ps.person.illnesses.iter_mut() {
+                    if matches!(
+                        d.disease,
+                        crate::model::Disease::Infection | crate::model::Disease::Venom
+                    ) {
+                        d.tend_strong();
+                    }
+                }
+                self.status_msg = Some("You work a salve into the wound — it answers.".into());
             }
             // A set trap yields food over a proper rest in the wild — if the
             // land still carries game. Trapping draws the valley down.

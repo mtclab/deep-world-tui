@@ -27,13 +27,13 @@ load-bearing; what remains is listed under *Open gaps*.
 | Quest kinds / rewards | 5 / 3 | all | deterministic gen, distinct checks, fetch consumes goods |
 | Milestones | 11 | 11 | all fire (verified call sites) |
 | Journal voices | 6 | 6 | Encounter, Travel, Rest, Scar, Dream (Kukri), Rumor (taverns) |
-| Items | 15 | 15 | price/trade/gather/craft/structure costs; Cloth now gathers from flax (#392); Hide taken by hunting/trapping, tradeable, start of the leather→coat chain (#413) |
+| Items | 18 | 18 | price/trade/gather/craft/structure costs; Cloth gathers from flax (#392, no longer trade-only); Hide (hunt/trap, #413) → Leather → Coat (softens harsh-weather decay), Herb → Salve (speeds Infection/Venom recovery) — the gear chain (#414) |
 | Wildlife as resource | danger 0/1 huntable | load-bearing | a Hunt encounter action (danger ≤1, non-uncanny) and the set-snare on rest yield Hide + Meat (Food), fortune-leaned, scaled by and drawing down region `game_richness` (recovers seasonally); danger-2 stays a fight (#413) |
 | Settlement services | 8 | 8 | all generated: Tavern/Temple (size), Forge=Sepat, Hearth=Ahjo, TrapWorkshop=Metsik, Archive=Arkit, TradePost=Väylä, Shrine=Laakso |
 | Build kinds (player) | 8 | 8 | cost/hours/decay/maintain + rest tier (Tarp→Campfire … Home→Inn) |
 | Terrains | 13 | 13 | passability, travel hours, gather item, people bonus, patron god, encounters, disease |
 | Region types / sizes | 6 / 4 | all | chart-driven terrain mix, settlement count/size, services, companion capacity |
-| Craft recipes | 6 | 6 wired | Tool/Bandage/Trap are real ItemTypes with prices and recipe outputs (#313) |
+| Craft recipes | 9 | 9 wired | Tool/Bandage/Trap (#313) + Leather/Warm Coat/Salve — the gear chain that bridges hunting → warmth and herbs → healing (#414); craft can botch, fortune-leaned (#412) |
 | Discoveries | 12 | 12 | per-kind effects: god affinity, thirst/energy refresh, map reveal (#313) |
 | Crops (CropType) | 10 | 10 | per-crop terrain/season growth + yield; the Bronze Road four (Flax→Cloth closes the trade-only gap, WinterRye survives Frost, DroughtMillet, SnowPea) plus Grain/RootVegetable/Flatroot/Berry/Herb/Mushroom (#392) |
 | Polities (Polity) | 6 | 6 | province ownership, hearth-tax + debt ladder (the province pays its dues), inter-polity placement: SampaLeagues, TahtiFreeCities, KeltaDelta, VelkariRemnant, ForestPrincipalities, SteppeAlliance (#396/#405) |
