@@ -69,6 +69,11 @@ impl App {
     /// longhouse two, a home three. No homestead, no farm.
     fn plot_allowance_near(&self, region_idx: usize, px: u32, py: u32) -> usize {
         use crate::sim::structures::BuildKind;
+        // A delinquent whose standing is revoked may not claim new ground:
+        // the council's room-to-grow protection has lapsed (#415).
+        if self.residency_revoked() {
+            return 0;
+        }
         let Some(region) = self
             .sim
             .as_ref()

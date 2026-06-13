@@ -53,7 +53,17 @@ impl App {
             self.tax_unpaid_seasons = 0;
             return;
         };
-        let tax = ((tier_sum as f64) * polity.levy_multiplier() * prosperity)
+        // A province at war asks more of its hearths: the war-levy rides the
+        // hearth-tax while the polity and its rival are at tension (#415).
+        let season_ord = (self.clock.day / 30) % 4;
+        let year = self.clock.day / 120;
+        let at_war = polity.in_tension(self.seed, season_ord, year);
+        let war_mult = if at_war {
+            polity.war_levy_multiplier()
+        } else {
+            1.0
+        };
+        let tax = ((tier_sum as f64) * polity.levy_multiplier() * prosperity * war_mult)
             .round()
             .max(1.0) as u32;
         let mut owed = tax;

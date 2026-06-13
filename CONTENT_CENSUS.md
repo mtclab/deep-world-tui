@@ -36,7 +36,7 @@ load-bearing; what remains is listed under *Open gaps*.
 | Craft recipes | 9 | 9 wired | Tool/Bandage/Trap (#313) + Leather/Warm Coat/Salve — the gear chain that bridges hunting → warmth and herbs → healing (#414); craft can botch, fortune-leaned (#412) |
 | Discoveries | 12 | 12 | per-kind effects: god affinity, thirst/energy refresh, map reveal (#313) |
 | Crops (CropType) | 10 | 10 | per-crop terrain/season growth + yield; the Bronze Road four (Flax→Cloth closes the trade-only gap, WinterRye survives Frost, DroughtMillet, SnowPea) plus Grain/RootVegetable/Flatroot/Berry/Herb/Mushroom (#392) |
-| Polities (Polity) | 6 | 6 | province ownership, hearth-tax + debt ladder (the province pays its dues), inter-polity placement: SampaLeagues, TahtiFreeCities, KeltaDelta, VelkariRemnant, ForestPrincipalities, SteppeAlliance (#396/#405) |
+| Polities (Polity) | 6 | 6 | province ownership, hearth-tax + debt ladder (#396/#405); **#415**: paired rivalries + deterministic seasonal tension → war-rumors, road-watch travel penalty, war-levy on the hearth-tax; residency-revoked gates new field claims; per-polity coin acceptance (merchant leagues full value, Remnant debased, grain/in-kind economies discount coin) — canon "no universal currency" |
 | Fortune / omens | 1 star | load-bearing | one hidden per-life Fortune (deterministic from life-seed, never shown), leans flee outcomes, mortal run-downs, collapse-death reprieve, illness/infection/venom, gather yield, trade prices, weather exposure; surfaced only as uncertain omens that polarity-lean but never lock (#397–#409) |
 | charts.ron | 17 sections | all | generation fully data-driven |
 

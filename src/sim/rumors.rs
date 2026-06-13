@@ -48,6 +48,24 @@ pub fn informed_rumor(sim: &SimState, day: u32, salt: u64) -> Option<String> {
         }
     }
 
+    // The province's polity and its rival at open tension: war on the wind,
+    // roads watched and closed, the levy raised (#415). Deterministic.
+    let polity = sim.world.polity;
+    let season_ord = (day / 30) % 4;
+    let year = day / 120;
+    if polity.in_tension(sim.world.seed, season_ord, year) {
+        let rival = polity.rival();
+        candidates.push(format!(
+            "They say {} and {} are at it again — the roads east are watched, some closed.",
+            polity.name(),
+            rival.name()
+        ));
+        candidates.push(format!(
+            "Word is {} has raised the levy for the war. Hard season to keep a hearth.",
+            polity.name()
+        ));
+    }
+
     if candidates.is_empty() {
         return None;
     }
