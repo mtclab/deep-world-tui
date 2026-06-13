@@ -598,10 +598,28 @@ impl App {
         self.status_msg = Some(msg_with_witness);
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         self.screen = Screen::World { region_idx };
-        // A wound that emptied you, or a creature that ran you down, hands you
-        // to the collapse funnel — which decides, by luck and your state,
-        // whether you rise. (check_collapse self-gates on vitals and overrides
-        // the screen with Collapse / continue-as-NPC when it fires.)
+        // Being run down by a thing big enough to catch you (a run-down only
+        // comes from a danger-2 predator) is mortal — not a 1-in-80 stumble.
+        // The chance it kills rises the more worn you came in, leans on the
+        // life's hidden star, and is a real risk even at full strength. Survive
+        // it and you are still emptied, handed to the ordinary collapse funnel.
+        if flee_run_down {
+            let wear = 1.0 - self.vitals.hunger.clamp(0.0, 1.0); // how spent you came in
+            let lethal = self.fortune.tilt_bad(0.18 + 0.17 * wear);
+            let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+            let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x1A2B_3C4D));
+            if crate::rng::unit_from_hash(h) < lethal {
+                self.die_in_wilds(
+                    crate::model::DeathCause::Wounds,
+                    "The beast did not let go. The wilds keep what they catch.",
+                );
+                return;
+            }
+        }
+        // A wound that emptied you (or a survived run-down) hands you to the
+        // collapse funnel — which decides, by luck and your state, whether you
+        // rise. (check_collapse self-gates on vitals and overrides the screen
+        // with Collapse / continue-as-NPC when it fires.)
         if flee_run_down || self.vitals.energy <= 0.0 {
             self.check_collapse();
         }
