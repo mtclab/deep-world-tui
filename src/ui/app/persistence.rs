@@ -43,6 +43,7 @@ impl App {
             start_age_years: self.start_age_years,
             birth_day: self.birth_day,
             lifespan_years: self.lifespan_years,
+            fortune: self.fortune,
             encounter_log: self.encounter_log.clone(),
             player_farms: self.player_farms.clone(),
             homestead_settlers: self.homestead_settlers.clone(),
@@ -268,6 +269,9 @@ impl App {
         self.widowed_day = data.widowed_day;
         self.household_children = data.household_children;
         self.travel_debt = data.travel_debt;
+        // The life's star, restored. A pre-aging save (lifespan 0) has none
+        // saved; apply_loaded_aging re-rolls the life below, fortune with it.
+        self.fortune = data.fortune;
         self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);
         self.elder = self
             .milestones

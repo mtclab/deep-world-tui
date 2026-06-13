@@ -140,6 +140,11 @@ pub struct App {
     pub birth_day: u32,
     /// Rolled maximum age for the current life; death of old age at/after this.
     pub lifespan_years: u32,
+    /// The luck this life was born with — hidden, read only in omens. Tilts
+    /// every risk a little; the cautious are safer, never safe.
+    pub fortune: crate::model::Fortune,
+    /// Day the last omen showed, so the sky does not babble every step.
+    pub last_omen_day: u32,
     pub tick_count: u64,
     pub flash_frames: u8,
     pub perf_slow_frames: u32,
@@ -225,6 +230,8 @@ impl App {
             start_age_years: 0,
             birth_day: 0,
             lifespan_years: 0,
+            fortune: crate::model::Fortune::default(),
+            last_omen_day: 0,
             tick_count: 0,
             flash_frames: 0,
             perf_slow_frames: 0,

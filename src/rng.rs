@@ -73,6 +73,22 @@ impl SeedRng {
     }
 }
 
+/// A stateless splitmix64 finalizer: good avalanche for turning a (seed, key)
+/// pair into a well-mixed u64 without spinning up a generator. Unlike a single
+/// xorshift, every input bit reaches the high bits — so a per-day or per-tick
+/// key actually moves the whole word, not just its tail.
+pub fn mix_u64(x: u64) -> u64 {
+    let mut z = x.wrapping_add(0x9E3779B97F4A7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+    z ^ (z >> 31)
+}
+
+/// A uniform f64 in [0, 1) derived from a mixed u64 — the top 53 bits.
+pub fn unit_from_hash(h: u64) -> f64 {
+    (h >> 11) as f64 / (1u64 << 53) as f64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

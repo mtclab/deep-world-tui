@@ -222,4 +222,26 @@
         "Half of what I heard tonight is false. The trick is which half.",
         "News wears out its boots fast on these roads. This piece still had sole left.",
     ],
+    // Omens: signs the world shows, leaning with a life's hidden fortune but
+    // never proving it. The omen reads fate; it does not change it.
+    "OMENS_FAIR": [
+        "At dawn the fire burned blue and clean, with no breath behind it. The old folk call that fortune walking close.",
+        "A crow crossed my path left to right and did not call. The sensible say it means nothing. The grandmothers say it means the road is kind.",
+        "I found my bootlaces tied the way I never tie them, and the morning went easy after. I have decided to take the hint.",
+        "The first bird I heard sang three times and stopped. Three is the lucky count, if you believe the counting.",
+        "A white hair lay across my pack, not mine and not anyone's. A blessing-thread, my mother would have said, and smiled.",
+        "The well-water came up sweet and the bucket light. Small things, but they were on my side today.",
+        "A ring of pale mushrooms stood unbroken by the path. Step around it and the day keeps its promise, they say.",
+        "The wind turned to my back the moment I set out, as if the land wanted me gone the easy way.",
+    ],
+    "OMENS_ILL": [
+        "The fire would not catch clean — it guttered green and sullen, and the smoke followed me whichever way I turned. An ill sign, if you hold with signs.",
+        "A crow crossed right to left and called twice. Nothing, says the head. Turn back, says the older part of me.",
+        "I spilled the salt at dawn and could not gather all of it. The grandmothers would have made me throw a pinch and start the day again.",
+        "A single magpie sat on the dead branch and watched me pass. One for sorrow, the rhyme goes, and it did not find a second.",
+        "My shadow fell wrong in the morning light — too long, too thin, reaching the way I did not want to go.",
+        "The dogs in the last village would not look at me, and one backed away growling low. They know things the eyes miss.",
+        "I broke a lace, then a strap, then dropped the flint twice. Three small breakages before noon. The count is bad and I know it.",
+        "A cold thread of wind came from no quarter at all and raised the hair on my arms. The land was warning someone. I hoped it was not me.",
+    ],
 }
