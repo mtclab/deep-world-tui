@@ -347,8 +347,16 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
             output_count: 2,
             people: None,
         },
+        CraftRecipe {
+            name: "Tool".into(),
+            inputs: vec![(ItemType::Wood, 2), (ItemType::Iron, 1)],
+            output: ItemType::Tool,
+            output_count: 1,
+            people: None,
+        },
         // The hide -> leather -> coat chain (#414): hunting feeds the warmth
         // that softens harsh-weather decay; a salve closes the luck-body loop.
+        // Appended after Tool so existing recipe indices stay put.
         CraftRecipe {
             name: "Leather".into(),
             inputs: vec![(ItemType::Hide, 2)],
@@ -368,13 +376,6 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
             inputs: vec![(ItemType::Herb, 3)],
             output: ItemType::Salve,
             output_count: 2,
-            people: None,
-        },
-        CraftRecipe {
-            name: "Tool".into(),
-            inputs: vec![(ItemType::Wood, 2), (ItemType::Iron, 1)],
-            output: ItemType::Tool,
-            output_count: 1,
             people: None,
         },
         CraftRecipe {
