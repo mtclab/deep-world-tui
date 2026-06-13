@@ -3,6 +3,17 @@ use crate::sim::hints;
 
 use super::*;
 
+/// Base chance a craft is botched (materials wasted, no output) before fortune
+/// leans it. Low enough that crafting is reliable, high enough that the cursed
+/// feel it — luck rides this roll like every other.
+const BASE_CRAFT_BOTCH_PROB: f64 = 0.10;
+
+/// The chance a craft is spoiled, leaned by the crafter's fortune. The blessed
+/// botch less, the cursed more; never certain either way.
+pub(crate) fn craft_botch_chance(fortune: crate::model::Fortune) -> f64 {
+    fortune.tilt_bad(BASE_CRAFT_BOTCH_PROB)
+}
+
 impl App {
     pub fn gather(&mut self) {
         if self.clock.time_of_day().is_dark() {
@@ -191,35 +202,67 @@ impl App {
             } else {
                 0
             };
-            if let Some(ref mut ps) = self.player_start {
+            let fortune = self.fortune;
+            let seed = self.seed;
+            let (day, hour) = (self.clock.day, self.clock.hour);
+            // (msg, did_craft) — did_craft gates the clock cost. Computed inside
+            // the inventory borrow, applied after it ends to avoid re-borrowing
+            // self while `inv` is live.
+            let outcome: Option<(String, bool)> = if let Some(ref mut ps) = self.player_start {
                 let inv = &mut ps.inventory;
                 let can_craft = recipe
                     .inputs
                     .iter()
                     .all(|(item, count)| inv.get(*item) >= *count);
                 if can_craft {
+                    // The work can be spoiled: a botch wastes the materials and
+                    // yields nothing. Fortune leans the odds — the blessed
+                    // botch less, the cursed more — but caution never makes a
+                    // sure thing of it. Deterministic from seed + day/hour.
+                    let mut rng =
+                        crate::rng::SeedRng::new(seed ^ crate::rng::fnv1a_hash(&recipe.name))
+                            .fork_for(&format!("craft-botch-{day}-{hour}"));
+                    let botch_p = craft_botch_chance(fortune);
+                    let botched = rng.gen_f64() < botch_p;
                     for (item, count) in &recipe.inputs {
                         inv.remove(*item, *count);
                     }
-                    let output_count = recipe.output_count + bias_bonus + hearth_bonus;
-                    let flavor = if hearth_bonus > 0 {
-                        " A real fire beats a traveler's pot."
-                    } else if bias_bonus > 0 {
-                        " Skilled hands guide yours."
-                    } else {
-                        ""
-                    };
-                    inv.add(recipe.output, output_count);
                     inv.decay(ItemType::Iron, 0.03);
                     inv.decay(ItemType::Wood, 0.04);
-                    self.advance_clock(2);
-                    self.status_msg = Some(format!(
-                        "Crafted {} (x{}) (2h){}",
-                        recipe.name, output_count, flavor
-                    ));
+                    if botched {
+                        Some((
+                            format!(
+                                "The {} is spoiled in the making — the materials are wasted. (2h)",
+                                recipe.name
+                            ),
+                            true,
+                        ))
+                    } else {
+                        let output_count = recipe.output_count + bias_bonus + hearth_bonus;
+                        let flavor = if hearth_bonus > 0 {
+                            " A real fire beats a traveler's pot."
+                        } else if bias_bonus > 0 {
+                            " Skilled hands guide yours."
+                        } else {
+                            ""
+                        };
+                        inv.add(recipe.output, output_count);
+                        Some((
+                            format!("Crafted {} (x{}) (2h){}", recipe.name, output_count, flavor),
+                            true,
+                        ))
+                    }
                 } else {
-                    self.status_msg = Some("Not enough materials".into());
+                    Some(("Not enough materials".into(), false))
                 }
+            } else {
+                None
+            };
+            if let Some((msg, did_craft)) = outcome {
+                if did_craft {
+                    self.advance_clock(2);
+                }
+                self.status_msg = Some(msg);
             }
         }
     }
@@ -274,5 +317,34 @@ impl App {
             ps.inventory.add(item, n);
         }
         self.status_msg = Some(format!("Took {} {} from the {}.", n, item.name(), label));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::craft_botch_chance;
+    use crate::model::Fortune;
+
+    #[test]
+    fn cursed_botch_more_than_blessed() {
+        let cursed = craft_botch_chance(Fortune::from_value(-1.0));
+        let plain = craft_botch_chance(Fortune::from_value(0.0));
+        let blessed = craft_botch_chance(Fortune::from_value(1.0));
+        assert!(
+            cursed > plain && plain > blessed,
+            "botch should rise with ill fortune: cursed={cursed} plain={plain} blessed={blessed}"
+        );
+    }
+
+    #[test]
+    fn botch_chance_stays_a_chance() {
+        // Never a certainty, never impossible — luck leans, it does not lock.
+        for v in [-1.0, -0.5, 0.0, 0.5, 1.0] {
+            let p = craft_botch_chance(Fortune::from_value(v));
+            assert!(
+                p > 0.0 && p < 1.0,
+                "botch chance {p} out of (0,1) at fortune {v}"
+            );
+        }
     }
 }

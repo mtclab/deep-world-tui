@@ -11,6 +11,16 @@ pub const TICKS_PER_LIFE_YEAR: u64 = 72;
 /// Sample-roster cap per settlement (the roster represents a larger population).
 const MAX_SAMPLE_PEOPLE: usize = 40;
 
+/// Base chance a birth carries a complication before the mother's fortune leans
+/// it. The complication lingers as illness; luck rides this roll like the rest.
+const BASE_CHILDBIRTH_COMPLICATION_PROB: f64 = 0.05;
+
+/// The chance a birth carries a complication, leaned by the mother's own hidden
+/// fortune. The blessed come through clean more often; the cursed take it.
+pub(crate) fn childbirth_complication_chance(mother: crate::model::Fortune) -> f64 {
+    mother.tilt_bad(BASE_CHILDBIRTH_COMPLICATION_PROB)
+}
+
 pub fn age_from_band(band: &str) -> u32 {
     match band {
         "child" => 8,
@@ -60,6 +70,7 @@ pub fn tick_lifecycle(sim: &mut SimState) {
             let sample = settlement.people.len().max(1);
             let scale =
                 ((settlement.population.max(1) as f64 / sample as f64).round() as u32).max(1);
+            let settlement_name = settlement.name.clone();
 
             let mut deaths: Vec<usize> = Vec::new();
             let mut births: u32 = 0;
@@ -89,6 +100,32 @@ pub fn tick_lifecycle(sim: &mut SimState) {
                     && roll > 1.0 - 0.10
                 {
                     births += 1;
+                    // A hard birth: the existing childbirth-complication roll,
+                    // leaned by the mother's own hidden fortune (rolled from her
+                    // life-seed). The blessed come through clean more often; the
+                    // cursed take the complication, which lingers as illness and
+                    // raises her odds in the years after. Deterministic.
+                    let mother_fortune =
+                        crate::model::Fortune::roll(seed, crate::rng::fnv1a_hash(&p.id));
+                    let comp_p = childbirth_complication_chance(mother_fortune);
+                    let mut crng =
+                        SeedRng::new(seed).fork_for(&format!("childbirth-{year}-{}", p.id));
+                    let comp_roll = crng.gen_range(10000) as f64 / 10000.0;
+                    if comp_roll < comp_p
+                        && !p
+                            .illnesses
+                            .iter()
+                            .any(|d| d.disease == crate::model::Disease::ChildbirthComplication)
+                    {
+                        p.illnesses.push(crate::model::ActiveDisease::new(
+                            crate::model::Disease::ChildbirthComplication,
+                            tick,
+                        ));
+                        events.push(format!(
+                            "{} of {} has come through a hard birth.",
+                            p.name, settlement_name
+                        ));
+                    }
                 }
             }
 
@@ -167,5 +204,43 @@ pub fn tick_lifecycle(sim: &mut SimState) {
                 format!("{name} of {place} is gone. I knew them. The road is poorer."),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::childbirth_complication_chance;
+    use crate::model::Fortune;
+    use crate::rng::fnv1a_hash;
+
+    #[test]
+    fn cursed_mother_takes_more_complications() {
+        let cursed = childbirth_complication_chance(Fortune::from_value(-1.0));
+        let plain = childbirth_complication_chance(Fortune::from_value(0.0));
+        let blessed = childbirth_complication_chance(Fortune::from_value(1.0));
+        assert!(
+            cursed > plain && plain > blessed,
+            "complication should rise with ill fortune: cursed={cursed} plain={plain} blessed={blessed}"
+        );
+    }
+
+    #[test]
+    fn complication_chance_stays_a_chance() {
+        for v in [-1.0, -0.5, 0.0, 0.5, 1.0] {
+            let p = childbirth_complication_chance(Fortune::from_value(v));
+            assert!(p > 0.0 && p < 1.0, "chance {p} out of (0,1) at fortune {v}");
+        }
+    }
+
+    #[test]
+    fn mother_fortune_is_deterministic_from_her_id() {
+        // The same mother (same seed + id) is born under the same star, so her
+        // complication odds are stable run to run; a different id, a different star.
+        let seed = 42u64;
+        let a = Fortune::roll(seed, fnv1a_hash("person-7")).value();
+        let b = Fortune::roll(seed, fnv1a_hash("person-7")).value();
+        let other = Fortune::roll(seed, fnv1a_hash("person-8")).value();
+        assert_eq!(a, b);
+        assert_ne!(a, other);
     }
 }
