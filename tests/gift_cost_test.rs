@@ -3,7 +3,7 @@
 // past a day's measure brings the flame-fever, and sustained overuse the
 // chronic iron-ache.
 use deep_world_tui::charts::load::load_charts;
-use deep_world_tui::model::economy::{craft_recipes, ItemType};
+use deep_world_tui::model::economy::{craft_recipes, ActiveDisease, ItemType};
 use deep_world_tui::model::{CraftSense, Disease, Fortune, Gift, PlayerPos};
 use deep_world_tui::ui::app::App;
 
@@ -74,6 +74,55 @@ fn the_craftless_pay_no_gift_cost() {
     }
     assert!(!has(&a, Disease::FlameFever));
     assert!(!has(&a, Disease::IronAche));
+}
+
+#[test]
+fn reaching_while_doubly_spent_can_rupture_the_gift_forever() {
+    // A cursed, gifted body already carrying both the flame-fever and the
+    // iron-ache reaches for the gift again and again — the boundary breaks.
+    let mut a = app(11, Some(CraftSense::IronEar));
+    a.fortune = Fortune::from_value(-1.0); // cursed: ruptures soonest
+    if let Some(ps) = a.player_start.as_mut() {
+        ps.person
+            .illnesses
+            .push(ActiveDisease::new(Disease::FlameFever, 0));
+        ps.person
+            .illnesses
+            .push(ActiveDisease::new(Disease::IronAche, 0));
+    }
+    assert!(a.gift.has(), "starts gifted");
+    let idx = tool_index();
+    let mut ruptured = false;
+    for _ in 0..40 {
+        a.craft_recipe(idx);
+        if !a.gift.has() {
+            ruptured = true;
+            break;
+        }
+    }
+    assert!(ruptured, "a doubly-spent cursed gift should rupture");
+    // And it stays gone: working on does not bring it back.
+    a.craft_recipe(idx);
+    assert!(!a.gift.has(), "rupture is permanent");
+}
+
+#[test]
+fn a_healthy_gift_does_not_rupture() {
+    // No fevers on the body — crafting never breaks the sense, however much.
+    let mut a = app(11, Some(CraftSense::IronEar));
+    let idx = tool_index();
+    for _ in 0..15 {
+        a.craft_recipe(idx);
+        // refresh stock so crafting continues
+        if let Some(ps) = a.player_start.as_mut() {
+            ps.inventory.add(ItemType::Wood, 4);
+            ps.inventory.add(ItemType::Iron, 2);
+        }
+    }
+    assert!(
+        a.gift.has(),
+        "a gift without the double-affliction must not rupture"
+    );
 }
 
 #[test]
