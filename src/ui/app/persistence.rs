@@ -44,6 +44,7 @@ impl App {
             birth_day: self.birth_day,
             lifespan_years: self.lifespan_years,
             fortune: self.fortune,
+            gift: self.gift,
             tax_unpaid_seasons: self.tax_unpaid_seasons,
             last_tax_day: self.last_tax_day,
             encounter_log: self.encounter_log.clone(),
@@ -274,6 +275,7 @@ impl App {
         // The life's star, restored. A pre-aging save (lifespan 0) has none
         // saved; apply_loaded_aging re-rolls the life below, fortune with it.
         self.fortune = data.fortune;
+        self.gift = data.gift;
         self.tax_unpaid_seasons = data.tax_unpaid_seasons;
         self.last_tax_day = data.last_tax_day;
         self.apply_loaded_aging(data.start_age_years, data.birth_day, data.lifespan_years);

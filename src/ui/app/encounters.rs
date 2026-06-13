@@ -1023,6 +1023,7 @@ impl App {
                     birth_day: self.birth_day,
                     lifespan_years: self.lifespan_years,
                     fortune: self.fortune,
+                    gift: self.gift,
                     tax_unpaid_seasons: self.tax_unpaid_seasons,
                     last_tax_day: self.last_tax_day,
                     encounter_log: self.encounter_log.clone(),
