@@ -3,7 +3,7 @@ members = [".", "xtask"]
 
 [package]
 name = "deep-world-tui"
-version = "0.6.0"
+version = "0.7.0"
 default-run = "deep-world-tui"
 edition = "2021"
 description = "A procedural life-RPG in the Deep World (Rust + ratatui)"

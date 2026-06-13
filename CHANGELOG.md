@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.7.0 (2026-06-13)
+
+- **The luck system (#397–#409)** — a hidden per-life Fortune (one star, never shown, surfaced only as uncertain omens) leans the consequence rolls across the whole game: flee outcomes (#398, fleeing is a gamble not an exit), mortal run-downs + collapse-death reprieve (#400, #402), illness contraction / wound infection / venom (#404), gather yield + trade prices (#407), and weather exposure — the cursed bear the cold worse (#409). Cautious is not safe; you never know your luck.
+- **Versioned growth epic (#386, all 6 items)** — journal + voice banks moved to `data/` RON (#388); signal fire holds the dark off, Infrastructure III (#390); canon crops, the Bronze Road four with flax→Cloth and winter-rye surviving frost (#392); wild species tranche 2 for desert/steppe/cave/mountain (#394); death-rate soak census instrument (#395); polity layer — the province pays its dues via hearth-tax and a debt ladder (#396/#405).
+
 ## v0.6.0 (2026-06-12)
 
 - **Canon scale epic (#378, PRs #379–#381)** — carrying-capacity population model (water/arable/trade factors), canon tiers to 15k+ cities, hinterland grain imports + famine on road failure, 160×80 sectors with half-hour walking, CANON_CITIES wired into caravans/rumors, 72-tile city sprawl. SCALE.md binding.
