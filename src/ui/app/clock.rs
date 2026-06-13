@@ -3,7 +3,44 @@ use crate::sim::hints;
 
 use super::*;
 
+/// A day's gift-strain at or above which the day counts as worked-to-the-bone.
+const GIFT_OVERWORK_DAY: f64 = 1.0;
+/// Consecutive worked-to-the-bone days that settle into the chronic iron-ache.
+const GIFT_IRON_ACHE_DAYS: u32 = 3;
+
 impl App {
+    /// At the day's turn, reckon the gift's toll (#427): a day worked to the
+    /// bone counts toward the chronic iron-ache (rauta-särky); three such days
+    /// running settle it into the body. Then the day's strain resets.
+    fn settle_gift_strain(&mut self) {
+        if self.gift_strain >= GIFT_OVERWORK_DAY {
+            self.gift_overworked_days = self.gift_overworked_days.saturating_add(1);
+            if self.gift_overworked_days >= GIFT_IRON_ACHE_DAYS {
+                let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+                if let Some(ps) = self.player_start.as_mut() {
+                    let has = ps
+                        .person
+                        .illnesses
+                        .iter()
+                        .any(|d| d.disease == crate::model::Disease::IronAche);
+                    if !has && ps.person.illnesses.len() < 2 {
+                        ps.person.illnesses.push(crate::model::ActiveDisease::new(
+                            crate::model::Disease::IronAche,
+                            tick,
+                        ));
+                        self.status_msg = Some(
+                            "Days of the gift have settled into your bones — iron-ache.".into(),
+                        );
+                    }
+                }
+                self.gift_overworked_days = 0;
+            }
+        } else {
+            self.gift_overworked_days = 0;
+        }
+        self.gift_strain = 0.0;
+    }
+
     /// The seasonal world-event gripping the world right now, if any (#417):
     /// a market fair, a hard winter, a plague year. Deterministic per
     /// seed + season + year (a 90-day, three-season year).
@@ -161,6 +198,7 @@ impl App {
         if self.clock.day != day_before {
             self.check_spouse();
             self.maybe_omen();
+            self.settle_gift_strain();
         }
         // The season-turn reckoning: every thirty days the polity's assessor
         // comes for the hearth-tax (#396), once per season.

@@ -48,6 +48,24 @@ impl CraftSense {
         }
     }
 
+    /// Whether this sense masters a given craft — the work it can do with the
+    /// gift (and pay the body for). Iron-ear answers metal; root-eye answers
+    /// the green. Still-sense and scale-hand have no craft in the present
+    /// recipe set (their gifts will matter elsewhere).
+    pub fn aids_craft(self, recipe: &crate::model::economy::CraftRecipe) -> bool {
+        use crate::model::economy::ItemType::*;
+        match self {
+            CraftSense::IronEar => {
+                recipe.output == Tool || recipe.inputs.iter().any(|(i, _)| *i == Iron)
+            }
+            CraftSense::RootEye => {
+                matches!(recipe.output, Bandage | Salve)
+                    || recipe.inputs.iter().any(|(i, _)| *i == Herb)
+            }
+            CraftSense::StillSense | CraftSense::ScaleHand => false,
+        }
+    }
+
     fn from_index(i: u64) -> CraftSense {
         match i % 4 {
             0 => CraftSense::IronEar,
@@ -139,6 +157,23 @@ mod tests {
             }
         }
         assert_eq!(seen.len(), 4, "all four senses should occur: {seen:?}");
+    }
+
+    #[test]
+    fn the_senses_master_their_own_craft() {
+        use crate::model::economy::craft_recipes;
+        use crate::model::economy::ItemType;
+        let r = craft_recipes();
+        let tool = r.iter().find(|c| c.output == ItemType::Tool).unwrap();
+        let salve = r.iter().find(|c| c.output == ItemType::Salve).unwrap();
+        // Iron-ear answers the forge; root-eye answers the green.
+        assert!(CraftSense::IronEar.aids_craft(tool));
+        assert!(!CraftSense::IronEar.aids_craft(salve));
+        assert!(CraftSense::RootEye.aids_craft(salve));
+        assert!(!CraftSense::RootEye.aids_craft(tool));
+        // The deep and the tide have no craft in the present recipe set.
+        assert!(!CraftSense::StillSense.aids_craft(tool));
+        assert!(!CraftSense::ScaleHand.aids_craft(salve));
     }
 
     #[test]

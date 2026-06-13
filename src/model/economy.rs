@@ -937,6 +937,12 @@ pub enum Disease {
     /// Not caught from the land — carried in on a bite. A venomous strike
     /// (adder, keth-vaal) courses the blood; it is never contracted by terrain.
     Venom,
+    /// Lieska-kuume, flame-fever: the heatstroke that comes of working the gift
+    /// past a day's strength. Acute, short, the body's first protest (#427).
+    FlameFever,
+    /// Rauta-särky, iron-ache: the chronic ache of a gift worked hard for too
+    /// long. It lingers, and rest answers it only slowly (#427).
+    IronAche,
 }
 
 impl Disease {
@@ -953,6 +959,8 @@ impl Disease {
             Disease::ForgeBlindness => "forge_blindness",
             Disease::ChildbirthComplication => "childbirth_complication",
             Disease::Venom => "venom",
+            Disease::FlameFever => "flame_fever",
+            Disease::IronAche => "iron_ache",
         }
     }
 
@@ -969,6 +977,8 @@ impl Disease {
             Disease::ForgeBlindness => 1.1,
             Disease::ChildbirthComplication => 1.6,
             Disease::Venom => 1.5,
+            Disease::FlameFever => 1.4,
+            Disease::IronAche => 1.2,
         }
     }
 
@@ -985,6 +995,8 @@ impl Disease {
             Disease::ForgeBlindness => 200,
             Disease::ChildbirthComplication => 30,
             Disease::Venom => 54,
+            Disease::FlameFever => 36,
+            Disease::IronAche => 120,
         }
     }
 
@@ -1000,8 +1012,9 @@ impl Disease {
             (Disease::BloodAche, _) => 0.005,
             (Disease::ForgeBlindness, Terrain::Mountain | Terrain::Settlement) => 0.01,
             (Disease::ChildbirthComplication, _) => 0.003,
-            // Venom is never taken from the land — only from a bite.
+            // Venom and the craft-fevers are never taken from the land.
             (Disease::Venom, _) => 0.0,
+            (Disease::FlameFever | Disease::IronAche, _) => 0.0,
             _ => 0.002,
         }
     }

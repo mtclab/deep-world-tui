@@ -8,6 +8,14 @@ use super::*;
 /// feel it — luck rides this roll like every other.
 const BASE_CRAFT_BOTCH_PROB: f64 = 0.10;
 
+/// Strain added by one gift-aided craft. About three a day reaches the
+/// flame-fever threshold (#427).
+const GIFT_STRAIN_PER_CRAFT: f64 = 0.34;
+/// The day's gift-strain (fortune-leaned) at which the flame-fever takes.
+const GIFT_FLAME_THRESHOLD: f64 = 1.0;
+/// Most illnesses the player carries at once (mirrors the encounter cap).
+const MAX_PLAYER_ILLNESSES: usize = 2;
+
 /// The chance a craft is spoiled, leaned by the crafter's fortune. The blessed
 /// botch less, the cursed more; never certain either way.
 pub(crate) fn craft_botch_chance(fortune: crate::model::Fortune) -> f64 {
@@ -205,10 +213,19 @@ impl App {
             let fortune = self.fortune;
             let seed = self.seed;
             let (day, hour) = (self.clock.day, self.clock.hour);
-            // (msg, did_craft) — did_craft gates the clock cost. Computed inside
-            // the inventory borrow, applied after it ends to avoid re-borrowing
-            // self while `inv` is live.
-            let outcome: Option<(String, bool)> = if let Some(ref mut ps) = self.player_start {
+            // A gifted crafter masters the work their sense answers: it cannot
+            // botch and yields a little more — but the gift costs the body, paid
+            // after the craft (#427).
+            let gift_aids = self
+                .gift
+                .sense()
+                .map(|s| s.aids_craft(recipe))
+                .unwrap_or(false);
+            // (msg, did_craft, gift_used) — did_craft gates the clock cost,
+            // gift_used the bodily strain. Computed inside the inventory borrow,
+            // applied after it ends to avoid re-borrowing self while `inv` is live.
+            let outcome: Option<(String, bool, bool)> = if let Some(ref mut ps) = self.player_start
+            {
                 let inv = &mut ps.inventory;
                 let can_craft = recipe
                     .inputs
@@ -223,7 +240,8 @@ impl App {
                         crate::rng::SeedRng::new(seed ^ crate::rng::fnv1a_hash(&recipe.name))
                             .fork_for(&format!("craft-botch-{day}-{hour}"));
                     let botch_p = craft_botch_chance(fortune);
-                    let botched = rng.gen_f64() < botch_p;
+                    // The gift does not botch the work it was born to.
+                    let botched = !gift_aids && rng.gen_f64() < botch_p;
                     for (item, count) in &recipe.inputs {
                         inv.remove(*item, *count);
                     }
@@ -236,10 +254,15 @@ impl App {
                                 recipe.name
                             ),
                             true,
+                            false,
                         ))
                     } else {
-                        let output_count = recipe.output_count + bias_bonus + hearth_bonus;
-                        let flavor = if hearth_bonus > 0 {
+                        let gift_bonus = if gift_aids { 1 } else { 0 };
+                        let output_count =
+                            recipe.output_count + bias_bonus + hearth_bonus + gift_bonus;
+                        let flavor = if gift_aids {
+                            " The work answers your gift — clean, and more of it."
+                        } else if hearth_bonus > 0 {
                             " A real fire beats a traveler's pot."
                         } else if bias_bonus > 0 {
                             " Skilled hands guide yours."
@@ -250,21 +273,56 @@ impl App {
                         Some((
                             format!("Crafted {} (x{}) (2h){}", recipe.name, output_count, flavor),
                             true,
+                            gift_aids,
                         ))
                     }
                 } else {
-                    Some(("Not enough materials".into(), false))
+                    Some(("Not enough materials".into(), false, false))
                 }
             } else {
                 None
             };
-            if let Some((msg, did_craft)) = outcome {
+            if let Some((msg, did_craft, gift_used)) = outcome {
                 if did_craft {
                     self.advance_clock(2);
+                }
+                let mut msg = msg;
+                if gift_used {
+                    if let Some(cost) = self.pay_gift_strain() {
+                        msg.push_str(&cost);
+                    }
                 }
                 self.status_msg = Some(msg);
             }
         }
+    }
+
+    /// Working the gift adds to the day's strain; past a day's measure the
+    /// body protests with the flame-fever (lieska-kuume), the cursed sooner
+    /// than the blessed. Returns a note when the fever takes (#427).
+    fn pay_gift_strain(&mut self) -> Option<String> {
+        self.gift_strain += GIFT_STRAIN_PER_CRAFT;
+        // The effective load is leaned by fortune: an ill-starred body breaks
+        // sooner. bad_multiplier > 1 for the cursed, < 1 for the blessed.
+        let effective = self.gift_strain * self.fortune.bad_multiplier();
+        if effective < GIFT_FLAME_THRESHOLD {
+            return None;
+        }
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let ps = self.player_start.as_mut()?;
+        let already = ps
+            .person
+            .illnesses
+            .iter()
+            .any(|d| d.disease == crate::model::Disease::FlameFever);
+        if already || ps.person.illnesses.len() >= MAX_PLAYER_ILLNESSES {
+            return None;
+        }
+        ps.person.illnesses.push(crate::model::ActiveDisease::new(
+            crate::model::Disease::FlameFever,
+            tick,
+        ));
+        Some(" The gift turns on you — flame-fever rises.".into())
     }
 
     pub fn player_inventory(&self) -> Inventory {
