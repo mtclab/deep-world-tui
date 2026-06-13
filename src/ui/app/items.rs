@@ -15,6 +15,9 @@ const GIFT_STRAIN_PER_CRAFT: f64 = 0.34;
 const GIFT_FLAME_THRESHOLD: f64 = 1.0;
 /// Most illnesses the player carries at once (mirrors the encounter cap).
 const MAX_PLAYER_ILLNESSES: usize = 2;
+/// Base chance, per gift-craft while doubly spent (flame-fever AND iron-ache),
+/// that the gift ruptures forever (the rauta-huuta). Leaned by fortune (#428).
+const BASE_GIFT_RUPTURE_PROB: f64 = 0.10;
 
 /// The chance a craft is spoiled, leaned by the crafter's fortune. The blessed
 /// botch less, the cursed more; never certain either way.
@@ -297,18 +300,64 @@ impl App {
         }
     }
 
-    /// Working the gift adds to the day's strain; past a day's measure the
-    /// body protests with the flame-fever (lieska-kuume), the cursed sooner
-    /// than the blessed. Returns a note when the fever takes (#427).
+    /// Working the gift adds to the day's strain. Reaching for it while already
+    /// spent — the flame-fever and the iron-ache both on you — risks the
+    /// rauta-huuta: the boundary breaks and the sense is gone forever (#428).
+    /// Short of that, a day's overuse brings the flame-fever (#427), the cursed
+    /// sooner than the blessed. Returns a note when the body answers.
     fn pay_gift_strain(&mut self) -> Option<String> {
         self.gift_strain += GIFT_STRAIN_PER_CRAFT;
-        // The effective load is leaned by fortune: an ill-starred body breaks
-        // sooner. bad_multiplier > 1 for the cursed, < 1 for the blessed.
-        let effective = self.gift_strain * self.fortune.bad_multiplier();
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let bad = self.fortune.bad_multiplier();
+
+        // The boundary: doubly spent, the gift can rupture.
+        let (has_flame, has_ache) = self
+            .player_start
+            .as_ref()
+            .map(|ps| {
+                let f = ps
+                    .person
+                    .illnesses
+                    .iter()
+                    .any(|d| d.disease == crate::model::Disease::FlameFever);
+                let a = ps
+                    .person
+                    .illnesses
+                    .iter()
+                    .any(|d| d.disease == crate::model::Disease::IronAche);
+                (f, a)
+            })
+            .unwrap_or((false, false));
+        if has_flame && has_ache && self.gift.has() {
+            let roll = crate::rng::unit_from_hash(crate::rng::mix_u64(
+                self.seed ^ crate::rng::mix_u64(tick ^ 0x9217_3AC0),
+            ));
+            let rupture_p = (BASE_GIFT_RUPTURE_PROB * bad).clamp(0.0, 0.5);
+            if roll < rupture_p {
+                self.gift = crate::model::Gift::NONE;
+                self.gift_strain = 0.0;
+                self.gift_overworked_days = 0;
+                if let Some(sim) = self.sim.as_mut() {
+                    sim.log(
+                        tick,
+                        crate::sim::journal::Voice::Scar,
+                        "The iron-scream, once — and then a silence where the song had always \
+                         been. I reached too far. It will not come again."
+                            .into(),
+                    );
+                }
+                return Some(
+                    " The iron-scream — then silence. The gift is spent, and will not return."
+                        .into(),
+                );
+            }
+        }
+
+        // Short of rupture: a day's overuse brings the flame-fever.
+        let effective = self.gift_strain * bad;
         if effective < GIFT_FLAME_THRESHOLD {
             return None;
         }
-        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
         let ps = self.player_start.as_mut()?;
         let already = ps
             .person
