@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
+pub mod calendar;
 pub mod companion;
 pub mod discovery;
 pub mod economy;
@@ -18,6 +19,7 @@ pub mod weather;
 pub mod wildlife;
 
 // Re-export everything so call sites don't change
+pub use calendar::WorldEvent;
 pub use companion::*;
 pub use discovery::{Discovery, DiscoveryKind, DiscoveryStore};
 pub use economy::*;

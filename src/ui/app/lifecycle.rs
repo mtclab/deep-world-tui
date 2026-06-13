@@ -227,6 +227,13 @@ impl App {
             if on_settlement { 0.8 } else { 0.2 },
         );
 
+        // A plague year makes sickness take more readily (#417). Captured
+        // before the player borrow below.
+        let plague_mult = self
+            .current_world_event()
+            .map(|e| e.illness_contraction_modifier())
+            .unwrap_or(1.0);
+        let fortune_mult = self.fortune.bad_multiplier();
         let Some(ref mut ps) = self.player_start else {
             return;
         };
@@ -239,7 +246,7 @@ impl App {
             &needs,
             has_healer,
             count,
-            self.fortune.bad_multiplier(),
+            fortune_mult * plague_mult,
         )
         .filter(|d| {
             d.disease != crate::model::Disease::ChildbirthComplication
