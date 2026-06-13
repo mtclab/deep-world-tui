@@ -116,6 +116,18 @@ impl CraftSense {
         }
     }
 
+    /// Whether this sense reads true value in a trade — the scale-hand's gift
+    /// (#439). The Väylä weight-sense: never short-weighted, sees the fair price.
+    pub fn aids_trade(self) -> bool {
+        matches!(self, CraftSense::ScaleHand)
+    }
+
+    /// Whether this sense settles a wild thing — the still-sense's gift (#439).
+    /// The Laakso quiet: the room, or the beast, goes calm.
+    pub fn aids_calm(self) -> bool {
+        matches!(self, CraftSense::StillSense)
+    }
+
     fn from_index(i: u64) -> CraftSense {
         match i % 4 {
             0 => CraftSense::IronEar,
@@ -239,6 +251,16 @@ mod tests {
             }
         }
         assert_eq!(seen.len(), 4, "all four senses should occur: {seen:?}");
+    }
+
+    #[test]
+    fn each_sense_has_one_act() {
+        // Iron-ear/root-eye craft; scale-hand trades; still-sense calms. None
+        // overlap, and all four do something (#439 closes the inert two).
+        assert!(CraftSense::ScaleHand.aids_trade() && !CraftSense::ScaleHand.aids_calm());
+        assert!(CraftSense::StillSense.aids_calm() && !CraftSense::StillSense.aids_trade());
+        assert!(!CraftSense::IronEar.aids_trade() && !CraftSense::IronEar.aids_calm());
+        assert!(!CraftSense::RootEye.aids_trade() && !CraftSense::RootEye.aids_calm());
     }
 
     #[test]

@@ -71,6 +71,7 @@ impl App {
                 if let Some(np) = self.current_settlement_people() {
                     self.inter_people_bias.mod_toward(np, 0.005);
                 }
+                self.charge_gift_for_trade();
             } else {
                 self.status_msg = Some(format!("Need {} coins", price));
             }
@@ -100,6 +101,7 @@ impl App {
                 if let Some(np) = self.current_settlement_people() {
                     self.inter_people_bias.mod_toward(np, 0.005);
                 }
+                self.charge_gift_for_trade();
             } else {
                 self.status_msg = Some(format!("No {} to sell", item.name()));
             }
@@ -200,6 +202,24 @@ impl App {
         1.0
     }
 
+    /// Whether the player carries the scale-hand — the Väylä weight-sense that
+    /// reads true value in a trade (#439).
+    fn scale_hand(&self) -> bool {
+        self.gift.sense().map(|s| s.aids_trade()).unwrap_or(false)
+    }
+
+    /// Reading the true price is the gift at work — and the gift costs the body.
+    /// Only the scale-hand pays here (#439).
+    fn charge_gift_for_trade(&mut self) {
+        if self.scale_hand() {
+            if let Some(note) = self.use_gift() {
+                if let Some(m) = self.status_msg.as_mut() {
+                    m.push_str(&note);
+                }
+            }
+        }
+    }
+
     /// How well coin trades in the ruling polity's markets (canon: no universal
     /// currency). 1.0 in coin economies; a discount where coin is debased
     /// (Remnant) or a foreign convenience (grain/in-kind economies).
@@ -214,6 +234,13 @@ impl App {
     /// transaction applies (politics + caravan supply too — the quotes used to
     /// omit those, so the displayed price could differ from the charged one).
     pub fn quote_buy_price(&self, item: ItemType) -> u32 {
+        self.buy_price_inner(item, true)
+    }
+
+    /// The buy price, optionally without the scale-hand discount. The sell-side
+    /// spread clamp uses the gift-free price, so a scale-hand's cheaper buying
+    /// does not also drag down what it can sell for (#439).
+    fn buy_price_inner(&self, item: ItemType, with_gift: bool) -> u32 {
         let base = item.base_price();
         let inter_mod = self
             .current_settlement_people()
@@ -232,6 +259,12 @@ impl App {
             .current_world_event()
             .map(|e| e.buy_price_modifier())
             .unwrap_or(1.0);
+        // The scale-hand reads the fair price and buys under it (#439).
+        let gift = if with_gift && self.scale_hand() {
+            0.90
+        } else {
+            1.0
+        };
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
@@ -239,6 +272,7 @@ impl App {
             * self.food_scarcity_modifier(item)
             * luck
             * event
+            * gift
             / coin;
         ((base as f64 * m).ceil() as u32).max(1)
     }
@@ -271,15 +305,20 @@ impl App {
         let luck = 1.0 + self.fortune.value() * 0.08;
         // Coin worth less here means you receive fewer of it for your goods.
         let coin = self.coin_value_here();
+        // The scale-hand will not be short-weighted: it sells a little dearer.
+        let gift = if self.scale_hand() { 1.10 } else { 1.0 };
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
             * self.caravan_price_modifier(item)
             * self.food_scarcity_modifier(item)
             * luck
-            * coin;
+            * coin
+            * gift;
         let raw = ((base as f64 * m).floor() as u32).max(1);
-        let buy = self.quote_buy_price(item);
+        // Clamp against the gift-free buy price so the scale-hand's cheaper
+        // buying does not also cap what it can sell for (#439).
+        let buy = self.buy_price_inner(item, false);
         if buy > 1 {
             raw.clamp(1, buy - 1)
         } else {
