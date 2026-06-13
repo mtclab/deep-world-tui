@@ -68,6 +68,7 @@ mod tests {
             birth_day: 0,
             lifespan_years: 0,
             fortune: Default::default(),
+            gift: Default::default(),
             tax_unpaid_seasons: 0,
             last_tax_day: 0,
             encounter_log: Default::default(),

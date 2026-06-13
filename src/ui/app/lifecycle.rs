@@ -71,6 +71,9 @@ impl App {
         self.lifespan_years = span.max(self.start_age_years + 2);
         // Every life is born under a star — its luck, rolled once and hidden.
         self.fortune = crate::model::Fortune::roll(self.seed, life_salt);
+        // Born under a star, and born with a gift or (almost always) without —
+        // both rolled once from the life-seed, both hidden (#426).
+        self.gift = crate::model::Gift::roll(self.seed, life_salt);
         self.last_omen_day = 0;
         self.elder = false;
     }

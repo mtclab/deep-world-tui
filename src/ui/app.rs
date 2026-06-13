@@ -143,6 +143,10 @@ pub struct App {
     /// The luck this life was born with — hidden, read only in omens. Tilts
     /// every risk a little; the cautious are safer, never safe.
     pub fortune: crate::model::Fortune,
+    /// The craft-gift this life was born with — almost always none. Innate,
+    /// hidden, shows in childhood or never (#426). The craft it grants will
+    /// cost the body to use (later issues of the gift epic).
+    pub gift: crate::model::Gift,
     /// Day the last omen showed, so the sky does not babble every step.
     pub last_omen_day: u32,
     /// Consecutive seasons a resident has owed the polity its hearth-tax and
@@ -237,6 +241,7 @@ impl App {
             birth_day: 0,
             lifespan_years: 0,
             fortune: crate::model::Fortune::default(),
+            gift: crate::model::Gift::default(),
             last_omen_day: 0,
             tax_unpaid_seasons: 0,
             last_tax_day: 0,
