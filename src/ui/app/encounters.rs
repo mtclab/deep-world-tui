@@ -10,6 +10,19 @@ use crate::sim::SimState;
 
 use super::*;
 
+/// What luck does when you turn your back on a creature. Caution is not
+/// immunity: a beast that stands its ground gets a say, and you never know
+/// your luck.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FleeOutcome {
+    /// You broke clean. The common case — but never the only one.
+    Clean,
+    /// It caught you as you turned: a gash, bleeding, but you got away.
+    Wounded,
+    /// It ran you down. The ground rushed up. This feeds the collapse funnel.
+    RunDown,
+}
+
 impl App {
     pub fn open_encounter_log(&mut self) {
         self.previous_screen = Some(self.screen.clone());
@@ -162,6 +175,42 @@ impl App {
 
     pub fn dismiss_encounter(&mut self) {
         self.resolve_encounter(EncounterAction::Flee);
+    }
+
+    /// Roll what fleeing costs you. `danger` is the creature's nerve (0 flees
+    /// on sight, 1 stands its ground, 2 hunts). Deterministic per seed/tick so
+    /// a given turn always resolves the same way. A guardian companion shortens
+    /// the odds — caution that pays — but nothing makes flight free.
+    fn flee_outcome(&self, danger: u8) -> FleeOutcome {
+        if danger == 0 {
+            return FleeOutcome::Clean; // it was already leaving
+        }
+        let guarded = self
+            .player_start
+            .as_ref()
+            .is_some_and(|ps| ps.companions.iter().any(|c| c.animal.guards()));
+        let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+        let mut h = self.seed.wrapping_mul(0x9E3779B97F4A7C15);
+        h ^= tick.wrapping_mul(0xD1B54A32D192ED03);
+        h ^= (danger as u64).wrapping_mul(0x2545F4914F6CDD1D);
+        h ^= h >> 29;
+        let roll = (h >> 11) as f64 / (1u64 << 53) as f64; // 0.0..1.0
+
+        // danger 1: a 12% chance of a gash, no catching. danger 2: 22% gash,
+        // and a 5% sub-band where it runs you down. A guardian halves both.
+        let mut wound_p = 0.06 + 0.08 * danger as f64; // d1=0.14, d2=0.22
+        let mut catch_p = if danger >= 2 { 0.05 } else { 0.0 };
+        if guarded {
+            wound_p *= 0.5;
+            catch_p *= 0.5;
+        }
+        if roll < catch_p {
+            FleeOutcome::RunDown
+        } else if roll < wound_p {
+            FleeOutcome::Wounded
+        } else {
+            FleeOutcome::Clean
+        }
     }
 
     pub fn resolve_encounter(&mut self, action: EncounterAction) {
@@ -332,6 +381,36 @@ impl App {
             self.god_affinity.adjust(god, delta);
         }
         let encounter_data = self.encounter.map(|e| e.kind);
+        // Fleeing is a gamble, not an exit. A creature that stands its ground
+        // or hunts gets a say when you turn your back — and a guardian shortens
+        // the odds without ever making flight free. The worst roll feeds the
+        // collapse funnel below (`flee_run_down`).
+        let mut flee_wound_note: Option<&'static str> = None;
+        let mut flee_run_down = false;
+        if action == EncounterAction::Flee {
+            let danger = match encounter_data {
+                Some(crate::model::EncounterKind::Wildlife) => {
+                    species.map(|sp| sp.danger()).unwrap_or(1)
+                }
+                Some(crate::model::EncounterKind::Bandit) => 1,
+                _ => 0,
+            };
+            match self.flee_outcome(danger) {
+                FleeOutcome::Clean => {}
+                FleeOutcome::Wounded => {
+                    self.vitals.energy = (self.vitals.energy - 0.28).max(0.0);
+                    self.vitals.hunger = (self.vitals.hunger - 0.06).max(0.0);
+                    flee_wound_note =
+                        Some("It caught you as you turned — a gash, bleeding, but you broke free.");
+                }
+                FleeOutcome::RunDown => {
+                    self.vitals.energy = 0.0;
+                    flee_run_down = true;
+                    flee_wound_note =
+                        Some("It ran you down. Teeth, weight, the ground rushing up to meet you.");
+                }
+            }
+        }
         let pos_opt = self.player_pos;
         let npc_people = self
             .current_settlement_people()
@@ -401,6 +480,13 @@ impl App {
                 }
                 if let Some(ref note) = outside_intervention {
                     sim.log_journal(sim.world.tick, format!("  * {}", note));
+                }
+                if let Some(note) = flee_wound_note {
+                    sim.log(
+                        sim.world.tick,
+                        crate::sim::journal::Voice::Scar,
+                        note.into(),
+                    );
                 }
             }
             if rep_mult > 0.0 {
@@ -502,9 +588,20 @@ impl App {
             }
             WitnessLevel::Seen => msg,
         };
+        let msg_with_witness = match flee_wound_note {
+            Some(note) => format!("{} {}", msg_with_witness.trim_end(), note),
+            None => msg_with_witness,
+        };
         self.status_msg = Some(msg_with_witness);
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         self.screen = Screen::World { region_idx };
+        // A wound that emptied you, or a creature that ran you down, hands you
+        // to the collapse funnel — which decides, by luck and your state,
+        // whether you rise. (check_collapse self-gates on vitals and overrides
+        // the screen with Collapse / continue-as-NPC when it fires.)
+        if flee_run_down || self.vitals.energy <= 0.0 {
+            self.check_collapse();
+        }
     }
 
     pub fn check_milestones(&mut self) {
