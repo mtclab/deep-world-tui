@@ -506,6 +506,9 @@ pub enum EncounterAction {
     Trade,
     Shelter,
     PushThrough,
+    /// Take a tame-enough creature for hide and meat. Only offered for danger
+    /// 0/1 wildlife — a bear is a fight, not a harvest.
+    Hunt,
 }
 
 impl EncounterAction {
@@ -519,6 +522,7 @@ impl EncounterAction {
             EncounterAction::Trade => "Trade info",
             EncounterAction::Shelter => "Take shelter (1h)",
             EncounterAction::PushThrough => "Push through",
+            EncounterAction::Hunt => "Hunt it (hide + meat)",
         }
     }
 
@@ -532,6 +536,7 @@ impl EncounterAction {
             EncounterAction::Trade => 'r',
             EncounterAction::Shelter => 's',
             EncounterAction::PushThrough => 'p',
+            EncounterAction::Hunt => 'h',
         }
     }
 
@@ -546,6 +551,7 @@ impl EncounterAction {
         match self {
             EncounterAction::Flee => 0.15,
             EncounterAction::PushThrough => 0.2,
+            EncounterAction::Hunt => 0.2,
             EncounterAction::Intimidate => 0.1,
             _ => 0.0,
         }
@@ -554,6 +560,7 @@ impl EncounterAction {
     pub fn hunger_cost(self) -> f64 {
         match self {
             EncounterAction::PushThrough => 0.1,
+            EncounterAction::Hunt => 0.1,
             EncounterAction::Flee => 0.05,
             _ => 0.0,
         }
@@ -565,6 +572,7 @@ impl EncounterAction {
             EncounterAction::Talk => 1,
             EncounterAction::Trade => 1,
             EncounterAction::Calm => 1,
+            EncounterAction::Hunt => 2,
             _ => 0,
         }
     }
@@ -576,6 +584,8 @@ impl EncounterAction {
             EncounterAction::Talk => Some((GodName::Masa, 0.03)),
             EncounterAction::Trade => Some((GodName::Masa, 0.04)),
             EncounterAction::Bribe => Some((GodName::Masa, -0.01)),
+            // Taking a creature leans away from the forest-keeper's favour.
+            EncounterAction::Hunt => Some((GodName::Keuru, -0.02)),
             _ => None,
         }
     }
@@ -591,6 +601,21 @@ pub struct Encounter {
 }
 
 impl Encounter {
+    /// The actions on offer, including any that depend on the encounter's
+    /// particulars (not just its kind). A tame-enough wild creature can be
+    /// hunted; a dangerous one cannot — it is a fight, not a harvest.
+    pub fn available_actions(&self) -> Vec<EncounterAction> {
+        let mut actions = self.kind.available_actions();
+        if self.kind == EncounterKind::Wildlife {
+            if let Some(sp) = self.species {
+                if sp.danger() <= 1 {
+                    actions.push(EncounterAction::Hunt);
+                }
+            }
+        }
+        actions
+    }
+
     pub fn roll(terrain: Terrain, hour: u32, day: u32, seed: u64) -> Option<Self> {
         Self::roll_biased(terrain, hour, day, seed, None)
     }
@@ -892,6 +917,38 @@ impl EncounterLog {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::wildlife::WildSpecies;
+
+    #[test]
+    fn hunt_offered_only_for_tame_wildlife() {
+        let tame = Encounter {
+            kind: EncounterKind::Wildlife,
+            terrain: Terrain::Forest,
+            species: Some(WildSpecies::Hare),
+        };
+        assert!(
+            tame.available_actions().contains(&EncounterAction::Hunt),
+            "a hare should be huntable"
+        );
+        let fierce = Encounter {
+            kind: EncounterKind::Wildlife,
+            terrain: Terrain::Forest,
+            species: Some(WildSpecies::BrownBear),
+        };
+        assert!(
+            !fierce.available_actions().contains(&EncounterAction::Hunt),
+            "a bear is a fight, not a hunt"
+        );
+        // A non-wildlife encounter never offers Hunt.
+        let traveler = Encounter {
+            kind: EncounterKind::Traveler,
+            terrain: Terrain::Road,
+            species: None,
+        };
+        assert!(!traveler
+            .available_actions()
+            .contains(&EncounterAction::Hunt));
+    }
 
     #[test]
 

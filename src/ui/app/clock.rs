@@ -513,6 +513,9 @@ impl App {
             }
         }
         // Rest is when wounds get tended and snares get checked.
+        let fortune = self.fortune;
+        let snare_seed = self.seed;
+        let snare_tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
         if let Some(ref mut ps) = self.player_start {
             // Tending an illness with a bandage eases it and shortens its course.
             if !ps.person.illnesses.is_empty() && ps.inventory.remove(ItemType::Bandage, 1) {
@@ -539,7 +542,21 @@ impl App {
                 && !ps.inventory.is_broken(ItemType::Trap)
             {
                 ps.inventory.add(ItemType::Food, 1);
+                // Small game caught whole carries a hide too — sometimes. Luck
+                // leans whether the snare takes something worth skinning.
+                let luck = crate::rng::unit_from_hash(crate::rng::mix_u64(
+                    snare_seed ^ crate::rng::mix_u64(snare_tick ^ 0x5AE5_70AD),
+                ));
+                let took_hide = luck < fortune.tilt_good(0.40);
+                if took_hide {
+                    ps.inventory.add(ItemType::Hide, 1);
+                }
                 ps.inventory.use_tool(ItemType::Trap);
+                self.status_msg = Some(if took_hide {
+                    "The snare took small game — meat and a hide.".into()
+                } else {
+                    "The snare took small game — a little meat.".into()
+                });
                 if let Some(pos) = self.player_pos {
                     if let Some(region) = self
                         .sim

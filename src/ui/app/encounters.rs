@@ -439,6 +439,53 @@ impl App {
                     "You pushed through regardless!".into()
                 }
             }
+            EncounterAction::Hunt => {
+                if let Some(sp) = species.filter(|s| s.huntable()) {
+                    let (base_hide, base_meat) = sp.hunt_yield();
+                    // The land's richness scales the meat — a hunted-out valley
+                    // gives a lean take. Read before the mutable draw below.
+                    let richness = self
+                        .player_pos
+                        .and_then(|pos| self.sim.as_ref()?.world.regions.get(pos.region_idx))
+                        .map(|r| r.game_richness)
+                        .unwrap_or(1.0);
+                    let meat = ((base_meat as f64) * (0.5 + 0.5 * richness))
+                        .round()
+                        .max(1.0) as u32;
+                    // Luck leans the take: a clean kill gives a bonus portion,
+                    // a poor one falls short — the fortunate eat better.
+                    let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+                    let luck = crate::rng::unit_from_hash(crate::rng::mix_u64(
+                        self.seed ^ crate::rng::mix_u64(tick ^ 0x407E_5A1D),
+                    ));
+                    let meat = if luck < self.fortune.tilt_good(0.30) {
+                        meat + 1
+                    } else if luck > 1.0 - self.fortune.tilt_bad(0.20) {
+                        meat.saturating_sub(1).max(1)
+                    } else {
+                        meat
+                    };
+                    if let Some(ref mut ps) = self.player_start {
+                        ps.inventory.add(ItemType::Hide, base_hide);
+                        ps.inventory.add(ItemType::Food, meat);
+                    }
+                    // Hunting draws the valley's game down; it recovers seasonally.
+                    if let (Some(pos), Some(sim)) = (self.player_pos, self.sim.as_mut()) {
+                        if let Some(region) = sim.world.regions.get_mut(pos.region_idx) {
+                            region.game_richness = (region.game_richness - 0.06).max(0.0);
+                        }
+                    }
+                    self.play_sound(crate::audio::SoundEvent::Combat);
+                    format!(
+                        "You hunt the {} — {} hide, {} meat. (2h)",
+                        sp.name(),
+                        base_hide,
+                        meat
+                    )
+                } else {
+                    "No quarry here worth the taking.".into()
+                }
+            }
         };
         // Apply the action's data-driven costs (time, energy, hunger) and its
         // god-affinity shift. These lived on EncounterAction but were never
@@ -581,6 +628,7 @@ impl App {
                     EncounterAction::Flee => 0.0,
                     EncounterAction::Intimidate => -0.01,
                     EncounterAction::PushThrough => -0.005,
+                    EncounterAction::Hunt => 0.0,
                 };
                 if rep_delta != 0.0 {
                     if let (Some(ref pid), Some(pos)) = (&pid, pos_opt) {
@@ -609,6 +657,7 @@ impl App {
             let combat_decay = match action {
                 EncounterAction::Flee | EncounterAction::Calm | EncounterAction::Talk => 0.0,
                 EncounterAction::Intimidate | EncounterAction::PushThrough => 0.08,
+                EncounterAction::Hunt => 0.05,
                 EncounterAction::Shelter => 0.02,
                 EncounterAction::Bribe | EncounterAction::Trade => 0.01,
             };
@@ -630,6 +679,7 @@ impl App {
             EncounterAction::Flee => 0.0,
             EncounterAction::Intimidate => -0.02,
             EncounterAction::PushThrough => -0.01,
+            EncounterAction::Hunt => 0.0,
         };
         if let Some(pos) = self.player_pos {
             if let Some(ref sim) = self.sim {

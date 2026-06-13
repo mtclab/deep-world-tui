@@ -81,6 +81,9 @@ pub enum ItemType {
     Bandage,
     /// A set snare: yields food while resting in the wild, wears with use.
     Trap,
+    /// A wild creature's hide, taken by hunting or trapping. Tans to leather,
+    /// trades well, the start of the warm-coat chain.
+    Hide,
 }
 
 impl ItemType {
@@ -103,6 +106,7 @@ impl ItemType {
             ItemType::Tool => "Tool",
             ItemType::Bandage => "Bandage",
             ItemType::Trap => "Trap",
+            ItemType::Hide => "Hide",
         }
     }
 
@@ -125,6 +129,7 @@ impl ItemType {
             ItemType::Tool => 6,
             ItemType::Bandage => 4,
             ItemType::Trap => 5,
+            ItemType::Hide => 6,
         }
     }
 
@@ -150,6 +155,7 @@ impl ItemType {
             ItemType::Tool,
             ItemType::Bandage,
             ItemType::Trap,
+            ItemType::Hide,
         ]
     }
 
@@ -1427,8 +1433,9 @@ mod tests {
 
         assert!(!items.contains(&ItemType::Coin));
 
-        // 16 = all item kinds minus Coin (Tool/Bandage/Trap added with #310).
-        assert_eq!(items.len(), 16);
+        // 17 = all item kinds minus Coin (Tool/Bandage/Trap added with #310,
+        // Hide with #413).
+        assert_eq!(items.len(), 17);
     }
 
     #[test]
