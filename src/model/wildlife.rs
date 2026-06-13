@@ -39,6 +39,17 @@ pub enum WildSpecies {
     SteppeLark,
     CaveBat,
     GhostGoat,
+    // Tranche 3 (#416): the waters, the high rock, the geothermal ground, the
+    // deep desert. Mundane majority; one new uncanny (the sand-spirit).
+    Pike,
+    BrookTrout,
+    AlpineVole,
+    GoldenEagle,
+    ForgeLizard,
+    PillarCrab,
+    SiltWhale,
+    SandSwimmer,
+    SandSpirit,
 }
 
 impl WildSpecies {
@@ -71,6 +82,15 @@ impl WildSpecies {
             SteppeLark,
             CaveBat,
             GhostGoat,
+            Pike,
+            BrookTrout,
+            AlpineVole,
+            GoldenEagle,
+            ForgeLizard,
+            PillarCrab,
+            SiltWhale,
+            SandSwimmer,
+            SandSpirit,
         ]
     }
 
@@ -103,6 +123,15 @@ impl WildSpecies {
             SteppeLark => "steppe-lark",
             CaveBat => "cave bat",
             GhostGoat => "ghost-goat",
+            Pike => "pike",
+            BrookTrout => "brook trout",
+            AlpineVole => "alpine vole",
+            GoldenEagle => "golden eagle",
+            ForgeLizard => "forge-lizard",
+            PillarCrab => "pillar-crab",
+            SiltWhale => "silt-whale",
+            SandSwimmer => "sand-swimmer",
+            SandSpirit => "sand-spirit",
         }
     }
 
@@ -138,6 +167,15 @@ impl WildSpecies {
             SteppeLark => &[T::Grass, T::Tundra],
             CaveBat => &[T::Cave],
             GhostGoat => &[T::Mountain],
+            Pike => &[T::Swamp, T::Coast],
+            BrookTrout => &[T::Swamp, T::Coast],
+            AlpineVole => &[T::Mountain, T::Tundra],
+            GoldenEagle => &[T::Mountain],
+            ForgeLizard => &[T::Mountain, T::Cave],
+            PillarCrab => &[T::Coast, T::Cave],
+            SiltWhale => &[T::Coast],
+            SandSwimmer => &[T::Sand, T::DeepDesert],
+            SandSpirit => &[T::Sand, T::DeepDesert],
         }
     }
 
@@ -159,6 +197,10 @@ impl WildSpecies {
             (SteppeBison, Frost) => 2,                       // the herds draw in tight
             (HeatShimmer, _) => 1,                           // an ambush predator is rarely seen
             (CaveBat, _) => 5,                               // the under-places are mostly bats
+            (SandSpirit, _) => 1,                            // uncanny: always rare and deniable
+            (SiltWhale, _) => 1,                             // a deep thing, seldom near the shore
+            (Pike, Frost) => 1,                              // sluggish under the ice
+            (GoldenEagle, _) => 2,                           // a high, wide-ranging hunter
             _ => 3,
         }
     }
@@ -168,9 +210,11 @@ impl WildSpecies {
         use WildSpecies::*;
         match self {
             Hare | RedFox | Capercaillie | Beaver | RingedSeal | MireCrane | EagleOwl
-            | ForestReindeer | KethVaal | GlassBeetle | SteppeLark | CaveBat | GhostGoat => 0,
-            Elk | Lynx | Adder | HollowStag | MireLight | CaveBreather | SandOx | HeatShimmer => 1,
-            Wolf | BrownBear | Boar | Wolverine | SteppeBison => 2,
+            | ForestReindeer | KethVaal | GlassBeetle | SteppeLark | CaveBat | GhostGoat
+            | BrookTrout | AlpineVole | ForgeLizard | PillarCrab => 0,
+            Elk | Lynx | Adder | HollowStag | MireLight | CaveBreather | SandOx | HeatShimmer
+            | Pike | GoldenEagle | SandSwimmer | SandSpirit => 1,
+            Wolf | BrownBear | Boar | Wolverine | SteppeBison | SiltWhale => 2,
         }
     }
 
@@ -193,7 +237,9 @@ impl WildSpecies {
             Hare | RedFox | Capercaillie | MireCrane | EagleOwl | GlassBeetle | SteppeLark
             | CaveBat => (1, 1),
             // Mid game: a hide and a good portion.
-            Beaver | RingedSeal | KethVaal | GhostGoat | Lynx | Adder => (1, 2),
+            Beaver | RingedSeal | KethVaal | GhostGoat | Lynx | Adder | Pike | SandSwimmer => {
+                (1, 2)
+            }
             // Large game: a fuller hide and a haul of meat.
             Elk | ForestReindeer | SandOx => (2, 3),
             // Anything else huntable: a modest take.
@@ -211,7 +257,10 @@ impl WildSpecies {
     pub fn uncanny(self) -> bool {
         matches!(
             self,
-            WildSpecies::HollowStag | WildSpecies::MireLight | WildSpecies::CaveBreather
+            WildSpecies::HollowStag
+                | WildSpecies::MireLight
+                | WildSpecies::CaveBreather
+                | WildSpecies::SandSpirit
         )
     }
 
@@ -273,6 +322,21 @@ impl WildSpecies {
                 "A ghost-goat watches from a ledge no path serves, pale against the rock, \
                  chewing, unimpressed."
             }
+            Pike => "A pike hangs motionless in the shallows, all jaw, older than it has any right to be.",
+            BrookTrout => "Brook trout hold in the cold riffle, facing the current, bright as struck flint.",
+            AlpineVole => "An alpine vole freezes on a sun-warmed stone, then is simply gone.",
+            GoldenEagle => "A golden eagle rides the updraft off the ridge, unbothered, reading the slope for you.",
+            ForgeLizard => "A forge-lizard basks on warm geothermal rock, throat pulsing, eyes like wet slag.",
+            PillarCrab => "A pillar-crab sidles between the tide-stones, claws ticking, wearing a shell of someone else's making.",
+            SiltWhale => {
+                "Far out, the water humps and slides — a silt-whale's back breaking the surface, \
+                 vast and grey and indifferent to the shore."
+            }
+            SandSwimmer => "The dune ahead shivers and parts — a sand-swimmer surfacing for a breath of dry air.",
+            SandSpirit => {
+                "Heat-haze gathers on the dune into something that walks, watches, and is gone \
+                 when you blink — a trick of the light, surely, that left tracks."
+            }
         }
     }
 
@@ -304,6 +368,37 @@ impl WildSpecies {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tranche_three_is_terrain_true_and_uncanny_stays_rare() {
+        use WildSpecies::*;
+        // New species are present and habitable on real ground.
+        for s in [
+            Pike,
+            BrookTrout,
+            AlpineVole,
+            GoldenEagle,
+            ForgeLizard,
+            PillarCrab,
+            SiltWhale,
+            SandSwimmer,
+            SandSpirit,
+        ] {
+            assert!(WildSpecies::all().contains(&s), "{s:?} missing from roster");
+            assert!(!s.habitats().is_empty(), "{s:?} has no habitat");
+            assert!(!s.line().is_empty(), "{s:?} has no encounter line");
+        }
+        // The strange stays strange: uncanny is a small minority of the roster.
+        let total = WildSpecies::all().len();
+        let uncanny = WildSpecies::all().iter().filter(|s| s.uncanny()).count();
+        assert!(
+            uncanny * 5 < total,
+            "uncanny must stay rare: {uncanny}/{total}"
+        );
+        // The new uncanny is not huntable; the new mundane ones are.
+        assert!(!SandSpirit.huntable() && !SiltWhale.huntable());
+        assert!(Pike.huntable() && BrookTrout.huntable() && ForgeLizard.huntable());
+    }
 
     #[test]
     fn danger_two_and_uncanny_are_not_huntable() {

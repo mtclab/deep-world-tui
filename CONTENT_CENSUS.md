@@ -28,6 +28,7 @@ load-bearing; what remains is listed under *Open gaps*.
 | Milestones | 11 | 11 | all fire (verified call sites) |
 | Journal voices | 6 | 6 | Encounter, Travel, Rest, Scar, Dream (Kukri), Rumor (taverns) |
 | Items | 18 | 18 | price/trade/gather/craft/structure costs; Cloth gathers from flax (#392, no longer trade-only); Hide (hunt/trap, #413) → Leather → Coat (softens harsh-weather decay), Herb → Salve (speeds Infection/Venom recovery) — the gear chain (#414) |
+| Wild species (WildSpecies) | 35 | 35 | terrain/season-true roster across all biomes; tranche 3 (#416) adds Pike/BrookTrout (water), AlpineVole/GoldenEagle/ForgeLizard (high & geothermal), PillarCrab/SiltWhale (coast/deep), SandSwimmer + the uncanny SandSpirit (desert); danger 0/1/2, huntable where danger ≤1 & not uncanny, per-species hunt_yield + encounter line; uncanny stays rare |
 | Wildlife as resource | danger 0/1 huntable | load-bearing | a Hunt encounter action (danger ≤1, non-uncanny) and the set-snare on rest yield Hide + Meat (Food), fortune-leaned, scaled by and drawing down region `game_richness` (recovers seasonally); danger-2 stays a fight (#413) |
 | Settlement services | 8 | 8 | all generated: Tavern/Temple (size), Forge=Sepat, Hearth=Ahjo, TrapWorkshop=Metsik, Archive=Arkit, TradePost=Väylä, Shrine=Laakso |
 | Build kinds (player) | 8 | 8 | cost/hours/decay/maintain + rest tier (Tarp→Campfire … Home→Inn) |
