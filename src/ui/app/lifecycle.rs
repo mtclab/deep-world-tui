@@ -69,7 +69,47 @@ impl App {
             span = span.saturating_sub(8 + rng.gen_range(18));
         }
         self.lifespan_years = span.max(self.start_age_years + 2);
+        // Every life is born under a star — its luck, rolled once and hidden.
+        self.fortune = crate::model::Fortune::roll(self.seed, life_salt);
+        self.last_omen_day = 0;
         self.elder = false;
+    }
+
+    /// Once in a while a sign shows — the fire's colour, a bird's crossing —
+    /// leaning fair or ill with the life's hidden star but never proving it.
+    /// Both polarities can show under any star; the omen reads fate, it does
+    /// not change it. Called on the turn of a day.
+    pub(super) fn maybe_omen(&mut self) {
+        let day = self.clock.day;
+        // Never on the first day, and no more than one sign in any five.
+        if day == 0 || day.saturating_sub(self.last_omen_day) < 5 {
+            return;
+        }
+        // ~1 day in 4 carries a sign — deterministic per seed/day.
+        use crate::rng::{mix_u64, unit_from_hash};
+        let h = mix_u64(self.seed ^ mix_u64(day as u64));
+        if unit_from_hash(h) >= 0.25 {
+            return;
+        }
+        self.last_omen_day = day;
+        // Fair or ill, leaned by the star — both possible under either.
+        let polarity = unit_from_hash(mix_u64(h ^ 0xD1B54A32D192ED03));
+        let bank = if polarity < self.fortune.fair_omen_chance() {
+            "OMENS_FAIR"
+        } else {
+            "OMENS_ILL"
+        };
+        let lines = crate::banks::bank(bank);
+        let mut rng = SeedRng::new(self.seed).fork_for(&format!("omen-{day}"));
+        let line = lines[rng.gen_range(lines.len() as u32) as usize].clone();
+        if let Some(ref mut sim) = self.sim {
+            sim.log(
+                sim.world.tick,
+                crate::sim::journal::Voice::Dream,
+                line.clone(),
+            );
+        }
+        self.status_msg = Some(line);
     }
 
     /// Restore aging fields from a loaded save; pre-aging saves (lifespan 0)

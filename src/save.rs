@@ -75,6 +75,9 @@ pub struct SaveData {
     pub birth_day: u32,
     #[serde(default)]
     pub lifespan_years: u32,
+    /// The luck this life was born with. Old saves default to middling.
+    #[serde(default)]
+    pub fortune: crate::model::Fortune,
     // The player's encounter history (day/hour/kind/action) lived in App but
     // was never saved, so the log reset on every load.
     #[serde(default)]
@@ -319,6 +322,7 @@ pub fn restore_from_compact(
         start_age_years: 0,
         birth_day: 0,
         lifespan_years: 0,
+        fortune: Default::default(),
         encounter_log: Default::default(),
         player_farms: Vec::new(),
         homestead_settlers: Vec::new(),
@@ -362,6 +366,7 @@ mod tests {
             start_age_years: 0,
             birth_day: 0,
             lifespan_years: 0,
+            fortune: Default::default(),
             encounter_log: Default::default(),
             player_farms: Vec::new(),
             homestead_settlers: Vec::new(),
@@ -460,6 +465,7 @@ mod tests {
             start_age_years: 0,
             birth_day: 0,
             lifespan_years: 0,
+            fortune: Default::default(),
             encounter_log: Default::default(),
             player_farms: Vec::new(),
             homestead_settlers: Vec::new(),

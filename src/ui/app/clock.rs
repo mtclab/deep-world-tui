@@ -127,6 +127,7 @@ impl App {
         self.tick_player_farms();
         if self.clock.day != day_before {
             self.check_spouse();
+            self.maybe_omen();
         }
         // The founding check asks the roads every ten days; the waystation
         // ledger keeps the same calendar.

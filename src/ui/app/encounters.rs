@@ -190,11 +190,10 @@ impl App {
             .as_ref()
             .is_some_and(|ps| ps.companions.iter().any(|c| c.animal.guards()));
         let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
-        let mut h = self.seed.wrapping_mul(0x9E3779B97F4A7C15);
-        h ^= tick.wrapping_mul(0xD1B54A32D192ED03);
-        h ^= (danger as u64).wrapping_mul(0x2545F4914F6CDD1D);
-        h ^= h >> 29;
-        let roll = (h >> 11) as f64 / (1u64 << 53) as f64; // 0.0..1.0
+        let h = crate::rng::mix_u64(
+            self.seed ^ crate::rng::mix_u64(tick ^ (danger as u64).wrapping_shl(56)),
+        );
+        let roll = crate::rng::unit_from_hash(h); // 0.0..1.0
 
         // danger 1: a 12% chance of a gash, no catching. danger 2: 22% gash,
         // and a 5% sub-band where it runs you down. A guardian halves both.
@@ -204,6 +203,10 @@ impl App {
             wound_p *= 0.5;
             catch_p *= 0.5;
         }
+        // The life's hidden star leans the odds — the cautious are safer,
+        // never safe; the cursed pay more for the same flight.
+        wound_p = self.fortune.tilt_bad(wound_p);
+        catch_p = self.fortune.tilt_bad(catch_p);
         if roll < catch_p {
             FleeOutcome::RunDown
         } else if roll < wound_p {
@@ -750,7 +753,17 @@ impl App {
         let collapse = Collapse::roll_biased(self.seed, &self.god_affinity, local_rep, eff_bias);
         let outcome = collapse.outcome;
         let hours = outcome.hours_passed();
-        let died = collapse.died;
+        // At the very edge, the life's hidden star gets the last word: a
+        // blessed soul is sometimes pulled back from a death that would
+        // otherwise have taken it. The cursed get no such reprieve — they die
+        // more by meeting more trouble, not by being killed twice.
+        let died = if collapse.died {
+            let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+            let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x5EED_C0DE));
+            crate::rng::unit_from_hash(h) >= self.fortune.death_reprieve_chance()
+        } else {
+            false
+        };
         let rescued_by = collapse.rescued_by;
         self.vitals.hunger = (self.vitals.hunger + outcome.hunger_restore()).min(1.0);
         self.vitals.energy = (self.vitals.energy + outcome.energy_restore()).min(1.0);
@@ -856,6 +869,7 @@ impl App {
                     start_age_years: self.start_age_years,
                     birth_day: self.birth_day,
                     lifespan_years: self.lifespan_years,
+                    fortune: self.fortune,
                     encounter_log: self.encounter_log.clone(),
                     player_farms: self.player_farms.clone(),
                     homestead_settlers: self.homestead_settlers.clone(),
