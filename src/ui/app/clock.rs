@@ -27,10 +27,17 @@ impl App {
         let season = self.clock.season();
         self.clock.advance(hours);
         // Harsh weather wears the body down faster too (need_decay_modifier
-        // was defined per-weather but never applied to the player).
+        // was defined per-weather but never applied to the player). The life's
+        // hidden star leans the harshness — only the penalty over fair weather,
+        // so a blessed soul bears the cold a little better and the cursed a
+        // little worse; clear skies fall on everyone the same.
         let weather_mult = self
             .player_pos
-            .map(|pos| self.region_weather(pos.region_idx).need_decay_modifier())
+            .map(|pos| {
+                let raw = self.region_weather(pos.region_idx).need_decay_modifier();
+                let harsh_excess = (raw - 1.0).max(0.0);
+                1.0 + harsh_excess * self.fortune.bad_multiplier()
+            })
             .unwrap_or(1.0);
         let mut departed: Vec<String> = Vec::new();
         if let Some(ref mut ps) = self.player_start {
