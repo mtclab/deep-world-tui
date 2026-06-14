@@ -338,7 +338,7 @@ mod tests {
         for seed in 0..400u64 {
             let mut rng = SeedRng::new(seed).fork_for("tavern");
             let line = rumor_text(&mut rng);
-            if uncanny.iter().any(|u| *u == line) {
+            if uncanny.contains(&line) {
                 heard = true;
                 break;
             }
