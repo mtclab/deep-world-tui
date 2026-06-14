@@ -79,15 +79,15 @@ fn the_first_door_serves_its_service() {
         .unwrap()
         .inventory
         .add(ItemType::Coin, 30);
-    // Step from the street into the doorway.
+    // Step from the street into the doorway: you cross the threshold and end
+    // up standing in the door (inside the building), not bounced back.
     let (mvx, mvy) = (dx as i32 - sx as i32, dy as i32 - sy as i32);
-    let before = a.player_pos.unwrap();
     a.move_player(mvx, mvy);
     let after = a.player_pos.unwrap();
     assert_eq!(
-        (before.px, before.py),
         (after.px, after.py),
-        "the walker stays on the doorstep — roofs stay solid"
+        (dx, dy),
+        "the walker steps through the door, into the building"
     );
     let msg = a.status_msg.clone().unwrap_or_default().to_lowercase();
     assert!(
@@ -136,5 +136,35 @@ fn a_plain_home_answers_the_knock() {
     assert!(
         msg.contains("knock"),
         "a home answers the knock, not a menu: {msg}"
+    );
+}
+
+#[test]
+fn you_can_walk_into_the_building_interior() {
+    let mut a = app();
+    let (sx, sy, dx, dy) = door_and_street(&a, 0, 0, 0).expect("a building with a reachable door");
+    a.player_pos = Some(PlayerPos {
+        region_idx: 0,
+        px: sx,
+        py: sy,
+    });
+    // Street -> door (enter), then one more step on the same heading carries
+    // you off the threshold and onto the building's floor — a real interior
+    // you stand in, not a solid token you bump.
+    let (mvx, mvy) = (dx as i32 - sx as i32, dy as i32 - sy as i32);
+    a.move_player(mvx, mvy);
+    assert_eq!(
+        (a.player_pos.unwrap().px, a.player_pos.unwrap().py),
+        (dx, dy)
+    );
+    a.move_player(mvx, mvy);
+    let p = a.player_pos.unwrap();
+    let inside = a.sim.as_ref().unwrap().world.regions[0]
+        .terrain
+        .get(p.px, p.py);
+    assert_eq!(
+        inside,
+        Some(Terrain::Floor),
+        "the second step lands on the interior floor, not a wall"
     );
 }

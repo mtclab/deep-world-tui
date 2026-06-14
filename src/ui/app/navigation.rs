@@ -374,18 +374,39 @@ impl App {
                 }
             }
         }
-        // A door is not a wall: stepping into a house enters it (#372 PR 3) —
-        // the tavern serves, the temple blesses, a home answers the knock.
+        // A door is a way in, not a wall (#458): you step through it onto the
+        // building's floor. Crossing the threshold from outside, the tavern
+        // serves, the temple blesses, a home answers the knock — once, as you
+        // enter, not again while you move about the rooms or step back out.
         if let Some(pos) = self.player_pos {
             let (nx, ny) = (pos.px as i32 + dx, pos.py as i32 + dy);
             if nx >= 0 && ny >= 0 {
-                let target = self
+                let region_idx = pos.region_idx;
+                let (cur, target) = self
                     .sim
                     .as_ref()
-                    .and_then(|s| s.world.regions.get(pos.region_idx))
-                    .and_then(|r| r.terrain.get(nx as usize, ny as usize));
+                    .and_then(|s| s.world.regions.get(region_idx))
+                    .map(|r| {
+                        (
+                            r.terrain.get(pos.px, pos.py),
+                            r.terrain.get(nx as usize, ny as usize),
+                        )
+                    })
+                    .unwrap_or((None, None));
                 if target == Some(Terrain::Door) {
-                    self.enter_door(pos.region_idx, nx as usize, ny as usize);
+                    // Already inside (on floor or another doorway) means you
+                    // are leaving or crossing through — just a step. Coming
+                    // from the street, this is an entrance.
+                    let entering = !matches!(cur, Some(Terrain::Floor) | Some(Terrain::Door));
+                    if let Some(ref mut p) = self.player_pos {
+                        p.px = nx as usize;
+                        p.py = ny as usize;
+                    }
+                    self.reveal_around(region_idx, nx as usize, ny as usize);
+                    if entering {
+                        self.enter_door(region_idx, nx as usize, ny as usize);
+                    }
+                    self.screen = Screen::World { region_idx };
                     return;
                 }
             }
@@ -549,9 +570,10 @@ impl App {
         }
     }
 
-    /// Step through a house door (#372 PR 3): a service building serves, a
-    /// plain home answers the knock. The walker stays on the doorstep — the
-    /// roof tile remains solid ground you don't occupy.
+    /// What greets you as you cross a threshold (#458): a service building
+    /// serves (the tavern rests you, the temple blesses), a plain home answers
+    /// the knock. Called as you step in through the door; you end up inside, on
+    /// the floor, free to walk the rooms.
     fn enter_door(&mut self, region_idx: usize, x: usize, y: usize) {
         let owner = self
             .sim
