@@ -419,6 +419,11 @@ pub enum EncounterKind {
     /// (Trade) for easy passage and the threshold-keeper's favour, or refuse
     /// (Flee) and take the long way. Deniable as a strange hermit (#455).
     ThresholdToll,
+    /// The mountain stirs — a vast, slow presence on the high slope, far too
+    /// large for any rockfall, that goes still the moment you look. Wait it out
+    /// (Calm) and pass safe; cross beneath it (PushThrough) and risk the loose
+    /// slope. Deniable as the mountain settling (#455, Mythic Phase 2).
+    MountainStir,
 }
 
 impl EncounterKind {
@@ -455,6 +460,7 @@ impl EncounterKind {
             EncounterKind::ShearTrader => "She'ar wait in the long shade at the desert's edge, still and unhurried, desert game and succulent-physic spread on a cloth. They want weave and tools to ward the sun. No coin. The rate is the rate.",
             EncounterKind::SpectralElk => "A great elk stands wrong at the tree-line — antlers too wide, eyes too still. It turns and moves off through the trunks without hurry, and does not tire. Something in you wants to follow. Old light, you tell yourself.",
             EncounterKind::ThresholdToll => "An old woman keeps a small fire at the cave-mouth, where no one keeps a fire. She does not look up. 'A price for the road past,' she says, in no language you learned and yet you understand. 'Bread, or herb, or coin. Your choosing.' A strange hermit, surely.",
+            EncounterKind::MountainStir => "The scree shifts on the far slope — slow, deliberate, and far too large for any rockfall — and goes still the moment you stop to look. The mountain settling, surely. The mountain does not say.",
         }
     }
 
@@ -545,6 +551,10 @@ impl EncounterKind {
             }
             // Pay the toll (Trade) for the road past, or refuse (Flee) it.
             EncounterKind::ThresholdToll => vec![EncounterAction::Trade, EncounterAction::Flee],
+            // Wait it out (Calm), or cross beneath the stirring slope.
+            EncounterKind::MountainStir => {
+                vec![EncounterAction::Calm, EncounterAction::PushThrough]
+            }
         }
     }
 }
@@ -722,11 +732,12 @@ impl Encounter {
                     }
                 }
                 Terrain::Mountain => {
-                    // Three-way: a Khör rendezvous, a cave-in, or the threshold
-                    // toll at a cave-mouth in the high rock (#455).
-                    match (rare_hash / 100) % 3 {
+                    // Four-way: a Khör rendezvous, the threshold toll, the
+                    // mountain stirring on the high slope, or a cave-in (#455).
+                    match (rare_hash / 100) % 4 {
                         0 => EncounterKind::KhorTrader,
                         1 => EncounterKind::ThresholdToll,
+                        2 => EncounterKind::MountainStir,
                         _ => EncounterKind::CaveIn,
                     }
                 }
