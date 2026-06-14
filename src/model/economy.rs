@@ -181,7 +181,7 @@ impl ItemType {
             Terrain::Grass | Terrain::Farmland | Terrain::Tundra => Some(ItemType::Herb),
             Terrain::Forest => Some(ItemType::Wood),
             Terrain::Settlement => Some(ItemType::Coin),
-            Terrain::House => None,
+            Terrain::House | Terrain::Wall | Terrain::Floor | Terrain::Door => None,
             Terrain::Coast | Terrain::Water => Some(ItemType::Water),
             Terrain::Mountain => Some(ItemType::Stone),
             Terrain::Swamp => Some(ItemType::Branches),

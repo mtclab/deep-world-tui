@@ -33,7 +33,7 @@ load-bearing; what remains is listed under *Open gaps*.
 | Wildlife as resource | danger 0/1 huntable | load-bearing | a Hunt encounter action (danger ≤1, non-uncanny) and the set-snare on rest yield Hide + Meat (Food), fortune-leaned, scaled by and drawing down region `game_richness` (recovers seasonally); danger-2 stays a fight (#413) |
 | Settlement services | 8 | 8 | all generated: Tavern/Temple (size), Forge=Sepat, Hearth=Ahjo, TrapWorkshop=Metsik, Archive=Arkit, TradePost=Väylä, Shrine=Laakso |
 | Build kinds (player) | 8 | 8 | cost/hours/decay/maintain + rest tier (Tarp→Campfire … Home→Inn) |
-| Terrains | 13 | 13 | passability, travel hours, gather item, people bonus, patron god, encounters, disease |
+| Terrains | 16 | 13 | passability, travel hours, gather item, people bonus, patron god, encounters, disease; **#458**: +Wall (impassable) / Floor (walkable interior) / Door (passable entry) — the real-building primitive (`gen::building::lay_building`): a wall border around a walkable floor with a doorway, varied styles (hut→manor). Groundwork — not yet placed by worldgen (the richer town/enclave layouts will lay them), so the 3 new tiles are defined-but-unplaced for now |
 | Region types / sizes | 6 / 4 | all | chart-driven terrain mix, settlement count/size, services, companion capacity |
 | Craft recipes | 9 | 9 wired | Tool/Bandage/Trap (#313) + Leather/Warm Coat/Salve — the gear chain that bridges hunting → warmth and herbs → healing (#414); craft can botch, fortune-leaned (#412) |
 | Discoveries | 12 | 12 | per-kind effects: god affinity, thirst/energy refresh, map reveal (#313) |
