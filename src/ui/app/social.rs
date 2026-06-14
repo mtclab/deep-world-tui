@@ -159,6 +159,177 @@ impl App {
         }
     }
 
+    /// Treat a sick villager with what you carry — the herbalist's work (#454).
+    /// The same remedies that tend your own sickness (#451) ease theirs; the
+    /// root-eye heals true. A healer is remembered: standing rises, the people
+    /// warm, and the river-keeper Masa marks the kindness. Refused only by those
+    /// who will not take help from your kind.
+    pub fn heal_npc(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        use crate::model::Disease;
+        // Is there anything to treat?
+        let sick = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                sim.world
+                    .regions
+                    .get(region_idx)?
+                    .settlements
+                    .get(settlement_idx)?
+                    .people
+                    .get(person_idx)
+            })
+            .map(|p| !p.illnesses.is_empty())
+            .unwrap_or(false);
+        if !sick {
+            self.status_msg = Some("They are hale enough — no sickness to tend.".into());
+            return;
+        }
+        // Those set hard against your kind will not take healing from your hand.
+        let npc_pk = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| PeopleKind::from_name(&p.people))
+        });
+        if let Some(pk) = npc_pk {
+            let mut bias = self.inter_people_bias.effective_bias(pk);
+            if let Some(god) = pk.patron_god() {
+                if self.god_affinity.get(god) > 0.4 {
+                    bias += 0.05;
+                }
+            }
+            if bias < -0.20 {
+                self.status_msg = Some(
+                    "'I'd sooner keep the fever.' They will not take healing from your hand."
+                        .into(),
+                );
+                return;
+            }
+        }
+        let root_eye = self.gift.sense() == Some(crate::model::CraftSense::RootEye);
+        let is_wound =
+            |d: Disease| matches!(d, Disease::Infection | Disease::Venom | Disease::Sprain);
+        // Does the patient carry a wound-illness a salve answers best?
+        let has_wound = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                sim.world
+                    .regions
+                    .get(region_idx)?
+                    .settlements
+                    .get(settlement_idx)?
+                    .people
+                    .get(person_idx)
+            })
+            .map(|p| p.illnesses.iter().any(|d| is_wound(d.disease)))
+            .unwrap_or(false);
+        // Spend a remedy from the player's own stores.
+        let used: Option<&'static str> = if let Some(ref mut ps) = self.player_start {
+            if has_wound && ps.inventory.remove(ItemType::Salve, 1) {
+                Some("salve")
+            } else if ps.inventory.remove(ItemType::Herb, 1) {
+                Some("herb")
+            } else if ps.inventory.remove(ItemType::Bandage, 1) {
+                Some("bandage")
+            } else if root_eye {
+                Some("hands") // the root-eye can ease a little with nothing but skill
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let Some(remedy) = used else {
+            self.status_msg =
+                Some("You have nothing to treat them with — no herb, no salve, no bandage.".into());
+            return;
+        };
+
+        let player_id = self.player_start.as_ref().map(|ps| ps.person.id.clone());
+        let settlement_id = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .map(|s| s.id.clone())
+        });
+        let strong = remedy == "salve";
+        let mut name = String::new();
+        if let Some(ref mut sim) = self.sim {
+            if let Some(person) = sim
+                .world
+                .regions
+                .get_mut(region_idx)
+                .and_then(|r| r.settlements.get_mut(settlement_idx))
+                .and_then(|s| s.people.get_mut(person_idx))
+            {
+                name = person.name.clone();
+                let person_id = person.id.clone();
+                for d in person.illnesses.iter_mut() {
+                    if strong && is_wound(d.disease) {
+                        d.tend_strong();
+                    } else {
+                        d.tend();
+                    }
+                    if root_eye {
+                        d.tend();
+                    }
+                }
+                // The root-eye can break a mild fever outright.
+                if root_eye {
+                    person.illnesses.retain(|d| {
+                        !matches!(
+                            d.disease,
+                            Disease::Fever | Disease::WinterCough | Disease::MarshFever
+                        )
+                    });
+                }
+                if let (Some(pid), Some(sid)) = (&player_id, &settlement_id) {
+                    let npc_people_pk = PeopleKind::from_name(&person.people);
+                    sim.relationships.update_relationship_biased_full(
+                        pid,
+                        &person_id,
+                        "tended their sickness",
+                        sim.world.tick,
+                        0.07,
+                        0.04,
+                        self.inter_people_bias.player_people,
+                        npc_people_pk,
+                        &person.personality,
+                    );
+                    sim.reputation.adjust_local_biased(
+                        pid,
+                        sid,
+                        0.04,
+                        self.inter_people_bias.player_people,
+                        npc_people_pk,
+                    );
+                }
+                self.check_quests_on_aid(&person_id);
+            }
+        }
+        // The river-keeper marks the mercy; the patient's own god too.
+        self.god_affinity.adjust(GodName::Masa, 0.02);
+        if let Some(pk) = npc_pk {
+            if let Some(god) = pk.patron_god() {
+                self.god_affinity.adjust(god, 0.01);
+            }
+        }
+        let mut msg = format!("You tend {name}'s sickness with what you carry.");
+        if root_eye {
+            msg = format!("You lay hands on {name} — the root-eye reads what the body needs.");
+            if let Some(note) = self.use_gift() {
+                msg.push_str(&note);
+            }
+        }
+        self.advance_clock(1);
+        self.status_msg = Some(msg);
+    }
+
     pub fn give_coin(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
         if let Some(ref mut ps) = self.player_start {
             if !ps.inventory.remove(ItemType::Coin, 1) {

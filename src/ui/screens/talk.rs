@@ -185,6 +185,13 @@ pub(crate) fn draw_talk_screen(
         ),
         Span::styled(" give coin  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
+            "[H]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" heal  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
             "[Esc/Q]",
             Style::default()
                 .fg(theme.archive_red())
