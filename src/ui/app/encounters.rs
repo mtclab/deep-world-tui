@@ -219,7 +219,7 @@ impl App {
     /// Add an affliction to the player, if there is room for it and it is not
     /// already running. Marks the scar in the journal. Whether it lands is the
     /// caller's roll; this only carries it in.
-    fn afflict(&mut self, disease: crate::model::Disease, scar: &str) -> bool {
+    pub(crate) fn afflict(&mut self, disease: crate::model::Disease, scar: &str) -> bool {
         let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
         let added = if let Some(ref mut ps) = self.player_start {
             const MAX_PLAYER_ILLNESSES: usize = 2;
