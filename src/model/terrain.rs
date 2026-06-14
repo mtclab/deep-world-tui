@@ -18,6 +18,13 @@ pub enum Terrain {
     /// the temple. Solid to walk through; entered by stepping into the door
     /// (the walk-in interaction layer).
     House,
+    /// A building wall — impassable. The border of a real structure (#458).
+    Wall,
+    /// A building's interior floor — walkable. You walk into and through a
+    /// building's rooms, on the one world map (#458).
+    Floor,
+    /// A doorway in a wall — the passable entry into a building (#458).
+    Door,
 }
 
 impl Terrain {
@@ -37,13 +44,20 @@ impl Terrain {
             Terrain::Cave => '◉',
             Terrain::Tundra => '▒',
             Terrain::DeepDesert => ':',
+            Terrain::Wall => '▒',
+            Terrain::Floor => '·',
+            Terrain::Door => '+',
         }
     }
 
     pub fn passable(self) -> bool {
-        // Houses are solid: you enter them by the door (the walk-in layer),
-        // you don't walk through their walls.
-        !matches!(self, Terrain::Water | Terrain::Mountain | Terrain::House)
+        // Houses and walls are solid: you enter a building by its door (the
+        // walk-in layer), you don't walk through walls. Floors and doors are
+        // walkable — you move through a building's rooms (#458).
+        !matches!(
+            self,
+            Terrain::Water | Terrain::Mountain | Terrain::House | Terrain::Wall
+        )
     }
 
     pub fn travel_hours(self) -> u32 {
@@ -55,6 +69,7 @@ impl Terrain {
             Terrain::Forest | Terrain::Swamp | Terrain::Cave | Terrain::Tundra => 2,
             Terrain::DeepDesert => 2,
             Terrain::Water | Terrain::Mountain | Terrain::House => 1,
+            Terrain::Wall | Terrain::Floor | Terrain::Door => 1,
         }
     }
 
@@ -94,7 +109,10 @@ impl Terrain {
             Terrain::Cave => Some(GodName::Kukri),
             Terrain::Tundra => Some(GodName::Kukri),
             Terrain::Sand | Terrain::DeepDesert => None,
-            Terrain::House => Some(GodName::Oltzed),
+            // The hearth-keeper holds the home and all its rooms.
+            Terrain::House | Terrain::Wall | Terrain::Floor | Terrain::Door => {
+                Some(GodName::Oltzed)
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+pub mod building;
 pub mod companion;
 pub mod name;
 pub mod person;
