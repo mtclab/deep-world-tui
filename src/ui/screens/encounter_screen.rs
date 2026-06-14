@@ -71,6 +71,9 @@ pub(crate) fn draw_encounter_screen(f: &mut Frame, app: &App) {
             crate::model::EncounterKind::AuroraVeil => "✨ Aurora Veil",
             crate::model::EncounterKind::KhorTrader => "⛺ Khör Rendezvous",
             crate::model::EncounterKind::MerakTrader => "≈ Mëräk Exchange",
+            crate::model::EncounterKind::TzakharTrader => "⛏ Tzäkhar Wayhold",
+            crate::model::EncounterKind::HalTrader => "🍃 Häl Canopy-Trade",
+            crate::model::EncounterKind::ShearTrader => "☀ She'ar Meet",
         };
         lines.push(Line::from(Span::styled(
             format!("  Kind: {}", kind_str),
