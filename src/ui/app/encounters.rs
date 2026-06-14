@@ -469,7 +469,9 @@ impl App {
                     "The Häl wait on the forest floor, and you have nothing to offer.".into()
                 }
             }
-            EncounterAction::Trade if enc_kind == Some(crate::model::EncounterKind::ShearTrader) => {
+            EncounterAction::Trade
+                if enc_kind == Some(crate::model::EncounterKind::ShearTrader) =>
+            {
                 // The She'ar give desert game and succulent-physic for what wards
                 // the sun — cloth and tools, never coin (#447).
                 self.play_sound(crate::audio::SoundEvent::Trade);

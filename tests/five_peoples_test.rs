@@ -22,7 +22,12 @@ fn the_deep_people_keep_to_the_stone() {
         kinds_on(Terrain::Cave).contains(&EncounterKind::TzakharTrader),
         "Tzäkhar should appear at the cave-mouth"
     );
-    for elsewhere in [Terrain::Grass, Terrain::Coast, Terrain::Sand, Terrain::Forest] {
+    for elsewhere in [
+        Terrain::Grass,
+        Terrain::Coast,
+        Terrain::Sand,
+        Terrain::Forest,
+    ] {
         assert!(
             !kinds_on(elsewhere).contains(&EncounterKind::TzakharTrader),
             "Tzäkhar must not appear on {elsewhere:?}"
@@ -36,7 +41,12 @@ fn the_canopy_people_keep_to_the_forest() {
         kinds_on(Terrain::Forest).contains(&EncounterKind::HalTrader),
         "Häl should appear in the forest"
     );
-    for elsewhere in [Terrain::Grass, Terrain::Mountain, Terrain::Cave, Terrain::Coast] {
+    for elsewhere in [
+        Terrain::Grass,
+        Terrain::Mountain,
+        Terrain::Cave,
+        Terrain::Coast,
+    ] {
         assert!(
             !kinds_on(elsewhere).contains(&EncounterKind::HalTrader),
             "Häl must not appear on {elsewhere:?}"
@@ -54,7 +64,12 @@ fn the_desert_people_keep_to_the_sand() {
         kinds_on(Terrain::DeepDesert).contains(&EncounterKind::ShearTrader),
         "She'ar should appear in deep desert"
     );
-    for elsewhere in [Terrain::Grass, Terrain::Forest, Terrain::Cave, Terrain::Coast] {
+    for elsewhere in [
+        Terrain::Grass,
+        Terrain::Forest,
+        Terrain::Cave,
+        Terrain::Coast,
+    ] {
         assert!(
             !kinds_on(elsewhere).contains(&EncounterKind::ShearTrader),
             "She'ar must not appear on {elsewhere:?}"
@@ -158,7 +173,12 @@ fn the_five_refuse_coin() {
     ] {
         let mut a = app_with(kind, terrain);
         if let Some(ps) = a.player_start.as_mut() {
-            for it in [ItemType::Food, ItemType::Herb, ItemType::Tool, ItemType::Cloth] {
+            for it in [
+                ItemType::Food,
+                ItemType::Herb,
+                ItemType::Tool,
+                ItemType::Cloth,
+            ] {
                 let n = ps.inventory.get(it);
                 ps.inventory.remove(it, n);
             }
