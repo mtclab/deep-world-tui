@@ -150,11 +150,13 @@ pub fn scar_text(rng: &mut SeedRng) -> String {
 }
 
 pub fn rumor_text(rng: &mut SeedRng) -> String {
-    // Half the talk is local color, half names the wider world.
-    if rng.gen_range(2) == 0 {
-        pick_template(rng, crate::banks::bank("CANON_RUMORS")).to_string()
-    } else {
-        pick_template(rng, crate::banks::bank("RUMOR_TEMPLATES")).to_string()
+    // The talk: wider-world news, local color, and — now and then — a deniable
+    // word of the uncanny (#455), the myth-creatures heard of before they are
+    // ever met.
+    match rng.gen_range(5) {
+        0 | 1 => pick_template(rng, crate::banks::bank("CANON_RUMORS")).to_string(),
+        2 => pick_template(rng, crate::banks::bank("UNCANNY_RUMORS")).to_string(),
+        _ => pick_template(rng, crate::banks::bank("RUMOR_TEMPLATES")).to_string(),
     }
 }
 
@@ -324,6 +326,24 @@ mod tests {
         assert!(crate::banks::bank("DREAM_TEMPLATES").len() >= 3);
         assert!(crate::banks::bank("SCAR_TEMPLATES").len() >= 3);
         assert!(crate::banks::bank("RUMOR_TEMPLATES").len() >= 3);
+        assert!(crate::banks::bank("UNCANNY_RUMORS").len() >= 6);
+    }
+
+    #[test]
+    fn tavern_talk_carries_word_of_the_uncanny() {
+        // Over enough tavern talk, the deniable rumours of the myth-creatures
+        // surface — the uncanny is heard of before it is ever met (#455).
+        let uncanny = crate::banks::bank("UNCANNY_RUMORS");
+        let mut heard = false;
+        for seed in 0..400u64 {
+            let mut rng = SeedRng::new(seed).fork_for("tavern");
+            let line = rumor_text(&mut rng);
+            if uncanny.contains(&line) {
+                heard = true;
+                break;
+            }
+        }
+        assert!(heard, "the uncanny should be heard of in the taverns");
     }
 
     #[test]
