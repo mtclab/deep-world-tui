@@ -22,7 +22,7 @@ fn main() -> anyhow::Result<()> {
     let mut recorded: Vec<PlayerChoice> = Vec::new();
 
     println!("=== Deep World Playtest (seed={}) ===", seed);
-    println!("Commands: status, move <dir>, map, gather, rest [h],");
+    println!("Commands: status, move <dir>, map, gather, rest [h], tend,");
     println!("  enter <ri> <si>, exit, inventory, craft [n], use <svc>,");
     println!(
         "  buy/sell/steal <item>, build [kind], work, plant, harvest, stash/take <item> [n], quests, journal [n], region,"
@@ -106,6 +106,11 @@ fn main() -> anyhow::Result<()> {
             "gather" | "g" => {
                 recorded.push(PlayerChoice::Gather);
                 app.gather();
+                print_msg(&app);
+            }
+            "tend" | "physic" => {
+                recorded.push(PlayerChoice::TendSelf);
+                app.tend_illness();
                 print_msg(&app);
             }
             "rest" | "r" => {

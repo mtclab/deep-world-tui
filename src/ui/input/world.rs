@@ -52,6 +52,9 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
         KeyCode::Char('c') => {
             app.enter_craft();
         }
+        KeyCode::Char('t') => {
+            app.tend_illness();
+        }
         KeyCode::Char('b') => {
             app.start_build();
         }

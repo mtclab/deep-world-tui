@@ -168,6 +168,8 @@ pub enum PlayerChoice {
     Court {
         person_idx: usize,
     },
+    /// Sit down and treat your own sickness with what you carry (#451).
+    TendSelf,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

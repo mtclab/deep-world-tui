@@ -320,6 +320,116 @@ impl App {
         }
     }
 
+    /// Sit down and treat your own sickness with what you carry (#451). The
+    /// counter the post-Fall mortality (#448) left thin: a brewed herb-physic
+    /// eases ANY fever (the field answer a salve never gave), a salve answers
+    /// the wound-illnesses strongest, a bandage dresses what it can. Each eases
+    /// the case and shortens its course — fewer days sick is fewer death-rolls.
+    /// A lucky brew (and the root-eye's healing gift, #452) does more. Costs an
+    /// hour and one remedy.
+    pub fn tend_illness(&mut self) {
+        use crate::model::{Disease, ItemType};
+        let has_illness = self
+            .player_start
+            .as_ref()
+            .is_some_and(|ps| !ps.person.illnesses.is_empty());
+        if !has_illness {
+            self.status_msg = Some("You are not sick — there is nothing to tend.".into());
+            return;
+        }
+        // The root-eye reads the herb true: the healer's gift (#452).
+        let root_eye = self.gift.sense() == Some(crate::model::CraftSense::RootEye);
+        // A lucky hand brews a better physic — fortune leans the easing.
+        let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+        let lucky = {
+            let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x7EA1_05EE));
+            crate::rng::unit_from_hash(h) < self.fortune.tilt_good(0.30)
+        };
+        let is_wound =
+            |d: Disease| matches!(d, Disease::Infection | Disease::Venom | Disease::Sprain);
+
+        let used: Option<&'static str> = if let Some(ref mut ps) = self.player_start {
+            let has_wound = ps.person.illnesses.iter().any(|d| is_wound(d.disease));
+            if has_wound && ps.inventory.remove(ItemType::Salve, 1) {
+                for d in ps
+                    .person
+                    .illnesses
+                    .iter_mut()
+                    .filter(|d| is_wound(d.disease))
+                {
+                    d.tend_strong();
+                    if root_eye || lucky {
+                        d.tend_strong();
+                    }
+                }
+                Some("You work a salve deep into the wound — it answers, and the heat goes out of it.")
+            } else if ps.inventory.remove(ItemType::Herb, 1) {
+                // A herb-draught: the only field counter to a fever.
+                for d in ps.person.illnesses.iter_mut() {
+                    d.tend();
+                    if root_eye || lucky {
+                        d.tend();
+                    }
+                }
+                Some("You brew what physic the herbs allow and drink it down. The fever loosens its grip a little.")
+            } else if ps.inventory.remove(ItemType::Bandage, 1) {
+                for d in ps.person.illnesses.iter_mut() {
+                    d.tend();
+                    if root_eye {
+                        d.tend();
+                    }
+                }
+                Some("You dress what you can with a clean bandage.")
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let Some(base) = used else {
+            self.status_msg =
+                Some("You have nothing to treat it with — no herb, no salve, no bandage.".into());
+            return;
+        };
+        let mut msg = base.to_string();
+
+        // The root-eye's gift can break a mild sickness outright — and it costs
+        // the body like any other working of the gift (#427/#428).
+        if root_eye {
+            let cured = if let Some(ref mut ps) = self.player_start {
+                let before = ps.person.illnesses.len();
+                // Only the milder, non-acute fevers yield to a single tending.
+                ps.person.illnesses.retain(|d| {
+                    !(lucky
+                        && matches!(
+                            d.disease,
+                            Disease::Fever | Disease::WinterCough | Disease::MarshFever
+                        ))
+                });
+                before != ps.person.illnesses.len()
+            } else {
+                false
+            };
+            if cured {
+                msg.push_str(" Under your hands the sickness simply lets go — the root-eye reads what the body needs.");
+            }
+            if let Some(note) = self.use_gift() {
+                msg.push_str(&note);
+            }
+        }
+
+        if let Some(sim) = self.sim.as_mut() {
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Scar,
+                "I tended my own sickness as best I knew. The body keeps its own counsel.".into(),
+            );
+        }
+        self.advance_clock(1);
+        self.status_msg = Some(msg);
+    }
+
     /// Use the gift for any act (craft, trade, calm — #439): surface it the
     /// first time (#431), then pay the body (#427/#428). Returns the combined
     /// note, if the body answered or the gift first showed.
