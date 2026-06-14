@@ -141,6 +141,9 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
         illnesses: Vec::new(),
         relations: vec![],
         wants: vec![],
+        // Born with a gift or (almost always) without — rare for an NPC as for
+        // anyone (#441).
+        gift: crate::model::Gift::roll(sub_seed, 0),
     }
 }
 
@@ -239,6 +242,7 @@ pub fn generate_person_from(
         illnesses: Vec::new(),
         relations: vec![],
         wants: vec![],
+        gift: crate::model::Gift::roll(sub_seed, 0),
     }
 }
 

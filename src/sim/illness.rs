@@ -250,6 +250,7 @@ mod tests {
             illnesses: vec![],
             relations: vec![],
             wants: vec![],
+            gift: Default::default(),
             age_years: 0,
         };
         assert_eq!(illness_productivity_modifier(&person), 1.0);

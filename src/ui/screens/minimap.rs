@@ -142,6 +142,7 @@ mod minimap_tests {
             illnesses: Vec::new(),
             relations: vec![],
             wants: vec![],
+            gift: Default::default(),
             age_years: 0,
         }
     }

@@ -208,6 +208,30 @@ impl App {
         self.gift.sense().map(|s| s.aids_trade()).unwrap_or(false)
     }
 
+    /// A gifted crafter living in this settlement makes their craft-goods truer
+    /// and cheaper here (#441): an iron-ear smith's tools, a root-eye's salves.
+    /// Returns the price multiplier for the item (1.0 if no matching gift).
+    fn settlement_gift_discount(&self, item: ItemType) -> f64 {
+        let Some(s) = self.current_settlement() else {
+            return 1.0;
+        };
+        for p in &s.people {
+            if let Some(sense) = p.gift.sense() {
+                let matches_goods = match sense {
+                    crate::model::CraftSense::IronEar => item == ItemType::Tool,
+                    crate::model::CraftSense::RootEye => {
+                        matches!(item, ItemType::Bandage | ItemType::Salve)
+                    }
+                    _ => false,
+                };
+                if matches_goods {
+                    return 0.85;
+                }
+            }
+        }
+        1.0
+    }
+
     /// Reading the true price is the gift at work — and the gift costs the body.
     /// Only the scale-hand pays here (#439).
     fn charge_gift_for_trade(&mut self) {
@@ -265,6 +289,8 @@ impl App {
         } else {
             1.0
         };
+        // A gifted crafter in town makes their goods truer and cheaper (#441).
+        let town_gift = self.settlement_gift_discount(item);
         let m = inter_mod
             * rep_mod
             * self.politics_price_modifier()
@@ -273,6 +299,7 @@ impl App {
             * luck
             * event
             * gift
+            * town_gift
             / coin;
         ((base as f64 * m).ceil() as u32).max(1)
     }
