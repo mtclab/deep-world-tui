@@ -75,6 +75,7 @@ pub(crate) fn draw_encounter_screen(f: &mut Frame, app: &App) {
             crate::model::EncounterKind::HalTrader => "🍃 Häl Canopy-Trade",
             crate::model::EncounterKind::ShearTrader => "☀ She'ar Meet",
             crate::model::EncounterKind::SpectralElk => "🦌 The Sending",
+            crate::model::EncounterKind::ThresholdToll => "🔥 The Threshold",
         };
         lines.push(Line::from(Span::styled(
             format!("  Kind: {}", kind_str),
