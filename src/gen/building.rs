@@ -1,7 +1,8 @@
 //! Real buildings on the one world map (#458): a structure is a wall border
 //! around a walkable floor, with a doorway you walk in through — not a 1-tile
-//! token. Styles vary in size, from a hut to a hall. This is the primitive the
-//! richer town/enclave layouts will place; not yet wired into worldgen.
+//! token. Styles vary in size, from a hut to a hall. The primitive (`lay_building`)
+//! and the district layout (`district_buildings` / `lay_district`) the town
+//! generator lays — load-bearing: every settlement is built from these.
 
 use crate::model::{Terrain, TerrainMap};
 
@@ -118,11 +119,102 @@ fn pick_style(h: u64, avail_w: usize, avail_h: usize) -> Option<BuildingStyle> {
     Some(fits[(h as usize) % fits.len()])
 }
 
+/// The door tile of a building footprint on the given side — the same gap
+/// `lay_building` would cut. Pure: lets the layout be computed without painting.
+fn building_door(x: usize, y: usize, w: usize, h: usize, side: Side) -> (usize, usize) {
+    match side {
+        Side::North => (x + w / 2, y),
+        Side::South => (x + w / 2, y + h - 1),
+        Side::West => (x, y + h / 2),
+        Side::East => (x + w - 1, y + h / 2),
+    }
+}
+
+/// Compute (but do not paint) the buildings of a district within an area (#458):
+/// varied structures on plots with a yard/street margin, each door onto a
+/// street. The single source of truth all consumers read — worldgen paints the
+/// same buildings via `lay_district`, so service-doors, walls, and NPC streets
+/// always agree. Adaptive: small holdings use small plots so even a hamlet gets
+/// real buildings with doors. Deterministic per seed; reading order.
+pub fn district_buildings(
+    ax: usize,
+    ay: usize,
+    aw: usize,
+    ah: usize,
+    seed: u64,
+) -> Vec<PlacedBuilding> {
+    let mut out = Vec::new();
+    if aw < 3 || ah < 3 {
+        return out;
+    }
+    // A small holding packs tight (huts on small plots); a real town spreads
+    // (varied buildings, the odd open yard). The stride is the plot pitch:
+    // building plus a one-tile street, so it scales with the district.
+    let span = aw.min(ah);
+    let small = span <= 12;
+    let stride = if span <= 10 {
+        4usize
+    } else if span <= 24 {
+        6
+    } else {
+        9
+    };
+    let mut py = 0;
+    while py + 4 <= ah {
+        let mut px = 0;
+        while px + 4 <= aw {
+            // Building fills the plot bar a one-tile street; the +1 inset
+            // already leaves a street on the north and west.
+            let avail_w = (stride - 1).min(aw - px - 1);
+            let avail_h = (stride - 1).min(ah - py - 1);
+            let h = crate::rng::mix_u64(
+                seed ^ (px as u64).wrapping_shl(20) ^ (py as u64).wrapping_shl(40),
+            );
+            // In a real town, a scatter of plots stay open yards/gardens.
+            if !small && crate::rng::unit_from_hash(h.rotate_left(7)) < 0.18 {
+                px += stride;
+                continue;
+            }
+            if let Some(style) = pick_style(h, avail_w, avail_h) {
+                let (bw, bh) = style.size();
+                let (bx, by) = (ax + px + 1, ay + py + 1);
+                let side = match h % 4 {
+                    0 => Side::South,
+                    1 => Side::North,
+                    2 => Side::East,
+                    _ => Side::West,
+                };
+                out.push(PlacedBuilding {
+                    style,
+                    x: bx,
+                    y: by,
+                    w: bw,
+                    h: bh,
+                    door: building_door(bx, by, bw, bh, side),
+                });
+            }
+            px += stride;
+        }
+        py += stride;
+    }
+    // The tiniest holdings (a steading) still get one dwelling with a door.
+    if out.is_empty() && aw >= 3 && ah >= 3 {
+        let (bw, bh) = (3usize.min(aw), 3usize.min(ah));
+        out.push(PlacedBuilding {
+            style: BuildingStyle::Hut,
+            x: ax,
+            y: ay,
+            w: bw,
+            h: bh,
+            door: building_door(ax, ay, bw, bh, Side::South),
+        });
+    }
+    out
+}
+
 /// Lay a district of real buildings within an area (#458): the ground becomes
-/// street (walkable Settlement), and varied buildings sit on plots with a
-/// yard/street margin around each, every door opening onto a street. The river
-/// keeps its bed. Deterministic per seed. Returns the placed buildings in
-/// reading order, so callers can map services/occupants onto their doors.
+/// street (walkable Settlement), and the `district_buildings` are painted as
+/// walls/floor/door. The river keeps its bed. Returns the placed buildings.
 pub fn lay_district(
     terrain: &mut TerrainMap,
     ax: usize,
@@ -143,47 +235,30 @@ pub fn lay_district(
             }
         }
     }
-    let stride = 9usize; // plot: a building (≤7) + a yard/street margin
-    let mut out = Vec::new();
-    let mut py = 0;
-    while py + 4 <= ah {
-        let mut px = 0;
-        while px + 4 <= aw {
-            let avail_w = (stride - 2).min(aw - px - 2);
-            let avail_h = (stride - 2).min(ah - py - 2);
-            let h = crate::rng::mix_u64(
-                seed ^ (px as u64).wrapping_shl(20) ^ (py as u64).wrapping_shl(40),
-            );
-            // A scatter of plots stay open yards/gardens, not built on.
-            if crate::rng::unit_from_hash(h.rotate_left(7)) < 0.18 {
-                px += stride;
-                continue;
+    let buildings = district_buildings(ax, ay, aw, ah, seed);
+    for b in &buildings {
+        for dy in 0..b.h {
+            for dx in 0..b.w {
+                let edge = dx == 0 || dy == 0 || dx == b.w - 1 || dy == b.h - 1;
+                terrain.set(
+                    b.x + dx,
+                    b.y + dy,
+                    if edge { Terrain::Wall } else { Terrain::Floor },
+                );
             }
-            if let Some(style) = pick_style(h, avail_w, avail_h) {
-                let (bw, bh) = style.size();
-                let (bx, by) = (ax + px + 1, ay + py + 1);
-                let side = match h % 4 {
-                    0 => Side::South,
-                    1 => Side::North,
-                    2 => Side::East,
-                    _ => Side::West,
-                };
-                if let Some(door) = lay_building(terrain, bx, by, bw, bh, side) {
-                    out.push(PlacedBuilding {
-                        style,
-                        x: bx,
-                        y: by,
-                        w: bw,
-                        h: bh,
-                        door,
-                    });
-                }
-            }
-            px += stride;
         }
-        py += stride;
+        terrain.set(b.door.0, b.door.1, Terrain::Door);
     }
-    out
+    buildings
+}
+
+/// A deterministic seed for a town's layout, from its map anchor — so worldgen
+/// (which paints) and the consumers (which recompute the same buildings) always
+/// agree without storing the layout.
+pub fn town_seed(map_x: u32, map_y: u32) -> u64 {
+    crate::rng::mix_u64(
+        (map_x as u64).wrapping_shl(20) ^ (map_y as u64).wrapping_shl(40) ^ 0x70_11_AA_BB,
+    )
 }
 
 /// Lay a single rural homestead (#458): a dwelling and an outbuilding around a
@@ -325,7 +400,10 @@ mod tests {
                 }
             }
         }
-        // Every door is reachable: at least one passable street tile adjoins it.
+        // Every door is reachable: a walkable tile adjoins it — the inner
+        // street (Settlement) or the ground beyond the district edge (Grass
+        // here; the farmland skirt / road in the real world). What it must
+        // never do is open straight into a wall with no way through.
         for b in &placed {
             let (dx, dy) = b.door;
             assert_eq!(t.get(dx, dy), Some(Terrain::Door));
@@ -336,9 +414,12 @@ mod tests {
                     nx >= 0
                         && ny >= 0
                         && t.get(nx as usize, ny as usize)
-                            .is_some_and(|tt| tt == Terrain::Settlement)
+                            .is_some_and(|tt| matches!(tt, Terrain::Settlement | Terrain::Grass))
                 });
-            assert!(adj_walkable, "door at ({dx},{dy}) opens onto a street");
+            assert!(
+                adj_walkable,
+                "door at ({dx},{dy}) opens onto walkable ground"
+            );
         }
     }
 
