@@ -2,10 +2,10 @@
 // map — every building reachable from its street through its door, every
 // service at its own door, all of it derived (anchor + footprint + services),
 // nothing persisted.
+use deep_world_tui::charts::load::load_charts;
 use deep_world_tui::gen::town::{service_at, town_buildings};
 use deep_world_tui::model::Terrain;
 use deep_world_tui::sim::SimState;
-use deep_world_tui::charts::load::load_charts;
 
 #[test]
 fn every_town_has_real_buildings_on_the_map() {
@@ -14,7 +14,11 @@ fn every_town_has_real_buildings_on_the_map() {
     for region in &sim.world.regions {
         for s in &region.settlements {
             let buildings = town_buildings(s);
-            assert!(!buildings.is_empty(), "{} has at least one building", s.name);
+            assert!(
+                !buildings.is_empty(),
+                "{} has at least one building",
+                s.name
+            );
             // Each building's door is painted as a door, and most walls stand
             // (a road meets the town as its street, it does not gouge walls).
             let mut doors = 0;

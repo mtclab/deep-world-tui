@@ -20,7 +20,12 @@ fn app() -> App {
 /// The doorway of settlement 0's k-th building, and the walkable street tile
 /// adjacent to it (where the player stands to walk in). Returns
 /// (street_x, street_y, door_x, door_y).
-fn door_and_street(a: &App, region: usize, si: usize, k: usize) -> Option<(usize, usize, usize, usize)> {
+fn door_and_street(
+    a: &App,
+    region: usize,
+    si: usize,
+    k: usize,
+) -> Option<(usize, usize, usize, usize)> {
     let region_ref = &a.sim.as_ref().unwrap().world.regions[region];
     let s = &region_ref.settlements[si];
     let b = town_buildings(s).into_iter().nth(k)?;

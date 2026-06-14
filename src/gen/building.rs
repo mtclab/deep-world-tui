@@ -135,7 +135,13 @@ fn building_door(x: usize, y: usize, w: usize, h: usize, side: Side) -> (usize, 
 /// same buildings via `lay_district`, so service-doors, walls, and NPC streets
 /// always agree. Adaptive: small holdings use small plots so even a hamlet gets
 /// real buildings with doors. Deterministic per seed; reading order.
-pub fn district_buildings(ax: usize, ay: usize, aw: usize, ah: usize, seed: u64) -> Vec<PlacedBuilding> {
+pub fn district_buildings(
+    ax: usize,
+    ay: usize,
+    aw: usize,
+    ah: usize,
+    seed: u64,
+) -> Vec<PlacedBuilding> {
     let mut out = Vec::new();
     if aw < 3 || ah < 3 {
         return out;
@@ -233,7 +239,11 @@ pub fn lay_district(
         for dy in 0..b.h {
             for dx in 0..b.w {
                 let edge = dx == 0 || dy == 0 || dx == b.w - 1 || dy == b.h - 1;
-                terrain.set(b.x + dx, b.y + dy, if edge { Terrain::Wall } else { Terrain::Floor });
+                terrain.set(
+                    b.x + dx,
+                    b.y + dy,
+                    if edge { Terrain::Wall } else { Terrain::Floor },
+                );
             }
         }
         terrain.set(b.door.0, b.door.1, Terrain::Door);
@@ -245,7 +255,9 @@ pub fn lay_district(
 /// (which paints) and the consumers (which recompute the same buildings) always
 /// agree without storing the layout.
 pub fn town_seed(map_x: u32, map_y: u32) -> u64 {
-    crate::rng::mix_u64((map_x as u64).wrapping_shl(20) ^ (map_y as u64).wrapping_shl(40) ^ 0x70_11_AA_BB)
+    crate::rng::mix_u64(
+        (map_x as u64).wrapping_shl(20) ^ (map_y as u64).wrapping_shl(40) ^ 0x70_11_AA_BB,
+    )
 }
 
 /// Lay a single rural homestead (#458): a dwelling and an outbuilding around a
@@ -401,11 +413,12 @@ mod tests {
                     nx >= 0
                         && ny >= 0
                         && t.get(nx as usize, ny as usize)
-                            .is_some_and(|tt| {
-                                matches!(tt, Terrain::Settlement | Terrain::Grass)
-                            })
+                            .is_some_and(|tt| matches!(tt, Terrain::Settlement | Terrain::Grass))
                 });
-            assert!(adj_walkable, "door at ({dx},{dy}) opens onto walkable ground");
+            assert!(
+                adj_walkable,
+                "door at ({dx},{dy}) opens onto walkable ground"
+            );
         }
     }
 
