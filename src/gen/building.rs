@@ -1,7 +1,8 @@
 //! Real buildings on the one world map (#458): a structure is a wall border
 //! around a walkable floor, with a doorway you walk in through — not a 1-tile
-//! token. Styles vary in size, from a hut to a hall. This is the primitive the
-//! richer town/enclave layouts will place; not yet wired into worldgen.
+//! token. Styles vary in size, from a hut to a hall. The primitive (`lay_building`)
+//! and the district layout (`district_buildings` / `lay_district`) the town
+//! generator lays — load-bearing: every settlement is built from these.
 
 use crate::model::{Terrain, TerrainMap};
 
