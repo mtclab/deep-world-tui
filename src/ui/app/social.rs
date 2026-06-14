@@ -259,6 +259,7 @@ impl App {
         });
         let strong = remedy == "salve";
         let mut name = String::new();
+        let mut patient_disease = None;
         if let Some(ref mut sim) = self.sim {
             if let Some(person) = sim
                 .world
@@ -268,6 +269,7 @@ impl App {
                 .and_then(|s| s.people.get_mut(person_idx))
             {
                 name = person.name.clone();
+                patient_disease = person.illnesses.first().map(|d| d.disease);
                 let person_id = person.id.clone();
                 for d in person.illnesses.iter_mut() {
                     if strong && is_wound(d.disease) {
@@ -324,6 +326,26 @@ impl App {
             msg = format!("You lay hands on {name} — the root-eye reads what the body needs.");
             if let Some(note) = self.use_gift() {
                 msg.push_str(&note);
+            }
+        }
+        // The healer's hazard (#457): in a plague year, tending the sick is how
+        // the plague finds the healer. Fortune-leaned; a real price for the
+        // standing it earns. (Outside a plague year, ordinary tending is safe.)
+        let plague = self.current_world_event() == Some(crate::model::WorldEvent::PlagueYear);
+        if plague {
+            if let Some(d) = patient_disease
+                .filter(|d| !matches!(d, Disease::Sprain | Disease::FlameFever | Disease::IronAche))
+            {
+                let tick = self.sim.as_ref().map_or(0, |s| s.world.tick);
+                let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x4EA1_E12E));
+                if crate::rng::unit_from_hash(h) < self.fortune.tilt_bad(0.18)
+                    && self.afflict(
+                        d,
+                        "I tended the sick through the plague, and it found me too.",
+                    )
+                {
+                    msg.push_str(" The plague is on the wind — and now it is on you.");
+                }
             }
         }
         self.advance_clock(1);

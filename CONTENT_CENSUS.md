@@ -24,7 +24,7 @@ load-bearing; what remains is listed under *Open gaps*.
 | Collapse outcomes | 10 | 10 | distinct losses/restores/hours, god-affinity weighted, all reachable |
 | Weather | 11 | 11 | travel time, forced shelter, gather yield, encounter rate, vitals decay, NPC mood |
 | Seasons / TimeOfDay | 3 / 7 | all | gather mult, decay mult, bias, festivals / darkness gates, service hours |
-| World events (WorldEvent) | 3 | 3 | seasonal calendar (#417), deterministic per seed+season+year, announced in rumor: Market Fair (cheaper market), Hard Winter (Frost only — deeper weather decay), Plague Year (illness contraction up); each moves one mechanic and reverts at the season turn |
+| World events (WorldEvent) | 3 | 3 | seasonal calendar (#417), deterministic per seed+season+year, announced in rumor: Market Fair (cheaper market), Hard Winter (Frost only — deeper weather decay), Plague Year (illness contraction up); each moves one mechanic and reverts at the season turn; **#457**: the Plague Year now has player agency — **crowd contagion** (a settlement, the safe haven any ordinary season, becomes the *most* likely place to catch it, ×2.2; the empty wild is the safer place to wait it out, but has no healer) and the **healer's hazard** (tending the sick through a plague is how it finds the healer, fortune-leaned) — closes the healing epic |
 | Quest kinds / rewards | 5 / 3 | all | deterministic gen, distinct checks, fetch consumes goods |
 | Milestones | 11 | 11 | all fire (verified call sites) |
 | Journal voices | 6 | 6 | Encounter, Travel, Rest, Scar, Dream (Kukri), Rumor (taverns) |

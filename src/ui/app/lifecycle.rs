@@ -237,6 +237,12 @@ impl App {
             .map(|e| e.illness_contraction_modifier())
             .unwrap_or(1.0);
         let fortune_mult = self.fortune.bad_multiplier();
+        // In a plague year the crowds are the danger (#457): a settlement, the
+        // safe haven in any ordinary season, becomes the most likely place to
+        // catch it. The wild — empty of people — is the safer place to wait the
+        // plague out, but it has no healer. The choice is the play.
+        let plague = self.current_world_event() == Some(crate::model::WorldEvent::PlagueYear);
+        let crowd_mult = if plague && on_settlement { 2.2 } else { 1.0 };
         let Some(ref mut ps) = self.player_start else {
             return;
         };
@@ -249,7 +255,7 @@ impl App {
             &needs,
             has_healer,
             count,
-            fortune_mult * plague_mult,
+            fortune_mult * plague_mult * crowd_mult,
         )
         .filter(|d| {
             d.disease != crate::model::Disease::ChildbirthComplication
