@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**Mortality & the hard age (#449)** — a death-rate soak showed ~96% of lives ending in old age, disease killing no one. That is wrong for the setting: a pre-modern, post-Fall world (no medicine, the empire shattered into squabbling successor polities). Grounded the mortality in the era:
+- **Disease can kill (`DeathCause::Sickness`)** — untreated illness now rolls a once-a-day `daily_mortality`: plague, a wound gone bad, a fever, a birth gone wrong. Gentler when fed, sheltered, or near a healer who can tend it; deadlier starving and in a plague year; fortune-leaned. Treatment is the counter, never immunity. Disease is the great leveller it was historically.
+- **The roads have teeth (`check_turmoil`)** — the post-Fall peace is thin and unevenly kept; the ungoverned spaces between the forming nations are full of raiders. A night unsheltered in the open country risks a raid — a lawless baseline everywhere off a settlement, trebled when the province's polity and its rival are at open tension. It costs goods, and the worn and unlucky their lives (`DeathCause::Wounds`); a palisade or a guardian companion shortens the odds, a settlement's walls end them.
+- Soak after: old age ~74%, sickness ~16%, raids/wounds ~7%, exposure ~3% — old age stays the common end of a careful, settled life, but the age now thins its people.
+
 **The gift in the world, and the canon Five** — the gift system reaches every craft-sense and every NPC, and the five non-human peoples enter play as in-kind traders.
 
 - **The deep and the tide (#439)** — all four senses now load-bearing: scale-hand aids trade (buys under / sells over the spread), still-sense settles the Calm encounter; every gift act shares the bodily cost (flame-fever, rupture).
