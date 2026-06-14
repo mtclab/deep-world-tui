@@ -385,6 +385,10 @@ pub enum EncounterKind {
     DistantFire,
     BorderWatch,
     AuroraVeil,
+    /// A Khör rendezvous — the cold-endurance steppe folk, the first non-human
+    /// people in the world. They barter härkä goods for metal, take no coin,
+    /// and do not haggle (#443).
+    KhorTrader,
 }
 
 impl EncounterKind {
@@ -414,6 +418,7 @@ impl EncounterKind {
             EncounterKind::DistantFire => "A point of firelight in the dark distance. Someone's hearth, or someone's trouble.",
             EncounterKind::BorderWatch => "Spears at the waymark. The watch wants to know your name and your business.",
             EncounterKind::AuroraVeil => "The night sky splits into slow green fire. Even the wind stops to watch.",
+            EncounterKind::KhorTrader => "Khör traders wait by a cairn hung with härkä-leather and steppe-butter — broad, cold-skinned, unhurried. They deal in goods, not coin, and they do not haggle.",
         }
     }
 
@@ -492,6 +497,8 @@ impl EncounterKind {
                 EncounterAction::Intimidate,
             ],
             EncounterKind::AuroraVeil => vec![EncounterAction::Calm, EncounterAction::Talk],
+            // The Khör barter (Trade) or you leave (Flee) — no talk, no bribe.
+            EncounterKind::KhorTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
         }
     }
 }
@@ -667,9 +674,16 @@ impl Encounter {
                 }
                 Terrain::Mountain => {
                     if alt {
-                        EncounterKind::AncientRuin
+                        EncounterKind::KhorTrader
                     } else {
                         EncounterKind::CaveIn
+                    }
+                }
+                Terrain::Tundra => {
+                    if alt {
+                        EncounterKind::KhorTrader
+                    } else {
+                        EncounterKind::WinterSurvivor
                     }
                 }
                 Terrain::Cave => {
