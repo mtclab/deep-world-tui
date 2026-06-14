@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+**The gift in the world, and the canon Five** — the gift system reaches every craft-sense and every NPC, and the five non-human peoples enter play as in-kind traders.
+
+- **The deep and the tide (#439)** — all four senses now load-bearing: scale-hand aids trade (buys under / sells over the spread), still-sense settles the Calm encounter; every gift act shares the bodily cost (flame-fever, rupture).
+- **NPCs carry the gift (#441)** — `Person.gift` rolled ~2.5% at generation; the gifted-crafter rumor names a real person; a settlement with a gifted smith/herbalist makes those goods truer and cheaper there.
+- **The Khör rendezvous (#443)** — the first non-human people: cold-steppe folk on Tundra/Mountain barter härkä Hide+Food for metal, take no coin, do not haggle.
+- **The Mëräk exchange (#445)** — the deep-sea people at the Coast tideline barter deep-fish + deep-glass for cloth and tools, never coin.
+- **The Five complete (#447)** — the last three canon peoples enter as in-kind traders on their own ground: the **Tzäkhar** (Cave-mouth deep-smiths, worked iron + tools for surface food), the **Häl** (Forest canopy, salve + herbs + fruit for cloth/tools), the **She'ar** (desert edge, desert-game + succulent-physic for sun-warding cloth/tools). None take coin; the rate is the rate.
+
 ## v0.9.0 (2026-06-13)
 
 **The Gift and Its Price (epic #424)** — the Deep World's signature magic finally enters the game: the rare, innate, body-costing craft-sensitivity of the novels.

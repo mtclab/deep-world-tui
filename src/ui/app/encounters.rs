@@ -416,6 +416,88 @@ impl App {
                 }
             }
             EncounterAction::Trade
+                if enc_kind == Some(crate::model::EncounterKind::TzakharTrader) =>
+            {
+                // The Tzäkhar are the deep-stone smiths: they give worked metal
+                // for surface food, take no coin, and do not hurry (#447).
+                self.play_sound(crate::audio::SoundEvent::Trade);
+                if let Some(ref mut ps) = self.player_start {
+                    if ps.inventory.remove(ItemType::Food, 2) {
+                        ps.inventory.add(ItemType::Iron, 2);
+                        ps.inventory.add(ItemType::Tool, 1);
+                        "The Tzäkhar weigh your food in broad hands and set out worked iron and a \
+                         fine-forged tool on the stone. No coin, no hurry. (1h)"
+                            .into()
+                    } else if ps.inventory.remove(ItemType::Herb, 2) {
+                        ps.inventory.add(ItemType::Iron, 1);
+                        "The Tzäkhar take your herbs for the deep larder and hand up a bar of clean \
+                         iron. The stone keeps its own count. (1h)"
+                            .into()
+                    } else {
+                        "The Tzäkhar look over your goods and want none of it — and they will not \
+                         take coin. They withdraw into the dark. (1h)"
+                            .into()
+                    }
+                } else {
+                    "The Tzäkhar wait at the cave-mouth, and you have nothing they want.".into()
+                }
+            }
+            EncounterAction::Trade if enc_kind == Some(crate::model::EncounterKind::HalTrader) => {
+                // The Häl bring canopy medicine and fruit down for surface make —
+                // cloth and tools, never coin (#447).
+                self.play_sound(crate::audio::SoundEvent::Trade);
+                if let Some(ref mut ps) = self.player_start {
+                    if ps.inventory.remove(ItemType::Tool, 1) {
+                        ps.inventory.add(ItemType::Salve, 1);
+                        ps.inventory.add(ItemType::Herb, 2);
+                        ps.inventory.add(ItemType::Food, 1);
+                        "The Häl take your tool up into the green and lower canopy-salve, bundled \
+                         herbs, and bright fruit in return. Coin means nothing here. (1h)"
+                            .into()
+                    } else if ps.inventory.remove(ItemType::Cloth, 1) {
+                        ps.inventory.add(ItemType::Herb, 2);
+                        ps.inventory.add(ItemType::Food, 2);
+                        "The Häl fold your cloth away and set out herbs and canopy-fruit in fair \
+                         measure. (1h)"
+                            .into()
+                    } else {
+                        "The Häl regard your goods and want none of it — and coin is nothing to \
+                         them. They go back up into the canopy. (1h)"
+                            .into()
+                    }
+                } else {
+                    "The Häl wait on the forest floor, and you have nothing to offer.".into()
+                }
+            }
+            EncounterAction::Trade
+                if enc_kind == Some(crate::model::EncounterKind::ShearTrader) =>
+            {
+                // The She'ar give desert game and succulent-physic for what wards
+                // the sun — cloth and tools, never coin (#447).
+                self.play_sound(crate::audio::SoundEvent::Trade);
+                if let Some(ref mut ps) = self.player_start {
+                    if ps.inventory.remove(ItemType::Cloth, 1) {
+                        ps.inventory.add(ItemType::Food, 2);
+                        ps.inventory.add(ItemType::Herb, 1);
+                        "The She'ar take your cloth against the sun and lay out dried desert game \
+                         and a bundle of succulent-physic. No coin. The rate is the rate. (1h)"
+                            .into()
+                    } else if ps.inventory.remove(ItemType::Tool, 1) {
+                        ps.inventory.add(ItemType::Food, 2);
+                        ps.inventory.add(ItemType::Herb, 2);
+                        "The She'ar weigh your tool and hand over desert game and succulent-physic \
+                         in good measure. (1h)"
+                            .into()
+                    } else {
+                        "The She'ar consider your goods and want none of it — and they will not \
+                         take coin. They withdraw into the shimmering heat. (1h)"
+                            .into()
+                    }
+                } else {
+                    "The She'ar wait in the long shade, and you have nothing they want.".into()
+                }
+            }
+            EncounterAction::Trade
                 if enc_kind == Some(crate::model::EncounterKind::MerakTrader) =>
             {
                 // The Mëräk barter deep-water goods for surface make — cloth and

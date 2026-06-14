@@ -393,6 +393,18 @@ pub enum EncounterKind {
     /// barter deep-water goods (fish, deep-glass) for surface make (cloth,
     /// tools); no coin, fixed seasonal measure (#445).
     MerakTrader,
+    /// A Tzäkhar wayhold at a cave-mouth — the deep-stone people, master
+    /// smiths of the Vaskiluuri. They give worked metal (iron, tools) for
+    /// surface food; no coin, no haggle (#447).
+    TzakharTrader,
+    /// A Häl canopy-trade lowered to the forest floor — the shadow-people of
+    /// the high green. They give canopy medicine and fruit for surface make
+    /// (cloth, tools); no coin (#447).
+    HalTrader,
+    /// A She'ar meet at the desert's edge — the people who endure the heat's
+    /// silence. They give desert game and succulent-physic for cloth and tools
+    /// that ward the sun; no coin, the rate is the rate (#447).
+    ShearTrader,
 }
 
 impl EncounterKind {
@@ -424,6 +436,9 @@ impl EncounterKind {
             EncounterKind::AuroraVeil => "The night sky splits into slow green fire. Even the wind stops to watch.",
             EncounterKind::KhorTrader => "Khör traders wait by a cairn hung with härkä-leather and steppe-butter — broad, cold-skinned, unhurried. They deal in goods, not coin, and they do not haggle.",
             EncounterKind::MerakTrader => "Mëräk surface at the tideline, deep-folk laying out cold deep-fish and water-smoothed deep-glass on the wet stones. They take cloth and tools, never coin, and the rate is the rate.",
+            EncounterKind::TzakharTrader => "Tzäkhar stand at a cave-mouth, short and broad and patient, worked iron and fine tools set out on a slab of stone. They have no use for coin — they want surface food, and they do not hurry.",
+            EncounterKind::HalTrader => "A Häl trade-party has come down from the canopy, shadow-skinned and quick-eyed, laying out salve, fruit, and bundled herbs. They want cloth and tools from the surface; coin means nothing in the high green.",
+            EncounterKind::ShearTrader => "She'ar wait in the long shade at the desert's edge, still and unhurried, desert game and succulent-physic spread on a cloth. They want weave and tools to ward the sun. No coin. The rate is the rate.",
         }
     }
 
@@ -505,6 +520,9 @@ impl EncounterKind {
             // The Khör barter (Trade) or you leave (Flee) — no talk, no bribe.
             EncounterKind::KhorTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
             EncounterKind::MerakTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
+            EncounterKind::TzakharTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
+            EncounterKind::HalTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
+            EncounterKind::ShearTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
         }
     }
 }
@@ -672,10 +690,12 @@ impl Encounter {
             let alt = (rare_hash / 100).is_multiple_of(2);
             let rare_kind = match terrain {
                 Terrain::Forest => {
-                    if alt {
-                        EncounterKind::AncientRuin
-                    } else {
-                        EncounterKind::DistantFire
+                    // Three-way: ruin, distant fire, or a Häl canopy-trade down
+                    // on the forest floor (#447).
+                    match (rare_hash / 100) % 3 {
+                        0 => EncounterKind::AncientRuin,
+                        1 => EncounterKind::HalTrader,
+                        _ => EncounterKind::DistantFire,
                     }
                 }
                 Terrain::Mountain => {
@@ -694,7 +714,7 @@ impl Encounter {
                 }
                 Terrain::Cave => {
                     if alt {
-                        EncounterKind::HermitCamp
+                        EncounterKind::TzakharTrader
                     } else {
                         EncounterKind::CaveIn
                     }
@@ -718,6 +738,13 @@ impl Encounter {
                         EncounterKind::TravelingBard
                     } else {
                         EncounterKind::PilgrimBand
+                    }
+                }
+                Terrain::Sand | Terrain::DeepDesert => {
+                    if alt {
+                        EncounterKind::ShearTrader
+                    } else {
+                        EncounterKind::GodShrine
                     }
                 }
                 _ => {
