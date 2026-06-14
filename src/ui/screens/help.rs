@@ -38,6 +38,7 @@ pub(crate) fn draw_help_screen(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from("   g                Gather resources"),
+        Line::from("   f                Forage for medicinal herbs (forest/mire richest)"),
         Line::from("   r                Rest (8h)"),
         Line::from("   Enter            Enter settlement"),
         Line::from("   Esc/Q            Exit settlement / go back"),

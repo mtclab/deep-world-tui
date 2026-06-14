@@ -24,6 +24,26 @@ const MAX_PLAYER_ILLNESSES: usize = 2;
 /// that the gift ruptures forever (the rauta-huuta). Leaned by fortune (#428).
 const BASE_GIFT_RUPTURE_PROB: f64 = 0.10;
 
+/// A plain lowercase name for the ground, for status lines.
+fn terrain_label(t: Terrain) -> &'static str {
+    match t {
+        Terrain::Forest => "forest",
+        Terrain::Swamp => "mire",
+        Terrain::Grass => "grassland",
+        Terrain::Farmland => "farmland",
+        Terrain::Coast => "shore",
+        Terrain::Tundra => "tundra",
+        Terrain::Mountain => "high rock",
+        Terrain::Sand => "sand",
+        Terrain::DeepDesert => "deep desert",
+        Terrain::Cave => "dark",
+        Terrain::Settlement => "streets",
+        Terrain::House => "house",
+        Terrain::Road => "road",
+        Terrain::Water => "water",
+    }
+}
+
 /// The chance a craft is spoiled, leaned by the crafter's fortune. The blessed
 /// botch less, the cursed more; never certain either way.
 pub(crate) fn craft_botch_chance(fortune: crate::model::Fortune) -> f64 {
@@ -42,6 +62,107 @@ pub(crate) fn craft_botch_chance_for(fortune: crate::model::Fortune, craftless: 
 }
 
 impl App {
+    /// How rich the ground is in medicinal plants — the supply half of
+    /// herbalism (#456). Real boreal physic comes from the deep wood and the
+    /// mire (bark, fungi, root, bog-herb); the open country gives some; the
+    /// cold heights, the sand, and the bare stone give little or nothing.
+    /// Distinct from `gather_from` (which yields a terrain's primary material).
+    fn medicine_richness(terrain: Terrain) -> u32 {
+        match terrain {
+            Terrain::Forest | Terrain::Swamp => 2,
+            Terrain::Grass | Terrain::Farmland | Terrain::Coast => 1,
+            Terrain::Tundra | Terrain::Mountain | Terrain::Sand | Terrain::DeepDesert => 0,
+            _ => 0,
+        }
+    }
+
+    /// Forage for medicine: range the ground for healing herbs, biome- and
+    /// season-true. The deep wood and the mire give freely, the open country
+    /// less, the cold and the sand almost nothing; Frost thins it everywhere,
+    /// a storm thins it more. Luck leans the haul, and now and then turns up a
+    /// stand of true physic — a potent find. The herbalist's supply (#456).
+    pub fn forage_herbs(&mut self) {
+        if self.clock.time_of_day().is_dark() {
+            self.status_msg = Some("Too dark to forage — the herbs hide in the dark.".into());
+            return;
+        }
+        let terrain = self
+            .player_pos
+            .and_then(|pos| {
+                self.sim
+                    .as_ref()
+                    .and_then(|s| s.world.regions.get(pos.region_idx))
+                    .and_then(|r| r.terrain.get(pos.px, pos.py))
+            })
+            .unwrap_or(Terrain::Grass);
+        let richness = Self::medicine_richness(terrain);
+        if richness == 0 {
+            self.status_msg = Some(format!(
+                "Little physic grows in {} — barren ground for an herbalist.",
+                terrain_label(terrain)
+            ));
+            self.advance_clock(1);
+            self.vitals.energy = (self.vitals.energy - 0.04).max(0.0);
+            return;
+        }
+        let season = self.clock.season();
+        let weather = self
+            .player_pos
+            .map(|pos| self.region_weather(pos.region_idx))
+            .unwrap_or(Weather::Clear);
+        let mult = season.gather_multiplier() * weather.gather_modifier();
+        let mut count = (richness as f64 * mult).round() as i32;
+        // Luck leans the forage: a fortunate hand turns up more, the cursed less.
+        let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+        let find = crate::rng::unit_from_hash(crate::rng::mix_u64(
+            self.seed ^ crate::rng::mix_u64(tick ^ 0x4EDB_05EE),
+        ));
+        let mut note = "";
+        let mut potent = false;
+        if find < self.fortune.tilt_good(0.10) {
+            count += 1;
+        } else if find > 1.0 - self.fortune.tilt_bad(0.10) {
+            count -= 1;
+        }
+        // A stand of true physic — rare, fortune-leaned, richer where the land
+        // is rich.
+        let potent_roll = crate::rng::unit_from_hash(crate::rng::mix_u64(
+            self.seed ^ crate::rng::mix_u64(tick ^ 0x9111_F12E),
+        ));
+        if richness >= 2 && potent_roll < self.fortune.tilt_good(0.08) {
+            count += 2;
+            potent = true;
+            note = " You find a stand of true physic — a rare, potent harvest.";
+        }
+        let count = count.max(0) as u32;
+        // Foraging the deep wood and mire honours the forest-keeper.
+        if matches!(terrain, Terrain::Forest | Terrain::Swamp) {
+            self.god_affinity.adjust(GodName::Keuru, 0.02);
+        }
+        self.advance_clock(1);
+        self.vitals.energy = (self.vitals.energy - 0.06).max(0.0);
+        self.vitals.hunger = (self.vitals.hunger - 0.03).max(0.0);
+        if count == 0 {
+            self.status_msg = Some(format!(
+                "You comb the {} but the season gives no physic.",
+                terrain_label(terrain)
+            ));
+            return;
+        }
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.add(ItemType::Herb, count);
+        }
+        self.play_sound(crate::audio::SoundEvent::UiClick);
+        self.status_msg = Some(if potent {
+            format!("You forage {count} herbs.{note}")
+        } else {
+            format!(
+                "You forage {count} herb{}.",
+                if count == 1 { "" } else { "s" }
+            )
+        });
+    }
+
     pub fn gather(&mut self) {
         if self.clock.time_of_day().is_dark() {
             self.status_msg = Some("Too dark to gather".into());

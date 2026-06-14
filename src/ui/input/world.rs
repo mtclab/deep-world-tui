@@ -39,6 +39,9 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
         KeyCode::Char('g') => {
             app.gather();
         }
+        KeyCode::Char('f') => {
+            app.forage_herbs();
+        }
         KeyCode::Char('r') => {
             app.open_rest_prompt();
         }
