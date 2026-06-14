@@ -199,6 +199,10 @@ impl App {
             self.check_spouse();
             self.maybe_omen();
             self.settle_gift_strain();
+            // Disease is the great leveller of the post-Fall age (once a day).
+            self.check_illness_mortality();
+            // And the broken peace claims its own in the tension seasons.
+            self.check_turmoil();
         }
         // The season-turn reckoning: every thirty days the polity's assessor
         // comes for the hearth-tax (#396), once per season.

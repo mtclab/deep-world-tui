@@ -269,6 +269,192 @@ impl App {
         }
     }
 
+    /// Disease is the great leveller of the post-Fall age: in a world with no
+    /// medicine, an untreated fever, a wound gone bad, a plague year, or a birth
+    /// gone wrong can take you. Once per day each active illness rolls for it —
+    /// deadlier the longer it festers and in a plague year, gentler when you are
+    /// fed, sheltered, or near a healer who can tend it; the life's hidden star
+    /// leans the edge. Treatment is the counter, never immunity.
+    pub(super) fn check_illness_mortality(&mut self) {
+        use crate::sim::structures::BuildKind;
+        if self.death_cause.is_some() {
+            return;
+        }
+        let Some(pos) = self.player_pos else {
+            return;
+        };
+        let on_settlement = self.player_on_settlement().is_some();
+        let has_healer = on_settlement
+            && self
+                .sim
+                .as_ref()
+                .and_then(|s| s.world.regions.get(pos.region_idx))
+                .and_then(|r| r.settlements.first())
+                .map(crate::sim::illness::settlement_has_healer)
+                .unwrap_or(false);
+        let sheltered = on_settlement
+            || [
+                BuildKind::Kota,
+                BuildKind::Cabin,
+                BuildKind::Longhouse,
+                BuildKind::Home,
+                BuildKind::Laavu,
+            ]
+            .iter()
+            .any(|k| self.own_structure_near(*k, 1));
+        // A plague year makes every fever deadlier, not only commoner (#417).
+        let plague_mult = self
+            .current_world_event()
+            .map(|e| e.illness_contraction_modifier())
+            .unwrap_or(1.0);
+        let hunger = self.vitals.hunger;
+        let energy = self.vitals.energy;
+
+        let Some(ref ps) = self.player_start else {
+            return;
+        };
+        // The worst case in the body sets the day's risk.
+        let mut worst: Option<(crate::model::Disease, f64)> = None;
+        for d in &ps.person.illnesses {
+            let base = d.disease.daily_mortality();
+            if base <= 0.0 {
+                continue;
+            }
+            let mut p = base * d.severity.clamp(0.5, 1.5);
+            if has_healer {
+                p *= 0.30;
+            } else if sheltered {
+                p *= 0.65;
+            }
+            if hunger > 0.6 {
+                p *= 0.65;
+            } else if hunger < 0.3 {
+                p *= 1.7;
+            }
+            if energy < 0.2 {
+                p *= 1.3;
+            }
+            p *= plague_mult;
+            if worst.is_none_or(|(_, q)| p > q) {
+                worst = Some((d.disease, p));
+            }
+        }
+        let Some((disease, p)) = worst else {
+            return;
+        };
+        let p = self.fortune.tilt_bad(p).clamp(0.0, 0.95);
+        let h = crate::rng::mix_u64(
+            self.seed
+                ^ crate::rng::mix_u64(
+                    (self.clock.day as u64) ^ (disease as u64).wrapping_shl(48) ^ 0x5117_0DEA,
+                ),
+        );
+        if crate::rng::unit_from_hash(h) < p {
+            let scar = match disease {
+                crate::model::Disease::Plague => {
+                    "The plague took me. It takes whole houses; why not mine."
+                }
+                crate::model::Disease::ChildbirthComplication => {
+                    "The birth went wrong, and there was no one near who could set it right."
+                }
+                crate::model::Disease::Venom => {
+                    "The venom went all through me. No herb to hand, and the dark came up."
+                }
+                _ => {
+                    "The fever would not break. By the third night it had me. So the age thins us."
+                }
+            };
+            self.die_in_wilds(crate::model::DeathCause::Sickness, scar);
+        }
+    }
+
+    /// The post-Fall peace is thin and unevenly kept. The new nations are still
+    /// forming; between and around them lie wide ungoverned spaces no watch
+    /// patrols — and they are full of the men the Fall made: broken soldiers,
+    /// displaced bands, ordinary desperation turned to the knife. A night spent
+    /// unsheltered in the open country risks a raid at any time; when the
+    /// province's polity and its rival are at open tension (#415) the roads bleed
+    /// far worse. A raid costs goods, and the worn and the unlucky their lives. A
+    /// palisade or a guardian companion shortens the odds; a settlement's walls
+    /// and watch end the risk entirely.
+    pub(super) fn check_turmoil(&mut self) {
+        use crate::sim::structures::BuildKind;
+        if self.death_cause.is_some() {
+            return;
+        }
+        if self.player_pos.is_none() || self.player_on_settlement().is_some() {
+            return;
+        }
+        let season_ord = (self.clock.day / 30) % 4;
+        let year = self.clock.day / 120;
+        let at_war = self
+            .sim
+            .as_ref()
+            .map(|s| s.world.polity.in_tension(self.seed, season_ord, year))
+            .unwrap_or(false);
+        let guarded = self
+            .player_start
+            .as_ref()
+            .is_some_and(|ps| ps.companions.iter().any(|c| c.animal.guards()));
+        let palisade = self.own_structure_near(BuildKind::Palisade, 2);
+        // The lawless baseline of an unstable age — higher where war has loosed
+        // the roads entirely.
+        let mut raid_p = 0.003;
+        if at_war {
+            raid_p *= 3.0;
+        }
+        if guarded {
+            raid_p *= 0.5;
+        }
+        if palisade {
+            raid_p *= 0.4;
+        }
+        raid_p = self.fortune.tilt_bad(raid_p);
+        let h = crate::rng::mix_u64(
+            self.seed ^ crate::rng::mix_u64((self.clock.day as u64) ^ 0x4A1D_5EED),
+        );
+        if crate::rng::unit_from_hash(h) >= raid_p {
+            return;
+        }
+        // A raid lands. It always takes something; whether it takes more depends
+        // on how worn you were and how the night falls.
+        if let Some(ref mut ps) = self.player_start {
+            let coin = ps.inventory.get(ItemType::Coin);
+            ps.inventory
+                .remove(ItemType::Coin, (coin / 3).max(1).min(coin));
+            ps.inventory.remove(ItemType::Food, 2);
+        }
+        let wear = 1.0 - self.vitals.hunger.clamp(0.0, 1.0);
+        let mut lethal = self.fortune.tilt_bad(0.18 + 0.15 * wear);
+        if guarded {
+            lethal *= 0.5;
+        }
+        let h2 = crate::rng::mix_u64(
+            self.seed ^ crate::rng::mix_u64((self.clock.day as u64) ^ 0x9E37_7A1D),
+        );
+        if crate::rng::unit_from_hash(h2) < lethal {
+            self.die_in_wilds(
+                DeathCause::Wounds,
+                "Raiders in the night, out of the ungoverned dark between the new nations. The Fall left men who answer to no one, and the open country is theirs.",
+            );
+        } else {
+            self.vitals.energy = (self.vitals.energy - 0.3).max(0.0);
+            self.vitals.hunger = (self.vitals.hunger - 0.1).max(0.0);
+            self.status_msg = Some(
+                "Raiders struck in the night — you drove them off, but they took what they could."
+                    .into(),
+            );
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Scar,
+                    "Raiders in the dark. I kept my life and little else. The roads are not the roads they were.".into(),
+                );
+            }
+        }
+    }
+
     pub fn restart_game(&mut self) {
         self.sim = None;
         self.player_start = None;

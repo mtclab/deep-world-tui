@@ -1019,6 +1019,31 @@ impl Disease {
         }
     }
 
+    /// The daily chance an active, full-severity, untreated case takes the
+    /// sufferer in a world with no medicine — the great leveller of the post-Fall
+    /// age. Rolled once per day while the illness runs; scaled down by tending,
+    /// shelter, food, and a healer (see `App::check_illness_mortality`), up by
+    /// severity, a plague year, and a cursed star. The acute killers (plague,
+    /// childbirth, venom, a wound gone bad) bite hardest; the chronic aches
+    /// rarely kill outright.
+    pub fn daily_mortality(self) -> f64 {
+        match self {
+            Disease::Plague => 0.060,
+            Disease::ChildbirthComplication => 0.050,
+            Disease::Venom => 0.045,
+            Disease::Infection => 0.035,
+            Disease::MarshFever => 0.030,
+            Disease::Fever => 0.022,
+            Disease::FlameFever => 0.018,
+            Disease::WinterCough => 0.012,
+            Disease::BloodAche => 0.006,
+            Disease::IronAche => 0.004,
+            // Injuries and the spent body: real burdens, but not killers in
+            // their own right (exhaustion and starvation kill through vitals).
+            Disease::Sprain | Disease::Exhaustion | Disease::ForgeBlindness => 0.0,
+        }
+    }
+
     pub fn can_contract(seed: u64, tick: u64, terrain: Terrain, disease: Disease) -> bool {
         let mut rng = crate::rng::SeedRng::new(seed.wrapping_add(tick));
         let roll = rng.gen_range(1000) as f64 / 1000.0;
