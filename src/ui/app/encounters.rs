@@ -416,6 +416,40 @@ impl App {
                 }
             }
             EncounterAction::Trade
+                if enc_kind == Some(crate::model::EncounterKind::ThresholdToll) =>
+            {
+                // Pay the threshold-keeper her price (#455): bread, herb, or coin,
+                // her choosing taken from what you carry. Pay, and the road past
+                // is easy and the dark kindly — the threshold-keeper Kukri marks
+                // it. Come empty-handed and she waves you on, uneasily.
+                self.play_sound(crate::audio::SoundEvent::UiClick);
+                let paid = if let Some(ref mut ps) = self.player_start {
+                    if ps.inventory.remove(ItemType::Herb, 1) {
+                        Some("a bundle of herb")
+                    } else if ps.inventory.remove(ItemType::Food, 2) {
+                        Some("bread from your pack")
+                    } else if ps.inventory.remove(ItemType::Coin, 3) {
+                        Some("three coins")
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                match paid {
+                    Some(what) => {
+                        self.god_affinity.adjust(GodName::Kukri, 0.04);
+                        format!(
+                            "You set {what} by her fire. She nods once. The road past is easy, \
+                             the dark kindly — you tell yourself it was only a hermit. (1h)"
+                        )
+                    }
+                    None => "You have nothing she asks for. She regards you a long moment, then \
+                         waves you on. You go quickly, and do not look back. (1h)"
+                        .into(),
+                }
+            }
+            EncounterAction::Trade
                 if enc_kind == Some(crate::model::EncounterKind::TzakharTrader) =>
             {
                 // The Tzäkhar are the deep-stone smiths: they give worked metal
@@ -858,6 +892,25 @@ impl App {
                     crate::sim::journal::Voice::Scar,
                     "I followed the elk past where I meant to, and the trail simply stopped. \
                      Old light through the trunks, surely. I do not rightly know how I got back."
+                        .into(),
+                );
+            }
+        }
+        // Refusing the threshold-keeper's price (#455): you take the long way
+        // round the mountain — hours and strength lost to the detour and the
+        // cold, but no harm done. Deniable: she was only a hermit.
+        if enc_kind == Some(crate::model::EncounterKind::ThresholdToll)
+            && action == EncounterAction::Flee
+        {
+            self.advance_clock(2);
+            self.vitals.energy = (self.vitals.energy - 0.2).max(0.0);
+            self.vitals.hunger = (self.vitals.hunger - 0.1).max(0.0);
+            if let Some(ref mut sim) = self.sim {
+                sim.log(
+                    sim.world.tick,
+                    crate::sim::journal::Voice::Scar,
+                    "I would not pay her price, and took the long way round the mountain. \
+                     Hours lost, and the cold got into me. A hermit, surely."
                         .into(),
                 );
             }

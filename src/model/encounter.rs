@@ -414,6 +414,11 @@ pub enum EncounterKind {
     /// prey. Follow it and it leads you astray to exhaustion; flee and you break
     /// clean. Deniable as old light through the trunks (#455, Mythic Phase 2).
     SpectralElk,
+    /// The threshold toll — an old woman keeping a fire at a cave-mouth in the
+    /// high rock where none should be, who asks a price for the road past. Pay
+    /// (Trade) for easy passage and the threshold-keeper's favour, or refuse
+    /// (Flee) and take the long way. Deniable as a strange hermit (#455).
+    ThresholdToll,
 }
 
 impl EncounterKind {
@@ -449,6 +454,7 @@ impl EncounterKind {
             EncounterKind::HalTrader => "A Häl trade-party has come down from the canopy, shadow-skinned and quick-eyed, laying out salve, fruit, and bundled herbs. They want cloth and tools from the surface; coin means nothing in the high green.",
             EncounterKind::ShearTrader => "She'ar wait in the long shade at the desert's edge, still and unhurried, desert game and succulent-physic spread on a cloth. They want weave and tools to ward the sun. No coin. The rate is the rate.",
             EncounterKind::SpectralElk => "A great elk stands wrong at the tree-line — antlers too wide, eyes too still. It turns and moves off through the trunks without hurry, and does not tire. Something in you wants to follow. Old light, you tell yourself.",
+            EncounterKind::ThresholdToll => "An old woman keeps a small fire at the cave-mouth, where no one keeps a fire. She does not look up. 'A price for the road past,' she says, in no language you learned and yet you understand. 'Bread, or herb, or coin. Your choosing.' A strange hermit, surely.",
         }
     }
 
@@ -537,6 +543,8 @@ impl EncounterKind {
             EncounterKind::SpectralElk => {
                 vec![EncounterAction::Flee, EncounterAction::PushThrough]
             }
+            // Pay the toll (Trade) for the road past, or refuse (Flee) it.
+            EncounterKind::ThresholdToll => vec![EncounterAction::Trade, EncounterAction::Flee],
         }
     }
 }
@@ -714,10 +722,12 @@ impl Encounter {
                     }
                 }
                 Terrain::Mountain => {
-                    if alt {
-                        EncounterKind::KhorTrader
-                    } else {
-                        EncounterKind::CaveIn
+                    // Three-way: a Khör rendezvous, a cave-in, or the threshold
+                    // toll at a cave-mouth in the high rock (#455).
+                    match (rare_hash / 100) % 3 {
+                        0 => EncounterKind::KhorTrader,
+                        1 => EncounterKind::ThresholdToll,
+                        _ => EncounterKind::CaveIn,
                     }
                 }
                 Terrain::Tundra => {
