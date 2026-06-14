@@ -49,7 +49,8 @@ pub(crate) fn draw_help_screen(f: &mut Frame, app: &App) {
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
-        Line::from("   t                Talk to NPC (voice lines)"),
+        Line::from("   (walk into NPC)  Talk (then t for voice lines)"),
+        Line::from("   t                Tend your sickness (herb/salve/bandage)"),
         Line::from("   i                Inventory"),
         Line::from("   c                Craft"),
         Line::from("   m                Market (buy/sell)"),
