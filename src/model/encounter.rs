@@ -410,6 +410,10 @@ pub enum EncounterKind {
     /// silence. They give desert game and succulent-physic for cloth and tools
     /// that ward the sun; no coin, the rate is the rate (#447).
     ShearTrader,
+    /// The spectral elk — a great elk at the tree-line that is a *sending*, not
+    /// prey. Follow it and it leads you astray to exhaustion; flee and you break
+    /// clean. Deniable as old light through the trunks (#455, Mythic Phase 2).
+    SpectralElk,
 }
 
 impl EncounterKind {
@@ -444,6 +448,7 @@ impl EncounterKind {
             EncounterKind::TzakharTrader => "Tzäkhar stand at a cave-mouth, short and broad and patient, worked iron and fine tools set out on a slab of stone. They have no use for coin — they want surface food, and they do not hurry.",
             EncounterKind::HalTrader => "A Häl trade-party has come down from the canopy, shadow-skinned and quick-eyed, laying out salve, fruit, and bundled herbs. They want cloth and tools from the surface; coin means nothing in the high green.",
             EncounterKind::ShearTrader => "She'ar wait in the long shade at the desert's edge, still and unhurried, desert game and succulent-physic spread on a cloth. They want weave and tools to ward the sun. No coin. The rate is the rate.",
+            EncounterKind::SpectralElk => "A great elk stands wrong at the tree-line — antlers too wide, eyes too still. It turns and moves off through the trunks without hurry, and does not tire. Something in you wants to follow. Old light, you tell yourself.",
         }
     }
 
@@ -528,6 +533,10 @@ impl EncounterKind {
             EncounterKind::TzakharTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
             EncounterKind::HalTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
             EncounterKind::ShearTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
+            // Break away clean, or follow the sending deeper (and pay for it).
+            EncounterKind::SpectralElk => {
+                vec![EncounterAction::Flee, EncounterAction::PushThrough]
+            }
         }
     }
 }
@@ -695,11 +704,12 @@ impl Encounter {
             let alt = (rare_hash / 100).is_multiple_of(2);
             let rare_kind = match terrain {
                 Terrain::Forest => {
-                    // Three-way: ruin, distant fire, or a Häl canopy-trade down
-                    // on the forest floor (#447).
-                    match (rare_hash / 100) % 3 {
+                    // Four-way: ruin, a Häl canopy-trade, a distant fire, or the
+                    // spectral elk — a sending at the tree-line (#455).
+                    match (rare_hash / 100) % 4 {
                         0 => EncounterKind::AncientRuin,
                         1 => EncounterKind::HalTrader,
+                        2 => EncounterKind::SpectralElk,
                         _ => EncounterKind::DistantFire,
                     }
                 }

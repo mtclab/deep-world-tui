@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Mythic Phase 2 — the spectral elk (#455)** — a new forest rare encounter: a great elk at the tree-line that is a *sending*, not prey — antlers too wide, eyes too still, and it does not tire. **Flee** and you break away clean; **follow it** (PushThrough) and the wood takes the day from you — chased to exhaustion, and on a poor turn led truly astray, run down to nothing (handing you to the collapse funnel). Deniable as old light through the trunks. The elk you *chase* (distinct from the HollowStag you only glimpse).
+
 **Mythic Phase 2 — the näšvyly's miasma (#455)** — the forest-fever shape (#450) now earns its name: meeting it carries a fortune-leaned chance to leave a wood-fever behind (it keeps upwind, the air where it stood smells of rot and wet ash). Deniable as ever — you were deep in cold wet forest, of course you took a fever — but it ties the myth creature into the disease/mortality system (#448): the fever can be tended (#451) or, untreated, run its course. First step of Mythic Phase 2.
 
 **Real homesteads — the rural layout (#458, groundwork)** — `gen::building::lay_homestead`: a single country holding — a dwelling (cottage or longhouse) and an outbuilding (barn/shed) around a trodden walkable yard, with a worked field beside them. Deterministic; returns the placed buildings. The scattered-holding counterpart to `lay_district`, for the open country, not a town. Additive — not yet wired into worldgen / the founding system.

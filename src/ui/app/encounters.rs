@@ -835,6 +835,33 @@ impl App {
                 );
             }
         }
+        // Following the sending (#455): the spectral elk leads you deeper and
+        // never tires. PushThrough — give chase — and the wood takes the day
+        // from you: chased to exhaustion, and on a poor turn led truly astray,
+        // run down to nothing (which hands you to the collapse funnel at the end
+        // of this resolution). Deniable: you chased an elk too far and lost the
+        // trail. Fleeing breaks clean (the ordinary flee cost already applied).
+        if enc_kind == Some(crate::model::EncounterKind::SpectralElk)
+            && action == EncounterAction::PushThrough
+        {
+            self.vitals.energy = (self.vitals.energy - 0.55).max(0.0);
+            self.vitals.hunger = (self.vitals.hunger - 0.2).max(0.0);
+            let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+            let astray = self.fortune.tilt_bad(0.30);
+            let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x735C_0FFE));
+            if crate::rng::unit_from_hash(h) < astray {
+                self.vitals.energy = 0.0;
+            }
+            if let Some(ref mut sim) = self.sim {
+                sim.log(
+                    sim.world.tick,
+                    crate::sim::journal::Voice::Scar,
+                    "I followed the elk past where I meant to, and the trail simply stopped. \
+                     Old light through the trunks, surely. I do not rightly know how I got back."
+                        .into(),
+                );
+            }
+        }
         // Record NPC memory for this encounter
         let trust_delta = match action {
             EncounterAction::Talk => 0.02,
