@@ -145,53 +145,63 @@ pub fn service_at(settlement: &Settlement, x: usize, y: usize) -> Option<Settlem
     settlement.services.get(idx).copied()
 }
 
-/// Where the settlement's people stand in its streets, by the clock:
-/// out and about through the day (06–20), home behind their doors at night
-/// (empty vec — the streets go quiet). Deterministic per (person, day):
-/// the same woman keeps the same corner all day, and a different one
-/// tomorrow. Used by both the renderer and the bump-to-talk layer, so what
-/// you see is exactly who you can meet.
+/// Where the settlement's people are, by the clock (#458): out in the streets
+/// through the day (06–20), and **indoors by night** — on the floors of their
+/// own buildings, by the hearth, where you can still walk in and meet them.
+/// Deterministic per (person, day): the same woman keeps the same corner all
+/// day and the same room all night, a different one tomorrow. Used by both the
+/// renderer and the bump-to-talk layer, so what you see is exactly who you can
+/// meet.
 pub fn npc_street_positions(
     settlement: &Settlement,
     day: u32,
     hour: u32,
 ) -> Vec<(usize, usize, usize)> {
-    if !(6..21).contains(&hour) {
-        return Vec::new();
-    }
     let (ax, ay, n) = (
         settlement.map_x as usize,
         settlement.map_y as usize,
         settlement.footprint() as usize,
     );
     let buildings = town_buildings(settlement);
-    let in_building = |x: usize, y: usize| {
-        buildings
-            .iter()
-            .any(|b| x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h)
-    };
-    // The streets are the open ground between the buildings.
-    let mut streets: Vec<(usize, usize)> = Vec::new();
-    for dy in 0..n {
-        for dx in 0..n {
-            let (x, y) = (ax + dx, ay + dy);
-            if !in_building(x, y) {
-                streets.push((x, y));
+    let day_time = (6..21).contains(&hour);
+    // By day, the candidate tiles are the open streets between buildings; by
+    // night, the interior floors of the buildings themselves.
+    let mut tiles: Vec<(usize, usize)> = Vec::new();
+    if day_time {
+        let in_building = |x: usize, y: usize| {
+            buildings
+                .iter()
+                .any(|b| x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h)
+        };
+        for dy in 0..n {
+            for dx in 0..n {
+                let (x, y) = (ax + dx, ay + dy);
+                if !in_building(x, y) {
+                    tiles.push((x, y));
+                }
+            }
+        }
+    } else {
+        for b in &buildings {
+            for iy in (b.y + 1)..(b.y + b.h.saturating_sub(1)) {
+                for ix in (b.x + 1)..(b.x + b.w.saturating_sub(1)) {
+                    tiles.push((ix, iy));
+                }
             }
         }
     }
-    if streets.is_empty() {
+    if tiles.is_empty() {
         return Vec::new();
     }
     let mut taken: Vec<usize> = Vec::new();
     let mut out = Vec::new();
-    for pi in 0..settlement.people.len().min(streets.len()) {
-        let mut slot = (pi * 5 + day as usize) % streets.len();
+    for pi in 0..settlement.people.len().min(tiles.len()) {
+        let mut slot = (pi * 5 + day as usize) % tiles.len();
         while taken.contains(&slot) {
-            slot = (slot + 1) % streets.len();
+            slot = (slot + 1) % tiles.len();
         }
         taken.push(slot);
-        let (x, y) = streets[slot];
+        let (x, y) = tiles[slot];
         out.push((pi, x, y));
     }
     out
