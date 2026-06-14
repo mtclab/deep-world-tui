@@ -384,7 +384,7 @@ impl App {
                     .as_ref()
                     .and_then(|s| s.world.regions.get(pos.region_idx))
                     .and_then(|r| r.terrain.get(nx as usize, ny as usize));
-                if target == Some(Terrain::House) {
+                if target == Some(Terrain::Door) {
                     self.enter_door(pos.region_idx, nx as usize, ny as usize);
                     return;
                 }
@@ -665,10 +665,17 @@ impl App {
         let pos = self.player_pos?;
         let sim = self.sim.as_ref()?;
         let region = sim.world.regions.get(pos.region_idx)?;
-        // Streets and houses both count as being in town.
+        // Streets and the real buildings (walls, floors, doors) all count as
+        // being in town.
         if !matches!(
             region.terrain.get(pos.px, pos.py),
-            Some(Terrain::Settlement) | Some(Terrain::House)
+            Some(
+                Terrain::Settlement
+                    | Terrain::House
+                    | Terrain::Wall
+                    | Terrain::Floor
+                    | Terrain::Door
+            )
         ) {
             return None;
         }

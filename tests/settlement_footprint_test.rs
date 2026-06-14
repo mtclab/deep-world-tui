@@ -40,10 +40,13 @@ fn footprints_match_size_and_are_painted() {
                             t,
                             Some(Terrain::Settlement)
                                 | Some(Terrain::House)
+                                | Some(Terrain::Wall)
+                                | Some(Terrain::Floor)
+                                | Some(Terrain::Door)
                                 | Some(Terrain::Water)
                                 | Some(Terrain::Coast)
                         ),
-                        "{} ({}) tile ({},{}) must be street, roof, or stream, got {:?}",
+                        "{} ({}) tile ({},{}) must be street, building, or stream, got {:?}",
                         s.name,
                         s.size,
                         s.map_x as usize + dx,
@@ -136,6 +139,9 @@ fn promotion_paints_new_houses_past_the_old_wall() {
                     t,
                     Some(Terrain::Settlement)
                         | Some(Terrain::House)
+                        | Some(Terrain::Wall)
+                        | Some(Terrain::Floor)
+                        | Some(Terrain::Door)
                         | Some(Terrain::Water)
                         | Some(Terrain::Coast)
                 ),
@@ -192,6 +198,9 @@ fn pre_anchor_saves_are_backfilled() {
                     t,
                     Some(Terrain::Settlement)
                         | Some(Terrain::House)
+                        | Some(Terrain::Wall)
+                        | Some(Terrain::Floor)
+                        | Some(Terrain::Door)
                         | Some(Terrain::Water)
                         | Some(Terrain::Coast)
                 ));

@@ -747,15 +747,18 @@ pub struct Settlement {
 
 impl Settlement {
     /// District edge in tiles for a head-count: roofs follow households
-    /// (one roof per ~7 souls), the edge follows the roofs (roofs fill the
-    /// even/even cells of the square), quantized to steps of 4 so the town
-    /// is not repainted every birth. Clamped to what a sector can hold —
-    /// the full sprawl of the great towns lands with the sector rescale.
+    /// (one roof per ~7 souls), the edge follows the roofs — but a roof is a
+    /// real walled building on a plot now (#458), not a single even/even cell,
+    /// so the edge leaves each building room and a street. Quantized to steps
+    /// of 4 so the town is not repainted every birth. Clamped to what a sector
+    /// can hold — the full sprawl of the great towns lands with the sector
+    /// rescale.
     pub fn footprint_for_population(population: u32) -> u32 {
         let roofs = (population.max(7) / 7).max(1) as f64;
-        let edge = 2.0 * roofs.sqrt().ceil();
+        // ~4 tiles of edge per plot-row: a building plus its street margin.
+        let edge = 4.0 * roofs.sqrt().ceil();
         let q = ((edge / 4.0).ceil() * 4.0) as u32;
-        q.max(2)
+        q.max(4)
     }
 
     /// Footprint edge in tiles for a size tier (legacy callers; the real

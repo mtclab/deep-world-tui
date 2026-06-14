@@ -460,9 +460,14 @@ fn generate_terrain(
         while cx != x2 || cy != y2 {
             if cx < width && cy < height {
                 match tiles[cy * width + cx] {
-                    Terrain::Settlement => {}
-                    // The road went through town: that plot is street now.
-                    Terrain::House => tiles[cy * width + cx] = Terrain::Settlement,
+                    // Streets and the real buildings are left as they stand —
+                    // the road meets the town and becomes its streets, it does
+                    // not gouge a hole through a house wall.
+                    Terrain::Settlement
+                    | Terrain::House
+                    | Terrain::Wall
+                    | Terrain::Floor
+                    | Terrain::Door => {}
                     _ => tiles[cy * width + cx] = Terrain::Road,
                 }
             }

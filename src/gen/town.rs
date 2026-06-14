@@ -86,43 +86,35 @@ pub fn carrying_capacity(terrain: &TerrainMap, x: usize, y: usize, region_type: 
     (cap as u32).max(12)
 }
 
-/// The house cells of a footprint, in reading order (left-right, top-down).
-pub fn house_cells(anchor_x: usize, anchor_y: usize, footprint: usize) -> Vec<(usize, usize)> {
-    let mut out = Vec::new();
-    for dy in 0..footprint {
-        for dx in 0..footprint {
-            if dx.is_multiple_of(2) && dy.is_multiple_of(2) {
-                out.push((anchor_x + dx, anchor_y + dy));
-            }
-        }
-    }
-    out
+/// The real buildings of a settlement (#458): the single source of truth that
+/// worldgen paints and every consumer reads, recomputed deterministically from
+/// the anchor so service-doors, walls, and NPC streets always agree.
+pub fn town_buildings(settlement: &Settlement) -> Vec<crate::gen::building::PlacedBuilding> {
+    let n = settlement.footprint() as usize;
+    crate::gen::building::district_buildings(
+        settlement.map_x as usize,
+        settlement.map_y as usize,
+        n,
+        n,
+        crate::gen::building::town_seed(settlement.map_x, settlement.map_y),
+    )
 }
 
-/// Paint a settlement's district onto the map: streets and houses inside the
-/// footprint, worked land skirting the walls. Safe at map edges (clamped).
+/// Paint a settlement's district onto the map: real buildings (walls, floors,
+/// doors) on walkable streets (#458), worked land skirting the edge. Safe at
+/// map edges (clamped). The anchor seeds the layout so consumers can recompute
+/// the same buildings.
 pub fn lay_town(terrain: &mut TerrainMap, anchor_x: usize, anchor_y: usize, footprint: usize) {
+    crate::gen::building::lay_district(
+        terrain,
+        anchor_x,
+        anchor_y,
+        footprint,
+        footprint,
+        crate::gen::building::town_seed(anchor_x as u32, anchor_y as u32),
+    );
+    // Worked land skirts the walls — and the water keeps its bed.
     let (w, h) = (terrain.width, terrain.height);
-    for dy in 0..footprint {
-        for dx in 0..footprint {
-            let (tx, ty) = (anchor_x + dx, anchor_y + dy);
-            if tx < w && ty < h {
-                // The river keeps its bed: towns stand beside water, never
-                // over it (a bridge is built, not painted).
-                if matches!(terrain.tiles[ty * w + tx], Terrain::Water | Terrain::Coast) {
-                    continue;
-                }
-                let t = if dx.is_multiple_of(2) && dy.is_multiple_of(2) {
-                    Terrain::House
-                } else {
-                    Terrain::Settlement
-                };
-                terrain.tiles[ty * w + tx] = t;
-            }
-        }
-    }
-    // Worked land skirts the walls (the same hand worldgen always used) —
-    // and the water keeps its bed here too.
     for dy in 0..footprint + 2 {
         for dx in 0..footprint + 2 {
             let (tx, ty) = (anchor_x + dx, anchor_y + dy);
@@ -130,7 +122,13 @@ pub fn lay_town(terrain: &mut TerrainMap, anchor_x: usize, anchor_y: usize, foot
                 && ty < h
                 && !matches!(
                     terrain.tiles[ty * w + tx],
-                    Terrain::House | Terrain::Settlement | Terrain::Water | Terrain::Coast
+                    Terrain::House
+                        | Terrain::Settlement
+                        | Terrain::Wall
+                        | Terrain::Floor
+                        | Terrain::Door
+                        | Terrain::Water
+                        | Terrain::Coast
                 )
             {
                 terrain.tiles[ty * w + tx] = Terrain::Farmland;
@@ -139,15 +137,11 @@ pub fn lay_town(terrain: &mut TerrainMap, anchor_x: usize, anchor_y: usize, foot
     }
 }
 
-/// Which service (if any) keeps its door at this house tile. Services take
-/// the house cells in reading order; later houses are homes.
+/// Which service (if any) keeps its door at this tile. Services take the
+/// buildings in reading order; later buildings are homes.
 pub fn service_at(settlement: &Settlement, x: usize, y: usize) -> Option<SettlementService> {
-    let cells = house_cells(
-        settlement.map_x as usize,
-        settlement.map_y as usize,
-        settlement.footprint() as usize,
-    );
-    let idx = cells.iter().position(|&(cx, cy)| cx == x && cy == y)?;
+    let buildings = town_buildings(settlement);
+    let idx = buildings.iter().position(|b| b.door == (x, y))?;
     settlement.services.get(idx).copied()
 }
 
@@ -170,11 +164,19 @@ pub fn npc_street_positions(
         settlement.map_y as usize,
         settlement.footprint() as usize,
     );
+    let buildings = town_buildings(settlement);
+    let in_building = |x: usize, y: usize| {
+        buildings
+            .iter()
+            .any(|b| x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h)
+    };
+    // The streets are the open ground between the buildings.
     let mut streets: Vec<(usize, usize)> = Vec::new();
     for dy in 0..n {
         for dx in 0..n {
-            if !(dx.is_multiple_of(2) && dy.is_multiple_of(2)) {
-                streets.push((ax + dx, ay + dy));
+            let (x, y) = (ax + dx, ay + dy);
+            if !in_building(x, y) {
+                streets.push((x, y));
             }
         }
     }
@@ -195,48 +197,85 @@ pub fn npc_street_positions(
     out
 }
 
-/// Whether this tile is one of the settlement's houses at all.
+/// Whether this tile is part of one of the settlement's buildings.
 pub fn is_house_of(settlement: &Settlement, x: usize, y: usize) -> bool {
-    settlement.contains_tile(x, y)
-        && (x - settlement.map_x as usize).is_multiple_of(2)
-        && (y - settlement.map_y as usize).is_multiple_of(2)
+    town_buildings(settlement)
+        .iter()
+        .any(|b| x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn test_settlement(map_x: u32, map_y: u32, district: u32) -> Settlement {
+        Settlement {
+            id: "t".into(),
+            name: "Test".into(),
+            size: "town".into(),
+            region: "r".into(),
+            population: 100,
+            description: String::new(),
+            people: Vec::new(),
+            services: Vec::new(),
+            politics: crate::model::SettlementPolitics::new(),
+            food_stock: 0.0,
+            farms: Vec::new(),
+            buildings: Vec::new(),
+            festival_until_day: 0,
+            famine_days: 0,
+            map_x,
+            map_y,
+            district,
+        }
+    }
+
     #[test]
-    fn every_house_touches_a_street_and_the_street_reaches_the_edge() {
+    fn every_building_door_opens_onto_a_walkable_street() {
         let mut terrain = TerrainMap {
-            width: 20,
-            height: 20,
-            tiles: vec![Terrain::Grass; 400],
+            width: 60,
+            height: 60,
+            tiles: vec![Terrain::Grass; 3600],
         };
-        for n in [2usize, 4, 6, 8] {
+        for n in [6usize, 12, 24, 40] {
             lay_town(&mut terrain, 5, 5, n);
-            for (hx, hy) in house_cells(5, 5, n) {
-                assert_eq!(terrain.tiles[hy * 20 + hx], Terrain::House);
-                let touches_street =
-                    [(0i32, 1i32), (1, 0), (0, -1), (-1, 0)]
-                        .into_iter()
-                        .any(|(dx, dy)| {
-                            let (nx, ny) = ((hx as i32 + dx) as usize, (hy as i32 + dy) as usize);
-                            matches!(
-                                terrain.tiles[ny * 20 + nx],
-                                Terrain::Settlement | Terrain::Farmland | Terrain::Grass
-                            )
-                        });
-                assert!(touches_street, "house at ({hx},{hy}) n={n} has a door");
+            let s = test_settlement(5, 5, n as u32);
+            let buildings = town_buildings(&s);
+            assert!(!buildings.is_empty(), "n={n} lays at least one building");
+            for b in &buildings {
+                let (dx, dy) = b.door;
+                assert_eq!(terrain.tiles[dy * 60 + dx], Terrain::Door, "door painted");
+                let opens = [(0i32, 1i32), (1, 0), (0, -1), (-1, 0)]
+                    .into_iter()
+                    .any(|(ox, oy)| {
+                        let (nx, ny) = ((dx as i32 + ox) as usize, (dy as i32 + oy) as usize);
+                        matches!(
+                            terrain.tiles[ny * 60 + nx],
+                            Terrain::Settlement | Terrain::Farmland
+                        )
+                    });
+                assert!(opens, "door at ({dx},{dy}) n={n} opens onto a street");
             }
         }
     }
 
     #[test]
-    fn house_counts_scale_with_the_size() {
-        assert_eq!(house_cells(0, 0, 2).len(), 1);
-        assert_eq!(house_cells(0, 0, 4).len(), 4);
-        assert_eq!(house_cells(0, 0, 6).len(), 9);
-        assert_eq!(house_cells(0, 0, 8).len(), 16);
+    fn building_counts_scale_with_the_size() {
+        // A bigger district holds more buildings than a small holding.
+        let small = town_buildings(&test_settlement(5, 5, 6)).len();
+        let big = town_buildings(&test_settlement(5, 5, 40)).len();
+        assert!(small >= 1, "even a hamlet gets a dwelling");
+        assert!(big > small, "a city holds more buildings than a hamlet");
+    }
+
+    #[test]
+    fn service_doors_match_building_doors() {
+        let mut s = test_settlement(5, 5, 24);
+        s.services = vec![SettlementService::Tavern, SettlementService::Temple];
+        let buildings = town_buildings(&s);
+        for (i, svc) in s.services.iter().enumerate() {
+            let (dx, dy) = buildings[i].door;
+            assert_eq!(service_at(&s, dx, dy), Some(*svc));
+        }
     }
 }
