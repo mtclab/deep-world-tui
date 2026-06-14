@@ -415,6 +415,33 @@ impl App {
                     "The traveler shared road wisdom (1h).".into()
                 }
             }
+            EncounterAction::Trade
+                if enc_kind == Some(crate::model::EncounterKind::MerakTrader) =>
+            {
+                // The Mëräk barter deep-water goods for surface make — cloth and
+                // tools, never coin, fixed seasonal measure (#445).
+                self.play_sound(crate::audio::SoundEvent::Trade);
+                if let Some(ref mut ps) = self.player_start {
+                    if ps.inventory.remove(ItemType::Tool, 1) {
+                        ps.inventory.add(ItemType::Food, 3);
+                        ps.inventory.add(ItemType::Glass, 1);
+                        "The Mëräk take your tool down into the dark and leave cold deep-fish and \
+                         a shard of deep-glass on the stones. No coin, no haggle. (1h)"
+                            .into()
+                    } else if ps.inventory.remove(ItemType::Cloth, 1) {
+                        ps.inventory.add(ItemType::Food, 2);
+                        "The Mëräk fold your cloth away and lay out deep-fish in fair measure. \
+                         The rate is the rate. (1h)"
+                            .into()
+                    } else {
+                        "The Mëräk regard your goods and want none of it — and they will not \
+                         take coin. They slide back beneath the water. (1h)"
+                            .into()
+                    }
+                } else {
+                    "The Mëräk wait at the tideline, and you have nothing to offer.".into()
+                }
+            }
             EncounterAction::Trade if enc_kind == Some(crate::model::EncounterKind::KhorTrader) => {
                 // The Khör barter härkä goods for metal — no coin, no haggling,
                 // fixed measure (#443). A tool is worth more than raw iron.
