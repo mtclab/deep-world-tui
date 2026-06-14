@@ -1,6 +1,7 @@
-// Street life (#372 PR 4): the settlement's people stand in its streets by
-// day, deterministically — and what you see is who you can meet: stepping
-// into someone greets them. At night the streets go quiet.
+// Street life (#372 PR 4 / #458): the settlement's people stand in its streets
+// by day and indoors by night, deterministically — and what you see is who you
+// can meet: stepping into someone greets them. At night the streets go quiet
+// because everyone has gone inside, where you can still walk in and meet them.
 use deep_world_tui::charts::load::load_charts;
 use deep_world_tui::gen::town::npc_street_positions;
 use deep_world_tui::model::PlayerPos;
@@ -24,16 +25,30 @@ fn the_streets_fill_by_day_and_empty_by_night() {
     let day = npc_street_positions(s, 5, 10);
     let night = npc_street_positions(s, 5, 23);
     assert!(!day.is_empty(), "people stand in the street at mid-morning");
-    assert!(night.is_empty(), "the streets go quiet at night");
-    // Deterministic: the same woman keeps her corner all day.
+    assert!(!night.is_empty(), "people are home, indoors, at night");
+    // Deterministic: the same woman keeps her corner all day, her room all night.
     assert_eq!(day, npc_street_positions(s, 5, 14));
-    // Everyone stands on street ground, nobody inside a wall.
+    assert_eq!(night, npc_street_positions(s, 5, 2));
+    // By day everyone stands on street ground, nobody inside a wall.
     for &(_, x, y) in &day {
         assert!(
             !deep_world_tui::gen::town::is_house_of(s, x, y),
             "({x},{y}) is street, not roof"
         );
         assert!(s.contains_tile(x, y));
+    }
+    // By night everyone is on an interior floor — inside a building, in town.
+    let region = &a.sim.as_ref().unwrap().world.regions[0];
+    for &(_, x, y) in &night {
+        assert!(
+            deep_world_tui::gen::town::is_house_of(s, x, y),
+            "({x},{y}) is indoors at night"
+        );
+        assert_eq!(
+            region.terrain.get(x, y),
+            Some(deep_world_tui::model::Terrain::Floor),
+            "({x},{y}) is a walkable interior floor"
+        );
     }
 }
 
