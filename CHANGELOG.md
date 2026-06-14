@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Mythic Phase 2 — the näšvyly's miasma (#455)** — the forest-fever shape (#450) now earns its name: meeting it carries a fortune-leaned chance to leave a wood-fever behind (it keeps upwind, the air where it stood smells of rot and wet ash). Deniable as ever — you were deep in cold wet forest, of course you took a fever — but it ties the myth creature into the disease/mortality system (#448): the fever can be tended (#451) or, untreated, run its course. First step of Mythic Phase 2.
+
 **Real homesteads — the rural layout (#458, groundwork)** — `gen::building::lay_homestead`: a single country holding — a dwelling (cottage or longhouse) and an outbuilding (barn/shed) around a trodden walkable yard, with a worked field beside them. Deterministic; returns the placed buildings. The scattered-holding counterpart to `lay_district`, for the open country, not a town. Additive — not yet wired into worldgen / the founding system.
 
 **Real towns — the district layout (#458, groundwork)** — `gen::building::lay_district`: lays a block of real buildings on walkable streets — varied `lay_building` structures (hut→manor) on plots with yard/street margins, every door opening onto a street, some plots left as open yards, deterministic per seed. Returns the placed buildings so the town/enclave generators can map services and occupants onto their doors. Still additive — not yet wired into worldgen (migrating towns onto this is the next, load-bearing step); the existing grid-town system is untouched and green.
