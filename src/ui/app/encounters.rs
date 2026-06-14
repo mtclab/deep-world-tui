@@ -289,6 +289,7 @@ impl App {
     pub fn resolve_encounter(&mut self, action: EncounterAction) {
         let terrain = self.encounter.map(|e| e.terrain).unwrap_or(Terrain::Grass);
         let species = self.encounter.and_then(|e| e.species);
+        let enc_kind = self.encounter.map(|e| e.kind);
         let witness = WitnessLevel::roll(self.seed.wrapping_mul(7919), terrain);
         let rep_mult = witness.reputation_multiplier();
         let enc_mod = match terrain {
@@ -412,6 +413,32 @@ impl App {
                     "Words came slow. They barely shared a thing.".into()
                 } else {
                     "The traveler shared road wisdom (1h).".into()
+                }
+            }
+            EncounterAction::Trade if enc_kind == Some(crate::model::EncounterKind::KhorTrader) => {
+                // The Khör barter härkä goods for metal — no coin, no haggling,
+                // fixed measure (#443). A tool is worth more than raw iron.
+                self.play_sound(crate::audio::SoundEvent::Trade);
+                if let Some(ref mut ps) = self.player_start {
+                    if ps.inventory.remove(ItemType::Tool, 1) {
+                        ps.inventory.add(ItemType::Hide, 2);
+                        ps.inventory.add(ItemType::Food, 2);
+                        "The Khör weigh your tool without a word and lay out härkä-leather and \
+                         steppe-butter in fair measure. No coin, no haggle. (1h)"
+                            .into()
+                    } else if ps.inventory.remove(ItemType::Iron, 1) {
+                        ps.inventory.add(ItemType::Hide, 2);
+                        ps.inventory.add(ItemType::Food, 1);
+                        "The Khör take your iron and hand you härkä-leather and steppe-butter. \
+                         No coin changes hands; no word is wasted. (1h)"
+                            .into()
+                    } else {
+                        "The Khör look over your goods and want none of it — and they will not \
+                         take coin. They turn back to the cold. (1h)"
+                            .into()
+                    }
+                } else {
+                    "The Khör wait, and you have nothing to offer.".into()
                 }
             }
             EncounterAction::Trade => {

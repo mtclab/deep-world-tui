@@ -19,7 +19,7 @@ load-bearing; what remains is listed under *Open gaps*.
 | Professions | 21 | 21 | schedules + illness/trade hooks; fisher/sailor/herder/beast-handler feed the food economy, soldier/fence-builder/path-finder grant Safety, singer grants Presence, carpenter/labourer/forester/miner/weaver drive NPC construction (#312) |
 | Personality traits | 19 | 19 | all traits now hit personality/trade/encounter modifiers |
 | Diseases | 11 | 11 | terrain contraction, recovery window, vitals-decay rate; childbirth gated to those who can give birth; `severity` grows while untreated and scales vitals decay (#313); Venom carried in on a bite, not the land (#404), fortune-leaned contraction/infection |
-| Encounter kinds | 12 | 12 | terrain/season/rarity-gated spawn incl. MerchantCaravan (roads); distinct action sets |
+| Encounter kinds | 25 | 25 | terrain/season/rarity-gated spawn, distinct action sets; **#443** adds KhorTrader — the first non-human people (Khör), cold-terrain-only (Tundra/Mountain), barter härkä goods (Hide+Food) for metal (Tool/Iron), no coin, no haggle |
 | Encounter actions | 8 | 8 | time/energy/hunger costs, god affinity, reputation + NPC-memory deltas |
 | Collapse outcomes | 10 | 10 | distinct losses/restores/hours, god-affinity weighted, all reachable |
 | Weather | 11 | 11 | travel time, forced shelter, gather yield, encounter rate, vitals decay, NPC mood |

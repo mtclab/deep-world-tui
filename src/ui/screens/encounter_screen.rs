@@ -69,6 +69,7 @@ pub(crate) fn draw_encounter_screen(f: &mut Frame, app: &App) {
             crate::model::EncounterKind::DistantFire => "🔥 Distant Fire",
             crate::model::EncounterKind::BorderWatch => "🛡 Border Watch",
             crate::model::EncounterKind::AuroraVeil => "✨ Aurora Veil",
+            crate::model::EncounterKind::KhorTrader => "⛺ Khör Rendezvous",
         };
         lines.push(Line::from(Span::styled(
             format!("  Kind: {}", kind_str),
