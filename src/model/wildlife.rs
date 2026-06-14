@@ -50,6 +50,16 @@ pub enum WildSpecies {
     SiltWhale,
     SandSwimmer,
     SandSpirit,
+    // Myth-tranche 1 (#450): the old dreads of the Finno-Ugric dark, adapted —
+    // never the myth's own name, always a sober explanation to hand. Deniable
+    // uncanny, spread thin so the strange stays strange — and two mundane
+    // beasts of the same waters and woods, so the strange stays a minority.
+    Otter,
+    PineMarten,
+    Movali,
+    Aludda,
+    Vuolma,
+    Nashvyly,
 }
 
 impl WildSpecies {
@@ -91,6 +101,12 @@ impl WildSpecies {
             SiltWhale,
             SandSwimmer,
             SandSpirit,
+            Otter,
+            PineMarten,
+            Movali,
+            Aludda,
+            Vuolma,
+            Nashvyly,
         ]
     }
 
@@ -132,6 +148,12 @@ impl WildSpecies {
             SiltWhale => "silt-whale",
             SandSwimmer => "sand-swimmer",
             SandSpirit => "sand-spirit",
+            Otter => "otter",
+            PineMarten => "pine marten",
+            Movali => "mõvali",
+            Aludda => "aludda",
+            Vuolma => "vuolma",
+            Nashvyly => "näšvyly",
         }
     }
 
@@ -176,6 +198,16 @@ impl WildSpecies {
             SiltWhale => &[T::Coast],
             SandSwimmer => &[T::Sand, T::DeepDesert],
             SandSpirit => &[T::Sand, T::DeepDesert],
+            Otter => &[T::Swamp, T::Coast],
+            PineMarten => &[T::Forest],
+            // The death-river swan keeps to still water, mire or shore.
+            Movali => &[T::Swamp, T::Coast],
+            // The bank-wight waits where the mire meets the footing.
+            Aludda => &[T::Swamp],
+            // The deep-back breaks the swell far out, never near.
+            Vuolma => &[T::Coast],
+            // The fever-shape haunts the deep, old forest.
+            Nashvyly => &[T::Forest],
         }
     }
 
@@ -199,6 +231,7 @@ impl WildSpecies {
             (CaveBat, _) => 5,                               // the under-places are mostly bats
             (SandSpirit, _) => 1,                            // uncanny: always rare and deniable
             (SiltWhale, _) => 1,                             // a deep thing, seldom near the shore
+            (Movali | Aludda | Vuolma | Nashvyly, _) => 1,   // myth-dreads: always rare, deniable
             (Pike, Frost) => 1,                              // sluggish under the ice
             (GoldenEagle, _) => 2,                           // a high, wide-ranging hunter
             _ => 3,
@@ -211,9 +244,10 @@ impl WildSpecies {
         match self {
             Hare | RedFox | Capercaillie | Beaver | RingedSeal | MireCrane | EagleOwl
             | ForestReindeer | KethVaal | GlassBeetle | SteppeLark | CaveBat | GhostGoat
-            | BrookTrout | AlpineVole | ForgeLizard | PillarCrab => 0,
+            | BrookTrout | AlpineVole | ForgeLizard | PillarCrab | Movali | PineMarten => 0,
             Elk | Lynx | Adder | HollowStag | MireLight | CaveBreather | SandOx | HeatShimmer
-            | Pike | GoldenEagle | SandSwimmer | SandSpirit => 1,
+            | Pike | GoldenEagle | SandSwimmer | SandSpirit | Aludda | Vuolma | Nashvyly
+            | Otter => 1,
             Wolf | BrownBear | Boar | Wolverine | SteppeBison | SiltWhale => 2,
         }
     }
@@ -235,11 +269,10 @@ impl WildSpecies {
         match self {
             // Small game: a hide and a little meat.
             Hare | RedFox | Capercaillie | MireCrane | EagleOwl | GlassBeetle | SteppeLark
-            | CaveBat => (1, 1),
+            | CaveBat | PineMarten => (1, 1),
             // Mid game: a hide and a good portion.
-            Beaver | RingedSeal | KethVaal | GhostGoat | Lynx | Adder | Pike | SandSwimmer => {
-                (1, 2)
-            }
+            Beaver | RingedSeal | KethVaal | GhostGoat | Lynx | Adder | Pike | SandSwimmer
+            | Otter => (1, 2),
             // Large game: a fuller hide and a haul of meat.
             Elk | ForestReindeer | SandOx => (2, 3),
             // Anything else huntable: a modest take.
@@ -261,6 +294,10 @@ impl WildSpecies {
                 | WildSpecies::MireLight
                 | WildSpecies::CaveBreather
                 | WildSpecies::SandSpirit
+                | WildSpecies::Movali
+                | WildSpecies::Aludda
+                | WildSpecies::Vuolma
+                | WildSpecies::Nashvyly
         )
     }
 
@@ -333,9 +370,31 @@ impl WildSpecies {
                  vast and grey and indifferent to the shore."
             }
             SandSwimmer => "The dune ahead shivers and parts — a sand-swimmer surfacing for a breath of dry air.",
+            Otter => "An otter rolls in the shallows, cracks a mussel on its chest, and eyes you without alarm.",
+            PineMarten => "A pine marten pours along a branch, bright-eyed and bottle-shaped, then is gone into the crown.",
             SandSpirit => {
                 "Heat-haze gathers on the dune into something that walks, watches, and is gone \
                  when you blink — a trick of the light, surely, that left tracks."
+            }
+            Movali => {
+                "A single dark bird sits the still water and does not startle as you pass — \
+                 only watches, the way nothing wild watches. A swan strayed far from its \
+                 fellows, surely. You do not like the quiet of it."
+            }
+            Aludda => {
+                "Someone stands in the shallows at dusk — pale, patient, just past the reeds. \
+                 A snag, a heron, a trick of the low sun. The bank gives under your boot all \
+                 the same, and the cold takes your leg to the knee."
+            }
+            Vuolma => {
+                "Far out, the swell humps over something that does not surface — a back, or a \
+                 reef the charts forgot, or nothing at all. The water closes over it, and the \
+                 birds have gone quiet."
+            }
+            Nashvyly => {
+                "A grey shape keeps to the thickest cover, always upwind, and the air where it \
+                 stood smells of rot and wet ash. Marsh-damp in the lungs, the sensible say. \
+                 By dusk you are not sure you are alone."
             }
         }
     }
@@ -512,6 +571,48 @@ mod tests {
             if let Some(s) = WildSpecies::roll(Terrain::Grass, Season::Frost, seed) {
                 assert_ne!(s, WildSpecies::SteppeLark, "gone with the waterfowl");
             }
+        }
+    }
+
+    #[test]
+    fn myth_tranche_one_is_deniable_uncanny_and_terrain_true() {
+        use WildSpecies::*;
+        for s in [Movali, Aludda, Vuolma, Nashvyly] {
+            assert!(WildSpecies::all().contains(&s), "{s:?} missing from roster");
+            assert!(!s.habitats().is_empty(), "{s:?} has no habitat");
+            assert!(!s.line().is_empty(), "{s:?} has no encounter line");
+            assert!(s.uncanny(), "{s:?} must be uncanny (deniable)");
+            assert!(
+                !s.huntable(),
+                "{s:?} must not be huntable — the uncanny is not taken"
+            );
+            assert_eq!(s.hunt_yield(), (0, 0), "{s:?} yields nothing");
+        }
+        // The death-river swan flees nothing and threatens nothing — an omen,
+        // not a danger.
+        assert_eq!(Movali.danger(), 0);
+    }
+
+    #[test]
+    fn the_strange_stays_strange_on_water_and_shore() {
+        // Adding myth-dreads to swamp and coast must not crowd out the mundane:
+        // the uncanny stays a clear minority of what a witness actually meets.
+        for terrain in [Terrain::Swamp, Terrain::Coast] {
+            let mut uncanny = 0;
+            let mut total = 0;
+            for seed in 0..1000u64 {
+                if let Some(s) = WildSpecies::roll(terrain, Season::Green, seed) {
+                    total += 1;
+                    if s.uncanny() {
+                        uncanny += 1;
+                    }
+                }
+            }
+            assert!(total > 0, "{terrain:?} should have wildlife");
+            assert!(
+                (uncanny as f64) < (total as f64) * 0.30,
+                "mundane majority on {terrain:?}: {uncanny}/{total}"
+            );
         }
     }
 
