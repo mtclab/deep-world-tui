@@ -915,6 +915,37 @@ impl App {
                 );
             }
         }
+        // The mountain stirs (#455): wait it out (Calm) and the slope goes still
+        // — you pass safe, telling yourself it was only the mountain settling.
+        // Cross beneath it (PushThrough) and the loose scree is treacherous: the
+        // day's strength spent, and on a poor turn a turned ankle on the shifting
+        // slope. Deniable: the mountain does not say.
+        if enc_kind == Some(crate::model::EncounterKind::MountainStir) {
+            if action == EncounterAction::Calm {
+                if let Some(ref mut sim) = self.sim {
+                    sim.log(
+                        sim.world.tick,
+                        crate::sim::journal::Voice::Scar,
+                        "The slope went still when I stopped to look, and stayed still while I \
+                         passed. The mountain settling, surely. I did not look back."
+                            .into(),
+                    );
+                }
+            } else if action == EncounterAction::PushThrough {
+                self.vitals.energy = (self.vitals.energy - 0.3).max(0.0);
+                self.vitals.hunger = (self.vitals.hunger - 0.1).max(0.0);
+                let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+                let slip = self.fortune.tilt_bad(0.25);
+                let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x571A_B1ED));
+                if crate::rng::unit_from_hash(h) < slip {
+                    self.afflict(
+                        crate::model::Disease::Sprain,
+                        "The scree gave under me as I crossed beneath it, and my ankle turned. \
+                         Loose ground, surely. I limped the rest of the way.",
+                    );
+                }
+            }
+        }
         // Record NPC memory for this encounter
         let trust_delta = match action {
             EncounterAction::Talk => 0.02,

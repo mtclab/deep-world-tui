@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Mythic Phase 2 — the mountain stirs (#455)** — a new mountain rare encounter: a vast, slow presence on the high slope, far too large for any rockfall, that goes still the moment you stop to look. **Wait it out** (Calm) and you pass safe, telling yourself it was only the mountain settling; **cross beneath it** (PushThrough) and the loose scree is treacherous — the day's strength spent, and on a poor turn a turned ankle (a Sprain) on the shifting slope. Deniable: the mountain does not say. **Mythic Phase 2 complete** — näšvyly fever · spectral-elk chase · threshold toll · the mountain stirs.
+
 **Mythic Phase 2 — the threshold toll (#455)** — a new mountain rare encounter: an old woman keeping a fire at a cave-mouth in the high rock, where no one keeps a fire, who asks a price for the road past — "bread, or herb, or coin, your choosing." **Pay** (Trade) and the road past is easy, the dark kindly, and the threshold-keeper (Kukri) marks it; **refuse** (Flee) and you take the long way round the mountain — hours and strength lost to the detour and the cold, but no harm. Come empty-handed and she waves you on, uneasily. Deniable as a strange hermit. An *offering* encounter, the richer figure-type of Phase 2.
 
 **Mythic Phase 2 — the spectral elk (#455)** — a new forest rare encounter: a great elk at the tree-line that is a *sending*, not prey — antlers too wide, eyes too still, and it does not tire. **Flee** and you break away clean; **follow it** (PushThrough) and the wood takes the day from you — chased to exhaustion, and on a poor turn led truly astray, run down to nothing (handing you to the collapse funnel). Deniable as old light through the trunks. The elk you *chase* (distinct from the HollowStag you only glimpse).
