@@ -818,6 +818,23 @@ impl App {
                 }
             }
         }
+        // The näšvyly's miasma (#455): the forest-fever shape keeps to the
+        // thickest cover, always upwind, and the air where it stood smells of
+        // rot and wet ash — and a wood-fever follows more often than not. The
+        // cost lands on the body, deniable (you were deep in cold wet forest,
+        // of course you took a fever). Fortune leans whether it takes.
+        if species == Some(crate::model::wildlife::WildSpecies::Nashvyly) {
+            let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+            let p = self.fortune.tilt_bad(0.35);
+            let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x4EA5_7E11));
+            if crate::rng::unit_from_hash(h) < p {
+                self.afflict(
+                    crate::model::Disease::Fever,
+                    "The grey shape was upwind, and the rot in the air got into me. By dusk the \
+                     fever has me — the wet wood and the cold, surely.",
+                );
+            }
+        }
         // Record NPC memory for this encounter
         let trust_delta = match action {
             EncounterAction::Talk => 0.02,
