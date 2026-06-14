@@ -211,6 +211,16 @@
         "A bargeman says the River Sampa leagues settled their toll war without a single drawn knife. Nobody quite believes it.",
         "Steppe traders speak of the aurora as a voice. They do not say whose.",
     ],
+    "UNCANNY_RUMORS": [
+        "A hunter out of the high woods chased an elk three days and came back not knowing how. Old light through the trunks, he says now, and will say no more.",
+        "A carter swears there's a fire kept at the cave-mouth on the pass, and an old woman who wants paying for the road past. He went the long way, and was glad to.",
+        "Word from the high country: the scree moved on its own, slow and far too large, and went still the moment the shepherd looked. The mountain settling, surely.",
+        "A fisherman won't go past the far reach anymore — says a back broke the water, big as a barn, and the birds went quiet over it. A reef, the others tell him.",
+        "They say a grey shape keeps to the deep wood, always upwind, and those who cross it take a fever by dusk. The wet and the cold, surely.",
+        "A girl saw someone standing in the shallows at dusk, pale and patient, just past the reeds. A heron, her mother said. The girl won't go to the water now.",
+        "They found a single dark bird on the still water the morning old Tuomas died. It didn't startle when they came. A swan strayed far from its fellows, surely.",
+        "A stag stood wrong at the treeline, a drover says — antlers too wide, eyes too still — and did not run. He turned his cart around. You would have too.",
+    ],
     "RUMOR_TEMPLATES": [
         "I heard something. Whether it is true, I cannot say.",
         "A whisper reached me. I carry it now.",
