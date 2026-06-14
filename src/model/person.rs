@@ -1194,6 +1194,9 @@ pub struct Person {
     pub relations: Vec<relation::InterNpcRelation>,
     #[serde(default)]
     pub wants: Vec<crate::sim::wants::NpcWant>,
+    /// The rare innate craft-gift — almost always none, as for any life (#441).
+    #[serde(default)]
+    pub gift: crate::model::Gift,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -1390,6 +1393,7 @@ mod tests {
             relations: vec![],
 
             wants: vec![],
+            gift: Default::default(),
             age_years: 0,
         };
 
