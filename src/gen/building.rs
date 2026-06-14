@@ -86,6 +86,106 @@ pub fn lay_building(
     Some((x + ddx, y + ddy))
 }
 
+/// A building placed in a district: its footprint and its door tile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlacedBuilding {
+    pub style: BuildingStyle,
+    pub x: usize,
+    pub y: usize,
+    pub w: usize,
+    pub h: usize,
+    pub door: (usize, usize),
+}
+
+/// Pick a fitting style for a plot, varied by the hash.
+fn pick_style(h: u64, avail_w: usize, avail_h: usize) -> Option<BuildingStyle> {
+    let fits: Vec<BuildingStyle> = [
+        BuildingStyle::Hut,
+        BuildingStyle::Cottage,
+        BuildingStyle::Longhouse,
+        BuildingStyle::Hall,
+        BuildingStyle::Manor,
+    ]
+    .into_iter()
+    .filter(|s| {
+        let (w, hh) = s.size();
+        w <= avail_w && hh <= avail_h
+    })
+    .collect();
+    if fits.is_empty() {
+        return None;
+    }
+    Some(fits[(h as usize) % fits.len()])
+}
+
+/// Lay a district of real buildings within an area (#458): the ground becomes
+/// street (walkable Settlement), and varied buildings sit on plots with a
+/// yard/street margin around each, every door opening onto a street. The river
+/// keeps its bed. Deterministic per seed. Returns the placed buildings in
+/// reading order, so callers can map services/occupants onto their doors.
+pub fn lay_district(
+    terrain: &mut TerrainMap,
+    ax: usize,
+    ay: usize,
+    aw: usize,
+    ah: usize,
+    seed: u64,
+) -> Vec<PlacedBuilding> {
+    let (mw, mh) = (terrain.width, terrain.height);
+    let aw = aw.min(mw.saturating_sub(ax));
+    let ah = ah.min(mh.saturating_sub(ay));
+    // The ground between buildings is the street — walkable. Water keeps its bed.
+    for dy in 0..ah {
+        for dx in 0..aw {
+            let (tx, ty) = (ax + dx, ay + dy);
+            if !matches!(terrain.get(tx, ty), Some(Terrain::Water | Terrain::Coast)) {
+                terrain.set(tx, ty, Terrain::Settlement);
+            }
+        }
+    }
+    let stride = 9usize; // plot: a building (≤7) + a yard/street margin
+    let mut out = Vec::new();
+    let mut py = 0;
+    while py + 4 <= ah {
+        let mut px = 0;
+        while px + 4 <= aw {
+            let avail_w = (stride - 2).min(aw - px - 2);
+            let avail_h = (stride - 2).min(ah - py - 2);
+            let h = crate::rng::mix_u64(
+                seed ^ (px as u64).wrapping_shl(20) ^ (py as u64).wrapping_shl(40),
+            );
+            // A scatter of plots stay open yards/gardens, not built on.
+            if crate::rng::unit_from_hash(h.rotate_left(7)) < 0.18 {
+                px += stride;
+                continue;
+            }
+            if let Some(style) = pick_style(h, avail_w, avail_h) {
+                let (bw, bh) = style.size();
+                let (bx, by) = (ax + px + 1, ay + py + 1);
+                let side = match h % 4 {
+                    0 => Side::South,
+                    1 => Side::North,
+                    2 => Side::East,
+                    _ => Side::West,
+                };
+                if let Some(door) = lay_building(terrain, bx, by, bw, bh, side) {
+                    out.push(PlacedBuilding {
+                        style,
+                        x: bx,
+                        y: by,
+                        w: bw,
+                        h: bh,
+                        door,
+                    });
+                }
+            }
+            px += stride;
+        }
+        py += stride;
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,6 +237,51 @@ mod tests {
         let mut t = blank(8, 8);
         assert!(lay_building(&mut t, 6, 6, 5, 5, Side::North).is_none());
         assert!(lay_building(&mut t, 0, 0, 2, 2, Side::North).is_none());
+    }
+
+    #[test]
+    fn a_district_lays_varied_buildings_with_doors_onto_streets() {
+        let mut t = blank(30, 24);
+        let placed = lay_district(&mut t, 1, 1, 28, 22, 4242);
+        assert!(
+            placed.len() >= 3,
+            "a district should hold several buildings"
+        );
+        // Buildings don't overlap (each interior floor belongs to one building).
+        let mut seen = std::collections::HashSet::new();
+        for b in &placed {
+            for iy in (b.y + 1)..(b.y + b.h - 1) {
+                for ix in (b.x + 1)..(b.x + b.w - 1) {
+                    assert!(seen.insert((ix, iy)), "buildings overlap at ({ix},{iy})");
+                    assert_eq!(t.get(ix, iy), Some(Terrain::Floor));
+                }
+            }
+        }
+        // Every door is reachable: at least one passable street tile adjoins it.
+        for b in &placed {
+            let (dx, dy) = b.door;
+            assert_eq!(t.get(dx, dy), Some(Terrain::Door));
+            let adj_walkable = [(0i32, 1i32), (0, -1), (1, 0), (-1, 0)]
+                .iter()
+                .any(|(ox, oy)| {
+                    let (nx, ny) = (dx as i32 + ox, dy as i32 + oy);
+                    nx >= 0
+                        && ny >= 0
+                        && t.get(nx as usize, ny as usize)
+                            .is_some_and(|tt| tt == Terrain::Settlement)
+                });
+            assert!(adj_walkable, "door at ({dx},{dy}) opens onto a street");
+        }
+    }
+
+    #[test]
+    fn a_district_is_deterministic() {
+        let mut a = blank(30, 24);
+        let mut b = blank(30, 24);
+        let pa = lay_district(&mut a, 1, 1, 28, 22, 99);
+        let pb = lay_district(&mut b, 1, 1, 28, 22, 99);
+        assert_eq!(pa, pb);
+        assert_eq!(a.tiles, b.tiles);
     }
 
     #[test]
