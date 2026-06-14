@@ -4,6 +4,54 @@
 //! going up — so an attentive player can act on what they overhear.
 use crate::sim::SimState;
 
+/// Word that one of the canon non-human peoples is trading in a given land this
+/// season — so the barter encounters (#443/#445/#447) can be sought out, not
+/// only stumbled into. Each people is named where its terrain dominates: the
+/// Mëräk on the coast, the Khör on the steppe, the Häl in the forest, the
+/// Tzäkhar in the uplands. (The She'ar have no desert region in the province
+/// map, so no rumor points at empty ground.) Deterministic per land + season;
+/// fires only about a third of seasons so the news is worth carrying.
+fn nonhuman_trade_rumor(
+    region_type: &str,
+    seed: u64,
+    region_id: &str,
+    season_ord: u32,
+    year: u32,
+) -> Option<&'static str> {
+    let line = match region_type {
+        "coast" => {
+            "Word on the shore of {}: the Mëräk are surfacing at the tideline this \
+                    season — cloth and tools for deep-fish and deep-glass, never coin."
+        }
+        "steppe" => {
+            "They say the Khör have driven the härkä-herds through {} — metal buys \
+                     leather and steppe-butter at their cairns, and they do not haggle."
+        }
+        "forest" => {
+            "Travelers out of {} swear the Häl have come down from the canopy to \
+                     trade — salve, herbs, and fruit for good cloth and tools."
+        }
+        "upland" => {
+            "Miners from {} tell of the Tzäkhar at the cave-mouths, trading worked \
+                     iron and fine tools for plain food — patient folk, no use for coin."
+        }
+        _ => return None,
+    };
+    let h = seed.wrapping_mul(2_654_435_761)
+        ^ crate::rng::mix_u64(
+            region_id
+                .bytes()
+                .fold(0u64, |a, b| a.wrapping_mul(31).wrapping_add(b as u64))
+                ^ (season_ord as u64).wrapping_shl(40)
+                ^ (year as u64).wrapping_shl(52),
+        );
+    if h.is_multiple_of(3) {
+        Some(line)
+    } else {
+        None
+    }
+}
+
 /// A rumor grounded in the current world state, deterministic per salt.
 /// Returns None when the world has nothing worth repeating.
 pub fn informed_rumor(sim: &SimState, day: u32, salt: u64) -> Option<String> {
@@ -43,6 +91,16 @@ pub fn informed_rumor(sim: &SimState, day: u32, salt: u64) -> Option<String> {
                     candidates.push(sense.npc_rumor(&p.name, &s.name));
                 }
             }
+        }
+        // The non-human peoples trading in this land this season (#447).
+        if let Some(tmpl) = nonhuman_trade_rumor(
+            &region.region_type,
+            sim.world.seed,
+            &region.id,
+            (day / 30) % 4,
+            day / 120,
+        ) {
+            candidates.push(tmpl.replace("{}", &region.name));
         }
     }
     let tick = sim.world.tick;
