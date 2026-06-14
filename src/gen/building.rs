@@ -186,6 +186,74 @@ pub fn lay_district(
     out
 }
 
+/// Lay a single rural homestead (#458): a dwelling and an outbuilding around a
+/// trodden yard, with a worked field beside them — the scattered holdings of
+/// the open country, not a town. The yard is walkable (Settlement); the field
+/// is Farmland. Deterministic per seed. Returns the placed buildings, the
+/// dwelling first. Refuses (empty) if the patch won't fit.
+pub fn lay_homestead(
+    terrain: &mut TerrainMap,
+    ax: usize,
+    ay: usize,
+    seed: u64,
+) -> Vec<PlacedBuilding> {
+    const AW: usize = 14;
+    const AH: usize = 11;
+    if ax + AW > terrain.width || ay + AH > terrain.height {
+        return Vec::new();
+    }
+    let h = crate::rng::mix_u64(seed ^ 0x40E5_7EAD);
+    // The yard: trodden ground around the buildings (water keeps its bed).
+    for dy in 0..AH {
+        for dx in 0..AW {
+            let (tx, ty) = (ax + dx, ay + dy);
+            if !matches!(terrain.get(tx, ty), Some(Terrain::Water | Terrain::Coast)) {
+                terrain.set(tx, ty, Terrain::Settlement);
+            }
+        }
+    }
+    // The field: a worked strip along the bottom.
+    for dy in 8..AH {
+        for dx in 1..(AW - 1) {
+            let (tx, ty) = (ax + dx, ay + dy);
+            if !matches!(terrain.get(tx, ty), Some(Terrain::Water | Terrain::Coast)) {
+                terrain.set(tx, ty, Terrain::Farmland);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    // The dwelling: a cottage or, on a prosperous holding, a longhouse.
+    let dwelling = if h.is_multiple_of(2) {
+        BuildingStyle::Cottage
+    } else {
+        BuildingStyle::Longhouse
+    };
+    let (dw, dh) = dwelling.size();
+    if let Some(door) = lay_building(terrain, ax + 1, ay + 1, dw, dh, Side::South) {
+        out.push(PlacedBuilding {
+            style: dwelling,
+            x: ax + 1,
+            y: ay + 1,
+            w: dw,
+            h: dh,
+            door,
+        });
+    }
+    // The outbuilding: a barn/shed, set apart across the yard.
+    let (sw, sh) = BuildingStyle::Hut.size();
+    if let Some(door) = lay_building(terrain, ax + 9, ay + 2, sw, sh, Side::West) {
+        out.push(PlacedBuilding {
+            style: BuildingStyle::Hut,
+            x: ax + 9,
+            y: ay + 2,
+            w: sw,
+            h: sh,
+            door,
+        });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,6 +350,33 @@ mod tests {
         let pb = lay_district(&mut b, 1, 1, 28, 22, 99);
         assert_eq!(pa, pb);
         assert_eq!(a.tiles, b.tiles);
+    }
+
+    #[test]
+    fn a_homestead_has_a_dwelling_an_outbuilding_and_a_field() {
+        let mut t = blank(20, 16);
+        let placed = lay_homestead(&mut t, 2, 2, 7);
+        assert_eq!(placed.len(), 2, "a dwelling and an outbuilding");
+        // Both buildings are real (walls + a door).
+        for b in &placed {
+            assert_eq!(t.get(b.door.0, b.door.1), Some(Terrain::Door));
+        }
+        // There is worked field in the holding.
+        let mut field = 0;
+        for y in 2..18 {
+            for x in 2..16 {
+                if t.get(x, y) == Some(Terrain::Farmland) {
+                    field += 1;
+                }
+            }
+        }
+        assert!(field > 0, "a homestead has a worked field");
+    }
+
+    #[test]
+    fn a_homestead_refuses_to_run_off_the_map() {
+        let mut t = blank(10, 8);
+        assert!(lay_homestead(&mut t, 0, 0, 1).is_empty());
     }
 
     #[test]
