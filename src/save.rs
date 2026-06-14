@@ -170,6 +170,8 @@ pub enum PlayerChoice {
     },
     /// Sit down and treat your own sickness with what you carry (#451).
     TendSelf,
+    /// Forage the ground for medicinal herbs (#456).
+    ForageHerbs,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

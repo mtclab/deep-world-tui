@@ -120,6 +120,7 @@ impl App {
             C::Gather => self.gather(),
             C::Rest => self.rest(),
             C::TendSelf => self.tend_illness(),
+            C::ForageHerbs => self.forage_herbs(),
             C::UseService { service } => {
                 let svc = match service.to_ascii_lowercase().as_str() {
                     "tavern" => Some(SettlementService::Tavern),
