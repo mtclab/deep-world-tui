@@ -389,6 +389,10 @@ pub enum EncounterKind {
     /// people in the world. They barter härkä goods for metal, take no coin,
     /// and do not haggle (#443).
     KhorTrader,
+    /// A Mëräk exchange at the tideline — the Thalassian deep-sea people. They
+    /// barter deep-water goods (fish, deep-glass) for surface make (cloth,
+    /// tools); no coin, fixed seasonal measure (#445).
+    MerakTrader,
 }
 
 impl EncounterKind {
@@ -419,6 +423,7 @@ impl EncounterKind {
             EncounterKind::BorderWatch => "Spears at the waymark. The watch wants to know your name and your business.",
             EncounterKind::AuroraVeil => "The night sky splits into slow green fire. Even the wind stops to watch.",
             EncounterKind::KhorTrader => "Khör traders wait by a cairn hung with härkä-leather and steppe-butter — broad, cold-skinned, unhurried. They deal in goods, not coin, and they do not haggle.",
+            EncounterKind::MerakTrader => "Mëräk surface at the tideline, deep-folk laying out cold deep-fish and water-smoothed deep-glass on the wet stones. They take cloth and tools, never coin, and the rate is the rate.",
         }
     }
 
@@ -499,6 +504,7 @@ impl EncounterKind {
             EncounterKind::AuroraVeil => vec![EncounterAction::Calm, EncounterAction::Talk],
             // The Khör barter (Trade) or you leave (Flee) — no talk, no bribe.
             EncounterKind::KhorTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
+            EncounterKind::MerakTrader => vec![EncounterAction::Trade, EncounterAction::Flee],
         }
     }
 }
@@ -700,7 +706,14 @@ impl Encounter {
                         EncounterKind::DistantFire
                     }
                 }
-                Terrain::Road | Terrain::Coast => {
+                Terrain::Coast => {
+                    if alt {
+                        EncounterKind::MerakTrader
+                    } else {
+                        EncounterKind::PilgrimBand
+                    }
+                }
+                Terrain::Road => {
                     if alt {
                         EncounterKind::TravelingBard
                     } else {
