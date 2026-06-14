@@ -87,3 +87,46 @@ fn tavern_surfaces_the_rumor_to_the_player() {
         "the rumor should reach the player's status line, got: {msg}"
     );
 }
+
+#[test]
+fn the_nonhuman_peoples_trade_is_rumored_where_they_dwell() {
+    // Each people is named where its terrain dominates (#447): Mëräk/coast,
+    // Khör/steppe, Häl/forest, Tzäkhar/upland. Across a season-spanning sweep
+    // of varied worlds, the words that belong to the present region_types show.
+    use deep_world_tui::sim::rumors::informed_rumor;
+    use deep_world_tui::sim::SimState;
+
+    let charts = load_charts().expect("charts");
+    for seed in [42u64, 555, 777] {
+        let sim = SimState::new(seed, charts.clone());
+        let types: std::collections::HashSet<String> = sim
+            .world
+            .regions
+            .iter()
+            .map(|r| r.region_type.clone())
+            .collect();
+        // Collect every rumor the world will tell over a year and four salts.
+        let mut all = String::new();
+        for day in (1..480).step_by(7) {
+            for salt in 0..6u64 {
+                if let Some(t) = informed_rumor(&sim, day, salt) {
+                    all.push_str(&t);
+                    all.push('\n');
+                }
+            }
+        }
+        for (rtype, people) in [
+            ("coast", "Mëräk"),
+            ("steppe", "Khör"),
+            ("forest", "Häl"),
+            ("upland", "Tzäkhar"),
+        ] {
+            if types.contains(rtype) {
+                assert!(
+                    all.contains(people),
+                    "seed {seed} has a {rtype} region but never rumored the {people}"
+                );
+            }
+        }
+    }
+}
