@@ -213,10 +213,28 @@ pub fn district_buildings(
     } else {
         9
     };
+    // A real town reads around an open heart: reserve a central market plaza
+    // (it stays walkable Settlement — `lay_district` paints the ground street;
+    // we simply keep buildings out of it). Hamlets are too small to spare one.
+    let plaza = if span >= 16 {
+        let pw = (aw / 3).clamp(4, aw.saturating_sub(2));
+        let ph = (ah / 4).clamp(3, ah.saturating_sub(2));
+        Some((ax + (aw - pw) / 2, ay + (ah - ph) / 2, pw, ph))
+    } else {
+        None
+    };
     let mut py = 0;
     while py + 4 <= ah {
         let mut px = 0;
         while px + 4 <= aw {
+            // Keep the plaza clear: skip any plot that would build into it.
+            if let Some((qx, qy, qw, qh)) = plaza {
+                let (lx, ly) = (ax + px, ay + py);
+                if lx < qx + qw && lx + stride > qx && ly < qy + qh && ly + stride > qy {
+                    px += stride;
+                    continue;
+                }
+            }
             // Building fills the plot bar a one-tile street; the +1 inset
             // already leaves a street on the north and west.
             let avail_w = (stride - 1).min(aw - px - 1);
@@ -500,6 +518,34 @@ mod tests {
             );
             assert!(Terrain::Hearth.passable(), "you stand by the hearth");
         }
+    }
+
+    #[test]
+    fn a_large_town_keeps_a_central_market_plaza_clear() {
+        // A real town (span >= 16) reserves an open heart; buildings keep out.
+        let (ax, ay, aw, ah) = (0usize, 0usize, 40usize, 36usize);
+        let placed = district_buildings(ax, ay, aw, ah, 31, BuildCharacter::Plain);
+        assert!(!placed.is_empty(), "a town has buildings around its plaza");
+        // The plaza rect, computed exactly as the generator does.
+        let pw = (aw / 3).clamp(4, aw - 2);
+        let ph = (ah / 4).clamp(3, ah - 2);
+        let (qx, qy) = (ax + (aw - pw) / 2, ay + (ah - ph) / 2);
+        for b in &placed {
+            let overlaps = b.x < qx + pw && b.x + b.w > qx && b.y < qy + ph && b.y + b.h > qy;
+            assert!(
+                !overlaps,
+                "building at ({},{}) {}x{} intrudes on the plaza [{qx},{qy} {pw}x{ph}]",
+                b.x, b.y, b.w, b.h
+            );
+        }
+    }
+
+    #[test]
+    fn a_hamlet_is_too_small_for_a_plaza() {
+        // A small holding (span < 16) packs tight — no reserved plaza, so the
+        // few plots it has still get their buildings.
+        let placed = district_buildings(0, 0, 12, 12, 31, BuildCharacter::Plain);
+        assert!(!placed.is_empty(), "a hamlet still raises its huts");
     }
 
     #[test]
