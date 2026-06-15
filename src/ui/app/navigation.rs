@@ -1024,6 +1024,18 @@ impl App {
             );
             sim.log(tick, crate::sim::journal::Voice::Rumor, news);
         }
+        // The first such journey marks the life: the province is not the world
+        // (#456). Recorded once, it stands in the legacy at the end.
+        if self.milestones.record(
+            crate::sim::milestones::MilestoneKind::WalkedToGreatCity,
+            day as u32,
+        ) {
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                let line = crate::sim::milestones::MilestoneKind::WalkedToGreatCity.journal_text();
+                sim.log(tick, crate::sim::journal::Voice::Travel, line);
+            }
+        }
     }
 }
 

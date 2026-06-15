@@ -14,6 +14,7 @@ pub enum MilestoneKind {
     FirstSettlement,
     FirstQuestCompleted,
     FirstDeath,
+    WalkedToGreatCity,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -133,6 +134,9 @@ impl MilestoneKind {
             }
             MilestoneKind::FirstDeath => {
                 "The world did not end. It merely paused, and then continued without me. I remember still.".into()
+            }
+            MilestoneKind::WalkedToGreatCity => {
+                "I walked the long roads to a great city of the continent and came home again. The province is not the whole world, and now I have seen it.".into()
             }
         }
     }
