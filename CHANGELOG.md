@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**A town gets a spine (#458)** — following the market plaza, a real town now also has a **main street**: a clear thoroughfare runs the length of a large district through the plaza, the lanes branching off it, so the town reads as a place on a road rather than an even field of roofs. Like the plaza it stays walkable ground; hamlets stay too small for one; deterministic per seed, with walls, doors, and NPC streets still in agreement.
+
 **The long road turns a profit (#456)** — a journey to a great city is no longer a one-way errand for the city's own goods: the **bulk commodities you carry out** — wood, stone, cloth, iron, glass, hide, leather, herb, cordage — now **sell at a city premium** for coin, the province's cheap surplus being the city's dear import. Haul goods to the road's end and come home with silver (a little more when the road runs lucky); your gear, food, and water are kept, never sold. The arbitrage is the loop: gather or buy cheap at home, sell dear down the Bronze Road.
 
 **A town's open heart (#458)** — a real town now reads around a **central market plaza**: the building generator reserves an open square at the heart of a large district and keeps structures out of it, so a town is no longer an undifferentiated field of roofs but a place with a centre to gather in. The plaza stays walkable ground like the streets, hamlets stay too small to spare one, and the layout is deterministic per seed — walls, doors, and NPC streets still agree.
