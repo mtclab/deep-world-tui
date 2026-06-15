@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The market square comes alive (#458)** — by day the townsfolk now **gather in the market plaza** instead of scattering evenly down every lane: the square fills first and the souls spill into the side streets only once it is full, so a town at noon reads as a lived-in place with a centre. Indoors by night they still cluster at the hearths, as before. Deterministic per person and day; the plaza is one shared definition the building generator and the street life both read.
+
 **A town gets a spine (#458)** — following the market plaza, a real town now also has a **main street**: a clear thoroughfare runs the length of a large district through the plaza, the lanes branching off it, so the town reads as a place on a road rather than an even field of roofs. Like the plaza it stays walkable ground; hamlets stay too small for one; deterministic per seed, with walls, doors, and NPC streets still in agreement.
 
 **The long road turns a profit (#456)** — a journey to a great city is no longer a one-way errand for the city's own goods: the **bulk commodities you carry out** — wood, stone, cloth, iron, glass, hide, leather, herb, cordage — now **sell at a city premium** for coin, the province's cheap surplus being the city's dear import. Haul goods to the road's end and come home with silver (a little more when the road runs lucky); your gear, food, and water are kept, never sold. The arbitrage is the loop: gather or buy cheap at home, sell dear down the Bronze Road.
