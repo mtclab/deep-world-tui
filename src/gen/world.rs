@@ -375,12 +375,19 @@ fn generate_terrain(
             sy + 1,
             region_type,
         );
-        let max_edge = if probe_cap >= 15_000 { 72 } else { 48 };
-        let room = max_edge
-            .min(spacing.saturating_sub(4))
-            .min(width.saturating_sub(sx + 2))
-            .min(height.saturating_sub(sy + 2))
-            .max(2);
+        let is_city = probe_cap >= 15_000;
+        let max_edge = if is_city { 72 } else { 48 };
+        // A great town gets a wider berth than its even share of the sector: the
+        // rare Tier-II city rightly sprawls past the spacing that holds ordinary
+        // towns in line (#454 sequence). The actual map room (and the running
+        // `next_free_x` cursor) still keeps districts from overlapping.
+        let room = settlement_berth(
+            max_edge,
+            spacing,
+            width.saturating_sub(sx + 2),
+            height.saturating_sub(sy + 2),
+            is_city,
+        );
         let frac = 35 + (rng.next_u64() % 36) as u32; // 35–70% of capacity
                                                       // Capacity is sampled at the founding corner (anchor street cell) —
                                                       // towns grow FROM their water outward, and the daily sim reads the
@@ -726,6 +733,30 @@ pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
     }
 }
 
+/// The district edge a settlement may claim at its spot: the most its tier
+/// wants (`max_edge`), held to the real map room left around it, and — for an
+/// ordinary town — to its even share of the sector. A great town (a Tier-II
+/// city) is exempt from the even-share cap so it can sprawl past its neighbours;
+/// `next_free_x` and the map bounds still keep districts from overlapping.
+fn settlement_berth(
+    max_edge: usize,
+    spacing: usize,
+    width_left: usize,
+    height_left: usize,
+    is_city: bool,
+) -> usize {
+    let even_cap = if is_city {
+        usize::MAX
+    } else {
+        spacing.saturating_sub(4)
+    };
+    max_edge
+        .min(even_cap)
+        .min(width_left)
+        .min(height_left)
+        .max(2)
+}
+
 /// The people of the Five whose home ground this region is, if any — so an
 /// enclave is seeded on terrain that is truly theirs (#454): the Mëräk on the
 /// coast, the Khör on the steppe, the Häl in the deep forest. Other regions
@@ -802,6 +833,22 @@ mod tests {
     fn make_world(seed: u64) -> World {
         let charts = charts::load_charts().unwrap();
         generate_world(seed, &charts)
+    }
+
+    #[test]
+    fn a_great_town_gets_a_wider_berth() {
+        // In a tight sector (small spacing), an ordinary town is held to its
+        // even share, but a city sprawls to its full tier edge.
+        let spacing = 30;
+        let town = settlement_berth(48, spacing, 100, 100, false);
+        let city = settlement_berth(72, spacing, 100, 100, true);
+        assert_eq!(town, spacing - 4, "a town keeps to its even share");
+        assert_eq!(city, 72, "a city ignores the even-share cap");
+        assert!(city > town, "the great town sprawls past its neighbours");
+        // The real map room still binds everyone — no running off the edge.
+        assert_eq!(settlement_berth(72, spacing, 20, 100, true), 20);
+        assert_eq!(settlement_berth(72, spacing, 100, 16, true), 16);
+        assert!(settlement_berth(2, 0, 0, 0, false) >= 2, "never below 2");
     }
 
     #[test]
