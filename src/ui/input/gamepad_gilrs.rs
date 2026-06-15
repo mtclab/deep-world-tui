@@ -7,29 +7,68 @@
 //! Controller presents as a standard gamepad, so this same reader serves it and
 //! the grips/trackpads arrive as whatever Steam Input binds them to.
 
-use super::gamepad::GamepadButton;
-use gilrs::{Button, EventType, Gilrs};
+use super::gamepad::{stick_direction, GamepadButton};
+use gilrs::{Axis, Button, EventType, Gilrs};
+
+/// Polls between repeats of a held stick — so a pushed stick *walks* (a step
+/// every few frames) instead of sprinting one step per frame.
+const STICK_REPEAT_FRAMES: u32 = 4;
 
 /// A connected-controller reader. `None` from [`Pad::new`] means no gamepad
 /// subsystem (then the game simply runs on the keyboard as before).
 pub struct Pad {
     gilrs: Gilrs,
+    /// Latest left-stick position, tracked across polls.
+    lx: f32,
+    ly: f32,
+    /// The stick direction we last emitted, for edge detection + repeat pacing.
+    last_stick: Option<GamepadButton>,
+    repeat: u32,
 }
 
 impl Pad {
     pub fn new() -> Option<Self> {
-        Gilrs::new().ok().map(|gilrs| Pad { gilrs })
+        Gilrs::new().ok().map(|gilrs| Pad {
+            gilrs,
+            lx: 0.0,
+            ly: 0.0,
+            last_stick: None,
+            repeat: 0,
+        })
     }
 
     /// Drain the controller's pending events and return the logical buttons
-    /// pressed (button-down edges) since the last poll. Call once per frame.
+    /// pressed since the last poll: button-down edges, plus the left stick
+    /// resolved to a d-pad direction (a fresh push steps at once, a held push
+    /// steps every few frames). Call once per frame.
     pub fn poll_pressed(&mut self) -> Vec<GamepadButton> {
         let mut out = Vec::new();
         while let Some(ev) = self.gilrs.next_event() {
-            if let EventType::ButtonPressed(button, _) = ev.event {
-                if let Some(b) = map_button(button) {
-                    out.push(b);
+            match ev.event {
+                EventType::ButtonPressed(button, _) => {
+                    if let Some(b) = map_button(button) {
+                        out.push(b);
+                    }
                 }
+                EventType::AxisChanged(Axis::LeftStickX, v, _) => self.lx = v,
+                EventType::AxisChanged(Axis::LeftStickY, v, _) => self.ly = v,
+                _ => {}
+            }
+        }
+        // The left stick walks: a new direction steps at once; the same
+        // direction held steps again only every few frames; centred, it rests.
+        let dir = stick_direction(self.lx, self.ly);
+        if dir != self.last_stick {
+            self.last_stick = dir;
+            self.repeat = 0;
+            if let Some(d) = dir {
+                out.push(d);
+            }
+        } else if let Some(d) = dir {
+            self.repeat += 1;
+            if self.repeat >= STICK_REPEAT_FRAMES {
+                self.repeat = 0;
+                out.push(d);
             }
         }
         out
