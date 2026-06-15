@@ -733,4 +733,72 @@ impl App {
             .unwrap_or(0);
         Some((pos.region_idx, nearest))
     }
+
+    /// Set out on the long roads to one of the named cities of the continent
+    /// (#456): the playable map is a province slice — the great cities never
+    /// stand on it — but from a town on the roads you can make the days-long
+    /// journey there and back, returning with the city's own goods and word of
+    /// the wider world. You must provision the road (Food); the trip eats it.
+    pub fn journey_to_city(&mut self) {
+        if self.current_settlement().is_none() {
+            self.status_msg =
+                Some("The great cities lie down the long roads — set out from a town.".into());
+            return;
+        }
+        const PROVISIONS: u32 = 6;
+        let have_food = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.get(crate::model::ItemType::Food))
+            .unwrap_or(0);
+        if have_food < PROVISIONS {
+            self.status_msg = Some(format!(
+                "The road to the great cities is long — provision it with {PROVISIONS} Food first."
+            ));
+            return;
+        }
+        // Which city, settled by the seed and the day — a different road each time.
+        let day = self.clock.day as u64;
+        let idx = (crate::rng::mix_u64(self.seed ^ day.wrapping_mul(0x9E37_79B9)) as usize)
+            % crate::sim::CANON_CITIES.len();
+        let (city, blurb) = crate::sim::CANON_CITIES[idx];
+        // You set out rested and provisioned; the road takes its days, and the
+        // provisions are eaten on the way (the clock auto-feeds from the pack).
+        self.vitals.energy = self.vitals.energy.max(0.9);
+        self.advance_clock(72); // ~three days there and back
+                                // The city's own goods come home with you, the luck of the road on top.
+        let lucky = crate::rng::unit_from_hash(crate::rng::mix_u64(self.seed ^ day ^ 0x10AD_5EED))
+            < self.fortune.tilt_good(0.30);
+        let bonus = if lucky { 1 } else { 0 };
+        if let Some(ref mut ps) = self.player_start {
+            for (item, qty) in city_goods(idx) {
+                ps.inventory.add(item, qty + bonus);
+            }
+        }
+        self.god_affinity.adjust(crate::model::GodName::Masa, 0.03);
+        self.status_msg = Some(format!(
+            "You walked the long roads to {city} and back — {blurb}. (~3 days)"
+        ));
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                format!("I walked the long roads to {city}. {blurb}."),
+            );
+        }
+    }
+}
+
+/// What each named city sends home with a traveller — its own canon specialty
+/// (#456), matched to the goods of the game.
+fn city_goods(idx: usize) -> Vec<(crate::model::ItemType, u32)> {
+    use crate::model::ItemType as I;
+    match idx {
+        0 => vec![(I::Food, 4)], // Sampa Crossing — Basin grain
+        1 => vec![(I::Hide, 2), (I::Iron, 1), (I::Food, 2)], // Vessenath — furs, steel, fish
+        2 => vec![(I::Food, 3)], // Halkess — grain
+        3 => vec![(I::Tool, 1), (I::Glass, 1)], // Velkarath — salvage, harbor-goods
+        _ => vec![(I::Wood, 3)], // Keuramark — timber, amber
+    }
 }
