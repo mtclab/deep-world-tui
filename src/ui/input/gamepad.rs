@@ -131,6 +131,30 @@ pub fn key_for(button: GamepadButton) -> Option<KeyCode> {
     button.default_action().map(GamepadAction::to_key)
 }
 
+/// The dead-zone past which a stick counts as pushed in a direction.
+pub const STICK_DEADZONE: f32 = 0.5;
+
+/// Which way the left stick points, as a d-pad direction — the four-way walk a
+/// grid map needs (#484). Inside the dead-zone it points nowhere; outside, the
+/// dominant axis wins. Convention: stick **up is +y** (gilrs' default), so a
+/// pushed-up stick walks north. Pure, so it is tested without any device.
+pub fn stick_direction(x: f32, y: f32) -> Option<GamepadButton> {
+    if x.abs() < STICK_DEADZONE && y.abs() < STICK_DEADZONE {
+        return None;
+    }
+    Some(if x.abs() >= y.abs() {
+        if x > 0.0 {
+            GamepadButton::DpadRight
+        } else {
+            GamepadButton::DpadLeft
+        }
+    } else if y > 0.0 {
+        GamepadButton::DpadUp
+    } else {
+        GamepadButton::DpadDown
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,6 +165,21 @@ mod tests {
         assert_eq!(key_for(GamepadButton::DpadDown), Some(KeyCode::Char('j')));
         assert_eq!(key_for(GamepadButton::DpadLeft), Some(KeyCode::Char('h')));
         assert_eq!(key_for(GamepadButton::DpadRight), Some(KeyCode::Char('l')));
+    }
+
+    #[test]
+    fn the_stick_points_a_cardinal_way() {
+        // Inside the dead-zone: nowhere.
+        assert_eq!(stick_direction(0.0, 0.0), None);
+        assert_eq!(stick_direction(0.3, -0.2), None);
+        // Pushed each way (up is +y), dominant axis wins.
+        assert_eq!(stick_direction(0.0, 0.9), Some(GamepadButton::DpadUp));
+        assert_eq!(stick_direction(0.0, -0.9), Some(GamepadButton::DpadDown));
+        assert_eq!(stick_direction(0.9, 0.0), Some(GamepadButton::DpadRight));
+        assert_eq!(stick_direction(-0.9, 0.0), Some(GamepadButton::DpadLeft));
+        // A diagonal resolves to the stronger axis.
+        assert_eq!(stick_direction(0.9, 0.6), Some(GamepadButton::DpadRight));
+        assert_eq!(stick_direction(0.6, 0.9), Some(GamepadButton::DpadUp));
     }
 
     #[test]
