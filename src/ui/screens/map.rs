@@ -153,6 +153,24 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
         })
         .unwrap_or_default();
 
+    // A sign over each service building's door — the tavern, the temple, the
+    // forge told apart from the street, not by knocking on every door (#458).
+    let service_door_map: HashMap<(usize, usize), crate::model::SettlementService> = app
+        .sim
+        .as_ref()
+        .and_then(|sim| sim.world.regions.get(region_idx))
+        .map(|r| {
+            let mut m = HashMap::new();
+            for s in &r.settlements {
+                let buildings = crate::gen::town::town_buildings(s);
+                for (b, svc) in buildings.iter().zip(s.services.iter()) {
+                    m.insert(b.door, *svc);
+                }
+            }
+            m
+        })
+        .unwrap_or_default();
+
     let memorial_set: std::collections::HashSet<(usize, usize)> = app
         .sim
         .as_ref()
@@ -218,6 +236,16 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
                             spans.push(Span::styled(
                                 crate::model::memorial::Memorial::glyph().to_string(),
                                 Style::default().fg(theme.archive_red()),
+                            ));
+                        } else if let Some(svc) = (*terrain == Terrain::Door)
+                            .then(|| service_door_map.get(&(mx, my)))
+                            .flatten()
+                        {
+                            spans.push(Span::styled(
+                                svc.map_sign().to_string(),
+                                Style::default()
+                                    .fg(theme.archive_red())
+                                    .add_modifier(Modifier::BOLD),
                             ));
                         } else {
                             let c = terrain.glyph();
