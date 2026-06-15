@@ -517,6 +517,24 @@ impl SettlementService {
         }
     }
 
+    /// A single-width sign to paint over a service building's door on the map,
+    /// so the tavern, the temple, the forge can be told from a plain home and
+    /// each other from the street — without knocking on every door (#458). The
+    /// emoji `glyph` is double-width and would break the tile grid; these are
+    /// monospace-safe.
+    pub fn map_sign(self) -> char {
+        match self {
+            SettlementService::Tavern => 'T',
+            SettlementService::Temple => 'C',
+            SettlementService::Forge => 'F',
+            SettlementService::Hearth => 'H',
+            SettlementService::TrapWorkshop => 'W',
+            SettlementService::Archive => 'A',
+            SettlementService::TradePost => '$',
+            SettlementService::Shrine => 'S',
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             SettlementService::Tavern => "Tavern",
@@ -1606,6 +1624,27 @@ mod tests {
         assert_eq!(SettlementService::Tavern.cost(), 2);
 
         assert_eq!(SettlementService::Temple.cost(), 3);
+    }
+
+    #[test]
+    fn service_map_signs_are_single_width_and_distinct() {
+        let all = [
+            SettlementService::Tavern,
+            SettlementService::Temple,
+            SettlementService::Forge,
+            SettlementService::Hearth,
+            SettlementService::TrapWorkshop,
+            SettlementService::Archive,
+            SettlementService::TradePost,
+            SettlementService::Shrine,
+        ];
+        let mut seen = std::collections::HashSet::new();
+        for s in all {
+            let c = s.map_sign();
+            // ASCII so it is one terminal cell — the tile grid must not skew.
+            assert!(c.is_ascii(), "{:?} sign {c:?} must be single-width", s);
+            assert!(seen.insert(c), "{:?} sign {c:?} collides with another", s);
+        }
     }
 
     #[test]
