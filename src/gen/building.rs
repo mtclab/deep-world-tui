@@ -223,17 +223,27 @@ pub fn district_buildings(
     } else {
         None
     };
+    // And a real town has a spine: a main street runs the length of the
+    // district through the plaza, a clear thoroughfare the lanes branch off
+    // (it stays walkable Settlement, like the plaza and the side streets).
+    let main_street = if span >= 16 {
+        let msw = if span >= 28 { 3 } else { 2 };
+        Some((ax + aw / 2 - msw / 2, ay, msw, ah))
+    } else {
+        None
+    };
+    let reserved = [plaza, main_street];
     let mut py = 0;
     while py + 4 <= ah {
         let mut px = 0;
         while px + 4 <= aw {
-            // Keep the plaza clear: skip any plot that would build into it.
-            if let Some((qx, qy, qw, qh)) = plaza {
-                let (lx, ly) = (ax + px, ay + py);
-                if lx < qx + qw && lx + stride > qx && ly < qy + qh && ly + stride > qy {
-                    px += stride;
-                    continue;
-                }
+            // Keep the plaza and the main street clear of buildings.
+            let (lx, ly) = (ax + px, ay + py);
+            if reserved.iter().flatten().any(|&(qx, qy, qw, qh)| {
+                lx < qx + qw && lx + stride > qx && ly < qy + qh && ly + stride > qy
+            }) {
+                px += stride;
+                continue;
             }
             // Building fills the plot bar a one-tile street; the +1 inset
             // already leaves a street on the north and west.
@@ -536,6 +546,27 @@ mod tests {
                 !overlaps,
                 "building at ({},{}) {}x{} intrudes on the plaza [{qx},{qy} {pw}x{ph}]",
                 b.x, b.y, b.w, b.h
+            );
+        }
+    }
+
+    #[test]
+    fn a_large_town_keeps_a_main_street_clear() {
+        // A real town's central spine stays free of buildings, full height.
+        let (ax, ay, aw, ah) = (0usize, 0usize, 40usize, 36usize);
+        let placed = district_buildings(ax, ay, aw, ah, 31, BuildCharacter::Plain);
+        let msw = if aw.min(ah) >= 28 { 3 } else { 2 };
+        let msx = ax + aw / 2 - msw / 2;
+        for b in &placed {
+            let overlaps = b.x < msx + msw && b.x + b.w > msx && b.y < ay + ah && b.y + b.h > ay;
+            assert!(
+                !overlaps,
+                "building at ({},{}) {}x{} blocks the main street [x {msx}..{}]",
+                b.x,
+                b.y,
+                b.w,
+                b.h,
+                msx + msw
             );
         }
     }
