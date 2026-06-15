@@ -792,6 +792,27 @@ impl Settlement {
         }
     }
 
+    /// If this settlement is a non-human **enclave** — its people are one of
+    /// the canon Five — which people it belongs to (#454). The Five keep their
+    /// own ground and barter in kind; an enclave is read and traded with
+    /// differently than a town of the human regions. Derived from the dominant
+    /// people, so nothing new is persisted.
+    pub fn enclave_people(&self) -> Option<crate::model::PeopleKind> {
+        let dominant = self.people.first()?;
+        let pk = crate::model::PeopleKind::from_name(&dominant.people);
+        pk.is_of_the_five().then_some(pk)
+    }
+
+    /// The settlement's name, marked as an enclave of the Five where it is one
+    /// ("Vaskiluuri, a Tzäkhar enclave"), so the map and the menus name it for
+    /// what it is.
+    pub fn display_name(&self) -> String {
+        match self.enclave_people() {
+            Some(pk) => format!("{}, a {} enclave", self.name, pk.label()),
+            None => self.name.clone(),
+        }
+    }
+
     /// This settlement's footprint edge in tiles: the painted district if
     /// one is laid, else what the head-count wants.
     pub fn footprint(&self) -> u32 {
@@ -1777,6 +1798,46 @@ mod tests {
         };
 
         roundtrip(&s);
+    }
+
+    #[test]
+    fn enclave_is_recognised_from_its_people() {
+        let mut s = Settlement {
+            id: "e".into(),
+            name: "Vaskiluuri".into(),
+            size: "hamlet".into(),
+            region: "cave".into(),
+            population: 30,
+            description: String::new(),
+            people: vec![Person {
+                people: "khör".into(),
+                ..Default::default()
+            }],
+            services: vec![],
+            politics: SettlementPolitics::new(),
+            food_stock: 0.0,
+            farms: Vec::new(),
+            buildings: Vec::new(),
+            festival_until_day: 0,
+            famine_days: 0,
+            map_x: 0,
+            map_y: 0,
+            district: 0,
+        };
+        assert_eq!(s.enclave_people(), Some(crate::model::PeopleKind::Khor));
+        assert_eq!(s.display_name(), "Vaskiluuri, a Khör enclave");
+
+        // A human-led settlement is no enclave.
+        s.people = vec![Person {
+            people: "metsik".into(),
+            ..Default::default()
+        }];
+        assert_eq!(s.enclave_people(), None);
+        assert_eq!(s.display_name(), "Vaskiluuri");
+
+        // A people-less shell is no enclave either.
+        s.people = vec![];
+        assert_eq!(s.enclave_people(), None);
     }
 
     #[test]
