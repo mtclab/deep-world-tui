@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The Five take no coin — barter in kind (#454)** — an enclave's market is a **trade floor, not a stall**: the Five take no coin and do not haggle. Lay down a good and they trade it for theirs at a fixed rate — a tool to the Khör for härkä-leather and steppe-butter, cloth to the Mëräk for deep-fish, food to the Tzäkhar for worked iron, and so on, the same coin-free measures as their roadside traders. Trying to buy with coin is refused; offer a good instead.
+
 **The Five keep their own craft (#454)** — an enclave is no longer just a renamed town: each of the Five keeps its signature work on its own ground — the **Tzäkhar** deep-forge, the trading floors of the **Mëräk** and **She'ar**, the **Häl** physic-shrine of Keuru's wood, the **Khör** word-keepers' shrine. So an enclave you walk into has the building and the service that people are known for.
 
 **The Five keep their own ground (#454)** — enclaves no longer depend on the dice alone: on a people's home terrain, now and then a settlement is **founded as theirs** — the Mëräk to the tideline, the Khör to the steppe, the Häl to the deep wood. Their people, their names, their trades, on the ground that is truly theirs. (Seeded with the settlement's own deterministic rng, so no other settlement's people or place is disturbed.)

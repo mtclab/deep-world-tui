@@ -47,6 +47,12 @@ impl App {
             .unwrap_or(false)
     }
 
+    /// The people of an enclave the player is currently trading at, if any —
+    /// the Five take no coin, so their floor barters in kind (#454).
+    fn current_enclave_people(&self) -> Option<crate::model::PeopleKind> {
+        self.current_settlement().and_then(|s| s.enclave_people())
+    }
+
     pub fn buy_item(&mut self, item: ItemType) {
         if !item.tradeable() {
             self.status_msg = Some("Cannot buy that".into());
@@ -54,6 +60,13 @@ impl App {
         }
         if self.market_barred() {
             self.status_msg = Some("The market is closed to your kind here.".into());
+            return;
+        }
+        if let Some(pk) = self.current_enclave_people() {
+            self.status_msg = Some(format!(
+                "The {} take no coin. Lay down a good and they trade in kind.",
+                pk.label()
+            ));
             return;
         }
         // Single source of truth with the displayed quote.
@@ -87,6 +100,12 @@ impl App {
             self.status_msg = Some("The market is closed to your kind here.".into());
             return;
         }
+        // At an enclave there is no coin: laying down a good is bartering it for
+        // theirs, at the people's own fixed rate (#454).
+        if let Some(pk) = self.current_enclave_people() {
+            self.barter_at_enclave(pk, item);
+            return;
+        }
         // Single source of truth with the displayed quote (spread-clamped so
         // selling never pays more than buying costs).
         let price = self.quote_sell_price(item);
@@ -106,6 +125,50 @@ impl App {
                 self.status_msg = Some(format!("No {} to sell", item.name()));
             }
         }
+    }
+
+    /// Barter a good at an enclave of the Five (#454): no coin changes hands —
+    /// you lay down a good and take theirs at a fixed rate. If they want none of
+    /// what you offer, they say so and keep their own.
+    fn barter_at_enclave(&mut self, people: crate::model::PeopleKind, offered: ItemType) {
+        let Some((cost, gives)) = crate::model::enclave_barter(people, offered) else {
+            self.status_msg = Some(format!(
+                "The {} want none of your {} — and they will not take coin.",
+                people.label(),
+                offered.name()
+            ));
+            return;
+        };
+        let Some(ref mut ps) = self.player_start else {
+            return;
+        };
+        if ps.inventory.get(offered) < cost {
+            self.status_msg = Some(format!(
+                "The {} ask {} {} for that trade.",
+                people.label(),
+                cost,
+                offered.name()
+            ));
+            return;
+        }
+        ps.inventory.remove(offered, cost);
+        let mut got: Vec<String> = Vec::new();
+        for (item, qty) in &gives {
+            ps.inventory.add(*item, *qty);
+            got.push(format!("{} {}", qty, item.name()));
+        }
+        self.play_sound(crate::audio::SoundEvent::Trade);
+        self.advance_clock_hour();
+        self.check_quests_on_tick();
+        if let Some(np) = self.current_settlement_people() {
+            self.inter_people_bias.mod_toward(np, 0.005);
+        }
+        self.status_msg = Some(format!(
+            "The {} take your {} and lay out {} in fair measure. No coin, no haggle. (1h)",
+            people.label(),
+            offered.name(),
+            got.join(", ")
+        ));
     }
 
     /// Try to palm an item off a market stall. The witness roll decides:

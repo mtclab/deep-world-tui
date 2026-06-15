@@ -574,6 +574,37 @@ impl SettlementService {
     }
 }
 
+/// The in-kind barter an enclave of the Five offers for a good you lay down
+/// (#454): the same fixed, coin-free rates as their roadside traders — they
+/// take no coin and do not haggle, the rate is the rate. Returns how many of
+/// the offered good it costs and what you get for it, or `None` if these people
+/// want nothing of what you offer. Goods only — never `Coin`.
+pub fn enclave_barter(
+    people: PeopleKind,
+    offered: ItemType,
+) -> Option<(u32, Vec<(ItemType, u32)>)> {
+    use ItemType as I;
+    let deal: (u32, &[(ItemType, u32)]) = match (people, offered) {
+        // The Khör give härkä-leather and steppe-butter for metal.
+        (PeopleKind::Khor, I::Tool) => (1, &[(I::Hide, 2), (I::Food, 2)]),
+        (PeopleKind::Khor, I::Iron) => (1, &[(I::Hide, 2), (I::Food, 1)]),
+        // The Mëräk give deep-fish and deep-glass for surface make.
+        (PeopleKind::Merak, I::Tool) => (1, &[(I::Food, 3), (I::Glass, 1)]),
+        (PeopleKind::Merak, I::Cloth) => (1, &[(I::Food, 2)]),
+        // The Tzäkhar give worked metal for surface food (they take two).
+        (PeopleKind::Tzakhar, I::Food) => (2, &[(I::Iron, 2), (I::Tool, 1)]),
+        (PeopleKind::Tzakhar, I::Herb) => (2, &[(I::Iron, 1)]),
+        // The Häl bring canopy physic and fruit down for cloth and tools.
+        (PeopleKind::Hal, I::Tool) => (1, &[(I::Salve, 1), (I::Herb, 2), (I::Food, 1)]),
+        (PeopleKind::Hal, I::Cloth) => (1, &[(I::Herb, 2), (I::Food, 2)]),
+        // The She'ar give desert game and succulent-physic for what wards the sun.
+        (PeopleKind::Shear, I::Cloth) => (1, &[(I::Food, 2), (I::Herb, 1)]),
+        (PeopleKind::Shear, I::Tool) => (1, &[(I::Food, 2), (I::Herb, 2)]),
+        _ => return None,
+    };
+    Some((deal.0, deal.1.to_vec()))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Faction {
     Crafters,
@@ -1798,6 +1829,33 @@ mod tests {
         };
 
         roundtrip(&s);
+    }
+
+    #[test]
+    fn enclave_barter_is_fixed_in_kind_and_coinless() {
+        use crate::model::PeopleKind as P;
+        // Each of the Five takes a good and gives goods — never coin, neither
+        // taken nor given.
+        let deals = [
+            (P::Khor, ItemType::Tool),
+            (P::Merak, ItemType::Cloth),
+            (P::Tzakhar, ItemType::Food),
+            (P::Hal, ItemType::Tool),
+            (P::Shear, ItemType::Cloth),
+        ];
+        for (pk, offered) in deals {
+            let (cost, gives) = enclave_barter(pk, offered).expect("the Five trade their goods");
+            assert!(cost >= 1, "{pk:?} asks for at least one {offered:?}");
+            assert!(!gives.is_empty(), "{pk:?} gives something back");
+            assert_ne!(offered, ItemType::Coin, "never trades for coin");
+            for (item, qty) in &gives {
+                assert_ne!(*item, ItemType::Coin, "{pk:?} never pays in coin");
+                assert!(*qty >= 1);
+            }
+        }
+        // They want nothing the deal doesn't name — and never coin.
+        assert!(enclave_barter(P::Khor, ItemType::Coin).is_none());
+        assert!(enclave_barter(P::Merak, ItemType::Stone).is_none());
     }
 
     #[test]

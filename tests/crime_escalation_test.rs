@@ -83,13 +83,37 @@ fn trade_mends_bias() {
     let people = a.current_settlement_people().expect("people");
     a.inter_people_bias.mod_toward(people, -0.2);
     let before = a.inter_people_bias.effective_bias(people);
-    a.player_start
-        .as_mut()
-        .unwrap()
-        .inventory
-        .add(ItemType::Coin, 30);
-    a.buy_item(ItemType::Food);
-    a.buy_item(ItemType::Herb);
+    // Honest trade mends bias either way: at a coin market you buy; at an
+    // enclave of the Five (no coin) you barter a good for theirs.
+    if let Some(pk) = a.current_settlement().and_then(|s| s.enclave_people()) {
+        let offered = [
+            ItemType::Tool,
+            ItemType::Cloth,
+            ItemType::Food,
+            ItemType::Herb,
+        ]
+        .into_iter()
+        .find(|&it| deep_world_tui::model::economy::enclave_barter(pk, it).is_some())
+        .expect("an enclave takes some good");
+        let cost = deep_world_tui::model::economy::enclave_barter(pk, offered)
+            .unwrap()
+            .0;
+        a.player_start
+            .as_mut()
+            .unwrap()
+            .inventory
+            .add(offered, cost * 2);
+        a.sell_item(offered);
+        a.sell_item(offered);
+    } else {
+        a.player_start
+            .as_mut()
+            .unwrap()
+            .inventory
+            .add(ItemType::Coin, 30);
+        a.buy_item(ItemType::Food);
+        a.buy_item(ItemType::Herb);
+    }
     let after = a.inter_people_bias.effective_bias(people);
     assert!(
         after > before,
