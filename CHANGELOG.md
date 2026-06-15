@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**A great town sprawls (#454/#378)** — the rare Tier-II city (the land could carry fifteen thousand and more) is no longer held to its even share of the sector: it gets a **wider berth**, sprawling past the spacing that keeps ordinary towns in line, while the map bounds and the placement cursor still keep districts from overlapping. (Full vertical sprawl still wants a taller sector — a save-touching rescale — for another day.)
+
 **Each people builds in its own hand (#454)** — an enclave no longer looks like a human town with different names: the Five raise their settlements in their own character. The **Tzäkhar** raise grand, deep-carved halls; the **Häl** keep to modest canopy-floor huts; the **Khör** to long herder-houses. The building styles lean to the dominant people, while the hash still varies them within that lean so no two settlements are twins. Human towns are unchanged.
 
 **The trade floor shows its measures (#454)** — the market screen at an enclave no longer shows misleading coin prices: it names itself a trade floor of the Five and lists, for each good you can lay down, exactly what they give for it in kind ("1 Tool (have 2) → 2 Hide, 2 Food"), with the goods they want none of greyed out. What you see is the rate; the rate is the rate.
