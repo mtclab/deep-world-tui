@@ -248,6 +248,8 @@ pub fn lay_district(
             }
         }
         terrain.set(b.door.0, b.door.1, Terrain::Door);
+        // A hearth at the heart of the room — every building has its fire.
+        terrain.set(b.x + b.w / 2, b.y + b.h / 2, Terrain::Hearth);
     }
     buildings
 }
@@ -396,7 +398,12 @@ mod tests {
             for iy in (b.y + 1)..(b.y + b.h - 1) {
                 for ix in (b.x + 1)..(b.x + b.w - 1) {
                     assert!(seen.insert((ix, iy)), "buildings overlap at ({ix},{iy})");
-                    assert_eq!(t.get(ix, iy), Some(Terrain::Floor));
+                    // Interior is walkable floor, but for the one hearth tile
+                    // at the heart of the room.
+                    assert!(
+                        matches!(t.get(ix, iy), Some(Terrain::Floor | Terrain::Hearth)),
+                        "interior ({ix},{iy}) is floor or hearth"
+                    );
                 }
             }
         }
@@ -420,6 +427,23 @@ mod tests {
                 adj_walkable,
                 "door at ({dx},{dy}) opens onto walkable ground"
             );
+        }
+    }
+
+    #[test]
+    fn every_building_has_a_hearth_at_its_heart() {
+        let mut t = blank(30, 24);
+        let placed = lay_district(&mut t, 1, 1, 28, 22, 4242);
+        for b in &placed {
+            let (hx, hy) = (b.x + b.w / 2, b.y + b.h / 2);
+            assert_eq!(
+                t.get(hx, hy),
+                Some(Terrain::Hearth),
+                "the building at ({},{}) has a hearth at its heart",
+                b.x,
+                b.y
+            );
+            assert!(Terrain::Hearth.passable(), "you stand by the hearth");
         }
     }
 

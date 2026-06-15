@@ -82,6 +82,7 @@ pub(crate) fn terrain_color(terrain: Terrain) -> Color {
         Terrain::Wall => Color::Rgb(0x6a, 0x5a, 0x4a),
         Terrain::Floor => Color::Rgb(0x5a, 0x4a, 0x3a),
         Terrain::Door => Color::Rgb(0xc2, 0x9a, 0x4a),
+        Terrain::Hearth => Color::Rgb(0xe8, 0x7a, 0x2a),
         Terrain::Farmland => Color::Rgb(0x8a, 0x9a, 0x4a),
         Terrain::Sand => Color::Rgb(0xc2, 0x9a, 0x6b),
         Terrain::Swamp => Color::Rgb(0x5a, 0x6a, 0x3a),

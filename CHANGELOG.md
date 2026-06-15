@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**A fire at the heart of every home (#458)** — buildings now have a **hearth** at their centre (new `Terrain::Hearth`, a `*` glowing warm on the map). Walk in and stand by it: resting on the hearth is the warmest rest in the world — a roof, walls, and a fire — an inn-grade night even in the deep cold that leaves the open country shivering. The hearth is where the household gathers; in time it is what the home is built around.
+
 **Everyone goes home at night (#458)** — the streets no longer simply empty after dark: the settlement's people go **indoors**, onto the floors of their own buildings, by the hearth. Now that you can walk in through a door, a lit window at night is someone you can still meet — step inside and greet them. Deterministic as ever (the same soul keeps the same room all night), and the renderer and the bump-to-talk layer read the same positions, so what you see indoors is exactly who you can meet.
 
 **Walk into the building (#458)** — the door is a way *in*, not a doorstep you bounce off. Step through it and you stand **inside, on the floor**, free to walk the rooms of the real walled structure — the interior is part of the one world map, not a separate screen. Crossing the threshold from the street still does what it always did — the tavern serves, the temple blesses, a plain home answers the knock — but **once, as you enter**, not again as you move about inside or step back out into the street. (First step toward lived-in interiors: hearths, occupants and furnishings come next.)

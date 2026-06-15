@@ -44,10 +44,14 @@ fn the_streets_fill_by_day_and_empty_by_night() {
             deep_world_tui::gen::town::is_house_of(s, x, y),
             "({x},{y}) is indoors at night"
         );
-        assert_eq!(
-            region.terrain.get(x, y),
-            Some(deep_world_tui::model::Terrain::Floor),
-            "({x},{y}) is a walkable interior floor"
+        assert!(
+            matches!(
+                region.terrain.get(x, y),
+                Some(
+                    deep_world_tui::model::Terrain::Floor | deep_world_tui::model::Terrain::Hearth
+                )
+            ),
+            "({x},{y}) is a walkable interior — floor or hearth"
         );
     }
 }

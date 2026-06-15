@@ -467,7 +467,8 @@ fn generate_terrain(
                     | Terrain::House
                     | Terrain::Wall
                     | Terrain::Floor
-                    | Terrain::Door => {}
+                    | Terrain::Door
+                    | Terrain::Hearth => {}
                     _ => tiles[cy * width + cx] = Terrain::Road,
                 }
             }

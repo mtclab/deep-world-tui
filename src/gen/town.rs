@@ -127,6 +127,7 @@ pub fn lay_town(terrain: &mut TerrainMap, anchor_x: usize, anchor_y: usize, foot
                         | Terrain::Wall
                         | Terrain::Floor
                         | Terrain::Door
+                        | Terrain::Hearth
                         | Terrain::Water
                         | Terrain::Coast
                 )

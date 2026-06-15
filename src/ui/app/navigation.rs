@@ -397,7 +397,10 @@ impl App {
                     // Already inside (on floor or another doorway) means you
                     // are leaving or crossing through — just a step. Coming
                     // from the street, this is an entrance.
-                    let entering = !matches!(cur, Some(Terrain::Floor) | Some(Terrain::Door));
+                    let entering = !matches!(
+                        cur,
+                        Some(Terrain::Floor) | Some(Terrain::Door) | Some(Terrain::Hearth)
+                    );
                     if let Some(ref mut p) = self.player_pos {
                         p.px = nx as usize;
                         p.py = ny as usize;
@@ -697,6 +700,7 @@ impl App {
                     | Terrain::Wall
                     | Terrain::Floor
                     | Terrain::Door
+                    | Terrain::Hearth
             )
         ) {
             return None;

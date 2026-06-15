@@ -25,6 +25,9 @@ pub enum Terrain {
     Floor,
     /// A doorway in a wall — the passable entry into a building (#458).
     Door,
+    /// The hearth at the heart of a building — walkable, and the warmest
+    /// place to rest in all the world: a roof, walls, and a fire (#458).
+    Hearth,
 }
 
 impl Terrain {
@@ -47,6 +50,7 @@ impl Terrain {
             Terrain::Wall => '▒',
             Terrain::Floor => '·',
             Terrain::Door => '+',
+            Terrain::Hearth => '*',
         }
     }
 
@@ -69,7 +73,7 @@ impl Terrain {
             Terrain::Forest | Terrain::Swamp | Terrain::Cave | Terrain::Tundra => 2,
             Terrain::DeepDesert => 2,
             Terrain::Water | Terrain::Mountain | Terrain::House => 1,
-            Terrain::Wall | Terrain::Floor | Terrain::Door => 1,
+            Terrain::Wall | Terrain::Floor | Terrain::Door | Terrain::Hearth => 1,
         }
     }
 
@@ -110,7 +114,7 @@ impl Terrain {
             Terrain::Tundra => Some(GodName::Kukri),
             Terrain::Sand | Terrain::DeepDesert => None,
             // The hearth-keeper holds the home and all its rooms.
-            Terrain::House | Terrain::Wall | Terrain::Floor | Terrain::Door => {
+            Terrain::House | Terrain::Wall | Terrain::Floor | Terrain::Door | Terrain::Hearth => {
                 Some(GodName::Oltzed)
             }
         }

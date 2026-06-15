@@ -510,16 +510,27 @@ impl App {
             | crate::sim::structures::BuildKind::Palisade
             | crate::sim::structures::BuildKind::Beacon => RestQuality::Campfire,
         });
-        let sheltered = structure_tier.is_some() || on_settlement;
+        // A hearth is the warmest rest in the world: a roof, walls, and a fire.
+        // Resting on it is an inn-grade night even in the deep cold (#458).
+        let on_hearth = self.player_pos.and_then(|p| {
+            self.sim
+                .as_ref()
+                .and_then(|s| s.world.regions.get(p.region_idx))
+                .and_then(|r| r.terrain.get(p.px, p.py))
+        }) == Some(crate::model::Terrain::Hearth);
+        let sheltered = structure_tier.is_some() || on_settlement || on_hearth;
         let base_quality = if was_deep_night && !sheltered {
             RestQuality::OutInCold
         } else {
             tile_rest_quality(on_settlement, false, false, false)
         };
-        let quality = match structure_tier {
+        let mut quality = match structure_tier {
             Some(t) if t.stamina_per_hour() > base_quality.stamina_per_hour() => t,
             _ => base_quality,
         };
+        if on_hearth && RestQuality::Inn.stamina_per_hour() > quality.stamina_per_hour() {
+            quality = RestQuality::Inn;
+        }
         let stamina_gain = quality.stamina_per_hour() * h;
         let morale_gain = quality.morale_per_hour() * h;
         let mut encounter_risk = quality.encounter_risk_per_hour() * h;
