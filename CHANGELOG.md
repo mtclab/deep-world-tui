@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**An enclave announces itself (#454)** — walking into a settlement of the **Five** is no longer like entering a human town: the place greets you in its own character — the Tzäkhar deephold with its deep-forge below, the Mëräk at the tideline among the drying-racks, the She'ar waterhold counting water to the drop, the Häl canopy-town in the high green, the Khör cairn-circle on the cold steppe — each true to its monograph, each a reminder that here you barter in kind and bring no coin.
+
 **A town becomes a crossroads (#458)** — a **cross-street** now meets the main street at the plaza, so a large town reads as a true crossroads: two thoroughfares through the square, a way in from either flank, the quarters set between the four arms. Walkable ground like the spine; hamlets stay too small; deterministic per seed.
 
 **The market square comes alive (#458)** — by day the townsfolk now **gather in the market plaza** instead of scattering evenly down every lane: the square fills first and the souls spill into the side streets only once it is full, so a town at noon reads as a lived-in place with a centre. Indoors by night they still cluster at the hearths, as before. Deterministic per person and day; the plaza is one shared definition the building generator and the street life both read.
