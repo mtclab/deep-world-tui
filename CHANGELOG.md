@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The holdings keep the old hospitality (#458)** — a rural homestead is no longer always an empty door: knock and, about as often as not, a holder is in — an old farmer, a farmwife with flour on her hands, a boy minding the steading — and the country keeps its hospitality. They wave you in for bread and water for the road and the news of the valley (a little Food and Water, an hour by a stranger's fire, the hearth-keeper's small favour). Otherwise the folk are out in the fields, as before. Deterministic per holding and day; no menu and no NPC roster — the holdings are met at their door.
+
 **The help screen learns the new verbs** — the in-game help (`?`) was missing the actions added this cycle, so a player had no way to discover them. It now lists **`p`** pray, **`J`** journey to a great city, and **`R`** the quick full night's rest, and notes that a build with the gamepad feature plays on a controller (d-pad/stick walk, A act, B back, X gather, Y rest, bumpers forage/pray).
 
 **Sim tick, lighter (perf)** — the daily settlement tick was **cloning the whole sector** (every region, every day) just so it could read the terrain for its capacity check while it updated the settlements. It now reads the live tiles through a disjoint borrow instead — the loop only touches a different field — so the copy is gone. No behaviour change; the world ticks the same, with one fewer 16,000-tile allocation per region per day.
