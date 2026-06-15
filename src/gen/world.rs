@@ -497,6 +497,57 @@ fn generate_terrain(
             }
         }
     }
+
+    // Scatter rural homesteads across the worked country (#458): the open land
+    // between the towns is not empty — a few holdings (a dwelling, an
+    // outbuilding, a field) stand on arable ground, well clear of the towns,
+    // the roads, and the water. Deterministic; placed last so they sit on the
+    // settled land without disturbing the towns or the roads that reach them.
+    {
+        const HW: usize = 14;
+        const HH: usize = 11;
+        let mut tmap = TerrainMap {
+            width,
+            height,
+            tiles,
+        };
+        // A forked stream, so scattering holdings never shifts the rest of
+        // worldgen (weather and all) off the parent rng.
+        let mut hrng = rng.fork_for("homesteads");
+        let arable = |t: Terrain| matches!(t, Terrain::Grass | Terrain::Farmland);
+        let n_homesteads = 2 + (hrng.next_u64() % 4) as usize; // 2..5
+        let mut placed = 0;
+        for _ in 0..40 {
+            if placed >= n_homesteads {
+                break;
+            }
+            let ax = 2 + (hrng.next_u64() as usize) % width.saturating_sub(HW + 4);
+            let ay = 2 + (hrng.next_u64() as usize) % height.saturating_sub(HH + 4);
+            // The patch (and a one-tile margin) must be open arable ground —
+            // no town, no road, no water, no other holding.
+            let mut clear = true;
+            'scan: for dy in 0..HH + 2 {
+                for dx in 0..HW + 2 {
+                    let t = tmap.get(ax + dx, ay + dy);
+                    if !t.is_some_and(arable) {
+                        clear = false;
+                        break 'scan;
+                    }
+                }
+            }
+            if !clear {
+                continue;
+            }
+            let seed = crate::rng::mix_u64(
+                (ax as u64).wrapping_shl(20) ^ (ay as u64).wrapping_shl(40) ^ 0x40E5_7EAD,
+            );
+            if !crate::gen::building::lay_homestead(&mut tmap, ax + 1, ay + 1, seed).is_empty() {
+                placed += 1;
+            }
+        }
+        tiles = tmap.tiles;
+    }
+
     TerrainMap {
         width,
         height,
@@ -833,6 +884,31 @@ mod tests {
     fn make_world(seed: u64) -> World {
         let charts = charts::load_charts().unwrap();
         generate_world(seed, &charts)
+    }
+
+    #[test]
+    fn the_countryside_has_rural_homesteads() {
+        // Across a few worlds, the open country between towns holds holdings:
+        // building doors that belong to no settlement footprint.
+        let mut found = 0;
+        for seed in [42u64, 7, 100, 2024, 555, 1] {
+            let world = make_world(seed);
+            for region in &world.regions {
+                for y in 0..region.terrain.height {
+                    for x in 0..region.terrain.width {
+                        if region.terrain.get(x, y) == Some(Terrain::Door)
+                            && !region.settlements.iter().any(|s| s.contains_tile(x, y))
+                        {
+                            found += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            found > 0,
+            "the worked country should hold rural homesteads beyond the towns"
+        );
     }
 
     #[test]
