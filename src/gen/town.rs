@@ -16,13 +16,12 @@ use crate::model::{SettlementService, Terrain, TerrainMap};
 
 /// How much trade reach a spot has: roads carry grain, harbors carry more.
 /// 1.0 = subsistence only; >= 1.4 = a real hinterland connection.
-pub fn trade_factor(terrain: &TerrainMap, x: usize, y: usize) -> f64 {
-    let (w, h) = (terrain.width, terrain.height);
+pub fn trade_factor(tiles: &[Terrain], w: usize, h: usize, x: usize, y: usize) -> f64 {
     let mut roads = 0;
     let mut harbor = false;
     for ty in y.saturating_sub(12)..(y + 13).min(h) {
         for tx in x.saturating_sub(12)..(x + 13).min(w) {
-            match terrain.tiles[ty * w + tx] {
+            match tiles[ty * w + tx] {
                 Terrain::Road => roads += 1,
                 Terrain::Water | Terrain::Coast => harbor = true,
                 _ => {}
@@ -38,8 +37,14 @@ pub fn trade_factor(terrain: &TerrainMap, x: usize, y: usize) -> f64 {
 /// arable hinterland feeds the head-count, terrain sets the base, and trade
 /// reach moves surplus grain. Nothing here is authored per-settlement: the
 /// land decides what it can carry.
-pub fn carrying_capacity(terrain: &TerrainMap, x: usize, y: usize, region_type: &str) -> u32 {
-    let (w, h) = (terrain.width, terrain.height);
+pub fn carrying_capacity(
+    tiles: &[Terrain],
+    w: usize,
+    h: usize,
+    x: usize,
+    y: usize,
+    region_type: &str,
+) -> u32 {
     let base: f64 = match region_type {
         "delta" => 3_500.0,
         "river_valley" => 3_000.0,
@@ -53,7 +58,7 @@ pub fn carrying_capacity(terrain: &TerrainMap, x: usize, y: usize, region_type: 
     let mut water = 0;
     for ty in y.saturating_sub(12)..(y + 13).min(h) {
         for tx in x.saturating_sub(12)..(x + 13).min(w) {
-            if matches!(terrain.tiles[ty * w + tx], Terrain::Water | Terrain::Coast) {
+            if matches!(tiles[ty * w + tx], Terrain::Water | Terrain::Coast) {
                 water += 1;
             }
         }
@@ -71,7 +76,7 @@ pub fn carrying_capacity(terrain: &TerrainMap, x: usize, y: usize, region_type: 
     let mut total = 0usize;
     for ty in y.saturating_sub(14)..(y + 15).min(h) {
         for tx in x.saturating_sub(14)..(x + 15).min(w) {
-            match terrain.tiles[ty * w + tx] {
+            match tiles[ty * w + tx] {
                 Terrain::Settlement | Terrain::House => {}
                 Terrain::Grass | Terrain::Farmland => {
                     arable += 1;
@@ -82,7 +87,7 @@ pub fn carrying_capacity(terrain: &TerrainMap, x: usize, y: usize, region_type: 
         }
     }
     let arable_factor = 0.4 + 1.6 * (arable as f64 / total.max(1) as f64);
-    let cap = base * water_factor * arable_factor * trade_factor(terrain, x, y);
+    let cap = base * water_factor * arable_factor * trade_factor(tiles, w, h, x, y);
     (cap as u32).max(12)
 }
 
