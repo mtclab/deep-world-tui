@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Sit a while in prayer (#457)** — the gods have been withdrawn since the Fall, so faith is devotion, not a summons. **`p`** (or `pray` in the REPL) gives a quiet hour to the god you most keep — or, if you keep none yet, your people's patron (and the godless pray to Kukri, lonely god of the long road). It deepens that bond, but the practice plateaus: the more you already keep a god, the less an hour adds, and no amount of prayer ever makes a god of you. No miracle answers in the world — only the one who prays is steadied, and the prayer comes in the same deniable, half-remembered voice as the patron's dreams.
+
 **Journey to the great cities (#456)** — the named cities of the continent (Sampa Crossing, Vessenath, Halkess, Velkarath, Keuramark) have always reached you only in rumour and caravan manifest; now you can **go to one**. From a town on the roads, provision the way with Food and set out (**`J`**, or `journey` in the REPL): three days there and back, and you come home with that city's own goods — Basin grain, Vessenath steel and furs, Velkarath salvage, Keuramark timber — and word of the wider world. The playable map stays a province slice; the journey is the road out of it.
 
 **A great town sprawls (#454/#378)** — the rare Tier-II city (the land could carry fifteen thousand and more) is no longer held to its even share of the sector: it gets a **wider berth**, sprawling past the spacing that keeps ordinary towns in line, while the map bounds and the placement cursor still keep districts from overlapping. (Full vertical sprawl still wants a taller sector — a save-touching rescale — for another day.)

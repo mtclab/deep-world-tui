@@ -174,6 +174,8 @@ pub enum PlayerChoice {
     ForageHerbs,
     /// Set out on the long roads to one of the continent's named cities (#456).
     JourneyToCity,
+    /// Sit a while in prayer — devotion, the gods being withdrawn (#457).
+    Pray,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

@@ -734,6 +734,36 @@ impl App {
         Some((pos.region_idx, nearest))
     }
 
+    /// Sit a while in prayer (#457): the gods are withdrawn since the Fall, so
+    /// this is devotion, not a summons — a quiet hour that deepens your bond
+    /// with the god you most keep (or your people's patron), and leaves you a
+    /// little steadied. The god never answers in the world; the practice
+    /// changes only the one who keeps it, and the comfort is deniable.
+    pub fn pray(&mut self) {
+        // Who you keep: the god you've served most, else your people's patron,
+        // else Kukri — the lonely god of the long road, fit for the godless.
+        let god = self
+            .god_affinity
+            .strongest_ally()
+            .or_else(|| crate::sim::god::patron_of(self.inter_people_bias.player_people.label()))
+            .unwrap_or(crate::model::GodName::Kukri);
+        // Devotion deepens, but the practice plateaus — the more you already
+        // keep a god, the less a single hour adds. Faith is a long road.
+        let have = self.god_affinity.get(god);
+        let delta = 0.03 * (1.0 - have).max(0.0);
+        self.god_affinity.adjust(god, delta);
+        self.advance_clock(1);
+        // The comfort of the practice — a small steadying, nothing more.
+        self.vitals.energy = (self.vitals.energy + 0.03).min(1.0);
+        let pid = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let line = crate::sim::god::prayer_flavor(god, &pid);
+        self.status_msg = Some(format!("You sit a while in prayer. {line} (1h)"));
+    }
+
     /// Set out on the long roads to one of the named cities of the continent
     /// (#456): the playable map is a province slice — the great cities never
     /// stand on it — but from a town on the roads you can make the days-long
