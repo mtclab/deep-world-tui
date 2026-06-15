@@ -543,6 +543,21 @@ impl FestivalKind {
         }
     }
 
+    /// A first-person grace line for keeping the festival in earnest — what the
+    /// observance leaves with you (#457). No numbers, no god-names: only the
+    /// felt thing a participant would carry home.
+    pub fn observance_grace(self) -> &'static str {
+        match self {
+            FestivalKind::HarvestFeast => "You break bread at the long table and rise steadier, fuller, sure the year will turn again.",
+            FestivalKind::ForgeDay => "You take a hammer's turn at the anvil. Your hands remember work you were never taught.",
+            FestivalKind::ForestRite => "You step into the drum-circle. The forest knows your name now, and does not mind it.",
+            FestivalKind::RiverGathering => "You set a lantern on the water and watch it go. A stranger clasps your hand like an old debt forgiven.",
+            FestivalKind::MidsummerBonfire => "You stand close to the great fire until the brief night burns through you, old and clean.",
+            FestivalKind::AncestorVigil => "You light a candle and speak a name aloud. The dead lean close, and the weight on you eases.",
+            FestivalKind::StarReckoning => "You hear your own arrival read into the rolls beneath the stars. You are written down. You happened.",
+        }
+    }
+
     pub fn patron_god(self) -> GodName {
         match self {
             FestivalKind::HarvestFeast => GodName::Oltzed,

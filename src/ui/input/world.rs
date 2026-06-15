@@ -48,6 +48,12 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
         KeyCode::Char('p') => {
             app.pray();
         }
+        KeyCode::Char('O') => {
+            app.observe_festival();
+        }
+        KeyCode::Char('o') => {
+            app.make_offering();
+        }
         KeyCode::Char('r') => {
             app.open_rest_prompt();
         }

@@ -123,6 +123,8 @@ impl App {
             C::ForageHerbs => self.forage_herbs(),
             C::JourneyToCity => self.journey_to_city(),
             C::Pray => self.pray(),
+            C::ObserveFestival => self.observe_festival(),
+            C::MakeOffering => self.make_offering(),
             C::UseService { service } => {
                 let svc = match service.to_ascii_lowercase().as_str() {
                     "tavern" => Some(SettlementService::Tavern),
