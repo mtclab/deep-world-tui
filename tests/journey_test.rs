@@ -105,3 +105,38 @@ fn a_journey_needs_provisions_and_a_town() {
         assert_eq!(a.clock.day, day, "no journey from the open wilds");
     }
 }
+
+#[test]
+fn the_long_haul_turns_a_profit() {
+    // Carry bulk goods to the city and they sell at a premium for coin (#456).
+    let mut a = app();
+    stand_in_town(&mut a);
+    {
+        let inv = &mut a.player_start.as_mut().unwrap().inventory;
+        inv.add(ItemType::Food, 10);
+        // Cloth and Stone are haulable and no city sends them home, so they
+        // are a clean test of the sale (unlike Hide/Iron, which Vessenath ships).
+        inv.add(ItemType::Cloth, 3);
+        inv.add(ItemType::Stone, 2);
+    }
+    let coin_before = a
+        .player_start
+        .as_ref()
+        .unwrap()
+        .inventory
+        .get(ItemType::Coin);
+
+    a.journey_to_city();
+
+    let inv = &a.player_start.as_ref().unwrap().inventory;
+    assert!(
+        inv.get(ItemType::Coin) > coin_before,
+        "the haul comes home as coin ({} -> {})",
+        coin_before,
+        inv.get(ItemType::Coin)
+    );
+    assert_eq!(inv.get(ItemType::Cloth), 0, "the hauled cloth was sold");
+    assert_eq!(inv.get(ItemType::Stone), 0, "the hauled stone was sold");
+    let msg = a.status_msg.clone().unwrap_or_default();
+    assert!(msg.contains("sold at"), "the trade is reported: {msg}");
+}
