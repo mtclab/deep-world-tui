@@ -5,6 +5,8 @@ pub mod encounter;
 pub mod encounter_log;
 pub mod game_over;
 pub mod gamepad;
+#[cfg(feature = "gamepad")]
+pub mod gamepad_gilrs;
 pub mod help;
 pub mod inventory;
 pub mod journal;
