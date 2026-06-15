@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The household gathers at the fire (#458)** — at night, people no longer scatter to the far corners of their buildings: they gather **by the hearth**, filling the warmest tiles first. Walk into a lit house after dark and you'll find them around the fire, not standing in a cold back room.
+
 **A key for the door-signs (#458)** — the map legend now spells out the new service signs (`+` door, `T`avern, `C`hapel…), so a newcomer reading the map knows the bright letters over the doors are services to walk to.
 
 **Signs over the doors (#458)** — you can tell the tavern from the temple from a plain home without knocking on every door: each service building now wears a **sign over its doorway** on the map — `T` tavern, `C` temple, `F` forge, `W` trap-workshop, `A` archive, `$` trade post, `S` shrine, `H` hearth-house — in a bright hand, single-width so the tile grid stays true. Walk to the sign you want.

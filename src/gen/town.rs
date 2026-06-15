@@ -183,13 +183,25 @@ pub fn npc_street_positions(
             }
         }
     } else {
+        // Indoors, people gather by the fire: collect the interior floors with
+        // their distance to their building's hearth (its centre), and take the
+        // warmest first — so the household fills the hearth-rooms before the
+        // far corners.
+        let mut scored: Vec<((usize, usize), usize)> = Vec::new();
         for b in &buildings {
+            let (cx, cy) = (b.x + b.w / 2, b.y + b.h / 2);
             for iy in (b.y + 1)..(b.y + b.h.saturating_sub(1)) {
                 for ix in (b.x + 1)..(b.x + b.w.saturating_sub(1)) {
-                    tiles.push((ix, iy));
+                    scored.push(((ix, iy), cx.abs_diff(ix) + cy.abs_diff(iy)));
                 }
             }
         }
+        // Stable sort on distance keeps it deterministic per (anchor, layout).
+        scored.sort_by_key(|&(_, d)| d);
+        tiles = scored.into_iter().map(|(t, _)| t).collect();
+        // Keep only the warmest tiles — as many as there are souls — so they
+        // cluster at the hearths instead of scattering through every room.
+        tiles.truncate(settlement.people.len().max(1));
     }
     if tiles.is_empty() {
         return Vec::new();

@@ -50,6 +50,29 @@ fn a_wild_tile(a: &App) -> Option<(usize, usize)> {
 }
 
 #[test]
+fn at_night_the_household_gathers_at_the_hearths() {
+    let a = app();
+    let s = &a.sim.as_ref().unwrap().world.regions[0].settlements[0];
+    let buildings = deep_world_tui::gen::town::town_buildings(s);
+    let hearths: std::collections::HashSet<(usize, usize)> = buildings
+        .iter()
+        .map(|b| (b.x + b.w / 2, b.y + b.h / 2))
+        .collect();
+    // Deep night: people are home and gathered by the fire — the warmest
+    // tiles (the hearths) fill before any far corner.
+    let night = deep_world_tui::gen::town::npc_street_positions(s, 5, 23);
+    let on_hearth = night
+        .iter()
+        .filter(|&&(_, x, y)| hearths.contains(&(x, y)))
+        .count();
+    let expect = buildings.len().min(s.people.len());
+    assert_eq!(
+        on_hearth, expect,
+        "every hearth that has someone to fill it is occupied at night"
+    );
+}
+
+#[test]
 fn the_town_has_hearths() {
     let a = app();
     assert!(
