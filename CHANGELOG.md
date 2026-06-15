@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The help screen learns the new verbs** — the in-game help (`?`) was missing the actions added this cycle, so a player had no way to discover them. It now lists **`p`** pray, **`J`** journey to a great city, and **`R`** the quick full night's rest, and notes that a build with the gamepad feature plays on a controller (d-pad/stick walk, A act, B back, X gather, Y rest, bumpers forage/pray).
+
 **Sim tick, lighter (perf)** — the daily settlement tick was **cloning the whole sector** (every region, every day) just so it could read the terrain for its capacity check while it updated the settlements. It now reads the live tiles through a disjoint borrow instead — the loop only touches a different field — so the copy is gone. No behaviour change; the world ticks the same, with one fewer 16,000-tile allocation per region per day.
 
 **The stick walks (#484)** — the left stick now steers the four-way walk, not just the d-pad: push it and you step that way, hold it and you keep stepping at a walking pace (a step every few frames, not a sprint of one per frame), centre it and you stop. The direction logic (`stick_direction`, dead-zone and dominant-axis) is pure and CI-tested; the gilrs backend tracks the stick and paces the steps. Feature-gated like the rest of the controller code.
