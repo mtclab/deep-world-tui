@@ -34,15 +34,29 @@ fn the_land_decides_what_it_carries() {
         river.tiles[y * 40 + 20] = Terrain::Water;
     }
     let mountain = flat(Terrain::Mountain);
-    let plain_cap = carrying_capacity(&river, 18, 20, "river_valley");
-    let shelf_cap = carrying_capacity(&mountain, 20, 20, "upland");
+    let plain_cap = carrying_capacity(
+        &river.tiles,
+        river.width,
+        river.height,
+        18,
+        20,
+        "river_valley",
+    );
+    let shelf_cap = carrying_capacity(
+        &mountain.tiles,
+        mountain.width,
+        mountain.height,
+        20,
+        20,
+        "upland",
+    );
     assert!(
         plain_cap > shelf_cap * 10,
         "where rivers run, people settle ({plain_cap} vs {shelf_cap})"
     );
     // Off-water density: one-fifth the riverine standard or less.
     let dry = flat(Terrain::Grass);
-    let dry_cap = carrying_capacity(&dry, 20, 20, "river_valley");
+    let dry_cap = carrying_capacity(&dry.tiles, dry.width, dry.height, 20, 20, "river_valley");
     assert!(
         dry_cap * 4 <= plain_cap,
         "off-water is a fraction of riverine ({dry_cap} vs {plain_cap})"
@@ -57,7 +71,9 @@ fn generated_worlds_settle_to_canon_plausibility() {
     for region in &sim.world.regions {
         for s in &region.settlements {
             let cap = carrying_capacity(
-                &region.terrain,
+                &region.terrain.tiles,
+                region.terrain.width,
+                region.terrain.height,
                 s.map_x as usize + 1,
                 s.map_y as usize + 1,
                 &region.region_type,
@@ -119,7 +135,13 @@ fn the_road_feeds_what_the_fields_cannot() {
                 }
             }
         }
-        let tf = trade_factor(&r.terrain, ax + 1, ay + 1);
+        let tf = trade_factor(
+            &r.terrain.tiles,
+            r.terrain.width,
+            r.terrain.height,
+            ax + 1,
+            ay + 1,
+        );
         assert!(tf < 1.4, "the cut town has no reach ({tf})");
     }
     for _ in 0..20 {

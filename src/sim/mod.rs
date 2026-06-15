@@ -347,8 +347,21 @@ fn tick_settlement_life(sim: &mut SimState) {
             // The founding corner: the same fixed point worldgen sampled,
             // however wide the district has grown since.
             let (cx, cy) = (settlement.map_x as usize + 1, settlement.map_y as usize + 1);
-            let cap = crate::gen::town::carrying_capacity(&region_terrain_snapshot, cx, cy, &rtype);
-            let trade = crate::gen::town::trade_factor(&region_terrain_snapshot, cx, cy);
+            let cap = crate::gen::town::carrying_capacity(
+                &region_terrain_snapshot.tiles,
+                region_terrain_snapshot.width,
+                region_terrain_snapshot.height,
+                cx,
+                cy,
+                &rtype,
+            );
+            let trade = crate::gen::town::trade_factor(
+                &region_terrain_snapshot.tiles,
+                region_terrain_snapshot.width,
+                region_terrain_snapshot.height,
+                cx,
+                cy,
+            );
             // The people vec is a sample of the population; scale producers
             // up — but local fields feed at most what the land carries. The
             // rest must ride the road.

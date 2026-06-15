@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Worldgen, lighter on its feet (perf)** — `carrying_capacity` and `trade_factor` now read the terrain by borrowing the tile slice instead of taking a whole `TerrainMap`, so worldgen no longer **clones the entire sector twice per settlement** just to probe the land — it reads the live tiles in place. No behaviour change (same numbers, same world); it just stops paying for a copy of a 16,000-tile map on every capacity check, which the taller sectors had made dearer.
+
 **Taller sectors, room to sprawl (#480/#378)** — region sectors grow from 160×80 to **160×100**: with #480 having freed a great town's horizontal berth, this gives the rare Tier-II city the vertical room to actually sprawl past the towns beside its river, instead of being clipped by the sector's edge. Old saves are untouched — the upscale chain is width-driven and still lands them at their own 160×80, and a region reads its own dimensions, so old and new worlds both just work.
 
 **The worked country is lived-in (#458)** — the open land between the towns is no longer empty: a scatter of **rural homesteads** now stands on the arable country — a dwelling, an outbuilding, and a worked field apiece — well clear of the towns, the roads, and the water. They use the real building layout (walls, a door you can walk through, a field beside), so the countryside reads as settled land, not blank ground. Knock at a holding's door and its folk are out in the fields; the holdings are map texture and life, not towns. (Wires in the homestead layout that was built but never placed.)

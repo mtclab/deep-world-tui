@@ -369,16 +369,8 @@ fn generate_terrain(
         // a town of thousands, a dry upland shelf seeds a steading.
         // A city candidate (the land could carry 15k+) gets a wider berth:
         // the rare Tier-II city rightly dominates its sector.
-        let probe_cap = crate::gen::town::carrying_capacity(
-            &TerrainMap {
-                width,
-                height,
-                tiles: tiles.clone(),
-            },
-            sx + 1,
-            sy + 1,
-            region_type,
-        );
+        let probe_cap =
+            crate::gen::town::carrying_capacity(&tiles, width, height, sx + 1, sy + 1, region_type);
         let is_city = probe_cap >= 15_000;
         let max_edge = if is_city { 72 } else { 48 };
         // A great town gets a wider berth than its even share of the sector: the
@@ -396,16 +388,8 @@ fn generate_terrain(
                                                       // Capacity is sampled at the founding corner (anchor street cell) —
                                                       // towns grow FROM their water outward, and the daily sim reads the
                                                       // same fixed point, so gen-time and runtime ceilings always agree.
-        let cap = crate::gen::town::carrying_capacity(
-            &TerrainMap {
-                width,
-                height,
-                tiles: tiles.clone(),
-            },
-            sx + 1,
-            sy + 1,
-            region_type,
-        );
+        let cap =
+            crate::gen::town::carrying_capacity(&tiles, width, height, sx + 1, sy + 1, region_type);
         settlement.population = (cap.saturating_mul(frac) / 100).max(8);
         settlement.size =
             crate::model::economy::Settlement::size_for_population(settlement.population)
