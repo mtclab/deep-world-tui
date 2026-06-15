@@ -965,7 +965,27 @@ impl App {
         let lucky = crate::rng::unit_from_hash(crate::rng::mix_u64(self.seed ^ day ^ 0x10AD_5EED))
             < self.fortune.tilt_good(0.30);
         let bonus = if lucky { 1 } else { 0 };
+        // Long-haul trade (#456): the bulk commodities you hauled out fetch a
+        // city premium — the province's cheap surplus is the city's dear
+        // import. This is the arbitrage loop: carry goods to the road's end,
+        // come home with coin. Gear, food, and water are kept (not sold).
+        let premium = if lucky { 1.8 } else { 1.6 };
+        let mut sold_units = 0u32;
+        let mut earned = 0u32;
         if let Some(ref mut ps) = self.player_start {
+            // First sell the haul you carried out (before the city's own goods
+            // come home, so those aren't immediately resold).
+            for item in HAULABLE {
+                let n = ps.inventory.get(item);
+                if n > 0 && ps.inventory.remove(item, n) {
+                    sold_units += n;
+                    earned += ((item.base_price() as f64 * premium).round() as u32) * n;
+                }
+            }
+            if earned > 0 {
+                ps.inventory.add(crate::model::ItemType::Coin, earned);
+            }
+            // Then the city's own specialty goods travel home with you.
             for (item, qty) in city_goods(idx) {
                 ps.inventory.add(item, qty + bonus);
             }
@@ -976,8 +996,13 @@ impl App {
             crate::rng::SeedRng::new(self.seed.wrapping_add(day).wrapping_add(0x4E5_03AD))
                 .fork_for("journey-news");
         let news = crate::sim::journal::rumor_text(&mut news_rng);
+        let trade = if earned > 0 {
+            format!(" Your haul of {sold_units} sold at {city} prices for {earned} coin.")
+        } else {
+            String::new()
+        };
         self.status_msg = Some(format!(
-            "You walked the long roads to {city} and back — {blurb}. Word travels: {news} (~3 days)"
+            "You walked the long roads to {city} and back — {blurb}.{trade} Word travels: {news} (~3 days)"
         ));
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;
@@ -990,6 +1015,23 @@ impl App {
         }
     }
 }
+
+/// Bulk commodities worth hauling the long road to a city market (#456):
+/// raw and worked trade goods, never the traveller's own gear, food, or water.
+const HAULABLE: [crate::model::ItemType; 9] = {
+    use crate::model::ItemType as I;
+    [
+        I::Wood,
+        I::Stone,
+        I::Cloth,
+        I::Iron,
+        I::Glass,
+        I::Hide,
+        I::Leather,
+        I::Herb,
+        I::Cordage,
+    ]
+};
 
 /// What each named city sends home with a traveller — its own canon specialty
 /// (#456), matched to the goods of the game.
