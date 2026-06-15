@@ -183,6 +183,19 @@ fn building_door(x: usize, y: usize, w: usize, h: usize, side: Side) -> (usize, 
     }
 }
 
+/// The central market plaza of a district, as `(ox, oy, w, h)` offsets within
+/// an `aw`×`ah` area (#458) — or `None` for a holding too small to spare one.
+/// The single source of truth: the building generator keeps structures out of
+/// it, and the day-time townsfolk gather in it (`npc_street_positions`).
+pub fn central_plaza(aw: usize, ah: usize) -> Option<(usize, usize, usize, usize)> {
+    if aw.min(ah) < 16 {
+        return None;
+    }
+    let pw = (aw / 3).clamp(4, aw.saturating_sub(2));
+    let ph = (ah / 4).clamp(3, ah.saturating_sub(2));
+    Some(((aw - pw) / 2, (ah - ph) / 2, pw, ph))
+}
+
 /// Compute (but do not paint) the buildings of a district within an area (#458):
 /// varied structures on plots with a yard/street margin, each door onto a
 /// street. The single source of truth all consumers read — worldgen paints the
@@ -216,13 +229,7 @@ pub fn district_buildings(
     // A real town reads around an open heart: reserve a central market plaza
     // (it stays walkable Settlement — `lay_district` paints the ground street;
     // we simply keep buildings out of it). Hamlets are too small to spare one.
-    let plaza = if span >= 16 {
-        let pw = (aw / 3).clamp(4, aw.saturating_sub(2));
-        let ph = (ah / 4).clamp(3, ah.saturating_sub(2));
-        Some((ax + (aw - pw) / 2, ay + (ah - ph) / 2, pw, ph))
-    } else {
-        None
-    };
+    let plaza = central_plaza(aw, ah).map(|(ox, oy, w, h)| (ax + ox, ay + oy, w, h));
     // And a real town has a spine: a main street runs the length of the
     // district through the plaza, a clear thoroughfare the lanes branch off
     // (it stays walkable Settlement, like the plaza and the side streets).

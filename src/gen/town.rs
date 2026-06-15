@@ -189,20 +189,39 @@ pub fn npc_street_positions(
     // By day, the candidate tiles are the open streets between buildings; by
     // night, the interior floors of the buildings themselves.
     let mut tiles: Vec<(usize, usize)> = Vec::new();
+    // How many leading tiles are the plaza (day-time gathering ground).
+    let mut plaza_tiles = 0usize;
     if day_time {
         let in_building = |x: usize, y: usize| {
             buildings
                 .iter()
                 .any(|b| x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h)
         };
+        // The townsfolk gather in the market plaza by day (#458): its open
+        // tiles come first, so the square fills before the side lanes, and a
+        // town reads as a place with a centre — not folk scattered evenly down
+        // every street.
+        let plaza = crate::gen::building::central_plaza(n, n)
+            .map(|(ox, oy, w, h)| (ax + ox, ay + oy, w, h));
+        let in_plaza = |x: usize, y: usize| {
+            plaza.is_some_and(|(qx, qy, qw, qh)| x >= qx && x < qx + qw && y >= qy && y < qy + qh)
+        };
+        let mut lanes: Vec<(usize, usize)> = Vec::new();
         for dy in 0..n {
             for dx in 0..n {
                 let (x, y) = (ax + dx, ay + dy);
-                if !in_building(x, y) {
+                if in_building(x, y) {
+                    continue;
+                }
+                if in_plaza(x, y) {
                     tiles.push((x, y));
+                } else {
+                    lanes.push((x, y));
                 }
             }
         }
+        plaza_tiles = tiles.len();
+        tiles.extend(lanes);
     } else {
         // Indoors, people gather by the fire: collect the interior floors with
         // their distance to their building's hearth (its centre), and take the
@@ -229,8 +248,21 @@ pub fn npc_street_positions(
     }
     let mut taken: Vec<usize> = Vec::new();
     let mut out = Vec::new();
+    // By day, fill contiguously from a daily offset *within the plaza* so the
+    // souls cluster in the square (and spill into the lanes only once it is
+    // full); by night, the warmest hearth tiles, lightly rotated. Either way
+    // deterministic per (person, day).
+    let start = if day_time && plaza_tiles > 0 {
+        day as usize % plaza_tiles
+    } else {
+        0
+    };
     for pi in 0..settlement.people.len().min(tiles.len()) {
-        let mut slot = (pi * 5 + day as usize) % tiles.len();
+        let mut slot = if day_time {
+            (start + pi) % tiles.len()
+        } else {
+            (pi * 5 + day as usize) % tiles.len()
+        };
         while taken.contains(&slot) {
             slot = (slot + 1) % tiles.len();
         }
@@ -272,6 +304,34 @@ mod tests {
             map_y,
             district,
         }
+    }
+
+    #[test]
+    fn townsfolk_gather_in_the_market_plaza_by_day() {
+        // A town with a plaza (footprint >= 16) gathers its souls in the square
+        // at midday, not scattered down every lane.
+        let mut s = test_settlement(5, 5, 24);
+        s.people = (0..8).map(|_| crate::model::Person::default()).collect();
+        let (px, py, pw, ph) = crate::gen::building::central_plaza(24, 24).expect("a plaza");
+        let (qx, qy) = (5 + px, 5 + py);
+        let pos = npc_street_positions(&s, 1, 12); // day 1, noon
+        assert!(!pos.is_empty(), "the townsfolk are out by day");
+        let in_plaza = pos
+            .iter()
+            .filter(|(_, x, y)| *x >= qx && *x < qx + pw && *y >= qy && *y < qy + ph)
+            .count();
+        assert!(
+            in_plaza * 4 >= pos.len() * 3,
+            "most townsfolk gather in the plaza by day ({in_plaza}/{})",
+            pos.len()
+        );
+    }
+
+    #[test]
+    fn central_plaza_only_for_real_towns() {
+        assert!(crate::gen::building::central_plaza(12, 12).is_none());
+        let (_, _, w, h) = crate::gen::building::central_plaza(40, 36).expect("a plaza");
+        assert!(w >= 4 && h >= 3, "the plaza has real extent ({w}x{h})");
     }
 
     #[test]
