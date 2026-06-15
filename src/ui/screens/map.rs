@@ -298,6 +298,24 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
             ),
             Span::styled("You", Style::default().fg(theme.dark_brown())),
         ]),
+        Line::from(vec![
+            Span::styled("+", Style::default().fg(terrain_color(Terrain::Door))),
+            Span::styled("Door ", Style::default().fg(theme.dark_brown())),
+            Span::styled(
+                "T",
+                Style::default()
+                    .fg(theme.archive_red())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("avern,", Style::default().fg(theme.dark_brown())),
+            Span::styled(
+                "C",
+                Style::default()
+                    .fg(theme.archive_red())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("hapel…", Style::default().fg(theme.dark_brown())),
+        ]),
     ];
     let legend = Paragraph::new(legend_lines).block(
         Block::default()
@@ -308,7 +326,7 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
         x: map_area.x + map_area.width.saturating_sub(22),
         y: map_area.y,
         width: 22,
-        height: 5,
+        height: 6,
     };
     f.render_widget(legend, legend_rect);
 
