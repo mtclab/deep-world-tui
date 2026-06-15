@@ -36,9 +36,12 @@ plan covers every controller Steam exposes (Xbox, DualSense, Deck) for free.
    `GamepadButton::default_action() -> Option<GamepadAction>` and
    `GamepadAction::to_key() -> KeyCode`, composed as `key_for(button)`. Pure, no
    device dependency, so it is tested in CI without hardware.
-3. **Dispatch (keystroke → existing handlers).** The main loop feeds the
-   resulting `KeyEvent` into the same screen handlers the keyboard uses. One
-   source of truth for what every input does; no per-screen controller code.
+3. **Dispatch (keystroke → existing handlers).** `App::handle_gamepad_button`
+   turns a button into its `KeyCode` and runs the same `handle_event` path the
+   keyboard uses — reaching every screen with no per-screen controller code.
+   **Implemented and tested** (`tests/gamepad_dispatch_test.rs`): a button walks
+   the player, a face button acts, an unbound button is a no-op. So layers 2 and
+   3 are done and deviceless-tested; a backend need only call this on a press.
 
 ```
 device → GamepadButton → GamepadAction → KeyCode → existing handlers
@@ -66,14 +69,19 @@ device → GamepadButton → GamepadAction → KeyCode → existing handlers
 
 ## Implementation phases
 
-- **Phase 0 — pure mapping (DONE, this PR).** `input::gamepad` + tests. No
-  dependency, no device, CI-safe. The whole binding is decided and locked here.
+- **Phase 0 — pure mapping + dispatch (DONE).** `input::gamepad` (the binding)
+  and `App::handle_gamepad_button` (the dispatch), both deviceless-tested. The
+  whole binding is locked, and a button already drives the running game; only a
+  backend that *produces* the buttons is missing.
 - **Phase 1 — gilrs backend behind `--features gamepad`.** Add `gilrs`
-  (optional dep). In the event loop, poll gilrs each frame; on a button-down,
-  resolve `key_for(button)` and inject a synthetic `KeyEvent` into the existing
-  dispatch. Left-stick beyond a deadzone maps to the d-pad actions (with a
-  repeat delay so a held stick steps, not sprints). Feature-gated so headless
-  and CI builds never pull the dependency.
+  (optional dep). **Note (verified 2026-06-15):** `gilrs` pulls `libudev-sys`,
+  which needs the system `libudev` dev library to build (`apt install
+  libudev-dev` on Debian/Ubuntu) — without it `cargo build --features gamepad`
+  fails at link config, so Phase 1 needs that lib (and a controller to test).
+  In the event loop, poll gilrs each frame; on a button-down, resolve the
+  logical `GamepadButton` and call `App::handle_gamepad_button` (with a repeat
+  delay so a held stick steps, not sprints). Feature-gated so headless and CI
+  builds never pull the dependency.
 - **Phase 2 — Steam Input ship config.** Add a Steam Input Game Actions File
   (`.vdf`) defining the action set (Move, Confirm, Cancel, Gather, Rest,
   Forage, Pray, Journey, Wait, Inventory, Map, Help) and a default
