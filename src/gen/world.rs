@@ -758,6 +758,14 @@ pub(crate) fn settlement_services(size: &str, people: &str) -> Vec<SettlementSer
         crate::model::PeopleKind::Arkit => svcs.push(SettlementService::Archive),
         crate::model::PeopleKind::Vayla => svcs.push(SettlementService::TradePost),
         crate::model::PeopleKind::Laakso => svcs.push(SettlementService::Shrine),
+        // The canon Five each keep their own craft on their own ground (#454):
+        // the Tzäkhar deep-forge, the trading floors of the Mëräk and She'ar,
+        // the Häl physic-shrine of Keuru's wood, the Khör's word-keepers.
+        crate::model::PeopleKind::Tzakhar => svcs.push(SettlementService::Forge),
+        crate::model::PeopleKind::Merak => svcs.push(SettlementService::TradePost),
+        crate::model::PeopleKind::Shear => svcs.push(SettlementService::TradePost),
+        crate::model::PeopleKind::Hal => svcs.push(SettlementService::Shrine),
+        crate::model::PeopleKind::Khor => svcs.push(SettlementService::Shrine),
         _ => {}
     }
     svcs
@@ -781,6 +789,24 @@ mod tests {
     fn make_world(seed: u64) -> World {
         let charts = charts::load_charts().unwrap();
         generate_world(seed, &charts)
+    }
+
+    #[test]
+    fn the_five_keep_their_own_craft() {
+        use crate::model::SettlementService as S;
+        for (people, sig) in [
+            ("tzäkhar", S::Forge),
+            ("mëräk", S::TradePost),
+            ("she'ar", S::TradePost),
+            ("häl", S::Shrine),
+            ("khör", S::Shrine),
+        ] {
+            let svcs = settlement_services("village", people);
+            assert!(
+                svcs.contains(&sig),
+                "{people} enclave should keep its {sig:?}, got {svcs:?}"
+            );
+        }
     }
 
     #[test]
