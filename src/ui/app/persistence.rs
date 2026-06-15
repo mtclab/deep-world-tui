@@ -121,6 +121,7 @@ impl App {
             C::Rest => self.rest(),
             C::TendSelf => self.tend_illness(),
             C::ForageHerbs => self.forage_herbs(),
+            C::JourneyToCity => self.journey_to_city(),
             C::UseService { service } => {
                 let svc = match service.to_ascii_lowercase().as_str() {
                     "tavern" => Some(SettlementService::Tavern),

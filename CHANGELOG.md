@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Journey to the great cities (#456)** — the named cities of the continent (Sampa Crossing, Vessenath, Halkess, Velkarath, Keuramark) have always reached you only in rumour and caravan manifest; now you can **go to one**. From a town on the roads, provision the way with Food and set out (**`J`**, or `journey` in the REPL): three days there and back, and you come home with that city's own goods — Basin grain, Vessenath steel and furs, Velkarath salvage, Keuramark timber — and word of the wider world. The playable map stays a province slice; the journey is the road out of it.
+
 **A great town sprawls (#454/#378)** — the rare Tier-II city (the land could carry fifteen thousand and more) is no longer held to its even share of the sector: it gets a **wider berth**, sprawling past the spacing that keeps ordinary towns in line, while the map bounds and the placement cursor still keep districts from overlapping. (Full vertical sprawl still wants a taller sector — a save-touching rescale — for another day.)
 
 **Each people builds in its own hand (#454)** — an enclave no longer looks like a human town with different names: the Five raise their settlements in their own character. The **Tzäkhar** raise grand, deep-carved halls; the **Häl** keep to modest canopy-floor huts; the **Khör** to long herder-houses. The building styles lean to the dominant people, while the hash still varies them within that lean so no two settlements are twins. Human towns are unchanged.

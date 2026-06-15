@@ -172,6 +172,8 @@ pub enum PlayerChoice {
     TendSelf,
     /// Forage the ground for medicinal herbs (#456).
     ForageHerbs,
+    /// Set out on the long roads to one of the continent's named cities (#456).
+    JourneyToCity,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
