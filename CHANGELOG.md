@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The trade floor shows its measures (#454)** — the market screen at an enclave no longer shows misleading coin prices: it names itself a trade floor of the Five and lists, for each good you can lay down, exactly what they give for it in kind ("1 Tool (have 2) → 2 Hide, 2 Food"), with the goods they want none of greyed out. What you see is the rate; the rate is the rate.
+
 **The Five take no coin — barter in kind (#454)** — an enclave's market is a **trade floor, not a stall**: the Five take no coin and do not haggle. Lay down a good and they trade it for theirs at a fixed rate — a tool to the Khör for härkä-leather and steppe-butter, cloth to the Mëräk for deep-fish, food to the Tzäkhar for worked iron, and so on, the same coin-free measures as their roadside traders. Trying to buy with coin is refused; offer a good instead.
 
 **The Five keep their own craft (#454)** — an enclave is no longer just a renamed town: each of the Five keeps its signature work on its own ground — the **Tzäkhar** deep-forge, the trading floors of the **Mëräk** and **She'ar**, the **Häl** physic-shrine of Keuru's wood, the **Khör** word-keepers' shrine. So an enclave you walk into has the building and the service that people are known for.
