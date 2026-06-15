@@ -24,7 +24,7 @@ impl App {
         if let Some(ref sim) = self.sim {
             for (ri, region) in sim.world.regions.iter().enumerate() {
                 for (si, sett) in region.settlements.iter().enumerate() {
-                    out.push((ri, si, format!("{} — {}", sett.name, region.name)));
+                    out.push((ri, si, format!("{} — {}", sett.display_name(), region.name)));
                 }
             }
         }

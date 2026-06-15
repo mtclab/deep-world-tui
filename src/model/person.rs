@@ -450,6 +450,21 @@ impl PeopleKind {
         }
     }
 
+    /// The canon Five non-human peoples — the deep-smiths, the tideline
+    /// fishers, the dry-country walkers, the canopy-dwellers, the steppe
+    /// herders. They keep to their own ground and barter in kind, never coin;
+    /// a settlement of theirs is an enclave, not a town of the human regions.
+    pub fn is_of_the_five(self) -> bool {
+        matches!(
+            self,
+            PeopleKind::Tzakhar
+                | PeopleKind::Merak
+                | PeopleKind::Shear
+                | PeopleKind::Hal
+                | PeopleKind::Khor
+        )
+    }
+
     pub fn bias_toward(self, other: PeopleKind) -> f64 {
         if self == other {
             return 0.15;
@@ -1896,6 +1911,22 @@ mod tests {
         assert!(PeopleKind::Laakso.bias_toward(PeopleKind::Vayla) < 0.0);
 
         assert!(PeopleKind::Laakso.bias_toward(PeopleKind::Ahjo) < 0.0);
+    }
+
+    #[test]
+    fn the_five_are_the_enclave_peoples() {
+        for k in ["khör", "tzäkhar", "mëräk", "she'ar", "häl"] {
+            assert!(
+                PeopleKind::from_name(k).is_of_the_five(),
+                "{k} should be one of the Five"
+            );
+        }
+        for k in ["metsik", "sepät", "väylä", "arkit"] {
+            assert!(
+                !PeopleKind::from_name(k).is_of_the_five(),
+                "{k} is a human people, not of the Five"
+            );
+        }
     }
 
     #[test]
