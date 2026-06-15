@@ -589,10 +589,10 @@ impl App {
                     .map(|si| (si, r.settlements[si].clone()))
             });
         let Some((_si, settlement)) = owner else {
-            // A holding out in the country, beyond any town's footprint: its
-            // folk are in the fields, not at the door (#458).
-            self.status_msg =
-                Some("A farm-holding. You knock, but the folk are out in the fields.".into());
+            // A holding out in the country, beyond any town's footprint (#458).
+            // Often the folk are out in the fields — but knock at the right hour
+            // and a holder is in, and the country keeps the old hospitality.
+            self.knock_at_a_holding(x, y);
             return;
         };
         match crate::gen::town::service_at(&settlement, x, y) {
@@ -614,6 +614,55 @@ impl App {
                     None => "You knock. No one answers; the house stands empty.".into(),
                 });
             }
+        }
+    }
+
+    /// Knock at a rural holding's door (#458): the country keeps the old
+    /// hospitality. Deterministic per (holding, day) — often the folk are out
+    /// in the fields, but find a holder in and they share bread and water for
+    /// the road and the word of the valley. No menu, no NPC roster: a holding
+    /// is map life, met at its door.
+    fn knock_at_a_holding(&mut self, x: usize, y: usize) {
+        let day = self.clock.day as u64;
+        let roll = crate::rng::unit_from_hash(crate::rng::mix_u64(
+            self.seed
+                ^ (x as u64).wrapping_shl(20)
+                ^ (y as u64).wrapping_shl(40)
+                ^ day.wrapping_mul(0x9E37_79B9),
+        ));
+        if roll < 0.45 {
+            // Someone is home. A holder, by their work.
+            let holders = [
+                "An old farmer",
+                "A broad-armed holder",
+                "A farmwife with flour on her hands",
+                "A boy minding the steading",
+                "A herdsman come in from the field",
+            ];
+            let who = holders
+                [(crate::rng::mix_u64(self.seed ^ x as u64 ^ y as u64) as usize) % holders.len()];
+            self.advance_clock(1);
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(crate::model::ItemType::Food, 1);
+                ps.inventory.add(crate::model::ItemType::Water, 1);
+            }
+            // The hearth-keeper marks a welcome given and taken.
+            self.god_affinity
+                .adjust(crate::model::GodName::Oltzed, 0.01);
+            self.status_msg = Some(format!(
+                "{who} waves you in. Bread and water for the road, and the news of the valley. (1h)"
+            ));
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Travel,
+                    "A holding took me in. Bread, water, and a while by a stranger's fire.".into(),
+                );
+            }
+        } else {
+            self.status_msg =
+                Some("A farm-holding. You knock, but the folk are out in the fields.".into());
         }
     }
 
