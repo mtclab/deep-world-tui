@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Devotion, made visible (#457)** — the Gods panel (`i`) now shows your **standing** with each god you keep — *a Keeper*, *Devoted*, or *Blessed* — beside the affinity, so the tiers that gate a god's grace are something you can see and aim for, not a hidden number.
+
 **An enclave announces itself (#454)** — walking into a settlement of the **Five** is no longer like entering a human town: the place greets you in its own character — the Tzäkhar deephold with its deep-forge below, the Mëräk at the tideline among the drying-racks, the She'ar waterhold counting water to the drop, the Häl canopy-town in the high green, the Khör cairn-circle on the cold steppe — each true to its monograph, each a reminder that here you barter in kind and bring no coin.
 
 **A town becomes a crossroads (#458)** — a **cross-street** now meets the main street at the plaza, so a large town reads as a true crossroads: two thoroughfares through the square, a way in from either flank, the quarters set between the four arms. Walkable ground like the spine; hamlets stay too small; deterministic per seed.

@@ -226,14 +226,24 @@ pub(crate) fn draw_inventory_screen(f: &mut Frame, app: &App) {
         } else {
             theme.dark_brown()
         };
-        lines.push(Line::from(vec![
+        let mut spans = vec![
             Span::styled(format!("  {} ", god.glyph()), Style::default().fg(color)),
             Span::styled(
                 format!("{:<8}", god.label()),
                 Style::default().fg(theme.ink()),
             ),
             Span::styled(format!(" {}", label), Style::default().fg(color)),
-        ]));
+        ];
+        // The standing of a devotee — the earned tiers of devotion (#457).
+        if let Some(rank) = crate::sim::god::devotion_rank(*val) {
+            spans.push(Span::styled(
+                format!("  ({rank})"),
+                Style::default()
+                    .fg(theme.archive_red())
+                    .add_modifier(Modifier::ITALIC),
+            ));
+        }
+        lines.push(Line::from(spans));
     }
 
     let para = Paragraph::new(lines).style(Style::default().bg(theme.paper()));
