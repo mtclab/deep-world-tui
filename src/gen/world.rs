@@ -242,7 +242,11 @@ fn generate_terrain(
     // town of thousands shows its full sprawl beside the forests and
     // rivers that feed it.
     let width = 160usize;
-    let height = 80usize;
+    // Taller than wide enough that a Tier-II city has the vertical room to
+    // sprawl past a town beside its river, not just the horizontal berth (#480
+    // freed the width; this frees some height). Old saves stay their own size —
+    // the upscale chain is width-driven and stops at 160 wide.
+    let height = 100usize;
     let base = match region_type {
         "river_valley" => Terrain::Grass,
         "coast" => Terrain::Sand,
@@ -1349,11 +1353,11 @@ mod tests {
         let w = generate_world(42, &charts);
         for region in &w.regions {
             assert_eq!(region.terrain.width, 160, "terrain width must be 160");
-            assert_eq!(region.terrain.height, 80, "terrain height must be 80");
+            assert_eq!(region.terrain.height, 100, "terrain height must be 100");
             assert_eq!(
                 region.terrain.tiles.len(),
-                12800,
-                "terrain must have 12800 tiles"
+                16000,
+                "terrain must have 160*100 tiles"
             );
         }
     }

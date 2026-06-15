@@ -13,7 +13,7 @@ fn new_worlds_are_born_at_full_size() {
     let sim = SimState::new(42, charts);
     for region in &sim.world.regions {
         assert_eq!(region.terrain.width, 160);
-        assert_eq!(region.terrain.height, 80);
+        assert_eq!(region.terrain.height, 100);
     }
 }
 
