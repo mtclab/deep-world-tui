@@ -795,16 +795,44 @@ impl App {
         self.vitals.energy = (self.vitals.energy + 0.15).min(1.0);
         self.vitals.hunger = (self.vitals.hunger + 0.25).min(1.0);
         self.advance_clock(3);
-        let grace = festival.observance_grace();
+        let grace_line = festival.observance_grace();
+
+        // Deep devotion is answered: at "Devoted" standing or beyond, the
+        // patron's particular grace touches you — a concrete blessing, not a
+        // stat nudge (#457). Masa's is mercy in healing; the rest steady the
+        // body whole. Gated on the festival's rarity, so it cannot be farmed.
+        let devout = self.god_affinity.get(god);
+        let blessing = if crate::sim::god::devotion_rank(devout)
+            .is_some_and(|_| devout >= 0.60)
+        {
+            if god == crate::model::GodName::Masa {
+                if let Some(ps) = self.player_start.as_mut() {
+                    if !ps.person.illnesses.is_empty() {
+                        ps.person.illnesses.remove(0);
+                    }
+                }
+            }
+            self.vitals.energy = 1.0;
+            self.vitals.hunger = 1.0;
+            self.vitals.thirst = 1.0;
+            Some(crate::sim::god::grace_flavor(god))
+        } else {
+            None
+        };
+
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;
-            sim.log(
-                tick,
-                crate::sim::journal::Voice::Faith,
-                format!("I kept the {} with them. {grace}", festival.label()),
-            );
+            let mut entry = format!("I kept the {} with them. {grace_line}", festival.label());
+            if let Some(b) = blessing {
+                entry.push(' ');
+                entry.push_str(b);
+            }
+            sim.log(tick, crate::sim::journal::Voice::Faith, entry);
         }
-        self.status_msg = Some(format!("You keep the {}. {grace} (3h)", festival.label()));
+        self.status_msg = Some(match blessing {
+            Some(b) => format!("You keep the {}. {grace_line} {b} (3h)", festival.label()),
+            None => format!("You keep the {}. {grace_line} (3h)", festival.label()),
+        });
     }
 
     /// Set out on the long roads to one of the named cities of the continent

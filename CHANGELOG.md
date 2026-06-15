@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Keep the festival, and be answered (#457)** — when a settlement's holy day is underway you can now **keep it in earnest** (`O`, or `observe` in the REPL) — the long table, the drum-circle, the candle and the named dead — not just the passing nod you already get on arrival. Observance deepens your devotion to that festival's god (more than the arrival bump, but it still plateaus), mends standing with its people faster than trade can, and steadies you, at the cost of the hours it takes. And devotion is **answered**: at the *Devoted* standing or beyond, the patron's particular grace touches you — Masa's is mercy in healing (a sickness loosens its grip), the rest steady the body whole — a concrete blessing, gated by the festival's rarity so it can't be farmed. Faith now has tiers (*a Keeper*, *Devoted*, *Blessed*) and a journal that remembers the holy days you kept (a new `Faith` voice).
+
 **The help screen learns the new verbs** — the in-game help (`?`) was missing the actions added this cycle, so a player had no way to discover them. It now lists **`p`** pray, **`J`** journey to a great city, and **`R`** the quick full night's rest, and notes that a build with the gamepad feature plays on a controller (d-pad/stick walk, A act, B back, X gather, Y rest, bumpers forage/pray).
 
 **Sim tick, lighter (perf)** — the daily settlement tick was **cloning the whole sector** (every region, every day) just so it could read the terrain for its capacity check while it updated the settlements. It now reads the live tiles through a disjoint borrow instead — the loop only touches a different field — so the copy is gone. No behaviour change; the world ticks the same, with one fewer 16,000-tile allocation per region per day.

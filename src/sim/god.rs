@@ -75,6 +75,34 @@ pub fn prayer_flavor(god: GodName, person_id: &str) -> &'static str {
     bank[idx]
 }
 
+/// The named standing of a devotee at a given affinity — the tiers of devotion
+/// (#457). `None` below the first threshold; "Devoted" (0.6) is where a god's
+/// grace begins to answer.
+pub fn devotion_rank(affinity: f64) -> Option<&'static str> {
+    if affinity >= 0.85 {
+        Some("Blessed")
+    } else if affinity >= 0.60 {
+        Some("Devoted")
+    } else if affinity >= 0.30 {
+        Some("a Keeper")
+    } else {
+        None
+    }
+}
+
+/// First-person line for a god answering deep devotion with grace — the
+/// particular blessing of each of the Five (#457). No numbers, no god-names
+/// printed; the player keeps the felt thing, not a stat.
+pub fn grace_flavor(god: GodName) -> &'static str {
+    match god {
+        GodName::Oltzed => "A vigor moves through your hands — the long work feels light, and weariness lifts away.",
+        GodName::Keuru => "A welcome fills you, fed and warmed and wanted; the road's ache leaves your bones.",
+        GodName::Sampsa => "A clarity settles on you — what was muddled comes plain, and you are steadied.",
+        GodName::Masa => "A mercy moves in you — the sickness loosens its grip, and the weight of the road eases.",
+        GodName::Kukri => "A quiet keeps you — the long solitude is borne, and you are restored to yourself.",
+    }
+}
+
 /// Decide whether the player encounters a prayer on this rest tick, and return
 /// the flavor line if so. Deterministic: same `world_tick` and `person_id` →
 /// same outcome and same line.
