@@ -61,6 +61,52 @@ fn keeping_a_festival_deepens_devotion() {
 }
 
 #[test]
+fn deep_devotion_earns_the_gods_grace() {
+    let mut a = app();
+    stand_in_town(&mut a);
+    set_festival(&mut a, true);
+
+    let people = a.current_settlement_people().expect("standing in a town");
+    let god = FestivalKind::for_people(people).patron_god();
+    // Already "Devoted" — grace should answer.
+    a.god_affinity.adjust(god, 0.8);
+    a.vitals.thirst = 0.2; // passive observance never touches thirst; grace sets it to 1.0
+
+    a.observe_festival();
+
+    assert!(
+        (a.vitals.thirst - 1.0).abs() < 1e-9,
+        "the god's grace steadies the body whole (thirst {})",
+        a.vitals.thirst
+    );
+}
+
+#[test]
+fn shallow_devotion_gets_no_grace() {
+    let mut a = app();
+    stand_in_town(&mut a);
+    set_festival(&mut a, true);
+    a.vitals.thirst = 0.2; // affinity starts near zero — below the Devoted threshold
+
+    a.observe_festival();
+
+    assert!(
+        a.vitals.thirst < 0.5,
+        "without deep devotion the grace does not come (thirst {})",
+        a.vitals.thirst
+    );
+}
+
+#[test]
+fn devotion_ranks_climb_with_affinity() {
+    use deep_world_tui::sim::god::devotion_rank;
+    assert_eq!(devotion_rank(0.10), None);
+    assert_eq!(devotion_rank(0.35), Some("a Keeper"));
+    assert_eq!(devotion_rank(0.65), Some("Devoted"));
+    assert_eq!(devotion_rank(0.90), Some("Blessed"));
+}
+
+#[test]
 fn no_festival_means_nothing_to_keep() {
     let mut a = app();
     stand_in_town(&mut a);
