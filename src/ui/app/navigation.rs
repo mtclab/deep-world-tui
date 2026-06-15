@@ -816,6 +816,51 @@ impl App {
         self.status_msg = Some(format!("You sit a while in prayer. {line} (1h)"));
     }
 
+    /// Lay an offering at a shrine or temple (#457): devotion that costs
+    /// something real. Where prayer gives only an hour, an offering gives up
+    /// food from your own stores — and so deepens the bond with the god you
+    /// keep further than prayer can, though it still plateaus: no gift ever
+    /// makes a god of the giver.
+    pub fn make_offering(&mut self) {
+        use crate::model::{ItemType, SettlementService};
+        let has_place = self.current_settlement().is_some_and(|s| {
+            s.services.contains(&SettlementService::Shrine)
+                || s.services.contains(&SettlementService::Temple)
+        });
+        if !has_place {
+            self.status_msg =
+                Some("There is no shrine or temple here to receive an offering.".into());
+            return;
+        }
+        let gave = self
+            .player_start
+            .as_mut()
+            .is_some_and(|ps| ps.inventory.remove(ItemType::Food, 1));
+        if !gave {
+            self.status_msg = Some("You have nothing to lay down — an offering needs Food.".into());
+            return;
+        }
+        let god = self
+            .god_affinity
+            .strongest_ally()
+            .or_else(|| crate::sim::god::patron_of(self.inter_people_bias.player_people.label()))
+            .unwrap_or(crate::model::GodName::Kukri);
+        let have = self.god_affinity.get(god);
+        let delta = 0.06 * (1.0 - have).max(0.0);
+        self.god_affinity.adjust(god, delta);
+        self.advance_clock(1);
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Faith,
+                "I laid an offering down at the shrine, and kept nothing back of it.".to_string(),
+            );
+        }
+        self.status_msg =
+            Some("You lay an offering at the shrine — bread given, not bartered. The keeping deepens. (1h)".into());
+    }
+
     /// Keep the festival in earnest (#457): when a settlement's holy day is
     /// underway, take deliberate part — not the passing nod of arrival, but the
     /// long table, the drum-circle, the candle and the named dead. It deepens
@@ -823,7 +868,9 @@ impl App {
     /// than trade can, and steadies you, at the cost of the hours it takes.
     pub fn observe_festival(&mut self) {
         let day = self.clock.day;
-        let underway = self.current_settlement().is_some_and(|s| s.in_festival(day));
+        let underway = self
+            .current_settlement()
+            .is_some_and(|s| s.in_festival(day));
         if !underway {
             self.status_msg = Some("There is no festival to keep here today.".into());
             return;
@@ -851,9 +898,7 @@ impl App {
         // stat nudge (#457). Masa's is mercy in healing; the rest steady the
         // body whole. Gated on the festival's rarity, so it cannot be farmed.
         let devout = self.god_affinity.get(god);
-        let blessing = if crate::sim::god::devotion_rank(devout)
-            .is_some_and(|_| devout >= 0.60)
-        {
+        let blessing = if crate::sim::god::devotion_rank(devout).is_some_and(|_| devout >= 0.60) {
             if god == crate::model::GodName::Masa {
                 if let Some(ps) = self.player_start.as_mut() {
                     if !ps.person.illnesses.is_empty() {

@@ -2,8 +2,13 @@
 // underway, deliberate observance deepens devotion to that festival's god and
 // mends standing with its people — more than the passing nod of arrival.
 use deep_world_tui::charts::load::load_charts;
-use deep_world_tui::model::{FestivalKind, PlayerPos};
+use deep_world_tui::model::{FestivalKind, ItemType, PlayerPos, SettlementService};
 use deep_world_tui::ui::app::App;
+
+fn total_affinity(a: &App) -> f64 {
+    let g = &a.god_affinity;
+    g.oltzed + g.keuru + g.sampsa + g.masa + g.kukri
+}
 
 fn app() -> App {
     let charts = load_charts().expect("charts");
@@ -53,7 +58,10 @@ fn keeping_a_festival_deepens_devotion() {
         a.god_affinity.get(god)
     );
     let msg = a.status_msg.clone().unwrap_or_default();
-    assert!(msg.contains("keep the"), "the status names the observance: {msg}");
+    assert!(
+        msg.contains("keep the"),
+        "the status names the observance: {msg}"
+    );
     assert!(
         a.clock.day >= day_before,
         "the festival takes some hours, not negative time"
@@ -104,6 +112,69 @@ fn devotion_ranks_climb_with_affinity() {
     assert_eq!(devotion_rank(0.35), Some("a Keeper"));
     assert_eq!(devotion_rank(0.65), Some("Devoted"));
     assert_eq!(devotion_rank(0.90), Some("Blessed"));
+}
+
+#[test]
+fn an_offering_spends_food_and_deepens_devotion() {
+    let mut a = app();
+    stand_in_town(&mut a);
+    // a place of devotion, and food to give
+    {
+        let s = &mut a.sim.as_mut().unwrap().world.regions[0].settlements[0];
+        if !s.services.contains(&SettlementService::Temple) {
+            s.services.push(SettlementService::Temple);
+        }
+    }
+    a.player_start
+        .as_mut()
+        .unwrap()
+        .inventory
+        .add(ItemType::Food, 3);
+    let food_before = a
+        .player_start
+        .as_ref()
+        .unwrap()
+        .inventory
+        .get(ItemType::Food);
+    let aff_before = total_affinity(&a);
+
+    a.make_offering();
+
+    let food_after = a
+        .player_start
+        .as_ref()
+        .unwrap()
+        .inventory
+        .get(ItemType::Food);
+    assert_eq!(
+        food_before - food_after,
+        1,
+        "the offering gives up one Food"
+    );
+    assert!(
+        total_affinity(&a) > aff_before,
+        "the offering deepens devotion to the god you keep"
+    );
+}
+
+#[test]
+fn an_offering_needs_food() {
+    let mut a = app();
+    stand_in_town(&mut a);
+    {
+        let s = &mut a.sim.as_mut().unwrap().world.regions[0].settlements[0];
+        if !s.services.contains(&SettlementService::Temple) {
+            s.services.push(SettlementService::Temple);
+        }
+    }
+    // strip any starting food
+    {
+        let inv = &mut a.player_start.as_mut().unwrap().inventory;
+        while inv.remove(ItemType::Food, 1) {}
+    }
+    a.make_offering();
+    let msg = a.status_msg.clone().unwrap_or_default();
+    assert!(msg.contains("needs Food"), "nothing to lay down: {msg}");
 }
 
 #[test]
