@@ -239,7 +239,16 @@ pub fn district_buildings(
     } else {
         None
     };
-    let reserved = [plaza, main_street];
+    // A cross-street meets the main street at the plaza, so a real town reads
+    // as a crossroads — a way in from either flank, the quarters set between
+    // the four arms. (Walkable Settlement, like the spine.)
+    let cross_street = if span >= 16 {
+        let csh = if span >= 28 { 3 } else { 2 };
+        Some((ax, ay + ah / 2 - csh / 2, aw, csh))
+    } else {
+        None
+    };
+    let reserved = [plaza, main_street, cross_street];
     let mut py = 0;
     while py + 4 <= ah {
         let mut px = 0;
@@ -574,6 +583,27 @@ mod tests {
                 b.w,
                 b.h,
                 msx + msw
+            );
+        }
+    }
+
+    #[test]
+    fn a_large_town_keeps_a_cross_street_clear() {
+        // The cross-street spans the town's width, free of buildings.
+        let (ax, ay, aw, ah) = (0usize, 0usize, 40usize, 36usize);
+        let placed = district_buildings(ax, ay, aw, ah, 31, BuildCharacter::Plain);
+        let csh = if aw.min(ah) >= 28 { 3 } else { 2 };
+        let csy = ay + ah / 2 - csh / 2;
+        for b in &placed {
+            let overlaps = b.y < csy + csh && b.y + b.h > csy && b.x < ax + aw && b.x + b.w > ax;
+            assert!(
+                !overlaps,
+                "building at ({},{}) {}x{} blocks the cross-street [y {csy}..{}]",
+                b.x,
+                b.y,
+                b.w,
+                b.h,
+                csy + csh
             );
         }
     }

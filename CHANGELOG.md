@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**A town becomes a crossroads (#458)** — a **cross-street** now meets the main street at the plaza, so a large town reads as a true crossroads: two thoroughfares through the square, a way in from either flank, the quarters set between the four arms. Walkable ground like the spine; hamlets stay too small; deterministic per seed.
+
 **The market square comes alive (#458)** — by day the townsfolk now **gather in the market plaza** instead of scattering evenly down every lane: the square fills first and the souls spill into the side streets only once it is full, so a town at noon reads as a lived-in place with a centre. Indoors by night they still cluster at the hearths, as before. Deterministic per person and day; the plaza is one shared definition the building generator and the street life both read.
 
 **A town gets a spine (#458)** — following the market plaza, a real town now also has a **main street**: a clear thoroughfare runs the length of a large district through the plaza, the lanes branching off it, so the town reads as a place on a road rather than an even field of roofs. Like the plaza it stays walkable ground; hamlets stay too small for one; deterministic per seed, with walls, doors, and NPC streets still in agreement.
