@@ -71,17 +71,18 @@ device → GamepadButton → GamepadAction → KeyCode → existing handlers
 
 - **Phase 0 — pure mapping + dispatch (DONE).** `input::gamepad` (the binding)
   and `App::handle_gamepad_button` (the dispatch), both deviceless-tested. The
-  whole binding is locked, and a button already drives the running game; only a
-  backend that *produces* the buttons is missing.
-- **Phase 1 — gilrs backend behind `--features gamepad`.** Add `gilrs`
-  (optional dep). **Note (verified 2026-06-15):** `gilrs` pulls `libudev-sys`,
-  which needs the system `libudev` dev library to build (`apt install
-  libudev-dev` on Debian/Ubuntu) — without it `cargo build --features gamepad`
-  fails at link config, so Phase 1 needs that lib (and a controller to test).
-  In the event loop, poll gilrs each frame; on a button-down, resolve the
-  logical `GamepadButton` and call `App::handle_gamepad_button` (with a repeat
-  delay so a held stick steps, not sprints). Feature-gated so headless and CI
-  builds never pull the dependency.
+  whole binding is locked, and a button drives the running game.
+- **Phase 1 — gilrs backend behind `--features gamepad` (DONE).**
+  `input::gamepad_gilrs` reads a controller (`Pad::poll_pressed` →
+  `Vec<GamepadButton>`, gilrs button → logical button), and `src/main.rs` polls
+  it each frame and calls `App::handle_gamepad_button`. Feature-gated, so the
+  default build and CI never pull `gilrs`. **Build note (verified 2026-06-15):**
+  `gilrs` pulls `libudev-sys`, which needs the system `libudev` dev library
+  (`apt install libudev-dev` on Debian/Ubuntu, or a `libudev.pc` + a `libudev.so`
+  symlink to the runtime `libudev.so.1`); with it, `cargo build --features
+  gamepad` builds and tests clean. The d-pad and face/bumper/trigger buttons are
+  read; the analog left-stick walk (with a step-repeat delay) and the grips are
+  the remaining tuning.
 - **Phase 2 — Steam Input ship config.** Add a Steam Input Game Actions File
   (`.vdf`) defining the action set (Move, Confirm, Cancel, Gather, Rest,
   Forage, Pray, Journey, Wait, Inventory, Map, Help) and a default

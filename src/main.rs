@@ -63,6 +63,10 @@ fn main() -> Result<()> {
 }
 
 fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, app: &mut App) -> Result<()> {
+    // A controller, if one is plugged in (and the `gamepad` feature is built).
+    #[cfg(feature = "gamepad")]
+    let mut pad = deep_world_tui::ui::input::gamepad_gilrs::Pad::new();
+
     while app.running {
         let render_start = Instant::now();
         app.pre_draw();
@@ -71,6 +75,14 @@ fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, app: &mut App
         app.perf_last_render_us = render_us;
         if render_us > 33_000 {
             app.perf_slow_frames = app.perf_slow_frames.saturating_add(1);
+        }
+
+        // Controller presses drive the same handlers as the keyboard.
+        #[cfg(feature = "gamepad")]
+        if let Some(pad) = pad.as_mut() {
+            for button in pad.poll_pressed() {
+                app.handle_gamepad_button(button);
+            }
         }
 
         let timeout = Duration::from_millis(app.tick_interval);
