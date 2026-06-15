@@ -320,7 +320,8 @@ fn tick_settlement_life(sim: &mut SimState) {
         let weather = region.weather;
         let region_richness = region.game_richness;
         let mut richness_draw = 0.0_f64;
-        let mut grown_footprints: Vec<(u32, u32, u32)> = Vec::new();
+        let mut grown_footprints: Vec<(u32, u32, u32, crate::gen::building::BuildCharacter)> =
+            Vec::new();
         let (map_w, map_h) = (region.terrain.width, region.terrain.height);
         let rtype = region.region_type.clone();
         let region_terrain_snapshot = region.terrain.clone();
@@ -453,7 +454,14 @@ fn tick_settlement_life(sim: &mut SimState) {
                     settlement.map_y = settlement
                         .map_y
                         .min(map_h.saturating_sub(n as usize) as u32);
-                    grown_footprints.push((settlement.map_x, settlement.map_y, n));
+                    let character = crate::gen::building::BuildCharacter::from_people(
+                        &settlement
+                            .people
+                            .first()
+                            .map(|p| p.people.clone())
+                            .unwrap_or_default(),
+                    );
+                    grown_footprints.push((settlement.map_x, settlement.map_y, n, character));
                     if !settlement
                         .services
                         .contains(&crate::model::SettlementService::Temple)
@@ -518,7 +526,14 @@ fn tick_settlement_life(sim: &mut SimState) {
                     settlement.map_x = ax as u32;
                     settlement.map_y = ay as u32;
                     settlement.district = wanted as u32;
-                    grown_footprints.push((ax as u32, ay as u32, wanted as u32));
+                    let character = crate::gen::building::BuildCharacter::from_people(
+                        &settlement
+                            .people
+                            .first()
+                            .map(|p| p.people.clone())
+                            .unwrap_or_default(),
+                    );
+                    grown_footprints.push((ax as u32, ay as u32, wanted as u32, character));
                 }
             }
 
@@ -653,8 +668,14 @@ fn tick_settlement_life(sim: &mut SimState) {
         }
         // Paint grown footprints: the settlement's square of ground expands
         // with its size, clamped to the map's edge.
-        for (ax, ay, n) in grown_footprints {
-            crate::gen::town::lay_town(&mut region.terrain, ax as usize, ay as usize, n as usize);
+        for (ax, ay, n, character) in grown_footprints {
+            crate::gen::town::lay_town(
+                &mut region.terrain,
+                ax as usize,
+                ay as usize,
+                n as usize,
+                character,
+            );
         }
         region.game_richness = (region.game_richness - richness_draw).max(0.0);
     }

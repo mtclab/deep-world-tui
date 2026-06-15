@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Each people builds in its own hand (#454)** — an enclave no longer looks like a human town with different names: the Five raise their settlements in their own character. The **Tzäkhar** raise grand, deep-carved halls; the **Häl** keep to modest canopy-floor huts; the **Khör** to long herder-houses. The building styles lean to the dominant people, while the hash still varies them within that lean so no two settlements are twins. Human towns are unchanged.
+
 **The trade floor shows its measures (#454)** — the market screen at an enclave no longer shows misleading coin prices: it names itself a trade floor of the Five and lists, for each good you can lay down, exactly what they give for it in kind ("1 Tool (have 2) → 2 Hide, 2 Food"), with the goods they want none of greyed out. What you see is the rate; the rate is the rate.
 
 **The Five take no coin — barter in kind (#454)** — an enclave's market is a **trade floor, not a stall**: the Five take no coin and do not haggle. Lay down a good and they trade it for theirs at a fixed rate — a tool to the Khör for härkä-leather and steppe-butter, cloth to the Mëräk for deep-fish, food to the Tzäkhar for worked iron, and so on, the same coin-free measures as their roadside traders. Trying to buy with coin is refused; offer a good instead.

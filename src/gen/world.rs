@@ -442,11 +442,18 @@ fn generate_terrain(
             tiles,
         };
         for s in settlements.iter() {
+            let character = crate::gen::building::BuildCharacter::from_people(
+                &s.people
+                    .first()
+                    .map(|p| p.people.clone())
+                    .unwrap_or_default(),
+            );
             crate::gen::town::lay_town(
                 &mut tmap,
                 s.map_x as usize,
                 s.map_y as usize,
                 s.footprint() as usize,
+                character,
             );
         }
         tiles = tmap.tiles;
@@ -699,16 +706,22 @@ pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
             }
         }
         // Lay every district (idempotent; also grows pre-anchor towns).
-        let prints: Vec<(usize, usize, usize)> = region
+        let prints: Vec<(usize, usize, usize, crate::gen::building::BuildCharacter)> = region
             .settlements
             .iter()
             .map(|s| {
                 let n = (s.footprint() as usize).clamp(2, 48.min(w.saturating_sub(6)));
-                (s.map_x as usize, s.map_y as usize, n)
+                let character = crate::gen::building::BuildCharacter::from_people(
+                    &s.people
+                        .first()
+                        .map(|p| p.people.clone())
+                        .unwrap_or_default(),
+                );
+                (s.map_x as usize, s.map_y as usize, n, character)
             })
             .collect();
-        for (ax, ay, n) in prints {
-            crate::gen::town::lay_town(&mut region.terrain, ax, ay, n);
+        for (ax, ay, n, character) in prints {
+            crate::gen::town::lay_town(&mut region.terrain, ax, ay, n, character);
         }
     }
 }

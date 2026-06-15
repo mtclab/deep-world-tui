@@ -98,8 +98,41 @@ pub struct PlacedBuilding {
     pub door: (usize, usize),
 }
 
-/// Pick a fitting style for a plot, varied by the hash.
-fn pick_style(h: u64, avail_w: usize, avail_h: usize) -> Option<BuildingStyle> {
+/// How a people build, biasing the styles their settlements raise (#454): the
+/// Tzäkhar raise grand carved halls, the Häl keep to modest canopy-floor huts,
+/// the Khör to long herder-houses. `Plain` is the human default — an even mix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BuildCharacter {
+    #[default]
+    Plain,
+    /// Favours the largest building that fits (the deep-stone Tzäkhar).
+    Grand,
+    /// Favours the smallest (the canopy-floor Häl).
+    Modest,
+    /// Favours the longhouse where it fits (the steppe Khör).
+    Long,
+}
+
+impl BuildCharacter {
+    /// The building character of a settlement's dominant people.
+    pub fn from_people(people: &str) -> BuildCharacter {
+        match crate::model::PeopleKind::from_name(people) {
+            crate::model::PeopleKind::Tzakhar => BuildCharacter::Grand,
+            crate::model::PeopleKind::Hal => BuildCharacter::Modest,
+            crate::model::PeopleKind::Khor => BuildCharacter::Long,
+            _ => BuildCharacter::Plain,
+        }
+    }
+}
+
+/// Pick a fitting style for a plot, varied by the hash and the people's
+/// building character.
+fn pick_style(
+    h: u64,
+    avail_w: usize,
+    avail_h: usize,
+    character: BuildCharacter,
+) -> Option<BuildingStyle> {
     let fits: Vec<BuildingStyle> = [
         BuildingStyle::Hut,
         BuildingStyle::Cottage,
@@ -115,6 +148,26 @@ fn pick_style(h: u64, avail_w: usize, avail_h: usize) -> Option<BuildingStyle> {
     .collect();
     if fits.is_empty() {
         return None;
+    }
+    // A people's character leans the pick; the hash still varies it within the
+    // lean so no two settlements are identical.
+    match character {
+        // Grand: usually the largest that fits, sometimes the next.
+        BuildCharacter::Grand => {
+            let from_top = (h as usize) % 2; // 0 or 1 back from the largest
+            return fits.get(fits.len().saturating_sub(1 + from_top)).copied();
+        }
+        // Modest: usually the smallest, sometimes the next.
+        BuildCharacter::Modest => {
+            return fits.get(((h as usize) % 2).min(fits.len() - 1)).copied();
+        }
+        // Long: a longhouse when it fits, else the hash decides.
+        BuildCharacter::Long => {
+            if fits.contains(&BuildingStyle::Longhouse) && !h.is_multiple_of(3) {
+                return Some(BuildingStyle::Longhouse);
+            }
+        }
+        BuildCharacter::Plain => {}
     }
     Some(fits[(h as usize) % fits.len()])
 }
@@ -142,6 +195,7 @@ pub fn district_buildings(
     aw: usize,
     ah: usize,
     seed: u64,
+    character: BuildCharacter,
 ) -> Vec<PlacedBuilding> {
     let mut out = Vec::new();
     if aw < 3 || ah < 3 {
@@ -175,7 +229,7 @@ pub fn district_buildings(
                 px += stride;
                 continue;
             }
-            if let Some(style) = pick_style(h, avail_w, avail_h) {
+            if let Some(style) = pick_style(h, avail_w, avail_h, character) {
                 let (bw, bh) = style.size();
                 let (bx, by) = (ax + px + 1, ay + py + 1);
                 let side = match h % 4 {
@@ -222,6 +276,7 @@ pub fn lay_district(
     aw: usize,
     ah: usize,
     seed: u64,
+    character: BuildCharacter,
 ) -> Vec<PlacedBuilding> {
     let (mw, mh) = (terrain.width, terrain.height);
     let aw = aw.min(mw.saturating_sub(ax));
@@ -235,7 +290,7 @@ pub fn lay_district(
             }
         }
     }
-    let buildings = district_buildings(ax, ay, aw, ah, seed);
+    let buildings = district_buildings(ax, ay, aw, ah, seed, character);
     for b in &buildings {
         for dy in 0..b.h {
             for dx in 0..b.w {
@@ -387,7 +442,7 @@ mod tests {
     #[test]
     fn a_district_lays_varied_buildings_with_doors_onto_streets() {
         let mut t = blank(30, 24);
-        let placed = lay_district(&mut t, 1, 1, 28, 22, 4242);
+        let placed = lay_district(&mut t, 1, 1, 28, 22, 4242, BuildCharacter::Plain);
         assert!(
             placed.len() >= 3,
             "a district should hold several buildings"
@@ -433,7 +488,7 @@ mod tests {
     #[test]
     fn every_building_has_a_hearth_at_its_heart() {
         let mut t = blank(30, 24);
-        let placed = lay_district(&mut t, 1, 1, 28, 22, 4242);
+        let placed = lay_district(&mut t, 1, 1, 28, 22, 4242, BuildCharacter::Plain);
         for b in &placed {
             let (hx, hy) = (b.x + b.w / 2, b.y + b.h / 2);
             assert_eq!(
@@ -451,10 +506,57 @@ mod tests {
     fn a_district_is_deterministic() {
         let mut a = blank(30, 24);
         let mut b = blank(30, 24);
-        let pa = lay_district(&mut a, 1, 1, 28, 22, 99);
-        let pb = lay_district(&mut b, 1, 1, 28, 22, 99);
+        let pa = lay_district(&mut a, 1, 1, 28, 22, 99, BuildCharacter::Plain);
+        let pb = lay_district(&mut b, 1, 1, 28, 22, 99, BuildCharacter::Plain);
         assert_eq!(pa, pb);
         assert_eq!(a.tiles, b.tiles);
+    }
+
+    #[test]
+    fn building_character_leans_the_styles() {
+        let area = |bs: &[PlacedBuilding]| -> f64 {
+            if bs.is_empty() {
+                return 0.0;
+            }
+            bs.iter().map(|b| (b.w * b.h) as f64).sum::<f64>() / bs.len() as f64
+        };
+        // Same ground, same seed — only the people's character differs.
+        let grand = district_buildings(0, 0, 40, 40, 7, BuildCharacter::Grand);
+        let modest = district_buildings(0, 0, 40, 40, 7, BuildCharacter::Modest);
+        let long = district_buildings(0, 0, 40, 40, 7, BuildCharacter::Long);
+        assert!(
+            area(&grand) > area(&modest),
+            "grand builders raise larger buildings than modest ones ({} vs {})",
+            area(&grand),
+            area(&modest)
+        );
+        // The Long build longhouses where they fit.
+        assert!(
+            long.iter()
+                .filter(|b| b.style == BuildingStyle::Longhouse)
+                .count()
+                > grand
+                    .iter()
+                    .filter(|b| b.style == BuildingStyle::Longhouse)
+                    .count(),
+            "the Long raise more longhouses than the Grand"
+        );
+        // Character keeps determinism.
+        assert_eq!(
+            grand,
+            district_buildings(0, 0, 40, 40, 7, BuildCharacter::Grand)
+        );
+    }
+
+    #[test]
+    fn from_people_reads_the_five() {
+        assert_eq!(
+            BuildCharacter::from_people("tzäkhar"),
+            BuildCharacter::Grand
+        );
+        assert_eq!(BuildCharacter::from_people("häl"), BuildCharacter::Modest);
+        assert_eq!(BuildCharacter::from_people("khör"), BuildCharacter::Long);
+        assert_eq!(BuildCharacter::from_people("metsik"), BuildCharacter::Plain);
     }
 
     #[test]

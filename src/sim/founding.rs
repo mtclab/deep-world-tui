@@ -364,6 +364,7 @@ pub fn spawn_settlement(
     // Mark the ground: a hamlet district — street and first roof — with
     // worked land around it.
     let fp = crate::model::economy::Settlement::footprint_for_size("hamlet") as usize;
-    crate::gen::town::lay_town(&mut region.terrain, x, y, fp);
+    let character = crate::gen::building::BuildCharacter::from_people(&dominant_people);
+    crate::gen::town::lay_town(&mut region.terrain, x, y, fp, character);
     Some((settlement_id, name))
 }

@@ -91,20 +91,35 @@ pub fn carrying_capacity(terrain: &TerrainMap, x: usize, y: usize, region_type: 
 /// the anchor so service-doors, walls, and NPC streets always agree.
 pub fn town_buildings(settlement: &Settlement) -> Vec<crate::gen::building::PlacedBuilding> {
     let n = settlement.footprint() as usize;
+    let character = crate::gen::building::BuildCharacter::from_people(
+        &settlement
+            .people
+            .first()
+            .map(|p| p.people.clone())
+            .unwrap_or_default(),
+    );
     crate::gen::building::district_buildings(
         settlement.map_x as usize,
         settlement.map_y as usize,
         n,
         n,
         crate::gen::building::town_seed(settlement.map_x, settlement.map_y),
+        character,
     )
 }
 
 /// Paint a settlement's district onto the map: real buildings (walls, floors,
 /// doors) on walkable streets (#458), worked land skirting the edge. Safe at
 /// map edges (clamped). The anchor seeds the layout so consumers can recompute
-/// the same buildings.
-pub fn lay_town(terrain: &mut TerrainMap, anchor_x: usize, anchor_y: usize, footprint: usize) {
+/// the same buildings. `character` is the dominant people's building character,
+/// which must match what `town_buildings` derives so painted and computed agree.
+pub fn lay_town(
+    terrain: &mut TerrainMap,
+    anchor_x: usize,
+    anchor_y: usize,
+    footprint: usize,
+    character: crate::gen::building::BuildCharacter,
+) {
     crate::gen::building::lay_district(
         terrain,
         anchor_x,
@@ -112,6 +127,7 @@ pub fn lay_town(terrain: &mut TerrainMap, anchor_x: usize, anchor_y: usize, foot
         footprint,
         footprint,
         crate::gen::building::town_seed(anchor_x as u32, anchor_y as u32),
+        character,
     );
     // Worked land skirts the walls — and the water keeps its bed.
     let (w, h) = (terrain.width, terrain.height);
@@ -261,7 +277,13 @@ mod tests {
             tiles: vec![Terrain::Grass; 3600],
         };
         for n in [6usize, 12, 24, 40] {
-            lay_town(&mut terrain, 5, 5, n);
+            lay_town(
+                &mut terrain,
+                5,
+                5,
+                n,
+                crate::gen::building::BuildCharacter::Plain,
+            );
             let s = test_settlement(5, 5, n as u32);
             let buildings = town_buildings(&s);
             assert!(!buildings.is_empty(), "n={n} lays at least one building");
