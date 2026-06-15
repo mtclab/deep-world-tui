@@ -465,6 +465,20 @@ impl PeopleKind {
         )
     }
 
+    /// How one of the Five receives a stranger who walks into their enclave
+    /// (#454) — a line true to each people's monograph. `None` for the human
+    /// regions, whose towns are no enclave.
+    pub fn enclave_welcome(self) -> Option<&'static str> {
+        Some(match self {
+            PeopleKind::Tzakhar => "You step into the deephold of the Tzäkhar — lamplit stone, the ring of the deep-forge below. They take no coin; lay down a good and they will weigh it.",
+            PeopleKind::Merak => "You come to the Mëräk at the tideline — racks of drying fish, the smell of deep-water and salt. They trade in kind, the sea's measure for the land's.",
+            PeopleKind::Shear => "You reach a waterhold of the She'ar in the dry country — shade-cloth, still air, the discipline of water counted to the drop. They speak little and barter true.",
+            PeopleKind::Hal => "You enter the canopy-town of the Häl — floors woven in the high green, Keuru's wood about you. They keep the physic-shrine and trade their salves in kind.",
+            PeopleKind::Khor => "You arrive at a cairn-circle of the Khör on the cold steppe — herder-houses, härkä-hide, the word-keepers' shrine. They take no coin, only an even trade.",
+            _ => return None,
+        })
+    }
+
     pub fn bias_toward(self, other: PeopleKind) -> f64 {
         if self == other {
             return 0.15;
@@ -2078,6 +2092,26 @@ mod tests {
         // Different trust levels should produce different actions (with same seed)
 
         assert_ne!(aggressive, defensive);
+    }
+
+    #[test]
+    fn the_five_welcome_strangers_humans_do_not() {
+        for p in [
+            PeopleKind::Tzakhar,
+            PeopleKind::Merak,
+            PeopleKind::Shear,
+            PeopleKind::Hal,
+            PeopleKind::Khor,
+        ] {
+            assert!(p.is_of_the_five());
+            assert!(
+                p.enclave_welcome().is_some(),
+                "{p:?} greets you in its own character"
+            );
+        }
+        // A human people keeps a plain town, no enclave welcome.
+        assert!(!PeopleKind::Metsik.is_of_the_five());
+        assert!(PeopleKind::Metsik.enclave_welcome().is_none());
     }
 
     #[test]

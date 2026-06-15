@@ -124,6 +124,17 @@ impl App {
                 ));
             }
         }
+        // Walking into an enclave of the Five is not like entering a human town
+        // (#454): the place announces itself in its own character. (A festival
+        // greeting, if one is underway, takes precedence.)
+        if !festival_now {
+            if let Some(welcome) = self
+                .current_settlement_people()
+                .and_then(|p| p.enclave_welcome())
+            {
+                self.status_msg = Some(welcome.to_string());
+            }
+        }
         self.screen = Screen::Location {
             region_idx,
             settlement_idx,
