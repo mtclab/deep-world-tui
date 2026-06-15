@@ -589,7 +589,10 @@ impl App {
                     .map(|si| (si, r.settlements[si].clone()))
             });
         let Some((_si, settlement)) = owner else {
-            self.status_msg = Some("The door is barred and no one answers.".into());
+            // A holding out in the country, beyond any town's footprint: its
+            // folk are in the fields, not at the door (#458).
+            self.status_msg =
+                Some("A farm-holding. You knock, but the folk are out in the fields.".into());
             return;
         };
         match crate::gen::town::service_at(&settlement, x, y) {
