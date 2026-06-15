@@ -107,6 +107,24 @@ fn a_journey_needs_provisions_and_a_town() {
 }
 
 #[test]
+fn the_first_great_journey_marks_the_life() {
+    use deep_world_tui::sim::milestones::MilestoneKind;
+    let mut a = app();
+    stand_in_town(&mut a);
+    a.player_start
+        .as_mut()
+        .unwrap()
+        .inventory
+        .add(ItemType::Food, 20);
+    assert!(!a.milestones.has(MilestoneKind::WalkedToGreatCity));
+    a.journey_to_city();
+    assert!(
+        a.milestones.has(MilestoneKind::WalkedToGreatCity),
+        "the first journey to a great city marks the life"
+    );
+}
+
+#[test]
 fn the_long_haul_turns_a_profit() {
     // Carry bulk goods to the city and they sell at a premium for coin (#456).
     let mut a = app();
