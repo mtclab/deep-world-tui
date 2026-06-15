@@ -108,6 +108,7 @@ pub(crate) fn glyph_color(terrain: crate::model::Terrain, theme: &Theme) -> Colo
         Wall => theme.dark_brown(),
         Floor => theme.warm_brown(),
         Door => theme.archive_red(),
+        Hearth => theme.archive_red(),
         Farmland => theme.ink(),
         Sand => theme.warm_brown(),
         Swamp => theme.dark_brown(),

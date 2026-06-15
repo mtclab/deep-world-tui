@@ -42,6 +42,7 @@ fn terrain_label(t: Terrain) -> &'static str {
         Terrain::Wall => "wall",
         Terrain::Floor => "floor",
         Terrain::Door => "doorway",
+        Terrain::Hearth => "hearth",
         Terrain::Road => "road",
         Terrain::Water => "water",
     }

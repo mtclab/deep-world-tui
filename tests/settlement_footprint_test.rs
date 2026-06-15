@@ -43,6 +43,7 @@ fn footprints_match_size_and_are_painted() {
                                 | Some(Terrain::Wall)
                                 | Some(Terrain::Floor)
                                 | Some(Terrain::Door)
+                                | Some(Terrain::Hearth)
                                 | Some(Terrain::Water)
                                 | Some(Terrain::Coast)
                         ),
@@ -142,6 +143,7 @@ fn promotion_paints_new_houses_past_the_old_wall() {
                         | Some(Terrain::Wall)
                         | Some(Terrain::Floor)
                         | Some(Terrain::Door)
+                        | Some(Terrain::Hearth)
                         | Some(Terrain::Water)
                         | Some(Terrain::Coast)
                 ),
@@ -201,6 +203,7 @@ fn pre_anchor_saves_are_backfilled() {
                         | Some(Terrain::Wall)
                         | Some(Terrain::Floor)
                         | Some(Terrain::Door)
+                        | Some(Terrain::Hearth)
                         | Some(Terrain::Water)
                         | Some(Terrain::Coast)
                 ));

@@ -162,9 +162,8 @@ fn you_can_walk_into_the_building_interior() {
     let inside = a.sim.as_ref().unwrap().world.regions[0]
         .terrain
         .get(p.px, p.py);
-    assert_eq!(
-        inside,
-        Some(Terrain::Floor),
-        "the second step lands on the interior floor, not a wall"
+    assert!(
+        matches!(inside, Some(Terrain::Floor | Terrain::Hearth)),
+        "the second step lands on the interior (floor or hearth), not a wall: {inside:?}"
     );
 }
