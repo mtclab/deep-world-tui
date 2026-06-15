@@ -4,6 +4,7 @@ pub mod craft;
 pub mod encounter;
 pub mod encounter_log;
 pub mod game_over;
+pub mod gamepad;
 pub mod help;
 pub mod inventory;
 pub mod journal;
