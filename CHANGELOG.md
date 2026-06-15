@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Controller dispatch — a button drives the whole game (#484)** — the second half of the controller foundation: `App::handle_gamepad_button` turns a controller button into the keystroke it maps to and runs the *same* event path the keyboard uses, so a gamepad reaches every screen — the map, menus, market, talk — with no per-screen controller code. Proven end to end **without any device**: a test feeds the d-pad and the player walks, feeds a face button and the game acts, feeds an unbound trackpad and nothing happens. Layers 2 and 3 of the plan are now done and tested; all that's left for live play is a backend to *produce* the buttons (gilrs needs the system `libudev` to build — noted in `docs/STEAM_CONTROLLER.md`).
+
 **Worldgen, lighter on its feet (perf)** — `carrying_capacity` and `trade_factor` now read the terrain by borrowing the tile slice instead of taking a whole `TerrainMap`, so worldgen no longer **clones the entire sector twice per settlement** just to probe the land — it reads the live tiles in place. No behaviour change (same numbers, same world); it just stops paying for a copy of a 16,000-tile map on every capacity check, which the taller sectors had made dearer.
 
 **Taller sectors, room to sprawl (#480/#378)** — region sectors grow from 160×80 to **160×100**: with #480 having freed a great town's horizontal berth, this gives the rare Tier-II city the vertical room to actually sprawl past the towns beside its river, instead of being clipped by the sector's edge. Old saves are untouched — the upscale chain is width-driven and still lands them at their own 160×80, and a region reads its own dimensions, so old and new worlds both just work.

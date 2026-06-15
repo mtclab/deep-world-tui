@@ -44,6 +44,18 @@ impl App {
         }
     }
 
+    /// Drive the game from a controller button (#484): the button becomes the
+    /// keystroke it maps to and runs the very same `handle_event` path the
+    /// keyboard uses, so a gamepad reaches every screen with no per-screen
+    /// controller code. A backend (gilrs, Steam Input) calls this on a press;
+    /// an unbound button does nothing.
+    pub fn handle_gamepad_button(&mut self, button: crate::ui::input::gamepad::GamepadButton) {
+        if let Some(code) = crate::ui::input::gamepad::key_for(button) {
+            let key = crossterm::event::KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
+            self.handle_event(AppEvent::Key(key));
+        }
+    }
+
     pub fn handle_event(&mut self, event: AppEvent) {
         if let AppEvent::Key(key) = &event {
             if key.code == crossterm::event::KeyCode::Esc {
