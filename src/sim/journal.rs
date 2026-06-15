@@ -10,6 +10,7 @@ pub enum Voice {
     Dream,
     Scar,
     Rumor,
+    Faith,
 }
 
 impl Voice {
@@ -21,6 +22,7 @@ impl Voice {
             Voice::Dream => "dream",
             Voice::Scar => "scar",
             Voice::Rumor => "rumor",
+            Voice::Faith => "faith",
         }
     }
 }
@@ -187,6 +189,7 @@ pub fn voice_color(voice: Voice) -> &'static str {
         Voice::Dream => "archive_red",
         Voice::Scar => "archive_red",
         Voice::Rumor => "ink",
+        Voice::Faith => "warm_brown",
     }
 }
 
@@ -202,6 +205,7 @@ mod tests {
         assert_eq!(Voice::Dream.label(), "dream");
         assert_eq!(Voice::Scar.label(), "scar");
         assert_eq!(Voice::Rumor.label(), "rumor");
+        assert_eq!(Voice::Faith.label(), "faith");
     }
 
     #[test]

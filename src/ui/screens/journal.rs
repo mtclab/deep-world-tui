@@ -54,6 +54,7 @@ pub(crate) fn draw_journal_screen(f: &mut Frame, app: &App, scroll: u16) {
                     crate::sim::journal::Voice::Dream => theme.archive_red(),
                     crate::sim::journal::Voice::Scar => theme.archive_red(),
                     crate::sim::journal::Voice::Rumor => theme.ink(),
+                    crate::sim::journal::Voice::Faith => theme.warm_brown(),
                 };
                 lines.push(Line::from(vec![
                     Span::styled(

@@ -176,6 +176,8 @@ pub enum PlayerChoice {
     JourneyToCity,
     /// Sit a while in prayer — devotion, the gods being withdrawn (#457).
     Pray,
+    /// Keep a settlement's festival in earnest — deeper devotion (#457).
+    ObserveFestival,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
