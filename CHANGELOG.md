@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The Five keep their own ground (#454)** — enclaves no longer depend on the dice alone: on a people's home terrain, now and then a settlement is **founded as theirs** — the Mëräk to the tideline, the Khör to the steppe, the Häl to the deep wood. Their people, their names, their trades, on the ground that is truly theirs. (Seeded with the settlement's own deterministic rng, so no other settlement's people or place is disturbed.)
+
 **Enclaves of the Five, named for what they are (#454)** — a settlement whose people are one of the canon Five non-human peoples — the Tzäkhar deep-smiths, the Mëräk tideline fishers, the She'ar dry-country walkers, the Häl of the canopy, the Khör of the steppe — is now recognised as an **enclave**, not just another town: it names itself for what it is ("Vaskiluuri, a Tzäkhar enclave") in the menus and the world. Derived from the dominant people, nothing new persisted. Groundwork for the Five keeping their own ground and bartering in kind (the in-kind trade floor and home-terrain founding come next).
 
 **The household gathers at the fire (#458)** — at night, people no longer scatter to the far corners of their buildings: they gather **by the hearth**, filling the warmest tiles first. Walk into a lit house after dark and you'll find them around the fire, not standing in a cold back room.

@@ -542,6 +542,22 @@ fn generate_settlement(
         people.push(person);
     }
 
+    // On a people's home ground, now and then a settlement is theirs — a
+    // non-human enclave of the canon Five (#454). They keep their own ground:
+    // the Mëräk to the tideline, the Khör to the steppe, the Häl to the deep
+    // wood. The rng here is this settlement's own and used last, so seeding an
+    // enclave does not shift any other settlement's people or place.
+    if let Some(home) = enclave_home_people(region_type) {
+        if rng.gen_range(3) == 0 {
+            for p in people.iter_mut() {
+                p.people = home.to_string();
+                if let Ok(nm) = crate::gen::name::generate_name(&mut rng, home, &p.sex, charts) {
+                    p.name = nm;
+                }
+            }
+        }
+    }
+
     let dominant_people = people.first().map(|p| p.people.clone()).unwrap_or_default();
 
     Settlement {
@@ -697,6 +713,19 @@ pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
     }
 }
 
+/// The people of the Five whose home ground this region is, if any — so an
+/// enclave is seeded on terrain that is truly theirs (#454): the Mëräk on the
+/// coast, the Khör on the steppe, the Häl in the deep forest. Other regions
+/// (river valley, upland, delta) are human ground and seed no enclave.
+pub fn enclave_home_people(region_type: &str) -> Option<&'static str> {
+    match region_type {
+        "coast" => Some("merak"),
+        "steppe" => Some("khor"),
+        "forest" => Some("hal"),
+        _ => None,
+    }
+}
+
 /// The naming tradition a region's places are named in — places read like
 /// the people who named them, whoever later lives there.
 pub fn naming_tradition(region_type: &str) -> &'static str {
@@ -752,6 +781,46 @@ mod tests {
     fn make_world(seed: u64) -> World {
         let charts = charts::load_charts().unwrap();
         generate_world(seed, &charts)
+    }
+
+    #[test]
+    fn enclaves_seed_on_their_home_ground() {
+        // Across a handful of worlds the Five hold enclaves — each named for
+        // what it is and peopled by one of the Five — and at least one sits on
+        // its own home ground (the seeded kind), the Mëräk coast, the Khör
+        // steppe, the Häl wood.
+        let mut total_enclaves = 0;
+        let mut on_home_ground = 0;
+        for seed in [42u64, 7, 100, 2024, 555] {
+            let world = make_world(seed);
+            for region in &world.regions {
+                for s in &region.settlements {
+                    if let Some(pk) = s.enclave_people() {
+                        total_enclaves += 1;
+                        assert!(pk.is_of_the_five());
+                        assert!(
+                            s.display_name().contains("enclave"),
+                            "an enclave names itself one: {}",
+                            s.display_name()
+                        );
+                        if enclave_home_people(&region.region_type)
+                            .map(crate::model::PeopleKind::from_name)
+                            == Some(pk)
+                        {
+                            on_home_ground += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            total_enclaves > 0,
+            "the Five should hold at least one enclave across five worlds"
+        );
+        assert!(
+            on_home_ground > 0,
+            "at least one enclave sits on its own home ground"
+        );
     }
 
     #[test]
