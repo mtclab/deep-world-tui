@@ -858,8 +858,13 @@ impl App {
             }
         }
         self.god_affinity.adjust(crate::model::GodName::Masa, 0.03);
+        // You come home with word of the wider world, not just goods.
+        let mut news_rng =
+            crate::rng::SeedRng::new(self.seed.wrapping_add(day).wrapping_add(0x4E5_03AD))
+                .fork_for("journey-news");
+        let news = crate::sim::journal::rumor_text(&mut news_rng);
         self.status_msg = Some(format!(
-            "You walked the long roads to {city} and back — {blurb}. (~3 days)"
+            "You walked the long roads to {city} and back — {blurb}. Word travels: {news} (~3 days)"
         ));
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;
@@ -868,6 +873,7 @@ impl App {
                 crate::sim::journal::Voice::Travel,
                 format!("I walked the long roads to {city}. {blurb}."),
             );
+            sim.log(tick, crate::sim::journal::Voice::Rumor, news);
         }
     }
 }

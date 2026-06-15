@@ -63,6 +63,11 @@ fn a_journey_reaches_a_named_city_and_comes_home() {
         "the journey names a city of the continent: {msg}"
     );
     assert!(msg.contains("long roads"), "it was a real journey: {msg}");
+    // ...and word of the wider world comes home with you.
+    assert!(
+        msg.contains("Word travels"),
+        "the journey brings home news: {msg}"
+    );
 }
 
 #[test]
