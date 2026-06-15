@@ -324,7 +324,11 @@ fn tick_settlement_life(sim: &mut SimState) {
             Vec::new();
         let (map_w, map_h) = (region.terrain.width, region.terrain.height);
         let rtype = region.region_type.clone();
-        let region_terrain_snapshot = region.terrain.clone();
+        // The terrain is read (not painted) through the settlement loop below,
+        // and the loop only mutates a *different* field (`settlements`), so a
+        // disjoint borrow lets us read the live tiles without cloning the whole
+        // sector every region every day.
+        let region_terrain_snapshot = &region.terrain;
         // Today's district boxes (with their farmland skirt): growth may
         // only claim ground no neighbor already holds.
         let district_boxes: Vec<(usize, usize, usize, usize)> = region

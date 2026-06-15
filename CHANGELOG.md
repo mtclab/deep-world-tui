@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Sim tick, lighter (perf)** — the daily settlement tick was **cloning the whole sector** (every region, every day) just so it could read the terrain for its capacity check while it updated the settlements. It now reads the live tiles through a disjoint borrow instead — the loop only touches a different field — so the copy is gone. No behaviour change; the world ticks the same, with one fewer 16,000-tile allocation per region per day.
+
 **The stick walks (#484)** — the left stick now steers the four-way walk, not just the d-pad: push it and you step that way, hold it and you keep stepping at a walking pace (a step every few frames, not a sprint of one per frame), centre it and you stop. The direction logic (`stick_direction`, dead-zone and dominant-axis) is pure and CI-tested; the gilrs backend tracks the stick and paces the steps. Feature-gated like the rest of the controller code.
 
 **Controller, live — plug one in and play (#484)** — the `gilrs` backend lands behind a `gamepad` cargo feature: build with `--features gamepad`, plug in a controller (the new Steam Controller via Steam Input, or any pad), and it just plays — the backend reads the device, the tested mapping turns each press into the keystroke it means, and the same handlers the keyboard uses do the rest. Feature-gated so the default build and CI never pull `gilrs` (which needs the system `libudev` to compile); validated to build and test clean with the feature on, and to change nothing with it off. The d-pad and face/bumper/trigger buttons are read now; the Steam Controller's grips and trackpads arrive through whatever Steam Input binds them to.
