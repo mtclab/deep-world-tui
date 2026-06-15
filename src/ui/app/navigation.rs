@@ -767,6 +767,46 @@ impl App {
         self.status_msg = Some(format!("You sit a while in prayer. {line} (1h)"));
     }
 
+    /// Keep the festival in earnest (#457): when a settlement's holy day is
+    /// underway, take deliberate part — not the passing nod of arrival, but the
+    /// long table, the drum-circle, the candle and the named dead. It deepens
+    /// devotion to the festival's god, mends standing with its people faster
+    /// than trade can, and steadies you, at the cost of the hours it takes.
+    pub fn observe_festival(&mut self) {
+        let day = self.clock.day;
+        let underway = self.current_settlement().is_some_and(|s| s.in_festival(day));
+        if !underway {
+            self.status_msg = Some("There is no festival to keep here today.".into());
+            return;
+        }
+        let people = self
+            .current_settlement_people()
+            .unwrap_or(self.inter_people_bias.player_people);
+        let festival = FestivalKind::for_people(people);
+        let god = festival.patron_god();
+        // Keeping the day in earnest deepens devotion more than merely passing
+        // through, but it still plateaus — faith is a long road.
+        let have = self.god_affinity.get(god);
+        let delta = 0.06 * (1.0 - have).max(0.0);
+        self.god_affinity.adjust(god, delta);
+        // Showing up for their holy day mends fences faster than any trade.
+        self.inter_people_bias.mod_toward(people, 0.05);
+        // Communal food, fire, and welcome — a real steadying.
+        self.vitals.energy = (self.vitals.energy + 0.15).min(1.0);
+        self.vitals.hunger = (self.vitals.hunger + 0.25).min(1.0);
+        self.advance_clock(3);
+        let grace = festival.observance_grace();
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Faith,
+                format!("I kept the {} with them. {grace}", festival.label()),
+            );
+        }
+        self.status_msg = Some(format!("You keep the {}. {grace} (3h)", festival.label()));
+    }
+
     /// Set out on the long roads to one of the named cities of the continent
     /// (#456): the playable map is a province slice — the great cities never
     /// stand on it — but from a town on the roads you can make the days-long
