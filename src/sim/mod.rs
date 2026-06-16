@@ -696,7 +696,9 @@ fn tick_settlement_life(sim: &mut SimState) {
                     }
                     let jid = settlement.people[j].id.clone();
                     let jprof = settlement.people[j].profession.clone();
+                    let jname = settlement.people[j].name.clone();
                     let iprof = settlement.people[i].profession.clone();
+                    let iname = settlement.people[i].name.clone();
                     if let Some(rel) = settlement.people[i]
                         .relations
                         .iter_mut()
@@ -732,6 +734,21 @@ fn tick_settlement_life(sim: &mut SimState) {
                             formed_at_tick: tick,
                             reason: reason.to_string(),
                         });
+                        // Now and then the town talks of it — the living web,
+                        // made felt. Rate-limited so it stays worth hearing.
+                        if rng.gen_range(100) < 35 {
+                            completed_msgs.push(if same_trade {
+                                format!(
+                                    "A rivalry has sharpened between {iname} and {jname} in {} — two of one trade, one town.",
+                                    settlement.name
+                                )
+                            } else {
+                                format!(
+                                    "{iname} and {jname} have grown thick as thieves in {}.",
+                                    settlement.name
+                                )
+                            });
+                        }
                     }
                 }
             }
