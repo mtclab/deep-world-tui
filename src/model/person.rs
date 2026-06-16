@@ -493,6 +493,21 @@ impl PeopleKind {
         })
     }
 
+    /// How one of the Five keeps its patron god of the Five (#457 item 5) —
+    /// the canon first-encounter, surfaced in play the first time you enter
+    /// their enclave. Canon: races/00_sapient_races_overview.md, "Relationship
+    /// with the Five Gods". `None` for the human regions and the godless.
+    pub fn enclave_god_relation(self) -> Option<&'static str> {
+        Some(match self {
+            PeopleKind::Tzakhar => "The Tzäkhar keep Kukri, whom they met underground in the long dark — the solitary god of old wisdom and the patient stone. They name him in the deep-forge's first light.",
+            PeopleKind::Merak => "The Mëräk keep Masa of the even trade, met at the tide-line where land and sea bargain; it is Masa they thank for a fair measure and a kept word.",
+            PeopleKind::Shear => "The She'ar hear Kukri in the desert's silence — the god of solitude speaks loudest where there is least to drown him, and the heat-silence is their prayer.",
+            PeopleKind::Hal => "The Häl keep Keuru, met in the canopy's green; the god of forests and hospitality is their roof and their welcome both, and they physic any who come in peace in his name.",
+            PeopleKind::Khor => "The Khör keep Kukri under the name Talven-Hiljaisuus, Winter's-Silence — the god of endurance and the patient cold, who keeps the lineages the cairn-stones remember.",
+            _ => return None,
+        })
+    }
+
     pub fn bias_toward(self, other: PeopleKind) -> f64 {
         if self == other {
             return 0.15;
@@ -1377,6 +1392,30 @@ mod tests {
         let ser = ron::ser::to_string(value).unwrap();
         let de: T = ron::from_str(&ser).unwrap();
         assert_eq!(*value, de);
+    }
+
+    #[test]
+    fn the_five_keep_a_god_and_name_it_truly() {
+        // Each of the Five surfaces a god-relation; the humans keep none here.
+        for pk in [
+            PeopleKind::Tzakhar,
+            PeopleKind::Merak,
+            PeopleKind::Shear,
+            PeopleKind::Hal,
+            PeopleKind::Khor,
+        ] {
+            let rel = pk
+                .enclave_god_relation()
+                .unwrap_or_else(|| panic!("{:?} keeps a god", pk));
+            let god = pk.patron_god().expect("the Five have a patron");
+            assert!(
+                rel.contains(god.label())
+                    || (pk == PeopleKind::Khor && rel.contains("Talven-Hiljaisuus")),
+                "{:?}'s relation names its god",
+                pk
+            );
+        }
+        assert!(PeopleKind::Metsik.enclave_god_relation().is_none());
     }
 
     #[test]

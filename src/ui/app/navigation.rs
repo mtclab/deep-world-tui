@@ -145,6 +145,12 @@ impl App {
                             let tick = sim.world.tick;
                             sim.log(tick, crate::sim::journal::Voice::Dream, lore.to_string());
                         }
+                        // The god they keep, surfaced the first time you deal
+                        // with them (#457): the Five's own faith, not just ours.
+                        if let Some(rel) = people.enclave_god_relation() {
+                            let tick = sim.world.tick;
+                            sim.log(tick, crate::sim::journal::Voice::Faith, rel.to_string());
+                        }
                         if let Some(q) = quest {
                             let dup = sim.quests.iter().any(|e| e.description == q.description);
                             if !dup {
