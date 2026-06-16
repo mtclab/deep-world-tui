@@ -474,6 +474,7 @@ impl App {
             * gift
             * town_gift
             * self.vow_buy_mult()
+            * self.goods_abundance_modifier(item)
             / coin;
         ((base as f64 * m).ceil() as u32).max(1)
     }
@@ -486,6 +487,28 @@ impl App {
         }
         self.current_settlement()
             .map(|s| s.food_scarcity_modifier())
+            .unwrap_or(1.0)
+    }
+
+    /// A trade good's price leans on the settlement's **own stock** (#540 living
+    /// economy): a town holding plenty of what its trades make sells it cheap; a
+    /// town that lacks it pays dear. Drives inter-settlement arbitrage — buy
+    /// where a good is plentiful, carry it where it is scarce. `1.0` for goods
+    /// the living economy does not yet track, or when off a settlement.
+    fn goods_abundance_modifier(&self, item: ItemType) -> f64 {
+        if !matches!(
+            item,
+            ItemType::Iron | ItemType::Tool | ItemType::Cloth | ItemType::Wood
+        ) {
+            return 1.0;
+        }
+        self.current_settlement()
+            .map(|s| {
+                let cap = (s.population as f64 * 0.5).max(1.0);
+                let abundance = (s.good(item) / cap).clamp(0.0, 1.0);
+                // Scarce (empty) → 1.25 dearer; full → 0.80 cheaper.
+                1.25 - 0.45 * abundance
+            })
             .unwrap_or(1.0)
     }
 
@@ -513,6 +536,7 @@ impl App {
             * self.politics_price_modifier()
             * self.caravan_price_modifier(item)
             * self.food_scarcity_modifier(item)
+            * self.goods_abundance_modifier(item)
             * luck
             * coin
             * gift;
