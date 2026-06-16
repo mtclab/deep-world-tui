@@ -148,12 +148,10 @@ pub(crate) fn draw_talk_screen(
                 Style::default().fg(theme.need_color(0.0)),
             )));
         }
-        if low_money {
-            lines.push(Line::from(Span::styled(
-                "   Coin is thin. Offer payment?",
-                Style::default().fg(theme.need_color(0.0)),
-            )));
-        }
+        lines.push(Line::from(Span::styled(
+            "   Ask them for news of the world (N).",
+            Style::default().fg(theme.warm_brown()),
+        )));
 
         if let Some(ref msg) = app.status_msg {
             lines.push(Line::from(""));
@@ -191,6 +189,13 @@ pub(crate) fn draw_talk_screen(
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" heal  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[N]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" ask news  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc/Q]",
             Style::default()
