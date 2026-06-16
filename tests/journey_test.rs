@@ -129,6 +129,36 @@ fn the_first_great_journey_marks_the_life() {
 }
 
 #[test]
+fn the_great_city_is_felt_at_scale() {
+    // Arriving at a canon city writes its scale and character to the journal —
+    // a place far larger than any province town (#456).
+    const SCALE: [&str; 5] = [
+        "fifteen thousand",
+        "twenty thousand",
+        "walled city",
+        "old capital",
+        "frontier city",
+    ];
+    let mut a = app();
+    stand_in_town(&mut a);
+    a.player_start
+        .as_mut()
+        .unwrap()
+        .inventory
+        .add(ItemType::Food, 10);
+    a.journey_to_city();
+    let felt = a
+        .sim
+        .as_ref()
+        .unwrap()
+        .journal
+        .entries
+        .iter()
+        .any(|e| SCALE.iter().any(|s| e.text.contains(s)));
+    assert!(felt, "the city's canon scale reaches the journal");
+}
+
+#[test]
 fn the_lawless_roads_sometimes_take_a_toll() {
     // Post-Fall the roads aren't safe (#449): over many lives, some journeys
     // are robbed or run hard — but not all of them.

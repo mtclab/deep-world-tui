@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The great city, felt (#456)** — the journey to a named city no longer comes home with only goods and a rumour: it brings back **the city itself**. Each of the five — Sampa Crossing thick with grain-barges, Vessenath grey under forge-smoke, walled Halkess whose scales are the law for a hundred leagues, Velkarath brooding over the old capital's fallen harbour, Keuramark at the northern treeline — now writes its **canon scale and character** into the journal on arrival: fifteen, twenty thousand souls and more, market quarters that don't empty, a place far larger than any province town. The continent's scale becomes felt, not just heard in trade-talk.
+
 **The roads are not safe (#449/#456)** — the long journey to a great city no longer comes home unscathed every time. After the Fall the roads are lawless, and now and then the way takes its **toll** — a band of the lawless lightens your purse (a quarter of the silver you're carrying home), or a hard stretch leaves you wearied. Fortune tilts it, and the more you carry home the more there is to lose; the trade run is a gamble now, not a sure thing.
 
 **The Five remember (#454)** — the first time you enter an enclave of one of the Five, you learn a thing about that people worth keeping: the Tzäkhar reckoning a life by the worth its hands have shaped and their deep-forges burning since before the Fall; the Mëräk speaking the drowned names to the sea so it does not forget; the She'ar discipline of silence and water; the Häl who never touch the forest floor; the Khör who carry their dead as cairn-stones, a circle a library of the gone. Told once per people and kept in the journal (persisted across the life), it turns the enclaves from a greeting into a remembered encounter.
