@@ -158,6 +158,12 @@ pub(crate) fn draw_talk_screen(
                 Style::default().fg(theme.warm_brown()),
             )));
         }
+        if p.profession == "healer" || p.profession == "herbalist" {
+            lines.push(Line::from(Span::styled(
+                "   This one tends the sick — consult them for your ills (V).",
+                Style::default().fg(theme.warm_brown()),
+            )));
+        }
 
         if let Some(ref msg) = app.status_msg {
             lines.push(Line::from(""));

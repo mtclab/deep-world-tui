@@ -36,6 +36,9 @@ pub fn handle_talk_input(
         KeyCode::Char('m') => {
             app.commission_smith(region_idx, settlement_idx, person_idx);
         }
+        KeyCode::Char('v') => {
+            app.consult_healer(region_idx, settlement_idx, person_idx);
+        }
         KeyCode::Down => {
             return scroll.saturating_add(1);
         }
