@@ -274,6 +274,116 @@ impl App {
     /// labour otherwise. Costs the day and the body; an Oltzed vow lightens it.
     /// A people set hard against you takes no day-hand. Earns a little standing,
     /// and a lean town's stores rise by the hands you lent.
+    /// The trade good a settlement most wants — the tracked good it holds least,
+    /// relative to what it can keep (#526/#540). `None` off a settlement.
+    pub fn settlement_shortfall(&self) -> Option<ItemType> {
+        let s = self.current_settlement()?;
+        let cap = (s.population as f64 * 0.5).max(1.0);
+        [
+            ItemType::Iron,
+            ItemType::Tool,
+            ItemType::Cloth,
+            ItemType::Wood,
+        ]
+        .into_iter()
+        .min_by(|a, b| {
+            (s.good(*a) / cap)
+                .partial_cmp(&(s.good(*b) / cap))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    }
+
+    /// Provision a settlement with a good it is short of (#526 livelihoods, into
+    /// the living economy #540): carry in what the town lacks and they pay a
+    /// fair premium for it and remember the hand that brought it. The town's own
+    /// stock rises by what you delivered — you have actually supplied it, not
+    /// just turned a coin. The most direct way to be useful to a community.
+    pub fn provision_settlement(&mut self) {
+        let Some((ri, si)) = self.player_on_settlement() else {
+            self.status_msg = Some("No settlement here to provision.".into());
+            return;
+        };
+        if self.market_barred() {
+            self.status_msg = Some("They'll take nothing from your hand here.".into());
+            return;
+        }
+        let Some(want) = self.settlement_shortfall() else {
+            return;
+        };
+        let (cap, pname, sid) = self
+            .sim
+            .as_ref()
+            .and_then(|sim| sim.world.regions.get(ri)?.settlements.get(si))
+            .map(|s| {
+                (
+                    (s.population as f64 * 0.5).max(1.0),
+                    s.name.clone(),
+                    s.id.clone(),
+                )
+            })
+            .unwrap_or((1.0, String::new(), String::new()));
+        let have = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.get(want))
+            .unwrap_or(0);
+        if have == 0 {
+            self.status_msg = Some(format!(
+                "{pname} is short of {} — bring some and they'll pay well for it.",
+                want.name()
+            ));
+            return;
+        }
+        // Deliver what they can hold, up to a few, up to what you carry.
+        let room = (cap - self.current_settlement().map_or(0.0, |s| s.good(want))).max(0.0);
+        let deliver = (have.min(3) as f64).min(room.ceil()).max(0.0) as u32;
+        if deliver == 0 {
+            self.status_msg = Some(format!("{pname} has all the {} it can hold.", want.name()));
+            return;
+        }
+        // A fair provisioning premium over the bare base price — they need it.
+        let pay = (deliver as f64 * want.base_price() as f64 * 1.25).round() as u32;
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(want, deliver);
+            ps.inventory.add(ItemType::Coin, pay);
+        }
+        // The good actually lands in the town's stores.
+        if let Some(ref mut sim) = self.sim {
+            if let Some(s) = sim
+                .world
+                .regions
+                .get_mut(ri)
+                .and_then(|r| r.settlements.get_mut(si))
+            {
+                let cur = s.good(want);
+                s.goods_stock.insert(want, cur + deliver as f64);
+            }
+        }
+        self.advance_clock_hour();
+        self.god_affinity.adjust(GodName::Masa, 0.02);
+        // A provisioner is remembered: standing rises more than a plain sale.
+        let pid = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        if let Some(ref mut sim) = self.sim {
+            if !pid.is_empty() && !sid.is_empty() {
+                sim.reputation.adjust_local(&pid, &sid, 0.03);
+            }
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                format!("I carried {deliver} {} into {pname}, who were short of it. They paid well, and will know my face.", want.name()),
+            );
+        }
+        self.status_msg = Some(format!(
+            "You provision {pname} with {deliver} {} (+{pay} coin, standing rises, 1h)",
+            want.name()
+        ));
+    }
+
     pub fn work_for_hire(&mut self) {
         let Some((ri, si)) = self.player_on_settlement() else {
             self.status_msg = Some("No settlement here to take you on.".into());

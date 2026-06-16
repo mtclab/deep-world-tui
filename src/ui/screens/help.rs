@@ -48,6 +48,7 @@ pub(crate) fn draw_help_screen(f: &mut Frame, app: &App) {
         ),
         Line::from("   F                Faith ledger (your standing with each of the Five)"),
         Line::from("   L                Work a day for hire (in a settlement; earns coin)"),
+        Line::from("   D                Provision a town with a good it lacks (coin + standing)"),
         Line::from("   V                Swear/renounce a god-vow (at a temple, when Blessed)"),
         Line::from("   J                Journey to a great city (from a town; needs Food)"),
         Line::from("   Enter            Enter settlement"),
