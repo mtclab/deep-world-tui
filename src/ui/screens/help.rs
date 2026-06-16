@@ -46,6 +46,7 @@ pub(crate) fn draw_help_screen(f: &mut Frame, app: &App) {
         Line::from(
             "   P                Pilgrimage from a holy site (needs Food; the long road of faith)",
         ),
+        Line::from("   F                Faith ledger (your standing with each of the Five)"),
         Line::from("   J                Journey to a great city (from a town; needs Food)"),
         Line::from("   Enter            Enter settlement"),
         Line::from("   Esc/Q            Exit settlement / go back"),

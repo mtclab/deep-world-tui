@@ -78,6 +78,11 @@ pub enum Screen {
     EncounterLog {
         scroll: u16,
     },
+    /// The faith ledger (#457): a read-only panel of where you stand with each
+    /// of the Five — affinity, devotion rank, the grace each tier grants.
+    Faith {
+        scroll: u16,
+    },
     /// The great city reached by a journey (#456): a read-only panel of its
     /// scale, quarters, services, and long-haul market — `idx` into CANON_CITIES.
     CityVisit {
