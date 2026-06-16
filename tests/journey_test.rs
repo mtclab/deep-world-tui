@@ -7,8 +7,12 @@ use deep_world_tui::model::{ItemType, PlayerPos};
 use deep_world_tui::ui::app::App;
 
 fn app() -> App {
+    app_seed(42)
+}
+
+fn app_seed(seed: u64) -> App {
     let charts = load_charts().expect("charts");
-    let mut a = App::new(42, charts);
+    let mut a = App::new(seed, charts);
     a.generate_player();
     a.accept_player();
     a.running = true;
@@ -121,6 +125,35 @@ fn the_first_great_journey_marks_the_life() {
     assert!(
         a.milestones.has(MilestoneKind::WalkedToGreatCity),
         "the first journey to a great city marks the life"
+    );
+}
+
+#[test]
+fn the_lawless_roads_sometimes_take_a_toll() {
+    // Post-Fall the roads aren't safe (#449): over many lives, some journeys
+    // are robbed or run hard — but not all of them.
+    let mut tolled = 0;
+    for seed in 0..40u64 {
+        let mut a = app_seed(seed);
+        stand_in_town(&mut a);
+        {
+            let inv = &mut a.player_start.as_mut().unwrap().inventory;
+            inv.add(ItemType::Food, 10);
+            inv.add(ItemType::Coin, 100);
+        }
+        a.journey_to_city();
+        let msg = a.status_msg.clone().unwrap_or_default();
+        if msg.contains("took its toll") || msg.contains("road was hard") {
+            tolled += 1;
+        }
+    }
+    assert!(
+        tolled > 0,
+        "the lawless roads bite sometimes (got {tolled}/40)"
+    );
+    assert!(
+        tolled < 40,
+        "but not every journey is robbed (got {tolled}/40)"
     );
 }
 
