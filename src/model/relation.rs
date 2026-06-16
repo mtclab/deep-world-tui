@@ -191,6 +191,88 @@ pub fn conflict_flavor(rng: &mut SeedRng) -> &'static str {
     CONFLICT_FLAVORS[idx]
 }
 
+/// One day's motion of a settlement's social web (#548 living relationships): a
+/// sampled pair of residents either **deepens** an existing bond or **forms** a
+/// new one, so the web grows and shifts rather than only fading. **Shared
+/// hardship** (`famine`) works a bond the harder — the close drawn closer, the
+/// soured frayed further. Returns a rumor when a notable new bond strikes.
+/// Pure and deterministic from `seed`/`tick`; cheap (one pair). Bounded at eight
+/// relations a person.
+pub fn evolve_settlement_relations(
+    people: &mut [crate::model::Person],
+    settlement_name: &str,
+    famine: bool,
+    seed: u64,
+    tick: u64,
+) -> Option<String> {
+    let n = people.len();
+    if n < 2 {
+        return None;
+    }
+    let mut rng = SeedRng::new(seed ^ tick.wrapping_mul(0x9E37_79B9_7F4A_7C15));
+    let i = rng.gen_range(n as u32) as usize;
+    let mut j = rng.gen_range(n as u32) as usize;
+    if i == j {
+        j = (j + 1) % n;
+    }
+    let jid = people[j].id.clone();
+    let jname = people[j].name.clone();
+    let jprof = people[j].profession.clone();
+    let iprof = people[i].profession.clone();
+    let iname = people[i].name.clone();
+
+    if let Some(rel) = people[i]
+        .relations
+        .iter_mut()
+        .find(|r| r.target_person_id == jid)
+    {
+        let warm = matches!(
+            rel.kind,
+            RelationKind::SwornFriend
+                | RelationKind::Spouse
+                | RelationKind::Sibling
+                | RelationKind::Parent
+                | RelationKind::Child
+                | RelationKind::Apprentice
+        );
+        let hardship = if famine { 0.03 } else { 0.0 };
+        let base = if warm { 0.03 } else { 0.02 };
+        rel.intensity = (rel.intensity + base + hardship).min(1.0);
+        return None;
+    }
+
+    if people[i].relations.len() < 8 && rng.gen_range(100) < 8 {
+        let same_trade = !iprof.is_empty() && iprof == jprof;
+        let kind = if same_trade {
+            RelationKind::Rival
+        } else {
+            RelationKind::SwornFriend
+        };
+        let reason = if same_trade {
+            "two of one trade in one town"
+        } else {
+            "the long nearness of neighbours"
+        };
+        people[i].relations.push(InterNpcRelation {
+            kind,
+            target_person_id: jid,
+            intensity: 0.3,
+            formed_at_tick: tick,
+            reason: reason.to_string(),
+        });
+        if rng.gen_range(100) < 35 {
+            return Some(if same_trade {
+                format!(
+                    "A rivalry has sharpened between {iname} and {jname} in {settlement_name} — two of one trade, one town."
+                )
+            } else {
+                format!("{iname} and {jname} have grown thick as thieves in {settlement_name}.")
+            });
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,6 +291,85 @@ mod tests {
         assert!(RelationKind::Spouse.conflicts_with(RelationKind::Rival));
         assert!(RelationKind::Rival.conflicts_with(RelationKind::Spouse));
         assert!(!RelationKind::OwesDebt.conflicts_with(RelationKind::SwornFriend));
+    }
+
+    fn two_residents() -> Vec<crate::model::Person> {
+        vec![
+            crate::model::Person {
+                id: "a".into(),
+                name: "Ana".into(),
+                profession: "smith".into(),
+                relations: vec![InterNpcRelation {
+                    kind: RelationKind::SwornFriend,
+                    target_person_id: "b".into(),
+                    intensity: 0.3,
+                    formed_at_tick: 0,
+                    reason: "x".into(),
+                }],
+                ..Default::default()
+            },
+            crate::model::Person {
+                id: "b".into(),
+                name: "Bo".into(),
+                profession: "weaver".into(),
+                ..Default::default()
+            },
+        ]
+    }
+
+    #[test]
+    fn shared_hardship_deepens_a_bond_harder() {
+        // On the first day the sampled pair touches Ana's bond, famine must
+        // deepen it more than plenty does from the same start.
+        for tick in 0..400u64 {
+            let mut fed = two_residents();
+            let mut hungry = two_residents();
+            evolve_settlement_relations(&mut fed, "Z", false, 99, tick);
+            evolve_settlement_relations(&mut hungry, "Z", true, 99, tick);
+            let f = fed[0].relations[0].intensity;
+            let h = hungry[0].relations[0].intensity;
+            if f > 0.3 {
+                assert!(h > f, "famine works the bond harder ({h} > {f})");
+                return;
+            }
+        }
+        panic!("no tick deepened the bond across the window");
+    }
+
+    #[test]
+    fn a_new_bond_can_form_and_be_spoken_of() {
+        // Two residents with no bond from Bo's side: over many days, Bo forms a
+        // bond toward Ana, and at least one is talked of.
+        let mut spoke = false;
+        let mut formed = false;
+        for tick in 0..2000u64 {
+            let mut people = vec![
+                crate::model::Person {
+                    id: "a".into(),
+                    name: "Ana".into(),
+                    profession: "smith".into(),
+                    ..Default::default()
+                },
+                crate::model::Person {
+                    id: "b".into(),
+                    name: "Bo".into(),
+                    profession: "weaver".into(),
+                    ..Default::default()
+                },
+            ];
+            let msg = evolve_settlement_relations(&mut people, "Z", false, 7, tick);
+            if people.iter().any(|p| !p.relations.is_empty()) {
+                formed = true;
+            }
+            if msg.is_some() {
+                spoke = true;
+            }
+            if formed && spoke {
+                break;
+            }
+        }
+        assert!(formed, "a new bond forms over time");
+        assert!(spoke, "a new bond is sometimes spoken of");
     }
 
     #[test]

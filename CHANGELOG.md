@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Shared hardship binds (#552 living relationships)** — in a hungry town a bond is now worked the harder: under famine, residents' ties **deepen faster** — the close drawn closer, the soured frayed further — so the world's lean seasons leave a mark on its people, not just its granaries. The day's social motion is now an extracted, unit-tested helper (`evolve_settlement_relations`), so the famine consequence is verified deterministically rather than by a fragile soak. First of the social web's world-consequences.
+
 **Ask an NPC about their life (#548 living relationships / #528 conversations)** — a new Talk topic, **L**: ask the person you're speaking with about the bonds that matter to them, and they name their **sworn friends, rivals, kin, a master or apprentice** — reading the living social web that forms and shifts on its own. The friendships and rivalries the world strikes (and the rumor that carries them) can now be heard from the people themselves. Regard-gated like the other topics — the deeply distrusted keep their own counsel. Completes the "ask about a person" topic deferred from the conversations epic, now that there's a living web to read.
 
 **Word of the people's bonds (#548 living relationships)** — the living social web is now **felt**, not only simulated: when a new bond strikes, the town sometimes talks of it, and you hear it on the wind — *"X and Y have grown thick as thieves in Z"*, *"a rivalry has sharpened between X and Y — two of one trade, one town."* Rate-limited so it stays worth hearing. The friendships and rivalries forming on their own (last change) now reach the journal, the same channel the world's other news travels.
