@@ -304,6 +304,13 @@ fn main() -> anyhow::Result<()> {
                 }
                 print_msg(&app);
             }
+            "life" => {
+                let idx: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                if let Some(pos) = app.player_pos {
+                    app.ask_about_life(pos.region_idx, 0, idx);
+                }
+                print_msg(&app);
+            }
             "commission" => {
                 let idx: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
                 if let Some(pos) = app.player_pos {
