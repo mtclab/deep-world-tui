@@ -794,6 +794,12 @@ pub struct Settlement {
     /// population draws from it, and scarcity moves market prices.
     #[serde(default)]
     pub food_stock: f64,
+    /// Trade goods the settlement's own crafts have made and not yet spent or
+    /// sold (#540 living economy): a goods analogue of `food_stock`. Produced by
+    /// the trades in the daily sim, capped by what the place can hold. A good a
+    /// town makes in plenty is cheap there; one it lacks is dear.
+    #[serde(default)]
+    pub goods_stock: std::collections::HashMap<ItemType, f64>,
     /// Working farms, planted and harvested by the settlement's farmers.
     #[serde(default)]
     pub farms: Vec<Farm>,
@@ -907,6 +913,19 @@ impl Settlement {
             .iter()
             .filter(|p| p.profession == profession)
             .count()
+    }
+
+    /// Current stock of a trade good the settlement holds (#540). `0.0` for a
+    /// good it does not keep.
+    pub fn good(&self, item: ItemType) -> f64 {
+        self.goods_stock.get(&item).copied().unwrap_or(0.0)
+    }
+
+    /// Add to a good's stock, capped at `cap` (#540): a town holds only so much
+    /// before the surplus goes nowhere (it sells, or it sits).
+    pub fn produce_good(&mut self, item: ItemType, amount: f64, cap: f64) {
+        let e = self.goods_stock.entry(item).or_insert(0.0);
+        *e = (*e + amount).min(cap).max(0.0);
     }
 
     /// Whether a completed building of this type stands here.
@@ -1862,6 +1881,7 @@ mod tests {
 
             politics: SettlementPolitics::new(),
             food_stock: 0.0,
+            goods_stock: Default::default(),
             farms: Vec::new(),
             buildings: Vec::new(),
             festival_until_day: 0,
@@ -1917,6 +1937,7 @@ mod tests {
             services: vec![],
             politics: SettlementPolitics::new(),
             food_stock: 0.0,
+            goods_stock: Default::default(),
             farms: Vec::new(),
             buildings: Vec::new(),
             festival_until_day: 0,

@@ -625,6 +625,7 @@ fn generate_settlement(
         politics: crate::model::SettlementPolitics::new(),
         // Larders start two days full; the settlement-life tick takes it from here.
         food_stock: population as f64 * 2.0,
+        goods_stock: std::collections::HashMap::new(),
         farms: Vec::new(),
         buildings: Vec::new(),
         festival_until_day: 0,
