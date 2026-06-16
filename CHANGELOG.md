@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Consult the healer (#527 tradespeople)** — sickness no longer waits for a temple: where a settlement keeps a **healer** or **herbalist**, press **V** while talking to them and they'll tend your ills for a fee — a healer cures outright, a herbalist eases the worst of it with the country's own physic. A **root-eye**-gifted healer mends the deeper, leaving you the steadier. Refused by one set against your kind; nothing taken from the hale. The temple's cure, carried out to the villages.
+
 **Commission the smith (#527 tradespeople)** — a settlement's smith is no longer just a label: bring Iron and a small fee, press **M** while talking to them, and they **strike you a Tool** — no botch, no wasted stock, the way your own bench can fail. A smith with the **iron-ear** gift makes it truer and throws in an offcut of Nails. A smith set against your kind won't strike iron for you. First of the tradesperson dealings — the folk you found by asking (#528) now have something to offer.
 
 **Ask who's worth knowing (#528 conversations)** — press **K** on the Talk screen to ask a local who a stranger ought to seek out: a **gifted crafter** (named with their craft-sense), and the **tradespeople** — the smith, the healer, the herbalist, the scribe, the trader, the path-finder — each named, so the folk you can deal with are findable by asking, not by knocking on every door. Regard-gated like the other topics. Sets up the tradesperson dealings to come. Completes the conversation-topics surface: news (N), the way (W), who to know (K).

@@ -915,6 +915,104 @@ impl App {
         });
     }
 
+    /// Consult a settlement's healer or herbalist for your own sickness (#527
+    /// tradespeople): the temple's cure, but out in the villages where there is
+    /// no temple — a healer cures what ails you outright, a herbalist eases it
+    /// strongly. A root-eye gift mends deeper, leaving you the steadier. Costs a
+    /// fee; refused by one set against your kind. Gated to a healer/herbalist.
+    pub fn consult_healer(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        let Some((people, pname, is_healer, is_herbalist, root_eye)) =
+            self.sim.as_ref().and_then(|sim| {
+                sim.world
+                    .regions
+                    .get(region_idx)
+                    .and_then(|r| r.settlements.get(settlement_idx))
+                    .and_then(|s| s.people.get(person_idx))
+                    .map(|p| {
+                        (
+                            PeopleKind::from_name(&p.people),
+                            p.name.clone(),
+                            p.profession == "healer",
+                            p.profession == "herbalist",
+                            p.gift.sense() == Some(crate::model::CraftSense::RootEye),
+                        )
+                    })
+            })
+        else {
+            return;
+        };
+        if !is_healer && !is_herbalist {
+            self.status_msg = Some(format!(
+                "{pname} is no healer — tending is not their trade."
+            ));
+            return;
+        }
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.10 {
+            self.status_msg = Some(format!("{pname} will not lay hands on your kind."));
+            return;
+        }
+        let sick = self
+            .player_start
+            .as_ref()
+            .is_some_and(|ps| !ps.person.illnesses.is_empty());
+        if !sick {
+            self.status_msg = Some("You are hale enough — nothing for a healer to tend.".into());
+            return;
+        }
+        // A healer cures outright; a herbalist eases strongly. The healer's work
+        // costs the more.
+        let fee: u32 = if is_healer { 10 } else { 5 };
+        let can_pay = self
+            .player_start
+            .as_ref()
+            .is_some_and(|ps| ps.inventory.get(ItemType::Coin) >= fee);
+        if !can_pay {
+            self.status_msg = Some(format!(
+                "The healer's fee is {fee} coin; you cannot meet it."
+            ));
+            return;
+        }
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(ItemType::Coin, fee);
+            if is_healer {
+                ps.person.illnesses.clear();
+            } else {
+                for d in ps.person.illnesses.iter_mut() {
+                    d.tend_strong();
+                }
+            }
+            if root_eye {
+                self.vitals.energy = (self.vitals.energy + 0.2).min(1.0);
+            }
+        }
+        self.advance_clock(2);
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.02);
+        self.god_affinity.adjust(GodName::Masa, 0.01);
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                if is_healer {
+                    "A village healer tended me, and the sickness let go its grip.".to_string()
+                } else {
+                    "A herbalist eased what ailed me with the country's own physic.".to_string()
+                },
+            );
+        }
+        self.status_msg = Some(if is_healer {
+            format!("{pname} cures what ails you (−{fee} coin, 2h)")
+        } else {
+            format!("{pname} eases your sickness with herb-lore (−{fee} coin, 2h)")
+        });
+    }
+
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
         let ps = match self.player_start {
             Some(ref mut ps) => ps,
