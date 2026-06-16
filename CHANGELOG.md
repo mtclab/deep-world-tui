@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Deeper omens, dreams, and scars** — the player-facing event banks gain **23 new lines**: fair and ill omens at fortune's turns (the magpie on the gate, the moth that would not burn), the uncanny dreams of the deep (a city under the lake, the Five's long table), and the body's grim memory of a scar. The meaningful moments read with more variety across a lineage. Pure data (`data/journal_banks.ron`).
+
 **A wider voice, continued** — another **32 travel and rest journal lines** across the remaining every-action banks (morning, dusk, night, storm; campfire, open ground, settlement, inn), bringing them to about a dozen each. The road and the night's rest read with far less repetition over a long life now. Pure data (`data/journal_banks.ron`).
 
 **A wider voice on the road (WORLD_DEPTH #1)** — the journal's most-exposed surface, the travel and rest lines you see on nearly every action, grew **33 new entries** across the thinnest banks (clear dawn, snow, fog, deep night, noon, afternoon, the lean-to) — most now run eleven deep instead of five or six. The same wry first-person voice; less repetition over a long life. Pure data (`data/journal_banks.ron`).

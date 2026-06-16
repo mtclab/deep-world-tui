@@ -254,6 +254,13 @@
         "I dreamed of the sea swallowing a library, shelf by shelf, patient as tide.",
         "A dream of hands building a wall, my hands, a wall I have never seen. It needed one more stone.",
         "I dreamed I was the road. Everyone I have ever met walked over me, gently.",
+        "I dreamed of a city under the lake, its windows still lit, and someone in each one waiting for me to remember their name.",
+        "In sleep I held a stone that was warm, and the warmth was a voice, and the voice was older than the stone.",
+        "I dreamed the Five sat at a long table and one chair was mine, and I could not tell if I was guest or debt.",
+        "A door in a hillside opened in my dream and the dark inside breathed out, slow and patient, like something that had waited a long while.",
+        "I dreamed of a snowfall that did not land — each flake hanging — and the silence of it followed me up out of sleep.",
+        "In the dream a river ran uphill, carrying lanterns, and I knew without asking I was meant to follow it home.",
+    
     ],
     "SCAR_TEMPLATES": [
         "I will not forget the teeth.",
@@ -265,6 +272,12 @@
         "It aches before storms now. I own a small oracle.",
         "I tell people it was a beast. Some days that is even true.",
         "The mark has faded to the color of memory. Both still pull.",
+        "The cold got into the old break and stayed. The body keeps the calendar the mind would rather lose.",
+        "It healed crooked, and every change in the weather reads me the bill.",
+        "There is a white line where the world tried to open me. It did not get far, and I remember exactly how far.",
+        "A scar earned, not merely given — and it taught me to be quicker than the thing that made it.",
+        "The skin closed over it; the wariness did not. I walk a little turned-away from that kind of trouble now.",
+    
     ],
     // Rumors that name the wider world — places and affairs from the canon
     // gazetteer and the post-Fall chronicle, so tavern talk reaches past the horizon.
@@ -323,6 +336,13 @@
         "The well-water came up sweet and the bucket light. Small things, but they were on my side today.",
         "A ring of pale mushrooms stood unbroken by the path. Step around it and the day keeps its promise, they say.",
         "The wind turned to my back the moment I set out, as if the land wanted me gone the easy way.",
+        "A white moth came to my fire and did not burn — rode my pack a mile, then was gone. The grandmothers would call that a blessing minding its manners.",
+        "Three magpies on the waymark, and the road ran easy after. I will not pretend I did not count them.",
+        "The wind turned to my back at the worst hill and pushed. The sensible call it weather; I called it kindness and climbed.",
+        "I woke before dawn for no reason, in time to see the sky go rose and gold. Some mornings the world shows you its good side on purpose.",
+        "A coin I thought long lost turned up in a seam of my coat. Small luck — but luck keeps its own books, and today the ledger ran my way.",
+        "Still water at the ford, and my reflection looked back unworried. The old folk say a calm face on the water means a calm week.",
+    
     ],
     "OMENS_ILL": [
         "The fire would not catch clean — it guttered green and sullen, and the smoke followed me whichever way I turned. An ill sign, if you hold with signs.",
@@ -333,5 +353,12 @@
         "The dogs in the last village would not look at me, and one backed away growling low. They know things the eyes miss.",
         "I broke a lace, then a strap, then dropped the flint twice. Three small breakages before noon. The count is bad and I know it.",
         "A cold thread of wind came from no quarter at all and raised the hair on my arms. The land was warning someone. I hoped it was not me.",
+        "A dog watched me from a doorway and would not be called off, and would not bark. I left that town a little faster than I came.",
+        "The milk had turned though the morning was cold, and the bread came out heavy as a stone. Small wrongnesses — but they gather.",
+        "I dreamed my own name called from a field, and woke to no field and no caller. The grandmothers say do not answer such a voice. I had not.",
+        "A single magpie on the gate, and it would not fly. One for sorrow, the rhyme goes. I touched iron and went on.",
+        "The candle drowned in its own wax with hours of wick to spare — an ending before its time, the old folk would say. I lit another and did not love the dark.",
+        "Crows on every fence-post the length of the lane, silent, turned to watch me pass. The head says birds. The blood says hurry.",
+    
     ],
 }
