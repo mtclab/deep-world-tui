@@ -843,7 +843,8 @@ impl App {
         // Devotion deepens, but the practice plateaus — the more you already
         // keep a god, the less a single hour adds. Faith is a long road.
         let have = self.god_affinity.get(god);
-        let delta = 0.03 * (1.0 - have).max(0.0);
+        let holy = crate::model::calendar::holy_day_god(self.clock.day) == Some(god);
+        let delta = 0.03 * (1.0 - have).max(0.0) * if holy { 1.5 } else { 1.0 };
         self.god_affinity.adjust(god, delta);
         self.advance_clock(1);
         // The comfort of the practice — a small steadying, nothing more.
@@ -854,7 +855,12 @@ impl App {
             .map(|ps| ps.person.id.clone())
             .unwrap_or_default();
         let line = crate::sim::god::prayer_flavor(god, &pid);
-        self.status_msg = Some(format!("You sit a while in prayer. {line} (1h)"));
+        let holy_note = if holy {
+            " It is the god's holy day; the prayer carries further."
+        } else {
+            ""
+        };
+        self.status_msg = Some(format!("You sit a while in prayer. {line}{holy_note} (1h)"));
     }
 
     /// Set out on a pilgrimage from a holy site (#457): the longest road of
@@ -892,7 +898,8 @@ impl App {
             .unwrap_or(GodName::Kukri);
         // The road deepens devotion more than any single act.
         let have = self.god_affinity.get(god);
-        let delta = 0.12 * (1.0 - have).max(0.0);
+        let holy = crate::model::calendar::holy_day_god(self.clock.day) == Some(god);
+        let delta = 0.12 * (1.0 - have).max(0.0) * if holy { 1.5 } else { 1.0 };
         self.god_affinity.adjust(god, delta);
         self.advance_clock(36); // ~a day and a half on the road
         let day = self.clock.day;
@@ -968,7 +975,8 @@ impl App {
             .or_else(|| crate::sim::god::patron_of(self.inter_people_bias.player_people.label()))
             .unwrap_or(crate::model::GodName::Kukri);
         let have = self.god_affinity.get(god);
-        let delta = 0.06 * (1.0 - have).max(0.0);
+        let holy = crate::model::calendar::holy_day_god(self.clock.day) == Some(god);
+        let delta = 0.06 * (1.0 - have).max(0.0) * if holy { 1.5 } else { 1.0 };
         self.god_affinity.adjust(god, delta);
         self.advance_clock(1);
         if let Some(ref mut sim) = self.sim {
@@ -979,8 +987,13 @@ impl App {
                 "I laid an offering down at the shrine, and kept nothing back of it.".to_string(),
             );
         }
+        let holy_note = if holy {
+            " On the god's holy day, the gift is received the deeper."
+        } else {
+            ""
+        };
         self.status_msg =
-            Some("You lay an offering at the shrine — bread given, not bartered. The keeping deepens. (1h)".into());
+            Some(format!("You lay an offering at the shrine — bread given, not bartered. The keeping deepens.{holy_note} (1h)"));
     }
 
     /// Keep the festival in earnest (#457): when a settlement's holy day is
@@ -1003,9 +1016,11 @@ impl App {
         let festival = FestivalKind::for_people(people);
         let god = festival.patron_god();
         // Keeping the day in earnest deepens devotion more than merely passing
-        // through, but it still plateaus — faith is a long road.
+        // through, but it still plateaus — faith is a long road. A festival that
+        // falls on its god's holy day is the holier for it.
         let have = self.god_affinity.get(god);
-        let delta = 0.06 * (1.0 - have).max(0.0);
+        let holy = crate::model::calendar::holy_day_god(self.clock.day) == Some(god);
+        let delta = 0.06 * (1.0 - have).max(0.0) * if holy { 1.5 } else { 1.0 };
         self.god_affinity.adjust(god, delta);
         // Showing up for their holy day mends fences faster than any trade.
         self.inter_people_bias.mod_toward(people, 0.05);

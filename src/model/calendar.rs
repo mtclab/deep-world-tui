@@ -4,7 +4,45 @@
 //! journal, visible in exactly one mechanic, and gone when the season turns.
 
 use crate::model::weather::Season;
+use crate::model::GodName;
 use serde::{Deserialize, Serialize};
+
+/// The fixed holy days of the Five across the 90-day year (#457): each god's
+/// day falls on the same day-of-year, every year, so a devotee can plan for it.
+/// On a god's holy day, acts of devotion to that god weigh heavier. One per
+/// god, spread across the three seasons. Days are 0-based day-of-year.
+pub const HOLY_DAYS: [(u32, GodName); 5] = [
+    (9, GodName::Oltzed),  // Thaw: the first fires of the working year
+    (24, GodName::Masa),   // Thaw: the road-and-ledger day
+    (44, GodName::Keuru),  // Green: midsummer, the green height
+    (59, GodName::Kukri),  // Green→Frost: the ancestor vigil at the turn
+    (74, GodName::Sampsa), // Frost: the star-reckoning under cold skies
+];
+
+/// The day-of-year (0-based) of an absolute game `day`.
+fn day_of_year(day: u32) -> u32 {
+    (day.max(1) - 1) % Season::YEAR_DAYS
+}
+
+/// The god whose holy day falls on this absolute `day`, if any (#457).
+pub fn holy_day_god(day: u32) -> Option<GodName> {
+    let doy = day_of_year(day);
+    HOLY_DAYS.iter().find(|(d, _)| *d == doy).map(|(_, g)| *g)
+}
+
+/// The next holy day from `day`: its god and how many days off (0 = today is
+/// one). Always returns one — the year always comes round again.
+pub fn next_holy_day(day: u32) -> (GodName, u32) {
+    let doy = day_of_year(day);
+    for delta in 0..Season::YEAR_DAYS {
+        let d = (doy + delta) % Season::YEAR_DAYS;
+        if let Some((_, g)) = HOLY_DAYS.iter().find(|(hd, _)| *hd == d) {
+            return (*g, delta);
+        }
+    }
+    // The table is non-empty, so a holy day is always found within the year.
+    (GodName::Oltzed, 0)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorldEvent {
@@ -136,6 +174,47 @@ mod tests {
             events > 150 && events < 450,
             "calendar frequency off: {events}/900"
         );
+    }
+
+    #[test]
+    fn holy_days_recur_on_the_same_day_of_year() {
+        // The Oltzed day is day-of-year 9 (0-based) → absolute day 10, and again
+        // a full year on.
+        assert_eq!(holy_day_god(10), Some(GodName::Oltzed));
+        assert_eq!(holy_day_god(10 + Season::YEAR_DAYS), Some(GodName::Oltzed));
+        // An ordinary day keeps no god's holy day.
+        assert_eq!(holy_day_god(3), None);
+    }
+
+    #[test]
+    fn every_god_keeps_exactly_one_holy_day() {
+        let mut found = std::collections::HashSet::new();
+        for doy in 0..Season::YEAR_DAYS {
+            if let Some(g) = holy_day_god(doy + 1) {
+                found.insert(g);
+            }
+        }
+        assert_eq!(found.len(), 5, "all five gods keep a holy day");
+    }
+
+    #[test]
+    fn next_holy_day_is_today_when_one_falls_now() {
+        let (g, off) = next_holy_day(10); // Oltzed's day
+        assert_eq!(g, GodName::Oltzed);
+        assert_eq!(off, 0);
+    }
+
+    #[test]
+    fn next_holy_day_counts_forward_and_always_finds_one() {
+        // From the day after Oltzed's (day 11), the next is Masa's (doy 24).
+        let (g, off) = next_holy_day(11);
+        assert_eq!(g, GodName::Masa);
+        assert_eq!(off, 24 - 10);
+        // From any day of any year, a holy day is found within the year.
+        for d in 1..(Season::YEAR_DAYS * 3) {
+            let (_, off) = next_holy_day(d);
+            assert!(off < Season::YEAR_DAYS);
+        }
     }
 
     #[test]
