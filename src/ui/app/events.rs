@@ -165,6 +165,12 @@ impl App {
                         self.screen = Screen::EncounterLog { scroll: new_scroll };
                     }
                 }
+                Screen::Faith { scroll } => {
+                    let new_scroll = crate::ui::input::faith::handle_faith_input(self, key, scroll);
+                    if let Screen::Faith { .. } = self.screen {
+                        self.screen = Screen::Faith { scroll: new_scroll };
+                    }
+                }
                 Screen::CityVisit { idx, scroll } => {
                     let new_scroll = crate::ui::input::city::handle_city_input(self, key, scroll);
                     if let Screen::CityVisit { .. } = self.screen {

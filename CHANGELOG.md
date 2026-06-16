@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The faith ledger (#457 devotion surfaced)** — press **F** for a new read-only **Faith** panel: the god you keep and your standing in it, then each of the Five — affinity bar, devotion rank (a Keeper, then Devoted, then Blessed), and the domains they answer to, your people's patron marked. It tells how the ranks work and which acts deepen them (pray, offer, keep a festival, walk a pilgrimage). Devotion was built blind before — earned only at game-over's tally; now the long road of faith is something you can see yourself walking.
+
 **Each people furnishes its own (#458 per-people character)** — the furnishings inside a building now read of the people who raised it: the deep-stone **Tzäkhar** set heavy slab tables and stone niches, the canopy-floor **Häl** keep to woven boards, baskets, and hanging nets, the steppe **Khör** to trestles, rolled stores, and hide racks — humans to the plain hearth. The piece sits in the same spot; only its character changes, so a Tzäkhar deephold furnishes unlike a human town at a glance. Deterministic, single-width glyphs.
 
 **Lived-in rooms — furnishings inside (#458 interiors)** — buildings on the map are no longer empty boxes around a hearth: each is now **furnished**, a table, a chest, a bed-pallet, shelves placed on the interior floor (more in the larger halls, fewer in a hut), so a town reads as rooms people live in. Deterministic per building, single-width glyphs in muted ink that never touch the hearth, the walls, or the doorway — the first step of walkable building interiors.

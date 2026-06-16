@@ -91,6 +91,9 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
         KeyCode::Char('H') => {
             app.open_encounter_log();
         }
+        KeyCode::Char('F') => {
+            app.open_faith();
+        }
         KeyCode::Char(c @ '1'..='9') => {
             let idx = (c as usize) - ('1' as usize);
             if idx != region_idx {

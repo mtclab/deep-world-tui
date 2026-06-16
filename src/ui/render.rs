@@ -86,6 +86,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::EncounterLog { scroll } => {
             draw_encounter_log_screen(f, app, scroll);
         }
+        Screen::Faith { scroll } => {
+            screens::faith::draw_faith_screen(f, app, scroll);
+        }
         Screen::CityVisit { idx, scroll } => {
             draw_city_screen(f, app, idx, scroll);
         }

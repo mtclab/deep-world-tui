@@ -36,6 +36,19 @@ impl App {
             .unwrap_or_else(|| self.world_screen());
     }
 
+    /// Open the faith ledger (#457): where you stand with each of the Five.
+    pub fn open_faith(&mut self) {
+        self.previous_screen = Some(self.screen.clone());
+        self.screen = Screen::Faith { scroll: 0 };
+    }
+
+    pub fn exit_faith(&mut self) {
+        self.screen = self
+            .previous_screen
+            .clone()
+            .unwrap_or_else(|| self.world_screen());
+    }
+
     /// The encounter-rate multiplier from inter-people tension on the road
     /// (#9): travelling the country of a people you are deeply at odds with,
     /// their lawless harry you — the escalation ladder reaches the wilds.

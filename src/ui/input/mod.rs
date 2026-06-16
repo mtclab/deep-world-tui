@@ -4,6 +4,7 @@ pub mod collapse;
 pub mod craft;
 pub mod encounter;
 pub mod encounter_log;
+pub mod faith;
 pub mod game_over;
 pub mod gamepad;
 #[cfg(feature = "gamepad")]
