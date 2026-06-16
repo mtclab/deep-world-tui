@@ -716,6 +716,35 @@ fn tick_settlement_life(sim: &mut SimState) {
                 }
             }
         }
+        // --- trade drift: the Bronze Road smooths a good across the region
+        // (#540 living economy). A good drifts from where it is plentiful toward
+        // each town's fair share by size — surplus shipped, scarcity supplied —
+        // conserving the regional total. System-first: no player, no routing,
+        // just supply finding demand across the connected province.
+        {
+            use crate::model::ItemType;
+            const DRIFT_RATE: f64 = 0.10;
+            let total_pop: f64 = region.settlements.iter().map(|s| s.population as f64).sum();
+            if total_pop > 0.0 {
+                for item in [
+                    ItemType::Iron,
+                    ItemType::Tool,
+                    ItemType::Cloth,
+                    ItemType::Wood,
+                ] {
+                    let total: f64 = region.settlements.iter().map(|s| s.good(item)).sum();
+                    if total <= 0.0 {
+                        continue;
+                    }
+                    for s in region.settlements.iter_mut() {
+                        let target = total * (s.population as f64 / total_pop);
+                        let cur = s.good(item);
+                        let next = cur - DRIFT_RATE * (cur - target);
+                        s.goods_stock.insert(item, next.max(0.0));
+                    }
+                }
+            }
+        }
         // Paint grown footprints: the settlement's square of ground expands
         // with its size, clamped to the map's edge.
         for (ax, ay, n, character) in grown_footprints {
