@@ -39,6 +39,9 @@ pub fn handle_talk_input(
         KeyCode::Char('v') => {
             app.consult_healer(region_idx, settlement_idx, person_idx);
         }
+        KeyCode::Char('g') => {
+            app.hire_guide(region_idx, settlement_idx, person_idx);
+        }
         KeyCode::Down => {
             return scroll.saturating_add(1);
         }

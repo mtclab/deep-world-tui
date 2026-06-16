@@ -164,6 +164,12 @@ pub(crate) fn draw_talk_screen(
                 Style::default().fg(theme.warm_brown()),
             )));
         }
+        if p.profession == "path-finder" || p.profession == "forester" {
+            lines.push(Line::from(Span::styled(
+                "   This one walks the country — hire them to learn the land (G).",
+                Style::default().fg(theme.warm_brown()),
+            )));
+        }
 
         if let Some(ref msg) = app.status_msg {
             lines.push(Line::from(""));
