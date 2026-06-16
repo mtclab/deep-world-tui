@@ -450,6 +450,33 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
             output_count: 1,
             people: Some(PeopleKind::Tzakhar),
         },
+        // Filling the craftable gaps (#529): Nails, Tinder, and Glass had no
+        // recipe — buyable only. Now the bench makes them.
+        CraftRecipe {
+            // A bar of iron drawn and cut to nails — the smith's bread work.
+            name: "Nails".into(),
+            inputs: vec![(ItemType::Iron, 1)],
+            output: ItemType::Nails,
+            output_count: 4,
+            people: None,
+        },
+        CraftRecipe {
+            // Deadfall split fine and dried — the fire's first food.
+            name: "Tinder".into(),
+            inputs: vec![(ItemType::Branches, 2)],
+            output: ItemType::Tinder,
+            output_count: 3,
+            people: None,
+        },
+        CraftRecipe {
+            // The Mëräk make deep-glass at the tideline — sand-stone fused in a
+            // sea-coal fire, a craft no upworld kiln has matched (canon).
+            name: "Mëräk Deep-Glass".into(),
+            inputs: vec![(ItemType::Stone, 3), (ItemType::Tinder, 1)],
+            output: ItemType::Glass,
+            output_count: 1,
+            people: Some(PeopleKind::Merak),
+        },
     ]
 }
 
@@ -1635,6 +1662,22 @@ mod tests {
 
             assert!(recipe.output_count > 0, "must produce something");
         }
+    }
+
+    #[test]
+    fn the_craftable_gaps_are_filled() {
+        // Nails, Tinder, and Glass used to be buy-only; #529 gives them recipes.
+        let outputs: std::collections::HashSet<ItemType> =
+            craft_recipes().iter().map(|r| r.output).collect();
+        for it in [ItemType::Nails, ItemType::Tinder, ItemType::Glass] {
+            assert!(outputs.contains(&it), "{it:?} should now be craftable");
+        }
+        // The Mëräk glass is theirs alone; nails and tinder are anyone's bench.
+        let glass = craft_recipes()
+            .into_iter()
+            .find(|r| r.output == ItemType::Glass)
+            .unwrap();
+        assert_eq!(glass.people, Some(PeopleKind::Merak));
     }
 
     #[test]
