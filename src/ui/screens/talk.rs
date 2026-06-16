@@ -176,6 +176,12 @@ pub(crate) fn draw_talk_screen(
                 Style::default().fg(theme.warm_brown()),
             )));
         }
+        if p.gift.has() {
+            lines.push(Line::from(Span::styled(
+                "   A craft-gift is in this one's hands — apprentice to learn it (A).",
+                Style::default().fg(theme.warm_brown()),
+            )));
+        }
 
         if let Some(ref msg) = app.status_msg {
             lines.push(Line::from(""));

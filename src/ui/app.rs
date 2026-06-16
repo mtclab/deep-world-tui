@@ -152,6 +152,11 @@ pub struct App {
     /// to one of the Five for a lasting boon, at the cost of forsaking the rest.
     /// `None` until sworn; broken if the kept god slips below Devoted.
     pub god_vow: Option<crate::model::GodName>,
+    /// A craft-sense learned by apprenticing to a master (#527/#529) — a lesser,
+    /// taught echo of the innate Gift: it steadies the bench in that sense's
+    /// craft (lower botch), but costs the body nothing and grants no Gift. `None`
+    /// until learned; only the giftless can take one, and only one.
+    pub learned_sense: Option<crate::model::CraftSense>,
     pub elder: bool,
     /// Age in years at the start of the current life (from age_band).
     pub start_age_years: u32,
@@ -252,6 +257,7 @@ impl App {
             player_farms: Vec::new(),
             enclaves_seen: Vec::new(),
             god_vow: None,
+            learned_sense: None,
             homestead_settlers: Vec::new(),
             homestead_rumored: false,
             founding_check_day: 0,

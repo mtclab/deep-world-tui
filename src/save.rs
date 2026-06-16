@@ -115,6 +115,9 @@ pub struct SaveData {
     /// The god the player has sworn a vow to, if any (#457).
     #[serde(default)]
     pub god_vow: Option<crate::model::GodName>,
+    /// A craft-sense learned by apprenticeship (#527).
+    #[serde(default)]
+    pub learned_sense: Option<crate::model::CraftSense>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -367,6 +370,7 @@ pub fn restore_from_compact(
         travel_debt: 0.0,
         enclaves_seen: Vec::new(),
         god_vow: None,
+        learned_sense: None,
     })
 }
 
@@ -416,6 +420,7 @@ mod tests {
             travel_debt: 0.0,
             enclaves_seen: Vec::new(),
             god_vow: None,
+            learned_sense: None,
         };
         save_game(&data, "test_save.ron").expect("save should succeed");
         let loaded = load_game("test_save.ron").expect("load should succeed");
@@ -520,6 +525,7 @@ mod tests {
             travel_debt: 0.0,
             enclaves_seen: Vec::new(),
             god_vow: None,
+            learned_sense: None,
         };
         let compact_data = CompactSave {
             seed: 42,

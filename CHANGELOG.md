@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Apprentice to a master (#527 tradespeople / #529 crafts)** — a gifted crafter's hands hold a thing the bench can be taught. Find one (the Faith-of-craft you spot by asking who's worth knowing), press **A** while talking, give a few days and your board, and you **learn their craft-sense** — a lesser, taught echo of the innate Gift that **steadies your bench in that craft, halving the botch**. It grants no Gift and costs the body nothing (it is skill, not the Conservation-burden). Canon-true (#427): a sense you weren't born to comes hard and limited — **only the giftless can take one, and only one in a life**. The last of the tradesperson dealings — the folk you find by asking now teach, deal, heal, guide, and remember.
+
 **The bench fills its gaps (#529 deeper crafts)** — three goods that could only be **bought** can now be **made**: **Nails** (a bar of Iron drawn and cut, four to the bar), **Tinder** (deadfall split fine, the fire's first food), and **Glass** — the latter a **Mëräk Deep-Glass** specialty, sand-stone fused in a sea-coal fire, a craft no upworld kiln has matched (canon). Recipes 15 → 18. First step of growing the craft tree past the essentials.
 
 **Consult the scribe (#527 tradespeople)** — Sampsa's folk deal in knowledge: where a settlement keeps a **scribe**, press **B** while talking to them and, for a small fee, they read you a true thing of the **wider world** — the half-empty ring-market of Velkarath, the Karsath Bridge that has held seven thousand years, the Wells-Compact of the She'ar — and it is kept in your journal as learned. The lore-keeper's trade; refused by one closed to your kind. With the smith (M), healer (V), and guide (G), the folk you find by asking now each have their own dealing.

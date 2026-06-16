@@ -51,6 +51,7 @@ fn make_save(version: u32) -> SaveData {
         travel_debt: 0.0,
         enclaves_seen: Vec::new(),
         god_vow: None,
+        learned_sense: None,
     }
 }
 
@@ -133,6 +134,7 @@ fn roundtrip_preserves_all_fields() {
         travel_debt: 0.0,
         enclaves_seen: Vec::new(),
         god_vow: None,
+        learned_sense: None,
     };
 
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");

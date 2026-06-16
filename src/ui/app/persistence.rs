@@ -58,6 +58,7 @@ impl App {
             travel_debt: self.travel_debt,
             enclaves_seen: self.enclaves_seen.clone(),
             god_vow: self.god_vow,
+            learned_sense: self.learned_sense,
         })
     }
 
@@ -265,6 +266,7 @@ impl App {
         self.explored = data.explored;
         self.enclaves_seen = data.enclaves_seen;
         self.god_vow = data.god_vow;
+        self.learned_sense = data.learned_sense;
         self.milestones = data.milestones;
         self.encounter_log = data.encounter_log;
         self.player_farms = data.player_farms;
