@@ -676,80 +676,24 @@ fn tick_settlement_life(sim: &mut SimState) {
             }
 
             // --- the social web lives (#548 living relationships) ---
-            // A sampled pair of residents may form a new bond or deepen an old
-            // one, so the web grows and shifts rather than only fading. One pair
-            // per town per day — cheap, deterministic.
+            // One sampled pair of residents forms or deepens a bond each day, so
+            // the web grows and shifts rather than only fading; shared hardship
+            // (famine) works it the harder. Pure helper, deterministic per town.
             {
-                let n = settlement.people.len();
-                if n >= 2 {
-                    let id_hash = settlement
-                        .id
-                        .bytes()
-                        .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(b as u64));
-                    let mut rng = crate::rng::SeedRng::new(
-                        seed ^ tick.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ id_hash,
-                    );
-                    let i = rng.gen_range(n as u32) as usize;
-                    let mut j = rng.gen_range(n as u32) as usize;
-                    if i == j {
-                        j = (j + 1) % n;
-                    }
-                    let jid = settlement.people[j].id.clone();
-                    let jprof = settlement.people[j].profession.clone();
-                    let jname = settlement.people[j].name.clone();
-                    let iprof = settlement.people[i].profession.clone();
-                    let iname = settlement.people[i].name.clone();
-                    if let Some(rel) = settlement.people[i]
-                        .relations
-                        .iter_mut()
-                        .find(|r| r.target_person_id == jid)
-                    {
-                        use crate::model::relation::RelationKind::*;
-                        let warm = matches!(
-                            rel.kind,
-                            SwornFriend | Spouse | Sibling | Parent | Child | Apprentice
-                        );
-                        // An active bond deepens with the days shared; a sour one
-                        // can harden too.
-                        rel.intensity = (rel.intensity + if warm { 0.03 } else { 0.02 }).min(1.0);
-                    } else if settlement.people[i].relations.len() < 8 && rng.gen_range(100) < 8 {
-                        use crate::model::relation::{InterNpcRelation, RelationKind};
-                        // Two of one trade in one town breed rivalry; otherwise
-                        // the daily nearness of neighbours breeds friendship.
-                        let same_trade = !iprof.is_empty() && iprof == jprof;
-                        let kind = if same_trade {
-                            RelationKind::Rival
-                        } else {
-                            RelationKind::SwornFriend
-                        };
-                        let reason = if same_trade {
-                            "two of one trade in one town"
-                        } else {
-                            "the long nearness of neighbours"
-                        };
-                        settlement.people[i].relations.push(InterNpcRelation {
-                            kind,
-                            target_person_id: jid,
-                            intensity: 0.3,
-                            formed_at_tick: tick,
-                            reason: reason.to_string(),
-                        });
-                        // Now and then the town talks of it — the living web,
-                        // made felt. Rate-limited so it stays worth hearing.
-                        if rng.gen_range(100) < 35 {
-                            completed_msgs.push(if same_trade {
-                                format!(
-                                    "A rivalry has sharpened between {iname} and {jname} in {} — two of one trade, one town.",
-                                    settlement.name
-                                )
-                            } else {
-                                format!(
-                                    "{iname} and {jname} have grown thick as thieves in {}.",
-                                    settlement.name
-                                )
-                            });
-                        }
-                    }
+                let id_hash = settlement
+                    .id
+                    .bytes()
+                    .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(b as u64));
+                let name = settlement.name.clone();
+                let famine = settlement.famine_days > 0;
+                if let Some(msg) = crate::model::relation::evolve_settlement_relations(
+                    &mut settlement.people,
+                    &name,
+                    famine,
+                    seed ^ id_hash,
+                    tick,
+                ) {
+                    completed_msgs.push(msg);
                 }
             }
 
