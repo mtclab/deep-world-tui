@@ -1,4 +1,4 @@
-use crate::model::{GodName, ItemType};
+use crate::model::{GodName, ItemType, PeopleKind};
 use crate::sim::hints;
 
 use super::*;
@@ -266,6 +266,88 @@ impl App {
             self.status_msg =
                 Some("Caught with your hand out. Word of this will travel the region.".into());
         }
+    }
+
+    /// Hire on for a day's labour at the settlement you stand in (#526
+    /// livelihoods): the meagre post-Fall wage, paid in coin, for the work the
+    /// place actually needs — fields and stores when the larder runs lean, plain
+    /// labour otherwise. Costs the day and the body; an Oltzed vow lightens it.
+    /// A people set hard against you takes no day-hand. Earns a little standing,
+    /// and a lean town's stores rise by the hands you lent.
+    pub fn work_for_hire(&mut self) {
+        let Some((ri, si)) = self.player_on_settlement() else {
+            self.status_msg = Some("No settlement here to take you on.".into());
+            return;
+        };
+        let Some((people, lean, pname, sid)) = self.sim.as_ref().and_then(|sim| {
+            let s = sim.world.regions.get(ri)?.settlements.get(si)?;
+            Some((
+                s.people.first().map(|p| PeopleKind::from_name(&p.people)),
+                s.food_scarcity_modifier() > 1.0,
+                s.name.clone(),
+                s.id.clone(),
+            ))
+        }) else {
+            return;
+        };
+        if let Some(pk) = people {
+            if self.inter_people_bias.effective_bias(pk) < -0.15 {
+                self.status_msg = Some(format!("No one in {pname} will set your kind to work."));
+                return;
+            }
+        }
+        // A meagre day-wage; a town short of hands (lean stores) pays the more.
+        // Fortune leans it a touch; never to a fortune.
+        let base = if lean { 4 } else { 3 };
+        let wage = ((base as f64) * (1.0 + self.fortune.value() * 0.12))
+            .round()
+            .max(1.0) as u32;
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.add(ItemType::Coin, wage);
+        }
+        self.advance_clock(8);
+        self.vitals.energy = (self.vitals.energy - 0.2 * self.vow_work_energy_mult()).max(0.0);
+        self.vitals.hunger = (self.vitals.hunger - 0.1).max(0.0);
+        // Honest work mends standing a little and pleases the trade-keeper Masa.
+        self.god_affinity.adjust(GodName::Masa, 0.02);
+        let pid = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        if let Some(ref mut sim) = self.sim {
+            if !pid.is_empty() {
+                sim.reputation.adjust_local(&pid, &sid, 0.01);
+            }
+            // Hands in the fields lift a hungry town's stores a little.
+            if lean {
+                if let Some(s) = sim
+                    .world
+                    .regions
+                    .get_mut(ri)
+                    .and_then(|r| r.settlements.get_mut(si))
+                {
+                    s.food_stock += 2.0;
+                }
+            }
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                if lean {
+                    "I worked the fields a day for a town short of hands. Honest coin, honest ache."
+                        .to_string()
+                } else {
+                    "I hired on for a day's labour. The wage was small; the work was real."
+                        .to_string()
+                },
+            );
+        }
+        self.status_msg = Some(if lean {
+            format!("You work the fields for {pname} (+{wage} coin, 8h)")
+        } else {
+            format!("You hire on for a day in {pname} (+{wage} coin, 8h)")
+        });
     }
 
     pub fn reputation_in_current_settlement(&self) -> f64 {
