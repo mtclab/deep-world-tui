@@ -675,6 +675,67 @@ fn tick_settlement_life(sim: &mut SimState) {
                 }
             }
 
+            // --- the social web lives (#548 living relationships) ---
+            // A sampled pair of residents may form a new bond or deepen an old
+            // one, so the web grows and shifts rather than only fading. One pair
+            // per town per day — cheap, deterministic.
+            {
+                let n = settlement.people.len();
+                if n >= 2 {
+                    let id_hash = settlement
+                        .id
+                        .bytes()
+                        .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(b as u64));
+                    let mut rng = crate::rng::SeedRng::new(
+                        seed ^ tick.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ id_hash,
+                    );
+                    let i = rng.gen_range(n as u32) as usize;
+                    let mut j = rng.gen_range(n as u32) as usize;
+                    if i == j {
+                        j = (j + 1) % n;
+                    }
+                    let jid = settlement.people[j].id.clone();
+                    let jprof = settlement.people[j].profession.clone();
+                    let iprof = settlement.people[i].profession.clone();
+                    if let Some(rel) = settlement.people[i]
+                        .relations
+                        .iter_mut()
+                        .find(|r| r.target_person_id == jid)
+                    {
+                        use crate::model::relation::RelationKind::*;
+                        let warm = matches!(
+                            rel.kind,
+                            SwornFriend | Spouse | Sibling | Parent | Child | Apprentice
+                        );
+                        // An active bond deepens with the days shared; a sour one
+                        // can harden too.
+                        rel.intensity = (rel.intensity + if warm { 0.03 } else { 0.02 }).min(1.0);
+                    } else if settlement.people[i].relations.len() < 8 && rng.gen_range(100) < 8 {
+                        use crate::model::relation::{InterNpcRelation, RelationKind};
+                        // Two of one trade in one town breed rivalry; otherwise
+                        // the daily nearness of neighbours breeds friendship.
+                        let same_trade = !iprof.is_empty() && iprof == jprof;
+                        let kind = if same_trade {
+                            RelationKind::Rival
+                        } else {
+                            RelationKind::SwornFriend
+                        };
+                        let reason = if same_trade {
+                            "two of one trade in one town"
+                        } else {
+                            "the long nearness of neighbours"
+                        };
+                        settlement.people[i].relations.push(InterNpcRelation {
+                            kind,
+                            target_person_id: jid,
+                            intensity: 0.3,
+                            formed_at_tick: tick,
+                            reason: reason.to_string(),
+                        });
+                    }
+                }
+            }
+
             // --- construction ---
             let builders = settlement.profession_count("carpenter")
                 + settlement.profession_count("labourer")
