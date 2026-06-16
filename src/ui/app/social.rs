@@ -754,6 +754,80 @@ impl App {
         self.status_msg = Some(format!("{pname} points the way: {told}."));
     }
 
+    /// Ask an NPC who is worth knowing here (#528 conversations): a local names
+    /// the folk a stranger would want to find — a gifted crafter, a healer, a
+    /// smith, a scribe, a trader — so the tradespeople you can deal with are
+    /// findable by asking, not only by knocking on every door. Regard-gated.
+    pub fn ask_folk(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        let Some((people, pname)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| (PeopleKind::from_name(&p.people), p.name.clone()))
+        }) else {
+            return;
+        };
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.15 {
+            self.status_msg = Some(format!(
+                "{pname} names no one — your kind learn nothing here."
+            ));
+            return;
+        }
+        let mut notable: Vec<String> = Vec::new();
+        if let Some(ref sim) = self.sim {
+            if let Some(s) = sim
+                .world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+            {
+                // A gifted crafter is the first name on anyone's lips.
+                if let Some(g) = s.people.iter().find(|p| p.gift.has()) {
+                    if let Some(sense) = g.gift.sense() {
+                        notable.push(format!("{}, who has the {} gift", g.name, sense.name()));
+                    }
+                }
+                // The tradespeople a stranger would seek — one of each, named by
+                // their trade (the dealings of #527 hang on finding them).
+                let trades = [
+                    ("smith", "the smith"),
+                    ("healer", "the healer"),
+                    ("herbalist", "the herbalist"),
+                    ("scribe", "the scribe"),
+                    ("trader", "the trader"),
+                    ("path-finder", "the path-finder"),
+                ];
+                for (prof, title) in trades {
+                    if notable.len() >= 4 {
+                        break;
+                    }
+                    if let Some(p) = s.people.iter().find(|p| {
+                        p.profession == prof && !notable.iter().any(|n| n.contains(&p.name))
+                    }) {
+                        notable.push(format!("{title} {}", p.name));
+                    }
+                }
+            }
+        }
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
+        if notable.is_empty() {
+            self.status_msg = Some(format!(
+                "{pname}: \"Plain folk here — no one you'd cross a field to meet.\""
+            ));
+            return;
+        }
+        let told = notable.join("; ");
+        self.status_msg = Some(format!("{pname} tells you who to seek: {told}."));
+    }
+
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
         let ps = match self.player_start {
             Some(ref mut ps) => ps,

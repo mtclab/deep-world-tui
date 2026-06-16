@@ -149,7 +149,7 @@ pub(crate) fn draw_talk_screen(
             )));
         }
         lines.push(Line::from(Span::styled(
-            "   Ask them for news of the world (N), or the way (W).",
+            "   Ask for news (N), the way (W), or who's worth knowing (K).",
             Style::default().fg(theme.warm_brown()),
         )));
 
@@ -203,6 +203,13 @@ pub(crate) fn draw_talk_screen(
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" the way  ", Style::default().fg(theme.dark_brown())),
+        Span::styled(
+            "[K]",
+            Style::default()
+                .fg(theme.archive_red())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" who to know  ", Style::default().fg(theme.dark_brown())),
         Span::styled(
             "[Esc/Q]",
             Style::default()
