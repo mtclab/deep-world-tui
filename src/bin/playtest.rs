@@ -143,6 +143,11 @@ fn main() -> anyhow::Result<()> {
                 app.pilgrimage();
                 print_msg(&app);
             }
+            "gift" => {
+                recorded.push(PlayerChoice::GiveGift);
+                app.give_gift();
+                print_msg(&app);
+            }
             "rest" | "r" => {
                 let before = app.collapse_log.len();
                 let hours: u32 = parts.get(1).and_then(|h| h.parse().ok()).unwrap_or(8);
