@@ -29,6 +29,11 @@
         "Noon is when the road is longest. I walked it anyway.",
         "I rested in the shade of a stone for a hundred breaths, then went on.",
         "The heat sat on my shoulders like a pack. I carried both.",
+        "The sun stood straight overhead and judged me. I kept walking out of spite.",
+        "Midday, and the road shimmered. I drank, rested a breath, and went on.",
+        "High noon and no shade to bargain with. I made my hat earn its keep.",
+        "The day at its full height, everything wearing the short honest shadow of an open ledger.",
+    
     ],
     "TRAVEL_AFTERNOON": [
         "The afternoon wore on. I walked the long hours.",
@@ -38,6 +43,11 @@
         "Long hours. The kind that pass through me rather than by me.",
         "I counted milestones until I stopped counting. Then I just walked.",
         "The afternoon asked nothing and gave little. Fair trade.",
+        "The light went long and amber. The day was spending itself and I was its coin.",
+        "Afternoon settled over the road like dust. I let it settle on me too and walked through.",
+        "The heat came off the day's high and the road eased. I eased with it.",
+        "Shadows began to lean east. I leaned with them, toward whatever the evening held.",
+    
     ],
     "TRAVEL_DUSK": [
         "The light was failing when I finally stopped walking.",
@@ -66,6 +76,12 @@
         "Even the wind had gone to bed. I trespassed in the stillness.",
         "The hour when the world forgets itself. I walked through its forgetting.",
         "No light, no sound, no company but my own heartbeat. It was enough.",
+        "The cold of the small hours got into my boots. I walked to outrun it and did not.",
+        "Stars enough to read by, if the road were a book. It was not. I went by memory.",
+        "The night had teeth this far from any hearth. I kept my collar up and my pace honest.",
+        "Nothing moved that I could see. I moved anyway — quiet, a rumour crossing the dark.",
+        "The kind of dark that makes a man count his own breaths. I lost count and was glad.",
+    
     ],
     "TRAVEL_STORM": [
         "The storm found me on the road. I did not stop.",
@@ -84,6 +100,12 @@
         "The snow asked silence and I gave it. We got along.",
         "White road, grey sky, black trees. The world in three inks.",
         "My breath went ahead of me in little clouds. I followed it.",
+        "The snow came down without hurry. I went on without hurry to match it.",
+        "Drifts to the knee in the low places. I picked the high line and paid for it in wind.",
+        "Every sound was wrapped in wool today. Even my own footsteps were polite.",
+        "The flakes settled on my shoulders like the world meant to bury me gently.",
+        "White to the horizon, and the horizon not far. I walked the small world it left me.",
+    
     ],
     "TRAVEL_FOG": [
         "Fog swallowed the road ahead. I walked into it.",
@@ -92,6 +114,12 @@
         "Shapes came and went in the mist. I greeted none of them.",
         "The fog made the familiar strange. I made my legs ignore it.",
         "Ten paces of road at a time. The world rationed itself today.",
+        "The road gave me ten feet and asked for faith for the rest. I gave it.",
+        "Grey on grey on grey. I navigated by the feel of the ruts underfoot.",
+        "Off in the murk a bird complained. I agreed with it and kept walking.",
+        "The fog had no edges and neither did the morning. I made my own.",
+        "I lost the horizon, then the field, then nearly the road. I kept the road.",
+    
     ],
     "TRAVEL_CLEAR_DAWN": [
         "A clear dawn. The road stretched out before me like a promise.",
@@ -99,6 +127,13 @@
         "Sky like washed glass. Days like this are owed to someone.",
         "The horizon was sharp enough to cut. I walked toward the wound.",
         "Not a cloud. The land lay open like a ledger.",
+        "First light, no wind — the kind of morning that makes promises it will not keep.",
+        "The sun came up clean over the treeline. I let it warm the side of my face and walked.",
+        "A dawn without a cloud to its name. I distrusted it and went anyway.",
+        "Light came slantwise and gold, and the frost gave it back, every blade lit.",
+        "The day opened like a held breath let go. I matched my pace to it.",
+        "Cold, clear, and quiet. The road ahead was a long sentence with no comma in it.",
+    
     ],
     "ENCOUNTER_TEMPLATES": [
         "Another face on the road. Words were exchanged. That is all.",
@@ -162,6 +197,11 @@
         "My own work between me and the sky. It held.",
         "The lean-to took the rain's first argument and most of its second.",
         "Knees to chest under slanted wood. Sleep came sideways but it came.",
+        "Slanted boards and a thin fire — more than the open sky offered, and I took it.",
+        "I propped my pack for a pillow and the lean-to for a roof. Both held till morning.",
+        "The fire burned down to an argument of embers. I slept before it finished.",
+        "Wind found the gaps and told me about each one. I thanked it and dozed regardless.",
+    
     ],
     "DREAM_TEMPLATES": [
         "I dreamed of a vast archive. The shelves went on forever.",

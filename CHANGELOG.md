@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**A wider voice on the road (WORLD_DEPTH #1)** — the journal's most-exposed surface, the travel and rest lines you see on nearly every action, grew **33 new entries** across the thinnest banks (clear dawn, snow, fog, deep night, noon, afternoon, the lean-to) — most now run eleven deep instead of five or six. The same wry first-person voice; less repetition over a long life. Pure data (`data/journal_banks.ron`).
+
 **The deep verbs, discoverable (#454/#456/#457)** — a settlement's footer now shows the **actions that apply right here**, not just the basics: pray and give a gift always; offer and pilgrimage where a shrine or temple stands; keep the festival when a holy day is underway; journey to a great city. The faith, standing, and wider-world verbs added this cycle are findable in place now, instead of only in the help screen.
 
 **The city, rendered (#456)** — the journey to a great city now lands you, for a moment, **in the city itself**: a panel of its canon scale (fifteen, twenty thousand souls and more), its **quarters** (grain-wharves, steelworks, salvage-yards, the fallen old-capital palace…), the **deeper services** a province town has not (moneychanger, grain-exchange, scholars' archive), and the **long-haul market board** — what the city pays for what the province sends, the prices that make the haul pay. Press on and take the road home. The continent's scale is something you stand in now, not just hear in trade-talk — completing the wider-world epic.
