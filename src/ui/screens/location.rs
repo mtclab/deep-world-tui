@@ -25,7 +25,7 @@ pub(crate) fn draw_location_screen(
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
-        Constraint::Length(3),
+        Constraint::Length(4),
     ])
     .split(f.area());
 
@@ -268,57 +268,61 @@ pub(crate) fn draw_location_screen(
         .scroll((scroll, 0));
     f.render_widget(para, chunks[1]);
 
-    let help = Paragraph::new(Line::from(vec![
+    // Contextual actions (#454/#456/#457): show only the deeper verbs that
+    // apply right here — so the faith, gift, and journey actions are
+    // discoverable in place, not buried in the help screen.
+    let key = |s: &str, theme: &Theme| {
         Span::styled(
-            " [1-9]",
+            s.to_string(),
             Style::default()
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" person  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[m]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" market  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[s]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" service  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[a]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" adopt  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[Esc/Q]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" back  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[↑↓]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" scroll  ", Style::default().fg(theme.dark_brown())),
-        Span::styled(
-            "[Space]",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" step", Style::default().fg(theme.dark_brown())),
-    ]))
-    .block(Block::default().borders(Borders::TOP));
+        )
+    };
+    let lbl = |s: &str, theme: &Theme| {
+        Span::styled(s.to_string(), Style::default().fg(theme.dark_brown()))
+    };
+
+    let has_holy_site = settlement.is_some_and(|s| {
+        use crate::model::SettlementService::{Shrine, Temple};
+        s.services.contains(&Shrine) || s.services.contains(&Temple)
+    });
+    let festival_now = settlement.is_some_and(|s| s.in_festival(app.clock.day));
+
+    let mut actions: Vec<Span> = vec![key(" [p]", &theme), lbl(" pray  ", &theme)];
+    if festival_now {
+        actions.push(key("[O]", &theme));
+        actions.push(lbl(" keep festival  ", &theme));
+    }
+    if has_holy_site {
+        actions.push(key("[o]", &theme));
+        actions.push(lbl(" offer  ", &theme));
+        actions.push(key("[P]", &theme));
+        actions.push(lbl(" pilgrimage  ", &theme));
+    }
+    actions.push(key("[G]", &theme));
+    actions.push(lbl(" gift  ", &theme));
+    actions.push(key("[J]", &theme));
+    actions.push(lbl(" journey to a city", &theme));
+
+    let nav = Line::from(vec![
+        key(" [1-9]", &theme),
+        lbl(" person  ", &theme),
+        key("[m]", &theme),
+        lbl(" market  ", &theme),
+        key("[s]", &theme),
+        lbl(" service  ", &theme),
+        key("[a]", &theme),
+        lbl(" adopt  ", &theme),
+        key("[Esc/Q]", &theme),
+        lbl(" back  ", &theme),
+        key("[↑↓]", &theme),
+        lbl(" scroll  ", &theme),
+        key("[Space]", &theme),
+        lbl(" step", &theme),
+    ]);
+
+    let help = Paragraph::new(vec![Line::from(actions), nav])
+        .block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
 }

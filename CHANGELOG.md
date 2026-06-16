@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The deep verbs, discoverable (#454/#456/#457)** — a settlement's footer now shows the **actions that apply right here**, not just the basics: pray and give a gift always; offer and pilgrimage where a shrine or temple stands; keep the festival when a holy day is underway; journey to a great city. The faith, standing, and wider-world verbs added this cycle are findable in place now, instead of only in the help screen.
+
 **The city, rendered (#456)** — the journey to a great city now lands you, for a moment, **in the city itself**: a panel of its canon scale (fifteen, twenty thousand souls and more), its **quarters** (grain-wharves, steelworks, salvage-yards, the fallen old-capital palace…), the **deeper services** a province town has not (moneychanger, grain-exchange, scholars' archive), and the **long-haul market board** — what the city pays for what the province sends, the prices that make the haul pay. Press on and take the road home. The continent's scale is something you stand in now, not just hear in trade-talk — completing the wider-world epic.
 
 **The Five ask an aid (#454)** — the first time you enter an enclave of one of the Five, they put a **request** to you, true to their monograph: the Tzäkhar deep-forges want surface food and repay it in worked iron; the Mëräk want cloth for deep-glass; the She'ar a good tool for the succulent-physic only they keep; the Häl cloth for their true salve; the Khör an iron tool for härkä-hide. It lands on your quest board as a fetch with a long, soft deadline — bring what they lack and they repay you in the good only they make. Completes the enclaves epic: a felt reason to deal with each people, in their own coin.
