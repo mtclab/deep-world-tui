@@ -171,6 +171,26 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
         })
         .unwrap_or_default();
 
+    // Furnishings inside each building — a table, a chest, a bed-pallet — so a
+    // building reads as a lived-in room, not an empty box (#458 interiors).
+    let furnishing_map: HashMap<(usize, usize), char> = app
+        .sim
+        .as_ref()
+        .and_then(|sim| sim.world.regions.get(region_idx))
+        .map(|r| {
+            let mut m = HashMap::new();
+            for s in &r.settlements {
+                let seed = crate::gen::building::town_seed(s.map_x, s.map_y);
+                for b in crate::gen::town::town_buildings(s) {
+                    for (fx, fy, g) in crate::gen::building::building_furnishings(&b, seed) {
+                        m.insert((fx, fy), g);
+                    }
+                }
+            }
+            m
+        })
+        .unwrap_or_default();
+
     let memorial_set: std::collections::HashSet<(usize, usize)> = app
         .sim
         .as_ref()
@@ -246,6 +266,15 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
                                 Style::default()
                                     .fg(theme.archive_red())
                                     .add_modifier(Modifier::BOLD),
+                            ));
+                        } else if let Some(&furn) = (*terrain == Terrain::Floor)
+                            .then(|| furnishing_map.get(&(mx, my)))
+                            .flatten()
+                        {
+                            // A lived-in room: furniture in muted ink on the floor.
+                            spans.push(Span::styled(
+                                furn.to_string(),
+                                Style::default().fg(theme.dark_brown()),
                             ));
                         } else {
                             let c = terrain.glyph();
