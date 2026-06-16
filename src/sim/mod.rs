@@ -700,7 +700,26 @@ fn tick_settlement_life(sim: &mut SimState) {
                 } else {
                     1.0
                 };
-                let crew = ((builders as f64) * workshop_boost).round() as u64;
+                // Raising a building needs materials, not just hands (#540
+                // demand): a town draws on its Wood and Iron, and short of them
+                // the work crawls. A real consequence to a goods shortage —
+                // which is what makes the iron a smithless town must import
+                // actually matter.
+                let materials = settlement.good(crate::model::ItemType::Wood)
+                    + settlement.good(crate::model::ItemType::Iron);
+                let material_factor = if materials >= 2.0 { 1.0 } else { 0.4 };
+                let crew = ((builders as f64) * workshop_boost * material_factor).round() as u64;
+                let building_now = settlement.buildings.iter().any(|b| !b.is_complete());
+                if building_now && materials >= 2.0 {
+                    let w = settlement.good(crate::model::ItemType::Wood);
+                    settlement
+                        .goods_stock
+                        .insert(crate::model::ItemType::Wood, (w - 0.3).max(0.0));
+                    let i = settlement.good(crate::model::ItemType::Iron);
+                    settlement
+                        .goods_stock
+                        .insert(crate::model::ItemType::Iron, (i - 0.2).max(0.0));
+                }
                 for b in settlement.buildings.iter_mut() {
                     if !b.is_complete() {
                         b.advance_construction(crew, tick);
