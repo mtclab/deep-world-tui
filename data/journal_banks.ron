@@ -20,6 +20,11 @@
         "The road was busy with small lives this morning — beetles, larks, one fox.",
         "I ate as I walked. The morning did not mind.",
         "Mist in the hollows, sun on the rises. I walked through both.",
+        "The morning was honest work — one foot, then the other, the dew burning off the grass.",
+        "Birdsong and a cool road. I made good distance before the heat could find an opinion.",
+        "The day was young and so, briefly, was I. The miles went easy.",
+        "Mist still in the hollows, the sun just clearing the trees. I walked into the warm of it.",
+    
     ],
     "TRAVEL_NOON": [
         "The sun beat down. I walked the midpoint of the day.",
@@ -58,6 +63,11 @@
         "The last light caught the tops of the trees and let go.",
         "Day's end. My legs knew it before the sky did.",
         "I walked the seam between day and night and felt at home in it.",
+        "The light went red and low and the day folded up behind me. I looked for somewhere to stop.",
+        "Dusk laid long shadows across the road, mine the longest of them. I kept its company.",
+        "The day's last colour bled out of the sky. I quickened my step toward the dark.",
+        "Lamps would be lighting in the towns I could not see. I walked toward the idea of them.",
+    
     ],
     "TRAVEL_NIGHT": [
         "I walked through the dark. The stars were my only company.",
@@ -68,6 +78,11 @@
         "Something kept pace with me in the dark for a while. Then it didn't.",
         "Night walking: half listening, half praying, all forward.",
         "The moon did what it could. I did the rest.",
+        "The first stars came out one by one, like a careful man counting his coin.",
+        "Night settled over the road and the cold came with it. I pulled my collar and went on.",
+        "A half-moon gave me just enough road to trust. I trusted it and little else.",
+        "The dark was full of small noises that meant nothing or everything. I chose nothing.",
+    
     ],
     "TRAVEL_DEEP_NIGHT": [
         "The world slept. I did not.",
@@ -92,6 +107,11 @@
         "Every tree wanted me under it. I trusted none of them.",
         "Soaked through by the first mile. After that, the rain was just weather.",
         "The storm and I went the same way for a while. Then it lost interest.",
+        "The storm threw everything it had and I gave it my back and kept walking.",
+        "Rain sideways, the road a river. I waded the worst of it and cursed the rest.",
+        "Thunder walked the hills like a landlord. I paid my rent in being soaked through.",
+        "The sky opened and did not apologise. I found no shelter and made do with stubbornness.",
+    
     ],
     "TRAVEL_SNOW": [
         "Snow covered the road. I made my own path.",
@@ -157,6 +177,11 @@
         "Fed the fire twigs until it trusted me. Slept in its good opinion.",
         "The fire talked all night, soft. I fell asleep mid-sentence.",
         "One ember watched me till morning. I let it.",
+        "A small fire, a smaller meal, the dark held off at arm's length. It was enough.",
+        "I fed the fire twigs and the fire fed me a little courage. We kept each other.",
+        "The flames talked to themselves and I let them. Sleep came warm-sided and brief.",
+        "Embers and the smell of woodsmoke in my coat. I slept the careful sleep of the open road.",
+    
     ],
     "REST_OUTSIDE": [
         "No fire tonight. I sleep with one eye open.",
@@ -168,6 +193,11 @@
         "Every sound was a wolf until it wasn't. Then I slept.",
         "The earth is an honest bed. It promises nothing and keeps its word.",
         "Curled up small, the way the old road-wisdom says. Still cold.",
+        "No roof but the sky's, and the sky in a generous mood. I slept light and woke whole.",
+        "The cold ground took its tax from my bones. I paid it and rose stiff and grateful.",
+        "I lay back and let the stars do the watching. They are reliable, if distant, company.",
+        "A hollow out of the wind, a flat stone for a pillow. The body forgives a great deal.",
+    
     ],
     "REST_SETTLEMENT": [
         "A roof overhead. The floor is hard but it is warm.",
@@ -178,6 +208,11 @@
         "Other people's sounds through the wall: someone's cough, someone's child. I slept among lives.",
         "The floor smelled of woodsmoke and dogs. Better than most nights.",
         "They let me sleep by the wall. The wall and I are grateful.",
+        "Four walls not my own, but walls. I slept the easy sleep of the briefly safe.",
+        "A borrowed corner and the murmur of strangers' lives. I rested in the noise of other people.",
+        "The town breathed around me all night — a cough, a closing door, a dog's brief argument.",
+        "Under someone else's roof, in someone else's town. I took the kindness and slept.",
+    
     ],
     "REST_INN": [
         "A proper bed. Soft linen. I sleep the sleep of the fortunate.",
@@ -188,6 +223,11 @@
         "I paid for the bed and the lock on the door. The lock slept better than either of us.",
         "Clean straw, near-clean blanket. Luxury keeps low standards on the road, thankfully.",
         "Somebody sang in the common room until late. I fell asleep inside the song.",
+        "A real bed, or near enough. I lay in it like a coin in a deep pocket and did not stir.",
+        "Ale, a fire, a mattress with most of its straw. The road forgave me for one whole night.",
+        "The inn was loud till late and quiet after. I found the quiet and kept it.",
+        "Clean linen and a bolted door. I slept like a man with nothing left to lose for one night.",
+    
     ],
     "REST_LEAN_TO": [
         "A lean-to shields me from the worst of it. I sleep lightly.",

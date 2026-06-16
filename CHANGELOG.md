@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**A wider voice, continued** — another **32 travel and rest journal lines** across the remaining every-action banks (morning, dusk, night, storm; campfire, open ground, settlement, inn), bringing them to about a dozen each. The road and the night's rest read with far less repetition over a long life now. Pure data (`data/journal_banks.ron`).
+
 **A wider voice on the road (WORLD_DEPTH #1)** — the journal's most-exposed surface, the travel and rest lines you see on nearly every action, grew **33 new entries** across the thinnest banks (clear dawn, snow, fog, deep night, noon, afternoon, the lean-to) — most now run eleven deep instead of five or six. The same wry first-person voice; less repetition over a long life. Pure data (`data/journal_banks.ron`).
 
 **The deep verbs, discoverable (#454/#456/#457)** — a settlement's footer now shows the **actions that apply right here**, not just the basics: pray and give a gift always; offer and pilgrimage where a shrine or temple stands; keep the festival when a holy day is underway; journey to a great city. The faith, standing, and wider-world verbs added this cycle are findable in place now, instead of only in the help screen.
