@@ -325,6 +325,13 @@ fn main() -> anyhow::Result<()> {
                 }
                 print_msg(&app);
             }
+            "scribe" => {
+                let idx: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                if let Some(pos) = app.player_pos {
+                    app.consult_scribe(pos.region_idx, 0, idx);
+                }
+                print_msg(&app);
+            }
             "encounter" | "enc" => {
                 let action = match parts.get(1).copied().unwrap_or("") {
                     "flee" => EncounterAction::Flee,
