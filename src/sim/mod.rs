@@ -718,6 +718,103 @@ pub const CANON_CITIES: &[(&str, &str)] = &[
     ("Keuramark", "northern timber and amber"),
 ];
 
+/// A canon city's head-count (population_scale_and_settlement_hierarchy.md):
+/// fifteen thousand and up — an order of scale beyond any province town.
+pub fn city_population(idx: usize) -> u32 {
+    match idx {
+        0 => 16_000, // Sampa Crossing — Basin crossroads
+        1 => 21_000, // Vessenath — lake-city, steel + furs
+        2 => 14_000, // Halkess — walled grain-market
+        3 => 19_000, // Velkarath — the diminished old capital
+        _ => 12_000, // Keuramark — northern frontier city
+    }
+}
+
+/// The districts a traveller walks past in a great city — the variety the
+/// province has not (#456): a city reads as quarters, not one square.
+pub fn city_districts(idx: usize) -> &'static [&'static str] {
+    match idx {
+        0 => &[
+            "the grain-wharves",
+            "the long market",
+            "the Basin-road caravanserai",
+            "the weighhouse quarter",
+        ],
+        1 => &[
+            "the steelworks",
+            "the fur-halls",
+            "the lakefront docks",
+            "the smoke-quarter tenements",
+        ],
+        2 => &[
+            "the granary ring",
+            "the counting-houses",
+            "the walled merchant quarter",
+            "the toll-gate market",
+        ],
+        3 => &[
+            "the fallen harbour",
+            "the salvage-yards",
+            "the old palace district (half-ruined)",
+            "the new town within the old",
+        ],
+        _ => &[
+            "the timber-yards",
+            "the amber-traders' row",
+            "the frontier market",
+            "the long-winter lodges",
+        ],
+    }
+}
+
+/// The deeper services a great city keeps that a province town does not (#456).
+pub fn city_services(idx: usize) -> &'static [&'static str] {
+    match idx {
+        0 => &[
+            "a great market",
+            "a moneychanger",
+            "a caravan-hall",
+            "a grain-exchange",
+        ],
+        1 => &[
+            "a steel-forge of masters",
+            "a furriers' guild",
+            "a harbourmaster",
+            "a great market",
+        ],
+        2 => &[
+            "a grain-exchange",
+            "a counting-house",
+            "a moneychanger",
+            "a court of weights",
+        ],
+        3 => &[
+            "a salvagers' hall",
+            "a scholars' archive",
+            "a harbourmaster",
+            "a great market",
+        ],
+        _ => &[
+            "a timber-hall",
+            "an amber-market",
+            "a furriers' guild",
+            "a great market",
+        ],
+    }
+}
+
+/// The felt arrival at a great city (#456): canon scale and character. (Moved
+/// here from the journey so the city screen and the journal both read it.)
+pub fn city_arrival(idx: usize) -> &'static str {
+    match idx {
+        0 => "Sampa Crossing sprawls where the Basin roads meet — fifteen thousand souls and more, grain-barges thick on the water, a market quarter that does not empty from dawn to dark. After a province of a few hundred, the crowd alone is a kind of vertigo.",
+        1 => "Vessenath rises grey above its lake, a city of twenty thousand under a haze of forge-smoke — steel-halls and fur-markets, the cold water crowded with fishing craft. You have never seen so many roofs stand in one place.",
+        2 => "Halkess holds the grain-price of the south in its fists — a walled city of merchants and granaries whose scales are the law for a hundred leagues. Coin moves through its counting-houses in rivers.",
+        3 => "Velkarath broods over the harbour of the old capital — half its grandeur fallen, half still standing, salvage-crews picking the bones of the world before the Fall. It is a city haunted by how much larger it once was.",
+        _ => "Keuramark stands at the treeline of the north, a frontier city of log halls and amber-traders — the last great market before the cold country, loud with timber-crews and the long-winter trade.",
+    }
+}
+
 fn tick_caravans(sim: &mut SimState) {
     let tick = sim.world.tick;
     // Goods disperse ~2 days after arrival.

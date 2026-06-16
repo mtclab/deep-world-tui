@@ -1162,7 +1162,7 @@ impl App {
             sim.log(
                 tick,
                 crate::sim::journal::Voice::Travel,
-                city_arrival(idx).to_string(),
+                crate::sim::city_arrival(idx).to_string(),
             );
             sim.log(tick, crate::sim::journal::Voice::Rumor, news);
         }
@@ -1178,21 +1178,14 @@ impl App {
                 sim.log(tick, crate::sim::journal::Voice::Travel, line);
             }
         }
+        // The journey lands you, for a moment, in the great city itself — its
+        // scale, its quarters, its long-haul market — before the road home
+        // (#456). The trade already settled in the status line above.
+        self.screen = Screen::CityVisit { idx, scroll: 0 };
     }
-}
 
-/// The felt arrival at a great city of the continent (#456): canon scale and
-/// character, so the journey lands somewhere far larger than the province —
-/// the crowd, the districts, the weight of a place that holds fifteen thousand
-/// and more (population_scale_and_settlement_hierarchy.md). One per CANON_CITY,
-/// by index.
-fn city_arrival(idx: usize) -> &'static str {
-    match idx {
-        0 => "Sampa Crossing sprawls where the Basin roads meet — fifteen thousand souls and more, grain-barges thick on the water, a market quarter that does not empty from dawn to dark. After a province of a few hundred, the crowd alone is a kind of vertigo.",
-        1 => "Vessenath rises grey above its lake, a city of twenty thousand under a haze of forge-smoke — steel-halls and fur-markets, the cold water crowded with fishing craft. You have never seen so many roofs stand in one place.",
-        2 => "Halkess holds the grain-price of the south in its fists — a walled city of merchants and granaries whose scales are the law for a hundred leagues. Coin moves through its counting-houses in rivers, and everyone walks a little faster.",
-        3 => "Velkarath broods over the harbor of the old capital — half its grandeur fallen, half still standing, salvage-crews picking the bones of the world before the Fall. It is a city haunted by how much larger it once was.",
-        _ => "Keuramark stands at the treeline of the north, a frontier city of log halls and amber-traders — the last great market before the cold country, loud with timber-crews and the long-winter trade.",
+    pub fn exit_city_visit(&mut self) {
+        self.screen = self.world_screen();
     }
 }
 

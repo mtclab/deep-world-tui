@@ -9,6 +9,7 @@ use crate::ui::theme::Theme;
 
 use crate::ui::screens;
 use screens::character_creation::draw_character_creation;
+use screens::city::draw_city_screen;
 use screens::collapse::draw_collapse_screen;
 use screens::craft::draw_craft_screen;
 use screens::encounter_log::draw_encounter_log_screen;
@@ -84,6 +85,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         }
         Screen::EncounterLog { scroll } => {
             draw_encounter_log_screen(f, app, scroll);
+        }
+        Screen::CityVisit { idx, scroll } => {
+            draw_city_screen(f, app, idx, scroll);
         }
         Screen::Overmap { region_idx } => {
             draw_overmap_screen(f, app, region_idx);

@@ -1,4 +1,5 @@
 pub mod character_creation;
+pub mod city;
 pub mod collapse;
 pub mod common;
 pub mod craft;

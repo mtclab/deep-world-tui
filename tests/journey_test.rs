@@ -159,6 +159,29 @@ fn the_great_city_is_felt_at_scale() {
 }
 
 #[test]
+fn the_journey_lands_you_in_the_city_then_home() {
+    use deep_world_tui::ui::app::Screen;
+    let mut a = app();
+    stand_in_town(&mut a);
+    a.player_start
+        .as_mut()
+        .unwrap()
+        .inventory
+        .add(ItemType::Food, 10);
+    a.journey_to_city();
+    // You stand, for a moment, in the great city itself.
+    assert!(
+        matches!(a.screen, Screen::CityVisit { .. }),
+        "the journey opens the city panel"
+    );
+    a.exit_city_visit();
+    assert!(
+        !matches!(a.screen, Screen::CityVisit { .. }),
+        "and the road home leaves it"
+    );
+}
+
+#[test]
 fn the_lawless_roads_sometimes_take_a_toll() {
     // Post-Fall the roads aren't safe (#449): over many lives, some journeys
     // are robbed or run hard — but not all of them.

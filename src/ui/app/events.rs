@@ -165,6 +165,15 @@ impl App {
                         self.screen = Screen::EncounterLog { scroll: new_scroll };
                     }
                 }
+                Screen::CityVisit { idx, scroll } => {
+                    let new_scroll = crate::ui::input::city::handle_city_input(self, key, scroll);
+                    if let Screen::CityVisit { .. } = self.screen {
+                        self.screen = Screen::CityVisit {
+                            idx,
+                            scroll: new_scroll,
+                        };
+                    }
+                }
                 Screen::Talk {
                     scroll,
                     region_idx,

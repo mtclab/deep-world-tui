@@ -78,6 +78,12 @@ pub enum Screen {
     EncounterLog {
         scroll: u16,
     },
+    /// The great city reached by a journey (#456): a read-only panel of its
+    /// scale, quarters, services, and long-haul market — `idx` into CANON_CITIES.
+    CityVisit {
+        idx: usize,
+        scroll: u16,
+    },
 }
 
 pub struct App {
