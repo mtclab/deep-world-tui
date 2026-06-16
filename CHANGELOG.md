@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Provision a town with what it lacks (#526 livelihoods, into the living economy)** — press **D** in a settlement to **carry in the trade good it is most short of** (the one its stores hold least, of Iron/Tool/Cloth/Wood) — they pay a fair premium for it, their **stores actually rise** by what you delivered, and a provisioner is **remembered** (standing climbs more than a plain sale). Reads straight off the living economy (#540): a forge-town short of cloth, a weaving town short of iron — you fill the gap the market made. Not arbitrage for coin alone, but being *useful to a community*: the trade-runner's livelihood.
+
 **Towns thrive on more than bread (#540 living economy)** — a settlement now grows only when it is both **fed and furnished**: full granaries keep it alive, but it takes **tools and cloth** — made at home or carried in by trade — for it to actually grow. A place genuinely cut off from the goods economy holds where it is even with grain to spare, while a well-supplied one thrives. Closes the living-economy loop: goods are **made, priced, moved, spent, and now matter to a town's fate** — all on their own, whether you are there or not.
 
 **Goods are spent, not just made (#540 living economy)** — raising a building now **draws on a town's Wood and Iron**, not just its hands: a settlement mid-construction spends its materials, and one **short of them builds slower** (the work crawls at four-tenths pace without stock). A goods shortage finally has a consequence — the iron a smithless town must import actually matters, so the production, prices, and trade-drift of the last three changes feed a real demand. The economy now makes, prices, moves, *and spends* its goods, all on its own.

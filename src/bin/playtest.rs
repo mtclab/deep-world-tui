@@ -452,6 +452,10 @@ fn main() -> anyhow::Result<()> {
                 app.work_for_hire();
                 print_msg(&app);
             }
+            "provision" => {
+                app.provision_settlement();
+                print_msg(&app);
+            }
             "quests" => {
                 if let Some(ref sim) = app.sim {
                     if sim.quests.is_empty() {

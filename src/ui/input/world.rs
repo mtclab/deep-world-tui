@@ -97,6 +97,9 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
         KeyCode::Char('L') => {
             app.work_for_hire();
         }
+        KeyCode::Char('D') => {
+            app.provision_settlement();
+        }
         KeyCode::Char('V') => {
             app.take_vow();
         }
