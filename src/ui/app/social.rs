@@ -1013,6 +1013,132 @@ impl App {
         });
     }
 
+    /// Hire a settlement's path-finder or forester to learn the country (#527
+    /// tradespeople): for a fee, they draw you the lay of the whole region —
+    /// the map opens — and name the bearings to the nearest settlement and to
+    /// every notable place you have not yet found. Regard-gated; the trade of
+    /// those who walk the land for a living.
+    pub fn hire_guide(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        const FEE: u32 = 6;
+        let Some((people, pname, is_guide)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| {
+                    (
+                        PeopleKind::from_name(&p.people),
+                        p.name.clone(),
+                        p.profession == "path-finder" || p.profession == "forester",
+                    )
+                })
+        }) else {
+            return;
+        };
+        if !is_guide {
+            self.status_msg = Some(format!(
+                "{pname} does not walk the country for a trade — find a path-finder."
+            ));
+            return;
+        }
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.10 {
+            self.status_msg = Some(format!("{pname} will not set your kind on their paths."));
+            return;
+        }
+        if self
+            .player_start
+            .as_ref()
+            .is_none_or(|ps| ps.inventory.get(ItemType::Coin) < FEE)
+        {
+            self.status_msg = Some(format!("A guide's fee is {FEE} coin; you cannot meet it."));
+            return;
+        }
+        let Some(pos) = self.player_pos else {
+            return;
+        };
+        let (px, py) = (pos.px as i64, pos.py as i64);
+        // The whole region opens: reveal it end to end from its middle.
+        let (cx, cy, span) = self
+            .sim
+            .as_ref()
+            .and_then(|sim| sim.world.regions.get(region_idx))
+            .map(|r| {
+                (
+                    r.terrain.width / 2,
+                    r.terrain.height / 2,
+                    r.terrain.width + r.terrain.height,
+                )
+            })
+            .unwrap_or((0, 0, 0));
+        if region_idx < self.explored.len() {
+            self.explored[region_idx].reveal(cx, cy, span);
+        }
+        // Bearings to the nearest settlement and every unfound place.
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(ref sim) = self.sim {
+            if let Some(region) = sim.world.regions.get(region_idx) {
+                if let Some((_, s)) = region
+                    .settlements
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, s)| *i != settlement_idx && s.population > 0)
+                    .min_by_key(|(_, s)| {
+                        let (dx, dy) = (s.map_x as i64 - px, s.map_y as i64 - py);
+                        dx * dx + dy * dy
+                    })
+                {
+                    parts.push(format!(
+                        "{} {}",
+                        s.name,
+                        compass_bearing(s.map_x as i64 - px, s.map_y as i64 - py)
+                    ));
+                }
+                for d in sim
+                    .discoveries
+                    .entries
+                    .iter()
+                    .filter(|d| d.region_idx == region_idx && !d.observed)
+                {
+                    parts.push(format!(
+                        "{} {}",
+                        d.label.to_lowercase(),
+                        compass_bearing(d.x as i64 - px, d.y as i64 - py)
+                    ));
+                }
+            }
+        }
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(ItemType::Coin, FEE);
+        }
+        self.advance_clock(2);
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.02);
+        self.god_affinity.adjust(GodName::Sampsa, 0.01);
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                "A guide drew me the whole lay of the land, and the region opened on the map."
+                    .to_string(),
+            );
+        }
+        self.status_msg = Some(if parts.is_empty() {
+            format!("{pname} draws you the region — the map opens. (−{FEE} coin, 2h)")
+        } else {
+            format!(
+                "{pname} draws you the region (map opens; {}). (−{FEE} coin, 2h)",
+                parts.join(", ")
+            )
+        });
+    }
+
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
         let ps = match self.player_start {
             Some(ref mut ps) => ps,

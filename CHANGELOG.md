@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Hire a guide (#527 tradespeople)** — a settlement's **path-finder** or **forester** walks the country for a living: press **G** while talking to one and, for a fee, they **draw you the lay of the whole region** — the map opens end to end — and name the bearings to the nearest settlement and to every notable place you haven't found. Saves the slow blind exploring; refused by one set against your kind. The cartographer's trade, where before a path-finder was only a label.
+
 **Consult the healer (#527 tradespeople)** — sickness no longer waits for a temple: where a settlement keeps a **healer** or **herbalist**, press **V** while talking to them and they'll tend your ills for a fee — a healer cures outright, a herbalist eases the worst of it with the country's own physic. A **root-eye**-gifted healer mends the deeper, leaving you the steadier. Refused by one set against your kind; nothing taken from the hale. The temple's cure, carried out to the villages.
 
 **Commission the smith (#527 tradespeople)** — a settlement's smith is no longer just a label: bring Iron and a small fee, press **M** while talking to them, and they **strike you a Tool** — no botch, no wasted stock, the way your own bench can fail. A smith with the **iron-ear** gift makes it truer and throws in an offcut of Nails. A smith set against your kind won't strike iron for you. First of the tradesperson dealings — the folk you found by asking (#528) now have something to offer.
