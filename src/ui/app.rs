@@ -133,6 +133,9 @@ pub struct App {
     pub hint_tracker: HintTracker,
     pub milestones: crate::sim::milestones::MilestoneTracker,
     pub explored: Vec<crate::model::ExploredMap>,
+    /// The peoples of the Five whose enclaves you've entered — so the
+    /// first-visit lore reveal fires once per people (#454).
+    pub enclaves_seen: Vec<crate::model::PeopleKind>,
     pub elder: bool,
     /// Age in years at the start of the current life (from age_band).
     pub start_age_years: u32,
@@ -231,6 +234,7 @@ impl App {
             encounters_had: 0,
             encounter_log: EncounterLog::new(),
             player_farms: Vec::new(),
+            enclaves_seen: Vec::new(),
             homestead_settlers: Vec::new(),
             homestead_rumored: false,
             founding_check_day: 0,

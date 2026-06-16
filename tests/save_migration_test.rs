@@ -49,6 +49,7 @@ fn make_save(version: u32) -> SaveData {
         widowed_day: 0,
         household_children: Vec::new(),
         travel_debt: 0.0,
+        enclaves_seen: Vec::new(),
     }
 }
 
@@ -129,6 +130,7 @@ fn roundtrip_preserves_all_fields() {
         widowed_day: 0,
         household_children: Vec::new(),
         travel_debt: 0.0,
+        enclaves_seen: Vec::new(),
     };
 
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");

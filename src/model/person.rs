@@ -479,6 +479,20 @@ impl PeopleKind {
         })
     }
 
+    /// The deeper lore a traveller learns the **first** time they enter one of
+    /// the Five's enclaves (#454) — a thing about the people worth the journal,
+    /// told once. `None` for the human regions.
+    pub fn enclave_lore(self) -> Option<&'static str> {
+        Some(match self {
+            PeopleKind::Tzakhar => "The Tzäkhar do not measure a life in years but in the worth of what its hands have shaped. Their deep-forges have burned, they say, since before the Fall darkened the surface — and they kept the old iron-songs the upworld forgot.",
+            PeopleKind::Merak => "The Mëräk reckon kinship by the tides they were born under, not by blood. They hold that the deep water remembers every drowned name, and on the turning of the year they speak those names to the sea so it does not forget.",
+            PeopleKind::Shear => "The She'ar keep the discipline of silence and of water: to waste a word or a drop is the same failing. Their elders are those who have crossed the deep desert alone and returned — the heat-silence is their teacher and their faith.",
+            PeopleKind::Hal => "The Häl never set foot to the forest floor if they can help it; their canopy-towns are woven living, and a hall grows for a generation before it is dwelt in. Keuru's green is their god and their roof both, and they physic the hurt of any who come in peace.",
+            PeopleKind::Khor => "The Khör carry their dead as cairn-stones, one stone per life, and their circles are libraries of the gone. A word-keeper can recite a lineage back two hundred winters. They endure the cold the upworld cannot, and ask only an even trade for the warmth they make.",
+            _ => return None,
+        })
+    }
+
     pub fn bias_toward(self, other: PeopleKind) -> f64 {
         if self == other {
             return 0.15;
@@ -2112,6 +2126,20 @@ mod tests {
         // A human people keeps a plain town, no enclave welcome.
         assert!(!PeopleKind::Metsik.is_of_the_five());
         assert!(PeopleKind::Metsik.enclave_welcome().is_none());
+    }
+
+    #[test]
+    fn the_five_each_have_first_visit_lore() {
+        for p in [
+            PeopleKind::Tzakhar,
+            PeopleKind::Merak,
+            PeopleKind::Shear,
+            PeopleKind::Hal,
+            PeopleKind::Khor,
+        ] {
+            assert!(p.enclave_lore().is_some(), "{p:?} has lore to reveal");
+        }
+        assert!(PeopleKind::Metsik.enclave_lore().is_none());
     }
 
     #[test]
