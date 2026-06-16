@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Towns thrive on more than bread (#540 living economy)** — a settlement now grows only when it is both **fed and furnished**: full granaries keep it alive, but it takes **tools and cloth** — made at home or carried in by trade — for it to actually grow. A place genuinely cut off from the goods economy holds where it is even with grain to spare, while a well-supplied one thrives. Closes the living-economy loop: goods are **made, priced, moved, spent, and now matter to a town's fate** — all on their own, whether you are there or not.
+
 **Goods are spent, not just made (#540 living economy)** — raising a building now **draws on a town's Wood and Iron**, not just its hands: a settlement mid-construction spends its materials, and one **short of them builds slower** (the work crawls at four-tenths pace without stock). A goods shortage finally has a consequence — the iron a smithless town must import actually matters, so the production, prices, and trade-drift of the last three changes feed a real demand. The economy now makes, prices, moves, *and spends* its goods, all on its own.
 
 **Goods find their way (#540 living economy)** — the Bronze Road now smooths trade across a region on its own: each day a share of every trade good **drifts from where it is plentiful toward each town's fair portion by size** — surplus shipped out, scarcity supplied — conserving the region's total. A forge-town's iron reaches a fishing village that smelts none; a glut in one market eases as it spreads. No player, no routing — just supply finding demand across the province, which means the emergent prices (the cheap-where-plenty, dear-where-scarce of the last change) now *move toward each other* over time, as a real market would.

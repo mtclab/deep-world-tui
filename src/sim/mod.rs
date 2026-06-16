@@ -537,7 +537,15 @@ fn tick_settlement_life(sim: &mut SimState) {
             // Slow recovery toward what the land can carry (the Fall's
             // long tail: roughly a tenth of a percent a day, fed places only).
             let per_head_now = settlement.food_stock / settlement.population.max(1) as f64;
-            if per_head_now >= 1.5 && settlement.population < cap {
+            // A place grows when it is both fed and furnished (#540): bread keeps
+            // it alive, but tools and cloth — made at home or carried in by trade
+            // — are what let it thrive. A goods-starved town holds where it is
+            // even with full granaries. The bar is low, so only a place genuinely
+            // cut off from the goods economy stalls.
+            let furnished = (settlement.good(crate::model::ItemType::Tool)
+                + settlement.good(crate::model::ItemType::Cloth))
+                / settlement.population.max(1) as f64;
+            if per_head_now >= 1.5 && settlement.population < cap && furnished >= 0.03 {
                 settlement.population += (settlement.population / 1000).max(1);
             }
             // The district grows with the households. The anchor shifts
