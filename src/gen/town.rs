@@ -134,6 +134,38 @@ pub fn lay_town(
         crate::gen::building::town_seed(anchor_x as u32, anchor_y as u32),
         character,
     );
+    // A great town stands walled (#449/#458): the buildings already keep a
+    // clear lane inside the footprint edge (`wall_border`), so the perimeter
+    // can be raised as a wall — with gates where the main street and the
+    // cross-street reach the edge, opening onto the lane that rings the town.
+    // The streets lead from each gate to the heart, so it stays reachable.
+    if crate::gen::building::wall_border(footprint, footprint) > 0 {
+        let (w, h) = (terrain.width, terrain.height);
+        let gate = 3usize; // = the street width at this scale
+        let g0 = footprint / 2 - gate / 2; // main/cross street offset
+        let (x1, y1) = (anchor_x + footprint - 1, anchor_y + footprint - 1);
+        for d in 0..footprint {
+            let on_gate = (g0..g0 + gate).contains(&d);
+            for (tx, ty) in [
+                (anchor_x + d, anchor_y), // top edge   — main-street gate
+                (anchor_x + d, y1),       // bottom edge — main-street gate
+                (anchor_x, anchor_y + d), // left edge  — cross-street gate
+                (x1, anchor_y + d),       // right edge — cross-street gate
+            ] {
+                if tx >= w || ty >= h {
+                    continue;
+                }
+                if matches!(terrain.tiles[ty * w + tx], Terrain::Water | Terrain::Coast) {
+                    continue; // the water keeps its bed; a town gates the ford itself
+                }
+                terrain.tiles[ty * w + tx] = if on_gate {
+                    Terrain::Door
+                } else {
+                    Terrain::Wall
+                };
+            }
+        }
+    }
     // Worked land skirts the walls — and the water keeps its bed.
     let (w, h) = (terrain.width, terrain.height);
     for dy in 0..footprint + 2 {
@@ -325,6 +357,81 @@ mod tests {
             "most townsfolk gather in the plaza by day ({in_plaza}/{})",
             pos.len()
         );
+    }
+
+    #[test]
+    fn a_great_town_is_walled_with_enterable_gates() {
+        let mut t = TerrainMap {
+            width: 60,
+            height: 60,
+            tiles: vec![Terrain::Grass; 3600],
+        };
+        let fp = 32usize;
+        lay_town(
+            &mut t,
+            10,
+            10,
+            fp,
+            crate::gen::building::BuildCharacter::Plain,
+        );
+        let get = |x: usize, y: usize| t.tiles[y * 60 + x];
+        let (mut walls, mut gates) = (0, 0);
+        for d in 0..fp {
+            for (x, y) in [
+                (10 + d, 10),
+                (10 + d, 10 + fp - 1),
+                (10, 10 + d),
+                (10 + fp - 1, 10 + d),
+            ] {
+                match get(x, y) {
+                    Terrain::Wall => walls += 1,
+                    Terrain::Door => gates += 1,
+                    _ => {}
+                }
+                // No building ever fronts the wall — the lane keeps them clear.
+                assert!(
+                    !matches!(get(x, y), Terrain::Floor | Terrain::Hearth | Terrain::House),
+                    "a building sits on the wall ring at ({x},{y})"
+                );
+            }
+        }
+        assert!(walls > 0, "a great town stands walled");
+        assert!(
+            gates >= 4,
+            "gates where the streets meet the edge ({gates})"
+        );
+        // A gate opens onto walkable ground within — the town is enterable.
+        let gx = 10 + fp / 2 - 1;
+        assert_eq!(get(gx, 10), Terrain::Door, "the gate is a door");
+        assert!(
+            get(gx, 11).passable(),
+            "the gate opens onto the lane within"
+        );
+    }
+
+    #[test]
+    fn a_small_town_keeps_no_wall() {
+        let mut t = TerrainMap {
+            width: 40,
+            height: 40,
+            tiles: vec![Terrain::Grass; 1600],
+        };
+        lay_town(
+            &mut t,
+            5,
+            5,
+            20,
+            crate::gen::building::BuildCharacter::Plain,
+        );
+        let mut walls = 0;
+        for d in 0..20 {
+            for (x, y) in [(5 + d, 5), (5 + d, 24), (5, 5 + d), (24, 5 + d)] {
+                if t.tiles[y * 40 + x] == Terrain::Wall {
+                    walls += 1;
+                }
+            }
+        }
+        assert_eq!(walls, 0, "a small town keeps no wall");
     }
 
     #[test]
