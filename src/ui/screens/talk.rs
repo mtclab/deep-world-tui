@@ -152,6 +152,12 @@ pub(crate) fn draw_talk_screen(
             "   Ask for news (N), the way (W), or who's worth knowing (K).",
             Style::default().fg(theme.warm_brown()),
         )));
+        if p.profession == "smith" {
+            lines.push(Line::from(Span::styled(
+                "   This one keeps the forge — commission a Tool (M).",
+                Style::default().fg(theme.warm_brown()),
+            )));
+        }
 
         if let Some(ref msg) = app.status_msg {
             lines.push(Line::from(""));

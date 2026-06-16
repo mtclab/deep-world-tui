@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Commission the smith (#527 tradespeople)** — a settlement's smith is no longer just a label: bring Iron and a small fee, press **M** while talking to them, and they **strike you a Tool** — no botch, no wasted stock, the way your own bench can fail. A smith with the **iron-ear** gift makes it truer and throws in an offcut of Nails. A smith set against your kind won't strike iron for you. First of the tradesperson dealings — the folk you found by asking (#528) now have something to offer.
+
 **Ask who's worth knowing (#528 conversations)** — press **K** on the Talk screen to ask a local who a stranger ought to seek out: a **gifted crafter** (named with their craft-sense), and the **tradespeople** — the smith, the healer, the herbalist, the scribe, the trader, the path-finder — each named, so the folk you can deal with are findable by asking, not by knocking on every door. Regard-gated like the other topics. Sets up the tradesperson dealings to come. Completes the conversation-topics surface: news (N), the way (W), who to know (K).
 
 **Ask the way (#528 conversations)** — press **W** on the Talk screen to ask a townsperson for directions: they name the **nearest neighbouring settlement** and a **notable place in the region** you haven't found yet, each with a plain compass bearing ("Vaskiluuri lies to the northeast, and there's a standing stone to the south"). Gated by regard like asking for news — the deeply distrusted only shrug. Saves wandering to find the next town or a discovery; the directions are recorded in the journal.

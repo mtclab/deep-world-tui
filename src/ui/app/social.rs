@@ -828,6 +828,93 @@ impl App {
         self.status_msg = Some(format!("{pname} tells you who to seek: {told}."));
     }
 
+    /// Commission a Tool from a settlement's smith (#527 tradespeople): bring
+    /// the Iron and the fee, and the smith does the rest — no botch, no wasted
+    /// stock, the way the player's own bench can fail. A gifted smith (iron-ear)
+    /// makes it truer, with an offcut of Nails for the giving. Refused by a smith
+    /// set against your kind. Gated to an NPC who actually keeps the forge.
+    pub fn commission_smith(
+        &mut self,
+        region_idx: usize,
+        settlement_idx: usize,
+        person_idx: usize,
+    ) {
+        const FEE: u32 = 5;
+        let Some((people, pname, is_smith, gifted)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| {
+                    (
+                        PeopleKind::from_name(&p.people),
+                        p.name.clone(),
+                        p.profession == "smith",
+                        p.gift.sense() == Some(crate::model::CraftSense::IronEar),
+                    )
+                })
+        }) else {
+            return;
+        };
+        if !is_smith {
+            self.status_msg = Some(format!(
+                "{pname} is no smith — the forge is not their trade."
+            ));
+            return;
+        }
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.10 {
+            self.status_msg = Some(format!("{pname} will not strike iron for your kind."));
+            return;
+        }
+        // The player brings the Iron and the fee; the smith brings the skill.
+        let has_stock = self.player_start.as_ref().is_some_and(|ps| {
+            ps.inventory.has(ItemType::Iron) && ps.inventory.get(ItemType::Coin) >= FEE
+        });
+        if !has_stock {
+            self.status_msg = Some(format!(
+                "A commission wants Iron and {FEE} coin in hand; the smith finds the rest."
+            ));
+            return;
+        }
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(ItemType::Iron, 1);
+            ps.inventory.remove(ItemType::Coin, FEE);
+            ps.inventory.add(ItemType::Tool, 1);
+            if gifted {
+                ps.inventory.add(ItemType::Nails, 1);
+            }
+        }
+        self.advance_clock(3);
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.02);
+        self.god_affinity.adjust(GodName::Oltzed, 0.02);
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                if gifted {
+                    "The smith's gift showed in the work — a Tool that will not turn in the hand."
+                        .to_string()
+                } else {
+                    "I had a Tool struck at the forge, and kept my own hands clean of the botch."
+                        .to_string()
+                },
+            );
+        }
+        self.status_msg = Some(if gifted {
+            format!("{pname} strikes you a fine Tool (−Iron −{FEE} coin, +Tool +Nails, 3h)")
+        } else {
+            format!("{pname} strikes you a Tool (−Iron −{FEE} coin, +Tool, 3h)")
+        });
+    }
+
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
         let ps = match self.player_start {
             Some(ref mut ps) => ps,
