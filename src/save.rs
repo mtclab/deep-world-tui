@@ -185,6 +185,8 @@ pub enum PlayerChoice {
     MakeOffering,
     /// Set out on a pilgrimage from a holy site — the long road of devotion (#457).
     Pilgrimage,
+    /// Give a settlement's people a gift to lift your standing (#454).
+    GiveGift,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

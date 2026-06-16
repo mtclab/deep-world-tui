@@ -127,6 +127,7 @@ impl App {
             C::ObserveFestival => self.observe_festival(),
             C::MakeOffering => self.make_offering(),
             C::Pilgrimage => self.pilgrimage(),
+            C::GiveGift => self.give_gift(),
             C::UseService { service } => {
                 let svc = match service.to_ascii_lowercase().as_str() {
                     "tavern" => Some(SettlementService::Tavern),

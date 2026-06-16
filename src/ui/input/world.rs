@@ -57,6 +57,9 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
         KeyCode::Char('P') => {
             app.pilgrimage();
         }
+        KeyCode::Char('G') => {
+            app.give_gift();
+        }
         KeyCode::Char('r') => {
             app.open_rest_prompt();
         }

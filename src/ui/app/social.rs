@@ -453,6 +453,65 @@ impl App {
         Some(PeopleKind::from_name(&dominant.people))
     }
 
+    /// Give the people of this settlement a gift — the most valued good you
+    /// carry — to lift your **standing** with them (#454). Goodwill is a kind
+    /// of coin: a gift mends the bias that gates entry and trade, plateauing
+    /// like all standing, the richer the gift the more it mends. The Five
+    /// especially do not forget a gift freely given.
+    pub fn give_gift(&mut self) {
+        use crate::model::ItemType;
+        let Some(people) = self.current_settlement_people() else {
+            self.status_msg = Some("There is no one here to receive a gift.".into());
+            return;
+        };
+        // The most valued tradeable good you carry — never your food or water.
+        let best = self.player_start.as_ref().and_then(|ps| {
+            ItemType::tradeable_items()
+                .into_iter()
+                .filter(|&i| !matches!(i, ItemType::Food | ItemType::Water | ItemType::Coin))
+                .filter(|&i| ps.inventory.get(i) > 0)
+                .max_by_key(|&i| i.base_price())
+        });
+        let Some(item) = best else {
+            self.status_msg = Some("You have nothing worth giving as a gift.".into());
+            return;
+        };
+        if !self
+            .player_start
+            .as_mut()
+            .is_some_and(|ps| ps.inventory.remove(item, 1))
+        {
+            return;
+        }
+        // The richer the gift, the more it lifts your standing — plateauing.
+        let delta = (item.base_price() as f64 / 40.0).clamp(0.03, 0.12);
+        self.inter_people_bias.mod_toward(people, delta);
+        self.advance_clock(1);
+        let of_five = people.is_of_the_five();
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            let tail = if of_five {
+                "The Five do not forget a gift freely given."
+            } else {
+                "Goodwill is a kind of coin."
+            };
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Encounter,
+                format!(
+                    "I gave the {} a gift of {}. {tail}",
+                    people.label(),
+                    item.name()
+                ),
+            );
+        }
+        self.status_msg = Some(format!(
+            "You give {} as a gift to the {}. Your standing with them rises. (1h)",
+            item.name(),
+            people.label()
+        ));
+    }
+
     pub fn npc_memory(&self, person_id: &str) -> Option<&crate::model::NpcMemory> {
         self.sim
             .as_ref()
