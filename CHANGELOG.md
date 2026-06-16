@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Each people furnishes its own (#458 per-people character)** — the furnishings inside a building now read of the people who raised it: the deep-stone **Tzäkhar** set heavy slab tables and stone niches, the canopy-floor **Häl** keep to woven boards, baskets, and hanging nets, the steppe **Khör** to trestles, rolled stores, and hide racks — humans to the plain hearth. The piece sits in the same spot; only its character changes, so a Tzäkhar deephold furnishes unlike a human town at a glance. Deterministic, single-width glyphs.
+
 **Lived-in rooms — furnishings inside (#458 interiors)** — buildings on the map are no longer empty boxes around a hearth: each is now **furnished**, a table, a chest, a bed-pallet, shelves placed on the interior floor (more in the larger halls, fewer in a hut), so a town reads as rooms people live in. Deterministic per building, single-width glyphs in muted ink that never touch the hearth, the walls, or the doorway — the first step of walkable building interiors.
 
 **The roads of a people you have wronged (#9 inter-people tension)** — the escalation ladder no longer stops at the town gate. Travelling the country of a people you are deeply at odds with, **their lawless harry you**: encounters come up to 1.6× as often on their roads under a real grudge (1.2× when merely cool), and not at all more among your own. A standing earned down with gifts and time makes the country safe again. Tension you could only feel at the market now follows you into the wilds.
