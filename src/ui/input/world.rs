@@ -94,6 +94,9 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
         KeyCode::Char('F') => {
             app.open_faith();
         }
+        KeyCode::Char('L') => {
+            app.work_for_hire();
+        }
         KeyCode::Char('V') => {
             app.take_vow();
         }
