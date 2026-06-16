@@ -196,6 +196,45 @@ pub fn central_plaza(aw: usize, ah: usize) -> Option<(usize, usize, usize, usize
     Some(((aw - pw) / 2, (ah - ph) / 2, pw, ph))
 }
 
+/// The furnishings inside a building (#458 interiors): a few pieces — table,
+/// chest, bed-pallet, shelf — placed deterministically on the interior floor so
+/// a building reads as a lived-in room, not an empty box. Returns
+/// `(x, y, glyph)` in absolute tile coords; never the hearth at the heart, the
+/// walls, or the doorway. Single-width glyphs only (so the map grid stays true).
+/// Bigger rooms hold more. The renderer paints these over interior floor tiles.
+pub fn building_furnishings(b: &PlacedBuilding, seed: u64) -> Vec<(usize, usize, char)> {
+    let mut out = Vec::new();
+    if b.w < 3 || b.h < 3 {
+        return out;
+    }
+    let (hx, hy) = (b.x + b.w / 2, b.y + b.h / 2); // the hearth, kept clear
+                                                   // Candidate spots: the four interior corners (inset one from the walls),
+                                                   // each with its own piece of furniture.
+    let spots = [
+        (b.x + 1, b.y + 1, '╤'),             // a table
+        (b.x + b.w - 2, b.y + 1, '▪'),       // a chest
+        (b.x + 1, b.y + b.h - 2, '='),       // a bed-pallet
+        (b.x + b.w - 2, b.y + b.h - 2, '≡'), // shelves
+    ];
+    let area = b.w.saturating_sub(2) * b.h.saturating_sub(2);
+    let n = (area / 4).clamp(1, spots.len());
+    let h =
+        crate::rng::mix_u64(seed ^ (b.x as u64).wrapping_shl(20) ^ (b.y as u64).wrapping_shl(40));
+    // Rotate which corner the furnishing run starts at, so not every room is
+    // laid out identically; deterministic per building.
+    let start = (h % spots.len() as u64) as usize;
+    for k in 0..n {
+        let (fx, fy, g) = spots[(start + k) % spots.len()];
+        if (fx, fy) == (hx, hy) {
+            continue; // never over the hearth
+        }
+        if fx > b.x && fx < b.x + b.w - 1 && fy > b.y && fy < b.y + b.h - 1 && (fx, fy) != b.door {
+            out.push((fx, fy, g));
+        }
+    }
+    out
+}
+
 /// The width of the wall border a great town keeps clear at its footprint edge
 /// (#458/#449): `0` for an unwalled town, else a wall ring plus a walkable lane
 /// (the pomerium) just inside it, so buildings never front the wall and their
@@ -565,6 +604,44 @@ mod tests {
             );
             assert!(Terrain::Hearth.passable(), "you stand by the hearth");
         }
+    }
+
+    #[test]
+    fn furnishings_sit_inside_the_room() {
+        let b = PlacedBuilding {
+            style: BuildingStyle::Manor,
+            x: 2,
+            y: 2,
+            w: 7,
+            h: 8,
+            door: (5, 9),
+        };
+        let f = building_furnishings(&b, 99);
+        assert!(!f.is_empty(), "a manor is furnished");
+        let (hx, hy) = (b.x + b.w / 2, b.y + b.h / 2);
+        for &(x, y, _) in &f {
+            assert!(
+                x > b.x && x < b.x + b.w - 1 && y > b.y && y < b.y + b.h - 1,
+                "furnishing ({x},{y}) is inside the walls"
+            );
+            assert_ne!((x, y), (hx, hy), "never over the hearth");
+            assert_ne!((x, y), b.door, "never over the door");
+        }
+        assert_eq!(building_furnishings(&b, 99), f, "deterministic");
+    }
+
+    #[test]
+    fn a_tiny_hut_has_no_room_to_furnish() {
+        let b = PlacedBuilding {
+            style: BuildingStyle::Hut,
+            x: 0,
+            y: 0,
+            w: 3,
+            h: 3,
+            door: (1, 2),
+        };
+        // The 3x3's single interior tile is the hearth — nothing to add.
+        assert!(building_furnishings(&b, 1).is_empty());
     }
 
     #[test]
