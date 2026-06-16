@@ -181,8 +181,16 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
             let mut m = HashMap::new();
             for s in &r.settlements {
                 let seed = crate::gen::building::town_seed(s.map_x, s.map_y);
+                let character = crate::gen::building::BuildCharacter::from_people(
+                    &s.people
+                        .first()
+                        .map(|p| p.people.clone())
+                        .unwrap_or_default(),
+                );
                 for b in crate::gen::town::town_buildings(s) {
-                    for (fx, fy, g) in crate::gen::building::building_furnishings(&b, seed) {
+                    for (fx, fy, g) in
+                        crate::gen::building::building_furnishings(&b, seed, character)
+                    {
                         m.insert((fx, fy), g);
                     }
                 }

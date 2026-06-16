@@ -196,25 +196,48 @@ pub fn central_plaza(aw: usize, ah: usize) -> Option<(usize, usize, usize, usize
     Some(((aw - pw) / 2, (ah - ph) / 2, pw, ph))
 }
 
+/// The four furnishing glyphs (table, chest, bed-pallet, shelf) a people raise,
+/// keyed to their building character (#458 per-people texture). All single-width
+/// (box-drawing / geometric-shape / math), so the map grid stays true.
+fn furnishing_glyphs(character: BuildCharacter) -> [char; 4] {
+    match character {
+        // Carved deep-stone: heavy slab table, stone store, plinth bed, niche.
+        BuildCharacter::Grand => ['╦', '▤', '▬', '▦'],
+        // Canopy-floor woven: light board, basket, woven mat, hanging net.
+        BuildCharacter::Modest => ['┬', '▫', '~', '≋'],
+        // Steppe herder: trestle, rolled store, hide pallet, rack.
+        BuildCharacter::Long => ['╤', '▱', '∾', '≡'],
+        // The even human hearth.
+        BuildCharacter::Plain => ['╤', '▪', '=', '≡'],
+    }
+}
+
 /// The furnishings inside a building (#458 interiors): a few pieces — table,
 /// chest, bed-pallet, shelf — placed deterministically on the interior floor so
 /// a building reads as a lived-in room, not an empty box. Returns
 /// `(x, y, glyph)` in absolute tile coords; never the hearth at the heart, the
 /// walls, or the doorway. Single-width glyphs only (so the map grid stays true).
 /// Bigger rooms hold more. The renderer paints these over interior floor tiles.
-pub fn building_furnishings(b: &PlacedBuilding, seed: u64) -> Vec<(usize, usize, char)> {
+pub fn building_furnishings(
+    b: &PlacedBuilding,
+    seed: u64,
+    character: BuildCharacter,
+) -> Vec<(usize, usize, char)> {
     let mut out = Vec::new();
     if b.w < 3 || b.h < 3 {
         return out;
     }
     let (hx, hy) = (b.x + b.w / 2, b.y + b.h / 2); // the hearth, kept clear
                                                    // Candidate spots: the four interior corners (inset one from the walls),
-                                                   // each with its own piece of furniture.
+                                                   // each with its own piece of furniture. The glyph set varies with the
+                                                   // people's building character, so a Tzäkhar deephold reads of carved
+                                                   // stone, a Häl canopy-floor of woven things, a Khör longhouse of hides.
+    let g = furnishing_glyphs(character);
     let spots = [
-        (b.x + 1, b.y + 1, '╤'),             // a table
-        (b.x + b.w - 2, b.y + 1, '▪'),       // a chest
-        (b.x + 1, b.y + b.h - 2, '='),       // a bed-pallet
-        (b.x + b.w - 2, b.y + b.h - 2, '≡'), // shelves
+        (b.x + 1, b.y + 1, g[0]),             // a table / worktop
+        (b.x + b.w - 2, b.y + 1, g[1]),       // a chest / store
+        (b.x + 1, b.y + b.h - 2, g[2]),       // a bed-pallet
+        (b.x + b.w - 2, b.y + b.h - 2, g[3]), // shelves
     ];
     let area = b.w.saturating_sub(2) * b.h.saturating_sub(2);
     let n = (area / 4).clamp(1, spots.len());
@@ -616,7 +639,7 @@ mod tests {
             h: 8,
             door: (5, 9),
         };
-        let f = building_furnishings(&b, 99);
+        let f = building_furnishings(&b, 99, BuildCharacter::Plain);
         assert!(!f.is_empty(), "a manor is furnished");
         let (hx, hy) = (b.x + b.w / 2, b.y + b.h / 2);
         for &(x, y, _) in &f {
@@ -627,7 +650,38 @@ mod tests {
             assert_ne!((x, y), (hx, hy), "never over the hearth");
             assert_ne!((x, y), b.door, "never over the door");
         }
-        assert_eq!(building_furnishings(&b, 99), f, "deterministic");
+        assert_eq!(
+            building_furnishings(&b, 99, BuildCharacter::Plain),
+            f,
+            "deterministic"
+        );
+    }
+
+    #[test]
+    fn a_peoples_character_shows_in_the_furnishings() {
+        let b = PlacedBuilding {
+            style: BuildingStyle::Manor,
+            x: 2,
+            y: 2,
+            w: 7,
+            h: 8,
+            door: (5, 9),
+        };
+        let glyphs = |c| -> Vec<char> {
+            building_furnishings(&b, 7, c)
+                .iter()
+                .map(|&(_, _, g)| g)
+                .collect()
+        };
+        let plain = glyphs(BuildCharacter::Plain);
+        let grand = glyphs(BuildCharacter::Grand);
+        // Same room, same seed: the pieces sit in the same spots but read of a
+        // different people — the deep-stone Tzäkhar furnish unlike the humans.
+        assert_eq!(plain.len(), grand.len(), "same count of pieces");
+        assert_ne!(
+            plain, grand,
+            "a people's character shows in what they raise"
+        );
     }
 
     #[test]
@@ -641,7 +695,7 @@ mod tests {
             door: (1, 2),
         };
         // The 3x3's single interior tile is the hearth — nothing to add.
-        assert!(building_furnishings(&b, 1).is_empty());
+        assert!(building_furnishings(&b, 1, BuildCharacter::Plain).is_empty());
     }
 
     #[test]
