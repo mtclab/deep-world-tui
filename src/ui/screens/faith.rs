@@ -87,6 +87,28 @@ pub(crate) fn draw_faith_screen(f: &mut Frame, app: &App, scroll: u16) {
             )));
         }
     }
+
+    // The next holy day — so the calendar's holy days can be planned for (#457).
+    let (hg, days_off) = crate::model::calendar::next_holy_day(app.clock.day);
+    let when = match days_off {
+        0 => "today".to_string(),
+        1 => "tomorrow".to_string(),
+        n => format!("in {n} days"),
+    };
+    lines.push(Line::from(vec![
+        Span::styled(
+            " The next holy day: ",
+            Style::default().fg(theme.dark_brown()),
+        ),
+        Span::styled(
+            format!("{} {}'s day, {when}", hg.glyph(), hg.label()),
+            Style::default().fg(if days_off == 0 {
+                theme.archive_red()
+            } else {
+                theme.warm_brown()
+            }),
+        ),
+    ]));
     lines.push(Line::from(""));
 
     let patron = crate::sim::god::patron_of(app.inter_people_bias.player_people.label());
@@ -148,6 +170,10 @@ pub(crate) fn draw_faith_screen(f: &mut Frame, app: &App, scroll: u16) {
     )));
     lines.push(Line::from(Span::styled(
         "   walk a pilgrimage (P) from a shrine or temple.",
+        Style::default().fg(theme.dark_brown()),
+    )));
+    lines.push(Line::from(Span::styled(
+        "   On a god's holy day, every such act weighs the heavier for it.",
         Style::default().fg(theme.dark_brown()),
     )));
 
