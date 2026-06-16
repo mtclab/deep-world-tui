@@ -230,13 +230,41 @@ impl App {
             ));
         } else {
             self.god_affinity.adjust(GodName::Masa, -0.05);
-            if let Some(ref mut sim) = self.sim {
+            if let (Some(ref mut sim), Some(pos)) = (&mut self.sim, self.player_pos) {
                 sim.reputation.adjust_local(&pid, &sid, -0.15);
+                // Word of a theft runs the roads ahead of you (#8 crime): the
+                // other settlements of the region hear of it and your welcome
+                // cools across them — a reputation that follows, mended the
+                // same slow way (gifts, time, the temple's penance).
+                let others: Vec<String> = sim
+                    .world
+                    .regions
+                    .get(pos.region_idx)
+                    .map(|r| {
+                        r.settlements
+                            .iter()
+                            .map(|s| s.id.clone())
+                            .filter(|id| *id != sid)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                for oid in &others {
+                    sim.reputation.adjust_local(&pid, oid, -0.06);
+                }
+                if !others.is_empty() {
+                    let tick = sim.world.tick;
+                    sim.log(
+                        tick,
+                        crate::sim::journal::Voice::Rumor,
+                        "Word of the theft will run the roads ahead of me. I am not welcome in these parts now.".into(),
+                    );
+                }
             }
             if let Some(np) = npc_people {
                 self.inter_people_bias.mod_toward(np, -0.03);
             }
-            self.status_msg = Some("Caught with your hand out. They will remember this.".into());
+            self.status_msg =
+                Some("Caught with your hand out. Word of this will travel the region.".into());
         }
     }
 
