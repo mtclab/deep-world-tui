@@ -573,6 +573,80 @@ impl App {
         crate::sim::signals::engagement_for(effective_rep)
     }
 
+    /// Ask an NPC for news (#528 conversations): word of the world, surfaced
+    /// through a person rather than only overheard at the tavern. What they
+    /// share turns on how they regard you — a cold welcome gives nothing; a
+    /// well-travelled trade carries word of the wider world too. The answer is
+    /// stable per person per day (ask twice, hear the same).
+    pub fn ask_news(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        let Some((pid, people, profession, pname)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| {
+                    (
+                        p.id.clone(),
+                        PeopleKind::from_name(&p.people),
+                        p.profession.clone(),
+                        p.name.clone(),
+                    )
+                })
+        }) else {
+            return;
+        };
+        // How they regard you: cross-people standing + remembered trust, a
+        // shared god warming it a little.
+        let mut regard = self.inter_people_bias.effective_bias(people) + self.npc_trust_bonus(&pid);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.15 {
+            self.status_msg = Some(format!("{pname} has no word for the likes of you."));
+            return;
+        }
+        // A stable answer per person per day.
+        let day = self.clock.day;
+        let salt = crate::rng::mix_u64(
+            pid.bytes()
+                .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(b as u64))
+                ^ (day as u64).wrapping_shl(32),
+        );
+        // The well-travelled carry word of the wider world; most know only the
+        // local state of things.
+        let well_travelled = matches!(
+            profession.as_str(),
+            "trader" | "sailor" | "path-finder" | "singer" | "scribe"
+        );
+        let local = self
+            .sim
+            .as_ref()
+            .and_then(|sim| crate::sim::rumors::informed_rumor(sim, day, salt));
+        let line = match local {
+            Some(r) => r,
+            None if well_travelled => {
+                let mut rng =
+                    crate::rng::SeedRng::new(self.seed).fork_for(&format!("ask-news-{pid}-{day}"));
+                crate::sim::journal::rumor_text(&mut rng)
+            }
+            None => {
+                self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
+                self.status_msg =
+                    Some(format!("{pname}: \"Quiet times. Nothing worth carrying.\""));
+                return;
+            }
+        };
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(tick, crate::sim::journal::Voice::Rumor, line.clone());
+        }
+        self.status_msg = Some(format!("{pname} tells you: \"{line}\""));
+    }
+
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
         let ps = match self.player_start {
             Some(ref mut ps) => ps,
