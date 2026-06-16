@@ -1306,6 +1306,75 @@ impl App {
         ));
     }
 
+    /// Ask an NPC about their life (#548 living relationships / #528): they name
+    /// the bonds that matter — a sworn friend, a rival, kin, a master or
+    /// apprentice — reading the living social web that forms and shifts on its
+    /// own. Names are resolved among the townsfolk where they can be. Regard-
+    /// gated like the other talk topics.
+    pub fn ask_about_life(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        let Some((people, pname)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| (PeopleKind::from_name(&p.people), p.name.clone()))
+        }) else {
+            return;
+        };
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.15 {
+            self.status_msg = Some(format!("{pname} keeps their own counsel with your kind."));
+            return;
+        }
+        // Read this person's strongest few bonds, resolving the other party's
+        // name among the settlement's people where possible.
+        let told: Vec<String> = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let s = sim
+                    .world
+                    .regions
+                    .get(region_idx)?
+                    .settlements
+                    .get(settlement_idx)?;
+                let p = s.people.get(person_idx)?;
+                let mut rels: Vec<&crate::model::relation::InterNpcRelation> =
+                    p.relations.iter().collect();
+                rels.sort_by(|a, b| {
+                    b.intensity
+                        .partial_cmp(&a.intensity)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                let name_of = |id: &str| -> String {
+                    s.people
+                        .iter()
+                        .find(|q| q.id == id)
+                        .map(|q| q.name.clone())
+                        .unwrap_or_else(|| "someone in another town".to_string())
+                };
+                Some(
+                    rels.iter()
+                        .take(3)
+                        .map(|r| format!("{} to {}", r.kind.label(), name_of(&r.target_person_id)))
+                        .collect(),
+                )
+            })
+            .unwrap_or_default();
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
+        self.status_msg = Some(if told.is_empty() {
+            format!("{pname} keeps to themselves — no ties they'll speak of.")
+        } else {
+            format!("{pname} speaks of their own: {}.", told.join("; "))
+        });
+    }
+
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
         let ps = match self.player_start {
             Some(ref mut ps) => ps,
