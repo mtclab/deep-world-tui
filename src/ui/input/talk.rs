@@ -45,6 +45,9 @@ pub fn handle_talk_input(
         KeyCode::Char('b') => {
             app.consult_scribe(region_idx, settlement_idx, person_idx);
         }
+        KeyCode::Char('a') => {
+            app.apprentice_to(region_idx, settlement_idx, person_idx);
+        }
         KeyCode::Down => {
             return scroll.saturating_add(1);
         }

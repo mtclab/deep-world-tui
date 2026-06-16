@@ -1219,6 +1219,93 @@ impl App {
         ));
     }
 
+    /// Apprentice to a master crafter to learn their craft-sense (#527/#529):
+    /// give some days and your board, and a gifted master teaches you a lesser,
+    /// taught echo of their sense — it steadies your bench in that craft (fewer
+    /// botches), though it grants no Gift and costs the body nothing. Canon
+    /// (#427): a sense you were not born to comes hard and limited — only the
+    /// giftless can take one, and only one in a life. Regard-gated.
+    pub fn apprentice_to(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        const BOARD: u32 = 3;
+        const HOURS: u32 = 36;
+        let Some((people, pname, sense)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| {
+                    (
+                        PeopleKind::from_name(&p.people),
+                        p.name.clone(),
+                        p.gift.sense(),
+                    )
+                })
+        }) else {
+            return;
+        };
+        let Some(sense) = sense else {
+            self.status_msg = Some(format!("{pname} carries no craft-gift to teach."));
+            return;
+        };
+        // Your own gift cannot be set aside for another's sense; and a life holds
+        // only one learned craft.
+        if self.gift.has() {
+            self.status_msg =
+                Some("You carry your own gift — another's sense will not take in you.".into());
+            return;
+        }
+        if self.learned_sense.is_some() {
+            self.status_msg = Some(
+                "You have already given your years to one craft; there is no room for a second."
+                    .into(),
+            );
+            return;
+        }
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.05 {
+            self.status_msg = Some(format!("{pname} will not take your kind to the bench."));
+            return;
+        }
+        // You board with the master through the apprenticeship.
+        let boarded = self
+            .player_start
+            .as_mut()
+            .is_some_and(|ps| ps.inventory.remove(ItemType::Food, BOARD));
+        if !boarded {
+            self.status_msg = Some(format!(
+                "An apprenticeship is days at the bench — board it with {BOARD} Food first."
+            ));
+            return;
+        }
+        self.advance_clock(HOURS);
+        // Fed and worked at the master's table — not starved on the road.
+        self.vitals.hunger = self.vitals.hunger.max(0.6);
+        self.vitals.energy = self.vitals.energy.max(0.5);
+        self.learned_sense = Some(sense);
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.03);
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                format!(
+                    "I gave days to a master's bench and learned the {} — not the gift, but the hand of it.",
+                    sense.name()
+                ),
+            );
+        }
+        self.status_msg = Some(format!(
+            "{pname} takes you to the bench. You learn the {} — your craft is the steadier for it. (~1.5 days)",
+            sense.name()
+        ));
+    }
+
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
         let ps = match self.player_start {
             Some(ref mut ps) => ps,

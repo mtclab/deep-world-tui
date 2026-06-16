@@ -365,6 +365,13 @@ impl App {
                 .sense()
                 .map(|s| s.aids_craft(recipe))
                 .unwrap_or(false);
+            // A learned sense (apprenticed, #527/#529) is the gift's lesser echo:
+            // it does not banish the botch the way the innate gift does, but it
+            // halves the odds of one in the craft it answers — and costs nothing.
+            let learned_aids = self
+                .learned_sense
+                .map(|s| s.aids_craft(recipe))
+                .unwrap_or(false);
             // The craftless are not lesser (#430): the undivided, un-taxed hand
             // is steadier at ordinary work — it botches less, and it never pays
             // the gift's bodily price. Worth the gifted house cannot count.
@@ -387,7 +394,12 @@ impl App {
                     let mut rng =
                         crate::rng::SeedRng::new(seed ^ crate::rng::fnv1a_hash(&recipe.name))
                             .fork_for(&format!("craft-botch-{day}-{hour}"));
-                    let botch_p = craft_botch_chance_for(fortune, craftless);
+                    let mut botch_p = craft_botch_chance_for(fortune, craftless);
+                    // A learned hand steadies the work it was taught (half the
+                    // botch); the innate gift, below, banishes it outright.
+                    if learned_aids && !gift_aids {
+                        botch_p *= 0.5;
+                    }
                     // The gift does not botch the work it was born to.
                     let botched = !gift_aids && rng.gen_f64() < botch_p;
                     for (item, count) in &recipe.inputs {

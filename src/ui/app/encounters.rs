@@ -1360,6 +1360,7 @@ impl App {
                     travel_debt: self.travel_debt,
                     enclaves_seen: self.enclaves_seen.clone(),
                     god_vow: self.god_vow,
+                    learned_sense: self.learned_sense,
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }
