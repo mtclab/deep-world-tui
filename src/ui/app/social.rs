@@ -1139,6 +1139,86 @@ impl App {
         });
     }
 
+    /// Consult a settlement's scribe for a piece of the wider world (#527
+    /// tradespeople): Sampsa's folk deal in knowledge — for a small fee, a
+    /// scribe reads you something true of the continent beyond the province (a
+    /// canon fact of the far cities, the old roads, the Five), and it is kept in
+    /// the journal as learned. The lore-keeper's trade; regard-gated. Stable per
+    /// scribe per day.
+    pub fn consult_scribe(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        const FEE: u32 = 4;
+        let Some((people, pname, pid, is_scribe)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| {
+                    (
+                        PeopleKind::from_name(&p.people),
+                        p.name.clone(),
+                        p.id.clone(),
+                        p.profession == "scribe",
+                    )
+                })
+        }) else {
+            return;
+        };
+        if !is_scribe {
+            self.status_msg = Some(format!(
+                "{pname} keeps no records — find a scribe for lore."
+            ));
+            return;
+        }
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.10 {
+            self.status_msg = Some(format!("{pname} closes the book — not for your kind."));
+            return;
+        }
+        if self
+            .player_start
+            .as_ref()
+            .is_none_or(|ps| ps.inventory.get(ItemType::Coin) < FEE)
+        {
+            self.status_msg = Some(format!(
+                "The scribe's fee is {FEE} coin; you cannot meet it."
+            ));
+            return;
+        }
+        let lore = {
+            let bank = crate::banks::bank("CANON_RUMORS");
+            if bank.is_empty() {
+                self.status_msg = Some(format!("{pname} finds nothing new in the records today."));
+                return;
+            }
+            let day = self.clock.day;
+            let salt = crate::rng::mix_u64(
+                pid.bytes()
+                    .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(b as u64))
+                    ^ (day as u64).wrapping_shl(32),
+            );
+            bank[(salt % bank.len() as u64) as usize].clone()
+        };
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(ItemType::Coin, FEE);
+        }
+        self.advance_clock(1);
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.02);
+        self.god_affinity.adjust(GodName::Sampsa, 0.02);
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(tick, crate::sim::journal::Voice::Dream, lore.clone());
+        }
+        self.status_msg = Some(format!(
+            "{pname} reads you from the records: \"{lore}\" (−{FEE} coin, 1h)"
+        ));
+    }
+
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
         let ps = match self.player_start {
             Some(ref mut ps) => ps,

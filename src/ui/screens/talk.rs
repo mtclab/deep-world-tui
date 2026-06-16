@@ -170,6 +170,12 @@ pub(crate) fn draw_talk_screen(
                 Style::default().fg(theme.warm_brown()),
             )));
         }
+        if p.profession == "scribe" {
+            lines.push(Line::from(Span::styled(
+                "   This one keeps the records — buy a piece of wider lore (B).",
+                Style::default().fg(theme.warm_brown()),
+            )));
+        }
 
         if let Some(ref msg) = app.status_msg {
             lines.push(Line::from(""));
