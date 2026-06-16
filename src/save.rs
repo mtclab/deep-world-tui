@@ -180,6 +180,8 @@ pub enum PlayerChoice {
     ObserveFestival,
     /// Lay an offering at a shrine/temple — devotion that costs food (#457).
     MakeOffering,
+    /// Set out on a pilgrimage from a holy site — the long road of devotion (#457).
+    Pilgrimage,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

@@ -15,6 +15,7 @@ pub enum MilestoneKind {
     FirstQuestCompleted,
     FirstDeath,
     WalkedToGreatCity,
+    MadePilgrimage,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -137,6 +138,9 @@ impl MilestoneKind {
             }
             MilestoneKind::WalkedToGreatCity => {
                 "I walked the long roads to a great city of the continent and came home again. The province is not the whole world, and now I have seen it.".into()
+            }
+            MilestoneKind::MadePilgrimage => {
+                "I set out on pilgrimage to a holy site, and the road itself was the prayer. I came back changed — the god I keep is nearer now.".into()
             }
         }
     }

@@ -43,6 +43,9 @@ pub(crate) fn draw_help_screen(f: &mut Frame, app: &App) {
         Line::from("   p                Pray (devotion to the god you keep)"),
         Line::from("   O                Keep the festival (when a holy day is underway)"),
         Line::from("   o                Offer at a shrine/temple (gives Food, deepens devotion)"),
+        Line::from(
+            "   P                Pilgrimage from a holy site (needs Food; the long road of faith)",
+        ),
         Line::from("   J                Journey to a great city (from a town; needs Food)"),
         Line::from("   Enter            Enter settlement"),
         Line::from("   Esc/Q            Exit settlement / go back"),

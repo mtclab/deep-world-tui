@@ -158,6 +158,71 @@ fn an_offering_spends_food_and_deepens_devotion() {
 }
 
 #[test]
+fn a_pilgrimage_deepens_devotion_and_marks_the_life() {
+    use deep_world_tui::sim::milestones::MilestoneKind;
+    let mut a = app();
+    stand_in_town(&mut a);
+    {
+        let s = &mut a.sim.as_mut().unwrap().world.regions[0].settlements[0];
+        if !s.services.contains(&SettlementService::Temple) {
+            s.services.push(SettlementService::Temple);
+        }
+    }
+    a.player_start
+        .as_mut()
+        .unwrap()
+        .inventory
+        .add(ItemType::Food, 5);
+    let aff_before = total_affinity(&a);
+    let food_before = a
+        .player_start
+        .as_ref()
+        .unwrap()
+        .inventory
+        .get(ItemType::Food);
+
+    a.pilgrimage();
+
+    assert!(
+        total_affinity(&a) > aff_before,
+        "the pilgrim road deepens devotion"
+    );
+    assert!(
+        food_before
+            - a.player_start
+                .as_ref()
+                .unwrap()
+                .inventory
+                .get(ItemType::Food)
+            >= 3,
+        "the road eats its provisions (and the days' rations)"
+    );
+    assert!(
+        a.milestones.has(MilestoneKind::MadePilgrimage),
+        "the pilgrimage marks the life"
+    );
+}
+
+#[test]
+fn a_pilgrimage_needs_a_holy_site() {
+    let mut a = app();
+    stand_in_town(&mut a);
+    {
+        let s = &mut a.sim.as_mut().unwrap().world.regions[0].settlements[0];
+        s.services
+            .retain(|sv| !matches!(sv, SettlementService::Temple | SettlementService::Shrine));
+    }
+    a.player_start
+        .as_mut()
+        .unwrap()
+        .inventory
+        .add(ItemType::Food, 5);
+    a.pilgrimage();
+    let msg = a.status_msg.clone().unwrap_or_default();
+    assert!(msg.contains("holy site"), "no shrine, no pilgrimage: {msg}");
+}
+
+#[test]
 fn an_offering_needs_food() {
     let mut a = app();
     stand_in_town(&mut a);

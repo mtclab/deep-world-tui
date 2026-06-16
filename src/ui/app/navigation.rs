@@ -827,6 +827,87 @@ impl App {
         self.status_msg = Some(format!("You sit a while in prayer. {line} (1h)"));
     }
 
+    /// Set out on a pilgrimage from a holy site (#457): the longest road of
+    /// devotion. Where prayer gives an hour and an offering a measure of food,
+    /// a pilgrimage gives **days** — provisioned, walked, the road itself the
+    /// prayer — and so deepens the bond more than any single act, answers the
+    /// devout with the god's grace, and marks the life. Plateaus, like all
+    /// devotion: no road makes a god of the walker.
+    pub fn pilgrimage(&mut self) {
+        use crate::model::{GodName, ItemType, SettlementService};
+        let at_holy_site = self.current_settlement().is_some_and(|s| {
+            s.services.contains(&SettlementService::Shrine)
+                || s.services.contains(&SettlementService::Temple)
+        });
+        if !at_holy_site {
+            self.status_msg =
+                Some("A pilgrimage sets out from a holy site — a shrine or a temple.".into());
+            return;
+        }
+        const PROVISIONS: u32 = 3;
+        let provisioned = self
+            .player_start
+            .as_mut()
+            .is_some_and(|ps| ps.inventory.remove(ItemType::Food, PROVISIONS));
+        if !provisioned {
+            self.status_msg = Some(format!(
+                "The pilgrim road is long — provision it with {PROVISIONS} Food first."
+            ));
+            return;
+        }
+        let god = self
+            .god_affinity
+            .strongest_ally()
+            .or_else(|| crate::sim::god::patron_of(self.inter_people_bias.player_people.label()))
+            .unwrap_or(GodName::Kukri);
+        // The road deepens devotion more than any single act.
+        let have = self.god_affinity.get(god);
+        let delta = 0.12 * (1.0 - have).max(0.0);
+        self.god_affinity.adjust(god, delta);
+        self.advance_clock(36); // ~a day and a half on the road
+        let day = self.clock.day;
+
+        // The devout pilgrim is answered with the god's grace at the road's end
+        // (a lower bar than the festival — the walking earned it).
+        let devout = self.god_affinity.get(god);
+        let blessing = if devout >= 0.50 {
+            if god == GodName::Masa {
+                if let Some(ps) = self.player_start.as_mut() {
+                    if !ps.person.illnesses.is_empty() {
+                        ps.person.illnesses.remove(0);
+                    }
+                }
+            }
+            self.vitals.energy = 1.0;
+            self.vitals.hunger = 1.0;
+            self.vitals.thirst = 1.0;
+            Some(crate::sim::god::grace_flavor(god))
+        } else {
+            None
+        };
+
+        let marked = self
+            .milestones
+            .record(crate::sim::milestones::MilestoneKind::MadePilgrimage, day);
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Faith,
+                "I walked the pilgrim road to the holy site and back. The god I keep is nearer for it.".to_string(),
+            );
+            if marked {
+                let line = crate::sim::milestones::MilestoneKind::MadePilgrimage.journal_text();
+                sim.log(tick, crate::sim::journal::Voice::Faith, line);
+            }
+        }
+        self.status_msg = Some(match blessing {
+            Some(b) => format!("You walk the pilgrim road and return. {b} (~1.5 days)"),
+            None => "You walk the pilgrim road and return, the practice deepened. (~1.5 days)"
+                .to_string(),
+        });
+    }
+
     /// Lay an offering at a shrine or temple (#457): devotion that costs
     /// something real. Where prayer gives only an hour, an offering gives up
     /// food from your own stores — and so deepens the bond with the god you
