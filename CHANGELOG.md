@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Ask who's worth knowing (#528 conversations)** — press **K** on the Talk screen to ask a local who a stranger ought to seek out: a **gifted crafter** (named with their craft-sense), and the **tradespeople** — the smith, the healer, the herbalist, the scribe, the trader, the path-finder — each named, so the folk you can deal with are findable by asking, not by knocking on every door. Regard-gated like the other topics. Sets up the tradesperson dealings to come. Completes the conversation-topics surface: news (N), the way (W), who to know (K).
+
 **Ask the way (#528 conversations)** — press **W** on the Talk screen to ask a townsperson for directions: they name the **nearest neighbouring settlement** and a **notable place in the region** you haven't found yet, each with a plain compass bearing ("Vaskiluuri lies to the northeast, and there's a standing stone to the south"). Gated by regard like asking for news — the deeply distrusted only shrug. Saves wandering to find the next town or a discovery; the directions are recorded in the journal.
 
 **Ask for news (#528 conversations)** — talking to a townsperson is no longer flavour alone: press **N** to **ask them for word of the world**, and the rumor system answers *through the person* — famine and plenty, caravans on the road, a festival, a building going up, the wider-world canon talk. What you hear turns on how they regard you: a deeply distrusted stranger gets the cold shoulder ("no word for the likes of you"), and the well-travelled (traders, sailors, path-finders, scribes, singers) carry word of the wider world that a settled farmer does not. The same person tells the same tale that day — word, not noise. First step of conversations that carry.
