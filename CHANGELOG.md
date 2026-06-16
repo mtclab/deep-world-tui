@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The roads of a people you have wronged (#9 inter-people tension)** — the escalation ladder no longer stops at the town gate. Travelling the country of a people you are deeply at odds with, **their lawless harry you**: encounters come up to 1.6× as often on their roads under a real grudge (1.2× when merely cool), and not at all more among your own. A standing earned down with gifts and time makes the country safe again. Tension you could only feel at the market now follows you into the wilds.
+
 **Word of a theft travels (crime & justice)** — getting caught with your hand out is no longer a purely local matter. Beyond the town you wronged, the **other settlements of the region hear of it** at once, and your welcome cools across them — a reputation that follows you down the road, not just a single cold shoulder. Mended the same slow way as any standing: gifts, time, and the temple's penance. (Theft was a one-town consequence before; the slow reputation-drift between settlements now has a sharp push behind it.)
 
 **Deeper omens, dreams, and scars** — the player-facing event banks gain **23 new lines**: fair and ill omens at fortune's turns (the magpie on the gate, the moth that would not burn), the uncanny dreams of the deep (a city under the lake, the Five's long table), and the body's grim memory of a scar. The meaningful moments read with more variety across a lineage. Pure data (`data/journal_banks.ron`).

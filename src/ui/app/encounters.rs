@@ -36,6 +36,35 @@ impl App {
             .unwrap_or_else(|| self.world_screen());
     }
 
+    /// The encounter-rate multiplier from inter-people tension on the road
+    /// (#9): travelling the country of a people you are deeply at odds with,
+    /// their lawless harry you — the escalation ladder reaches the wilds.
+    /// 1.0 at peace; up to 1.6 under a deep grudge. Neutral toward your own.
+    pub fn road_tension_mult(&self) -> f64 {
+        let region_people = self.player_pos.and_then(|pos| {
+            let sim = self.sim.as_ref()?;
+            let dom = sim
+                .world
+                .regions
+                .get(pos.region_idx)?
+                .settlements
+                .first()?
+                .people
+                .first()?;
+            Some(crate::model::PeopleKind::from_name(&dom.people))
+        });
+        region_people.map_or(1.0, |rp| {
+            if rp == self.inter_people_bias.player_people {
+                return 1.0;
+            }
+            match self.inter_people_bias.effective_bias(rp) {
+                b if b < -0.15 => 1.6,
+                b if b < -0.05 => 1.2,
+                _ => 1.0,
+            }
+        })
+    }
+
     pub fn check_encounter(&mut self, terrain: Terrain) {
         let pp = Some(self.inter_people_bias.player_people);
         // Weather stirs or settles the land: storms raise encounter chance,
@@ -78,6 +107,8 @@ impl App {
             } else {
                 weather_mult
             };
+        // The roads of a people you have wronged or warred are not safe to you.
+        let weather_mult = weather_mult * self.road_tension_mult();
         if let Some(enc) = Encounter::roll_biased_weather(
             terrain,
             self.clock.hour,
