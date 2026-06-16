@@ -4,6 +4,34 @@ use crate::rng::SeedRng;
 
 use super::*;
 
+/// A plain compass bearing for a tile offset (north = up / −y), as a traveller
+/// would name it (#528). Diagonals when both axes carry; a single direction
+/// when one clearly dominates (offset > 2× the other).
+fn compass_bearing(dx: i64, dy: i64) -> &'static str {
+    if dx == 0 && dy == 0 {
+        return "right here";
+    }
+    let ns = if dy < 0 { "north" } else { "south" };
+    let ew = if dx < 0 { "west" } else { "east" };
+    let (adx, ady) = (dx.abs(), dy.abs());
+    if dy == 0 || adx > ady * 2 {
+        return if dx < 0 { "to the west" } else { "to the east" };
+    }
+    if dx == 0 || ady > adx * 2 {
+        return if dy < 0 {
+            "to the north"
+        } else {
+            "to the south"
+        };
+    }
+    match (ns, ew) {
+        ("north", "west") => "to the northwest",
+        ("north", "east") => "to the northeast",
+        ("south", "west") => "to the southwest",
+        _ => "to the southeast",
+    }
+}
+
 impl App {
     pub fn enter_npc(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
         self.screen = Screen::Npc {
@@ -647,6 +675,85 @@ impl App {
         self.status_msg = Some(format!("{pname} tells you: \"{line}\""));
     }
 
+    /// Ask an NPC the way (#528 conversations): a local points you toward the
+    /// nearest neighbouring settlement and any notable place in the region they
+    /// know of — directions you would otherwise wander to find. Gated by regard
+    /// like asking for news; a cold welcome points you nowhere.
+    pub fn ask_directions(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        let Some((people, pname)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| (PeopleKind::from_name(&p.people), p.name.clone()))
+        }) else {
+            return;
+        };
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.15 {
+            self.status_msg = Some(format!("{pname} only shrugs — no road they'd set you on."));
+            return;
+        }
+        let Some(pos) = self.player_pos else {
+            return;
+        };
+        let (px, py) = (pos.px as i64, pos.py as i64);
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(ref sim) = self.sim {
+            if let Some(region) = sim.world.regions.get(region_idx) {
+                // The nearest other settlement, named with a compass bearing.
+                let nearest = region
+                    .settlements
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| *i != settlement_idx)
+                    .filter(|(_, s)| s.population > 0)
+                    .min_by_key(|(_, s)| {
+                        let dx = s.map_x as i64 - px;
+                        let dy = s.map_y as i64 - py;
+                        dx * dx + dy * dy
+                    });
+                if let Some((_, s)) = nearest {
+                    let dir = compass_bearing(s.map_x as i64 - px, s.map_y as i64 - py);
+                    parts.push(format!("{} lies {}", s.name, dir));
+                }
+                // A notable place in the region the player has not yet found.
+                let place = sim
+                    .discoveries
+                    .entries
+                    .iter()
+                    .find(|d| d.region_idx == region_idx && !d.observed);
+                if let Some(d) = place {
+                    let dir = compass_bearing(d.x as i64 - px, d.y as i64 - py);
+                    parts.push(format!("there's {} {}", d.label.to_lowercase(), dir));
+                }
+            }
+        }
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
+        if parts.is_empty() {
+            self.status_msg = Some(format!(
+                "{pname}: \"You're as far as the road goes hereabouts.\""
+            ));
+            return;
+        }
+        let told = parts.join(", and ");
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                format!("Was told the way: {told}."),
+            );
+        }
+        self.status_msg = Some(format!("{pname} points the way: {told}."));
+    }
+
     pub fn adopt_companion(&mut self, region_idx: usize, settlement_idx: usize) {
         let ps = match self.player_start {
             Some(ref mut ps) => ps,
@@ -1045,5 +1152,33 @@ impl App {
         }
         out.sort_by(|a, b| a.4.partial_cmp(&b.4).unwrap_or(std::cmp::Ordering::Equal));
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compass_bearing;
+
+    #[test]
+    fn compass_bearing_names_the_cardinals() {
+        assert_eq!(compass_bearing(0, -5), "to the north");
+        assert_eq!(compass_bearing(0, 5), "to the south");
+        assert_eq!(compass_bearing(5, 0), "to the east");
+        assert_eq!(compass_bearing(-5, 0), "to the west");
+    }
+
+    #[test]
+    fn compass_bearing_names_the_diagonals() {
+        assert_eq!(compass_bearing(4, -4), "to the northeast");
+        assert_eq!(compass_bearing(-4, -4), "to the northwest");
+        assert_eq!(compass_bearing(4, 4), "to the southeast");
+        assert_eq!(compass_bearing(-4, 4), "to the southwest");
+    }
+
+    #[test]
+    fn a_dominant_axis_reads_cardinal_not_diagonal() {
+        // Far east, barely north → just "east".
+        assert_eq!(compass_bearing(10, -1), "to the east");
+        assert_eq!(compass_bearing(0, 0), "right here");
     }
 }
