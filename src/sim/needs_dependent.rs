@@ -90,6 +90,7 @@ mod tests {
                     services: vec![],
                     politics: crate::model::SettlementPolitics::new(),
                     food_stock: 0.0,
+                    goods_stock: Default::default(),
                     farms: Vec::new(),
                     buildings: Vec::new(),
                     festival_until_day: 0,

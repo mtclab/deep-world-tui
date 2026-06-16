@@ -441,6 +441,39 @@ fn tick_settlement_life(sim: &mut SimState) {
             let spoil_rate = (0.03 - keepers * 0.005 - hearth * 0.01).max(0.0);
             settlement.food_stock *= 1.0 - spoil_rate;
 
+            // --- trade goods: the crafts make what they make (#540) ---
+            // System-first, player-absent: each trade adds to the town's goods
+            // stock by its hands, scaled like food, capped by what it can hold.
+            // A spot of upkeep is spent each day, so a town that loses its
+            // crafters runs its stock down rather than holding it forever.
+            {
+                use crate::model::ItemType;
+                let smiths = settlement.profession_count("smith") as f64;
+                let miners = settlement.profession_count("miner") as f64;
+                let weavers = settlement.profession_count("weaver") as f64;
+                let carpenters = settlement.profession_count("carpenter") as f64;
+                let cap = settlement.population as f64 * 0.5;
+                // Iron from mine and forge; Tools from the smiths; Cloth from
+                // the weavers; Wood worked by the carpenters.
+                let made = [
+                    (ItemType::Iron, (miners * 0.6 + smiths * 0.3) * scale),
+                    (ItemType::Tool, smiths * 0.4 * scale),
+                    (ItemType::Cloth, weavers * 0.5 * scale),
+                    (ItemType::Wood, carpenters * 0.6 * scale),
+                ];
+                for (item, amount) in made {
+                    // Daily upkeep: the town spends a little of each good it
+                    // keeps (building, mending, wearing out); and never holds
+                    // more than its current size can — a shrunken town sheds the
+                    // surplus its lost hands once made.
+                    let kept = (settlement.good(item) * 0.97).min(cap);
+                    settlement.goods_stock.insert(item, kept);
+                    if amount > 0.0 {
+                        settlement.produce_good(item, amount, cap);
+                    }
+                }
+            }
+
             // --- the stores feed (or fail) the people ---
             let per_head = settlement.food_stock / settlement.population.max(1) as f64;
             for person in settlement.people.iter_mut() {
