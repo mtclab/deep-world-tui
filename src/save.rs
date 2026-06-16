@@ -109,6 +109,9 @@ pub struct SaveData {
     pub household_children: Vec<crate::model::HouseholdChild>,
     #[serde(default)]
     pub travel_debt: f64,
+    /// Peoples of the Five whose enclaves the player has entered (#454).
+    #[serde(default)]
+    pub enclaves_seen: Vec<crate::model::PeopleKind>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -357,6 +360,7 @@ pub fn restore_from_compact(
         widowed_day: 0,
         household_children: Vec::new(),
         travel_debt: 0.0,
+        enclaves_seen: Vec::new(),
     })
 }
 
@@ -404,6 +408,7 @@ mod tests {
             widowed_day: 0,
             household_children: Vec::new(),
             travel_debt: 0.0,
+            enclaves_seen: Vec::new(),
         };
         save_game(&data, "test_save.ron").expect("save should succeed");
         let loaded = load_game("test_save.ron").expect("load should succeed");
@@ -506,6 +511,7 @@ mod tests {
             widowed_day: 0,
             household_children: Vec::new(),
             travel_debt: 0.0,
+            enclaves_seen: Vec::new(),
         };
         let compact_data = CompactSave {
             seed: 42,

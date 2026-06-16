@@ -56,6 +56,7 @@ impl App {
             widowed_day: self.widowed_day,
             household_children: self.household_children.clone(),
             travel_debt: self.travel_debt,
+            enclaves_seen: self.enclaves_seen.clone(),
         })
     }
 
@@ -260,6 +261,7 @@ impl App {
         self.lineage = data.lineage;
         self.hint_tracker = data.hint_tracker;
         self.explored = data.explored;
+        self.enclaves_seen = data.enclaves_seen;
         self.milestones = data.milestones;
         self.encounter_log = data.encounter_log;
         self.player_farms = data.player_farms;

@@ -1312,6 +1312,7 @@ impl App {
                     widowed_day: self.widowed_day,
                     household_children: self.household_children.clone(),
                     travel_debt: self.travel_debt,
+                    enclaves_seen: self.enclaves_seen.clone(),
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }

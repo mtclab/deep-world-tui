@@ -128,11 +128,21 @@ impl App {
         // (#454): the place announces itself in its own character. (A festival
         // greeting, if one is underway, takes precedence.)
         if !festival_now {
-            if let Some(welcome) = self
-                .current_settlement_people()
-                .and_then(|p| p.enclave_welcome())
-            {
-                self.status_msg = Some(welcome.to_string());
+            if let Some(people) = self.current_settlement_people() {
+                if let Some(welcome) = people.enclave_welcome() {
+                    self.status_msg = Some(welcome.to_string());
+                }
+                // First time among this people of the Five: a lasting lore
+                // reveal, told once and kept in the journal (#454).
+                if people.is_of_the_five() && !self.enclaves_seen.contains(&people) {
+                    self.enclaves_seen.push(people);
+                    if let Some(lore) = people.enclave_lore() {
+                        if let Some(ref mut sim) = self.sim {
+                            let tick = sim.world.tick;
+                            sim.log(tick, crate::sim::journal::Voice::Dream, lore.to_string());
+                        }
+                    }
+                }
             }
         }
         self.screen = Screen::Location {
