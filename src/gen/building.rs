@@ -196,6 +196,19 @@ pub fn central_plaza(aw: usize, ah: usize) -> Option<(usize, usize, usize, usize
     Some(((aw - pw) / 2, (ah - ph) / 2, pw, ph))
 }
 
+/// The width of the wall border a great town keeps clear at its footprint edge
+/// (#458/#449): `0` for an unwalled town, else a wall ring plus a walkable lane
+/// (the pomerium) just inside it, so buildings never front the wall and their
+/// outward doors open onto street. Shared geometry: `district_buildings` keeps
+/// buildings out of it; `lay_town` raises the wall on it.
+pub fn wall_border(aw: usize, ah: usize) -> usize {
+    if aw.min(ah) >= 28 {
+        2
+    } else {
+        0
+    }
+}
+
 /// Compute (but do not paint) the buildings of a district within an area (#458):
 /// varied structures on plots with a yard/street margin, each door onto a
 /// street. The single source of truth all consumers read — worldgen paints the
@@ -249,12 +262,19 @@ pub fn district_buildings(
         None
     };
     let reserved = [plaza, main_street, cross_street];
-    let mut py = 0;
-    while py + 4 <= ah {
-        let mut px = 0;
-        while px + 4 <= aw {
-            // Keep the plaza and the main street clear of buildings.
+    // A great town keeps a clear border at its edge — the wall ring and the
+    // lane just inside it — so no building fronts the wall. The plot grid
+    // shifts in by `border-1` and its far side is capped by `border`, so the
+    // buildings sit a clear lane inside the wall `lay_town` raises here; both
+    // read the same `wall_border`, so painted and computed agree.
+    let border = wall_border(aw, ah);
+    let start = border.saturating_sub(1);
+    let mut py = start;
+    while py + 4 <= ah.saturating_sub(border) {
+        let mut px = start;
+        while px + 4 <= aw.saturating_sub(border) {
             let (lx, ly) = (ax + px, ay + py);
+            // Keep the plaza and the main/cross streets clear of buildings.
             if reserved.iter().flatten().any(|&(qx, qy, qw, qh)| {
                 lx < qx + qw && lx + stride > qx && ly < qy + qh && ly + stride > qy
             }) {
@@ -262,9 +282,10 @@ pub fn district_buildings(
                 continue;
             }
             // Building fills the plot bar a one-tile street; the +1 inset
-            // already leaves a street on the north and west.
-            let avail_w = (stride - 1).min(aw - px - 1);
-            let avail_h = (stride - 1).min(ah - py - 1);
+            // already leaves a street on the north and west. Its far edge is
+            // held a clear lane inside the wall border.
+            let avail_w = (stride - 1).min(aw.saturating_sub(border).saturating_sub(px + 1));
+            let avail_h = (stride - 1).min(ah.saturating_sub(border).saturating_sub(py + 1));
             let h = crate::rng::mix_u64(
                 seed ^ (px as u64).wrapping_shl(20) ^ (py as u64).wrapping_shl(40),
             );
