@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The bench fills its gaps (#529 deeper crafts)** — three goods that could only be **bought** can now be **made**: **Nails** (a bar of Iron drawn and cut, four to the bar), **Tinder** (deadfall split fine, the fire's first food), and **Glass** — the latter a **Mëräk Deep-Glass** specialty, sand-stone fused in a sea-coal fire, a craft no upworld kiln has matched (canon). Recipes 15 → 18. First step of growing the craft tree past the essentials.
+
 **Consult the scribe (#527 tradespeople)** — Sampsa's folk deal in knowledge: where a settlement keeps a **scribe**, press **B** while talking to them and, for a small fee, they read you a true thing of the **wider world** — the half-empty ring-market of Velkarath, the Karsath Bridge that has held seven thousand years, the Wells-Compact of the She'ar — and it is kept in your journal as learned. The lore-keeper's trade; refused by one closed to your kind. With the smith (M), healer (V), and guide (G), the folk you find by asking now each have their own dealing.
 
 **Hire a guide (#527 tradespeople)** — a settlement's **path-finder** or **forester** walks the country for a living: press **G** while talking to one and, for a fee, they **draw you the lay of the whole region** — the map opens end to end — and name the bearings to the nearest settlement and to every notable place you haven't found. Saves the slow blind exploring; refused by one set against your kind. The cartographer's trade, where before a path-finder was only a label.
