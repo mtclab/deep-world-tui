@@ -81,6 +81,7 @@ mod tests {
             household_children: Vec::new(),
             travel_debt: 0.0,
             enclaves_seen: Vec::new(),
+            god_vow: None,
         }
     }
 

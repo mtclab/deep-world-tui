@@ -391,6 +391,7 @@ impl App {
             * event
             * gift
             * town_gift
+            * self.vow_buy_mult()
             / coin;
         ((base as f64 * m).ceil() as u32).max(1)
     }

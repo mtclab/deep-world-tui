@@ -702,7 +702,7 @@ impl App {
         let done = site.hours_done;
         let needed = kind.build_hours();
         self.advance_clock(8);
-        self.vitals.energy = (self.vitals.energy - 0.15).max(0.0);
+        self.vitals.energy = (self.vitals.energy - 0.15 * self.vow_work_energy_mult()).max(0.0);
         self.status_msg = Some(if done >= needed {
             format!(
                 "{} nearly stands — the next hour will finish it.",

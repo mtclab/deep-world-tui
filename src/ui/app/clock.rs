@@ -95,7 +95,12 @@ impl App {
                 let raw = self.region_weather(pos.region_idx).need_decay_modifier();
                 let harsh_excess = (raw - 1.0).max(0.0);
                 weather_harsh = harsh_excess > 0.0;
-                1.0 + harsh_excess * coat_factor * event_weather * self.fortune.bad_multiplier()
+                // Kukri's vow: the patient cold cannot wear the sworn (#457).
+                1.0 + harsh_excess
+                    * coat_factor
+                    * event_weather
+                    * self.fortune.bad_multiplier()
+                    * self.vow_weather_mult()
             })
             .unwrap_or(1.0);
         let mut departed: Vec<String> = Vec::new();
@@ -203,6 +208,8 @@ impl App {
             self.check_illness_mortality();
             // And the broken peace claims its own in the tension seasons.
             self.check_turmoil();
+            // A vow kept too thinly breaks of itself (#457).
+            self.check_vow();
         }
         // The season-turn reckoning: every thirty days the polity's assessor
         // comes for the hearth-tax (#396), once per season.
@@ -531,7 +538,8 @@ impl App {
         if on_hearth && RestQuality::Inn.stamina_per_hour() > quality.stamina_per_hour() {
             quality = RestQuality::Inn;
         }
-        let stamina_gain = quality.stamina_per_hour() * h;
+        // Keuru's vow: welcomed at every hearth, the rest restores the deeper.
+        let stamina_gain = quality.stamina_per_hour() * h * self.vow_rest_bonus();
         let morale_gain = quality.morale_per_hour() * h;
         let mut encounter_risk = quality.encounter_risk_per_hour() * h;
         // A palisade line within two tiles quiets the night.

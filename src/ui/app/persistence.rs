@@ -57,6 +57,7 @@ impl App {
             household_children: self.household_children.clone(),
             travel_debt: self.travel_debt,
             enclaves_seen: self.enclaves_seen.clone(),
+            god_vow: self.god_vow,
         })
     }
 
@@ -263,6 +264,7 @@ impl App {
         self.hint_tracker = data.hint_tracker;
         self.explored = data.explored;
         self.enclaves_seen = data.enclaves_seen;
+        self.god_vow = data.god_vow;
         self.milestones = data.milestones;
         self.encounter_log = data.encounter_log;
         self.player_farms = data.player_farms;

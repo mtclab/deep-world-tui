@@ -106,7 +106,7 @@ impl App {
                 terrain_label(terrain)
             ));
             self.advance_clock(1);
-            self.vitals.energy = (self.vitals.energy - 0.04).max(0.0);
+            self.vitals.energy = (self.vitals.energy - 0.04 * self.vow_work_energy_mult()).max(0.0);
             return;
         }
         let season = self.clock.season();
@@ -144,7 +144,7 @@ impl App {
             self.god_affinity.adjust(GodName::Keuru, 0.02);
         }
         self.advance_clock(1);
-        self.vitals.energy = (self.vitals.energy - 0.06).max(0.0);
+        self.vitals.energy = (self.vitals.energy - 0.06 * self.vow_work_energy_mult()).max(0.0);
         self.vitals.hunger = (self.vitals.hunger - 0.03).max(0.0);
         if count == 0 {
             self.status_msg = Some(format!(

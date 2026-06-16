@@ -112,6 +112,9 @@ pub struct SaveData {
     /// Peoples of the Five whose enclaves the player has entered (#454).
     #[serde(default)]
     pub enclaves_seen: Vec<crate::model::PeopleKind>,
+    /// The god the player has sworn a vow to, if any (#457).
+    #[serde(default)]
+    pub god_vow: Option<crate::model::GodName>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -363,6 +366,7 @@ pub fn restore_from_compact(
         household_children: Vec::new(),
         travel_debt: 0.0,
         enclaves_seen: Vec::new(),
+        god_vow: None,
     })
 }
 
@@ -411,6 +415,7 @@ mod tests {
             household_children: Vec::new(),
             travel_debt: 0.0,
             enclaves_seen: Vec::new(),
+            god_vow: None,
         };
         save_game(&data, "test_save.ron").expect("save should succeed");
         let loaded = load_game("test_save.ron").expect("load should succeed");
@@ -514,6 +519,7 @@ mod tests {
             household_children: Vec::new(),
             travel_debt: 0.0,
             enclaves_seen: Vec::new(),
+            god_vow: None,
         };
         let compact_data = CompactSave {
             seed: 42,
