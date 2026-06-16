@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The pilgrim road (#457)** — faith gains its longest act: from a shrine or temple, set out on a **pilgrimage** (`P`, or `pilgrimage`) — provision the road with Food and walk a day and a half, the road itself the prayer. It deepens the bond with the god you keep more than prayer or offering can, answers the devout with that god's grace at the road's end (a lower bar than the festival — the walking earned it), and is set down as a life milestone. Plateaus like all devotion: no road makes a god of the walker.
+
 **The journey marks the life (#456)** — the first time you walk the long roads to a great city and come home, it is set down as a **life milestone** — the province is not the whole world, and now you have seen it — to stand among the markers of your legacy at the end. Recorded once, written to the journal.
 
 **Devotion, made visible (#457)** — the Gods panel (`i`) now shows your **standing** with each god you keep — *a Keeper*, *Devoted*, or *Blessed* — beside the affinity, so the tiers that gate a god's grace are something you can see and aim for, not a hidden number.
