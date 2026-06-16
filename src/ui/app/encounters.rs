@@ -122,6 +122,8 @@ impl App {
             };
         // The roads of a people you have wronged or warred are not safe to you.
         let weather_mult = weather_mult * self.road_tension_mult();
+        // Sampsa's vow: you read the road before it turns — danger finds you less.
+        let weather_mult = weather_mult * self.vow_encounter_mult();
         if let Some(enc) = Encounter::roll_biased_weather(
             terrain,
             self.clock.hour,
@@ -1357,6 +1359,7 @@ impl App {
                     household_children: self.household_children.clone(),
                     travel_debt: self.travel_debt,
                     enclaves_seen: self.enclaves_seen.clone(),
+                    god_vow: self.god_vow,
                 };
                 let _ = save::save_lineage(&save_data, self.seed);
             }

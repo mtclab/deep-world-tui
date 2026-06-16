@@ -20,6 +20,7 @@ mod navigation;
 mod persistence;
 mod services;
 mod social;
+mod vow;
 
 #[derive(Clone)]
 pub enum Screen {
@@ -147,6 +148,10 @@ pub struct App {
     /// The peoples of the Five whose enclaves you've entered — so the
     /// first-visit lore reveal fires once per people (#454).
     pub enclaves_seen: Vec<crate::model::PeopleKind>,
+    /// The god the player has sworn a vow to (#457): a Blessed devotee may bind
+    /// to one of the Five for a lasting boon, at the cost of forsaking the rest.
+    /// `None` until sworn; broken if the kept god slips below Devoted.
+    pub god_vow: Option<crate::model::GodName>,
     pub elder: bool,
     /// Age in years at the start of the current life (from age_band).
     pub start_age_years: u32,
@@ -246,6 +251,7 @@ impl App {
             encounter_log: EncounterLog::new(),
             player_farms: Vec::new(),
             enclaves_seen: Vec::new(),
+            god_vow: None,
             homestead_settlers: Vec::new(),
             homestead_rumored: false,
             founding_check_day: 0,

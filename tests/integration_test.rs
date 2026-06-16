@@ -136,6 +136,7 @@ fn full_pipeline_seed_generate_enter_talk() {
         household_children: Vec::new(),
         travel_debt: 0.0,
         enclaves_seen: Vec::new(),
+        god_vow: None,
     };
 
     save::save_game(&data, "integration_save.ron").expect("save should succeed");

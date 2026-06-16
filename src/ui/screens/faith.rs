@@ -88,6 +88,24 @@ pub(crate) fn draw_faith_screen(f: &mut Frame, app: &App, scroll: u16) {
         }
     }
 
+    // The vow, if one is sworn — the deepest binding of faith (#457).
+    if let Some(vg) = app.vow_god() {
+        lines.push(Line::from(vec![
+            Span::styled(" Sworn to: ", Style::default().fg(theme.dark_brown())),
+            Span::styled(
+                format!("{} {} — by vow", vg.glyph(), vg.label()),
+                Style::default()
+                    .fg(theme.archive_red())
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]));
+    } else if let Some(vg) = app.vowable_god() {
+        lines.push(Line::from(Span::styled(
+            format!(" {} has Blessed you — swear a vow here (V).", vg.label()),
+            Style::default().fg(theme.warm_brown()),
+        )));
+    }
+
     // The next holy day — so the calendar's holy days can be planned for (#457).
     let (hg, days_off) = crate::model::calendar::next_holy_day(app.clock.day);
     let when = match days_off {
