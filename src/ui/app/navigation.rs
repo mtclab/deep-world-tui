@@ -1093,6 +1093,23 @@ impl App {
             }
         }
         self.god_affinity.adjust(crate::model::GodName::Masa, 0.03);
+        // The roads are not safe after the Fall (#449): now and then the long
+        // way takes its toll — the lawless, a washed-out ford, a stretch of
+        // hungry country. Fortune tilts it; the more silver you carry home, the
+        // more there is to lose. (Rolled after the trade, so it bites the purse.)
+        let robbed = crate::rng::unit_from_hash(crate::rng::mix_u64(self.seed ^ day ^ 0x80AD_DEAD))
+            < self.fortune.tilt_bad(0.18);
+        let mut toll = 0u32;
+        if robbed {
+            if let Some(ref mut ps) = self.player_start {
+                let coin = ps.inventory.get(crate::model::ItemType::Coin);
+                toll = coin / 4; // the road's tax — a quarter of your silver
+                if toll > 0 {
+                    ps.inventory.remove(crate::model::ItemType::Coin, toll);
+                }
+            }
+            self.vitals.energy = (self.vitals.energy - 0.2).max(0.0);
+        }
         // You come home with word of the wider world, not just goods.
         let mut news_rng =
             crate::rng::SeedRng::new(self.seed.wrapping_add(day).wrapping_add(0x4E5_03AD))
@@ -1103,8 +1120,15 @@ impl App {
         } else {
             String::new()
         };
+        let road = if robbed && toll > 0 {
+            format!(" The road took its toll — the lawless lightened your purse by {toll} coin.")
+        } else if robbed {
+            " The road was hard — you came home wearied and watchful.".to_string()
+        } else {
+            String::new()
+        };
         self.status_msg = Some(format!(
-            "You walked the long roads to {city} and back — {blurb}.{trade} Word travels: {news} (~3 days)"
+            "You walked the long roads to {city} and back — {blurb}.{trade}{road} Word travels: {news} (~3 days)"
         ));
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;

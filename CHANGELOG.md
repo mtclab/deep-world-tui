@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**The roads are not safe (#449/#456)** — the long journey to a great city no longer comes home unscathed every time. After the Fall the roads are lawless, and now and then the way takes its **toll** — a band of the lawless lightens your purse (a quarter of the silver you're carrying home), or a hard stretch leaves you wearied. Fortune tilts it, and the more you carry home the more there is to lose; the trade run is a gamble now, not a sure thing.
+
 **The Five remember (#454)** — the first time you enter an enclave of one of the Five, you learn a thing about that people worth keeping: the Tzäkhar reckoning a life by the worth its hands have shaped and their deep-forges burning since before the Fall; the Mëräk speaking the drowned names to the sea so it does not forget; the She'ar discipline of silence and water; the Häl who never touch the forest floor; the Khör who carry their dead as cairn-stones, a circle a library of the gone. Told once per people and kept in the journal (persisted across the life), it turns the enclaves from a greeting into a remembered encounter.
 
 **The pilgrim road (#457)** — faith gains its longest act: from a shrine or temple, set out on a **pilgrimage** (`P`, or `pilgrimage`) — provision the road with Food and walk a day and a half, the road itself the prayer. It deepens the bond with the god you keep more than prayer or offering can, answers the devout with that god's grace at the road's end (a lower bar than the festival — the walking earned it), and is set down as a life milestone. Plateaus like all devotion: no road makes a god of the walker.
