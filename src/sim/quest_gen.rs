@@ -2,6 +2,68 @@ use crate::model::quest::{Quest, QuestKind, QuestReward};
 use crate::model::{ItemType, PeopleKind, Region};
 use crate::rng::SeedRng;
 
+/// The aid one of the Five asks of a stranger who comes to their enclave
+/// (#454): a fetch of what they lack from the surface, repaid in the good only
+/// they make. `None` for the human regions. Each is true to its monograph —
+/// the deep-smiths want surface food, the tideline-folk cloth, and so on.
+pub fn enclave_quest(people: PeopleKind, current_day: u32) -> Option<Quest> {
+    use ItemType as I;
+    let (want, n, reward, rn, desc): (ItemType, u32, ItemType, u32, &str) = match people {
+        PeopleKind::Tzakhar => (
+            I::Food,
+            4,
+            I::Iron,
+            2,
+            "The Tzäkhar deep-forges burn day and night; they ask for surface food, and will repay it in worked iron.",
+        ),
+        PeopleKind::Merak => (
+            I::Cloth,
+            3,
+            I::Glass,
+            2,
+            "The Mëräk have no looms beneath the tide; bring them cloth and they will trade deep-glass for it.",
+        ),
+        PeopleKind::Shear => (
+            I::Tool,
+            1,
+            I::Herb,
+            3,
+            "The She'ar want good tools to work the dry country; bring one and they will give the succulent-physic only they keep.",
+        ),
+        PeopleKind::Hal => (
+            I::Cloth,
+            3,
+            I::Herb,
+            2,
+            "The Häl weave nothing but the living green; bring them cloth and they will repay it with their true salve.",
+        ),
+        PeopleKind::Khor => (
+            I::Tool,
+            1,
+            I::Hide,
+            3,
+            "The Khör need iron tools the steppe cannot forge; bring one and they will give härkä-hide in kind.",
+        ),
+        _ => return None,
+    };
+    Some(Quest {
+        kind: QuestKind::FetchItem {
+            item: want,
+            count: n,
+        },
+        description: desc.into(),
+        reward: QuestReward::Items {
+            item: reward,
+            count: rn,
+        },
+        progress: 0,
+        target: n,
+        // A long, soft deadline — the road to an enclave is not run in a week.
+        deadline_day: current_day + 60,
+        assigned_day: current_day,
+    })
+}
+
 const FETCH_DESCRIPTIONS: &[&str] = &[
     "The settlement needs what the land sometimes gives.",
     "There is something the earth provides. I must gather it.",
@@ -407,6 +469,24 @@ pub fn apply_quest_reward(
 mod tests {
     use super::*;
     use crate::model::Inventory;
+
+    #[test]
+    fn each_of_the_five_asks_an_aid_humans_do_not() {
+        for p in [
+            PeopleKind::Tzakhar,
+            PeopleKind::Merak,
+            PeopleKind::Shear,
+            PeopleKind::Hal,
+            PeopleKind::Khor,
+        ] {
+            let q = enclave_quest(p, 10).expect("the Five each ask a thing");
+            // A real fetch, repaid in a good, with a soft deadline.
+            assert!(matches!(q.kind, QuestKind::FetchItem { .. }));
+            assert!(matches!(q.reward, QuestReward::Items { count, .. } if count > 0));
+            assert!(q.target > 0 && q.deadline_day > 10);
+        }
+        assert!(enclave_quest(PeopleKind::Metsik, 10).is_none());
+    }
 
     fn make_regions() -> Vec<Region> {
         crate::gen::world::generate_world(42, &crate::charts::load_charts().unwrap()).regions

@@ -133,13 +133,33 @@ impl App {
                     self.status_msg = Some(welcome.to_string());
                 }
                 // First time among this people of the Five: a lasting lore
-                // reveal, told once and kept in the journal (#454).
+                // reveal, told once and kept in the journal, and the aid they
+                // ask of a stranger — a fetch repaid in the good only they make
+                // (#454).
                 if people.is_of_the_five() && !self.enclaves_seen.contains(&people) {
                     self.enclaves_seen.push(people);
-                    if let Some(lore) = people.enclave_lore() {
-                        if let Some(ref mut sim) = self.sim {
+                    let day = self.clock.day;
+                    let quest = crate::sim::quest_gen::enclave_quest(people, day);
+                    if let Some(ref mut sim) = self.sim {
+                        if let Some(lore) = people.enclave_lore() {
                             let tick = sim.world.tick;
                             sim.log(tick, crate::sim::journal::Voice::Dream, lore.to_string());
+                        }
+                        if let Some(q) = quest {
+                            let dup = sim.quests.iter().any(|e| e.description == q.description);
+                            if !dup {
+                                let tick = sim.world.tick;
+                                sim.log(
+                                    tick,
+                                    crate::sim::journal::Voice::Encounter,
+                                    format!(
+                                        "The {} ask a thing of me. {}",
+                                        people.label(),
+                                        q.description
+                                    ),
+                                );
+                                sim.quests.push(q);
+                            }
                         }
                     }
                 }
