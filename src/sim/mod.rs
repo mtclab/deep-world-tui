@@ -753,6 +753,37 @@ fn tick_settlement_life(sim: &mut SimState) {
                     .politics
                     .drift_toward(crafter_pull, trader_pull, elder_pull, 0.03);
             }
+            // The council turns over now and then (#556): an election, a
+            // dispute, or a festival — shifting who holds it, and talked of when
+            // it lands. Checked once a season per town.
+            {
+                let day = (tick / 24) as u32;
+                if day > 0 && day.is_multiple_of(30) {
+                    let id_hash = settlement
+                        .id
+                        .bytes()
+                        .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(b as u64));
+                    let ev_seed = seed ^ id_hash ^ (day as u64).wrapping_shl(20);
+                    if let Some(ev) = settlement.politics.roll_leadership_event(ev_seed) {
+                        use crate::model::economy::LeadershipEvent;
+                        let faction = settlement.politics.dominant_faction().label();
+                        completed_msgs.push(match ev {
+                            LeadershipEvent::Election => format!(
+                                "An election in {} — the {} take the council.",
+                                settlement.name, faction
+                            ),
+                            LeadershipEvent::Dispute => format!(
+                                "A dispute splits the council in {}; the {} hold it, but barely.",
+                                settlement.name, faction
+                            ),
+                            LeadershipEvent::Festival => format!(
+                                "A council-festival in {} — the {} are feasted.",
+                                settlement.name, faction
+                            ),
+                        });
+                    }
+                }
+            }
 
             // --- construction ---
             let builders = settlement.profession_count("carpenter")
