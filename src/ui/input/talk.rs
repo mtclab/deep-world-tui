@@ -51,6 +51,9 @@ pub fn handle_talk_input(
         KeyCode::Char('l') => {
             app.ask_about_life(region_idx, settlement_idx, person_idx);
         }
+        KeyCode::Char('p') => {
+            app.ask_council(region_idx, settlement_idx, person_idx);
+        }
         KeyCode::Down => {
             return scroll.saturating_add(1);
         }

@@ -828,6 +828,78 @@ impl App {
         self.status_msg = Some(format!("{pname} tells you who to seek: {told}."));
     }
 
+    /// Ask who holds the council (#556 living politics): the person names the
+    /// settlement's dominant faction, how firmly it sits, and the last turnover
+    /// that put it there — reading the politics layer that drifts and turns over
+    /// on its own. Regard-gated like the other talk topics.
+    pub fn ask_council(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        let Some((people, pname)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| s.people.get(person_idx))
+                .map(|p| (PeopleKind::from_name(&p.people), p.name.clone()))
+        }) else {
+            return;
+        };
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.15 {
+            self.status_msg = Some(format!(
+                "{pname} shrugs — the council's doings are no business of your kind."
+            ));
+            return;
+        }
+        let Some((faction, hold, last_event)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .map(|s| {
+                    let f = s.politics.dominant_faction();
+                    let hold = match f {
+                        crate::model::economy::Faction::Crafters => s.politics.crafter_standing,
+                        crate::model::economy::Faction::Traders => s.politics.trader_standing,
+                        crate::model::economy::Faction::Elders => s.politics.elder_standing,
+                    };
+                    (f, hold, s.politics.last_event)
+                })
+        }) else {
+            return;
+        };
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
+        // How firmly the ruling faction sits — a wide lead reads as settled, a
+        // near-tie as contested.
+        let grip = if hold > 0.45 {
+            "and they hold it firmly"
+        } else if hold > 0.38 {
+            "though their grip is not sure"
+        } else {
+            "but the council is sharply divided"
+        };
+        let tail = match last_event {
+            Some(crate::model::economy::LeadershipEvent::Election) => {
+                " — they were voted in not long ago."
+            }
+            Some(crate::model::economy::LeadershipEvent::Dispute) => {
+                " — a dispute near tore the council apart."
+            }
+            Some(crate::model::economy::LeadershipEvent::Festival) => {
+                " — they feasted the whole settlement at the last council-festival."
+            }
+            None => ".",
+        };
+        self.status_msg = Some(format!(
+            "{pname}: \"The {} hold the council here, {grip}{tail}\"",
+            faction.label()
+        ));
+    }
+
     /// Commission a Tool from a settlement's smith (#527 tradespeople): bring
     /// the Iron and the fee, and the smith does the rest — no botch, no wasted
     /// stock, the way the player's own bench can fail. A gifted smith (iron-ear)

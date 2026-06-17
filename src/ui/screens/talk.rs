@@ -149,7 +149,7 @@ pub(crate) fn draw_talk_screen(
             )));
         }
         lines.push(Line::from(Span::styled(
-            "   Ask for news (N), the way (W), who's worth knowing (K), their life (L).",
+            "   Ask for news (N), the way (W), who's worth knowing (K), their life (L), who holds the council (P).",
             Style::default().fg(theme.warm_brown()),
         )));
         if p.profession == "smith" {
