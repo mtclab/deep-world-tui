@@ -357,6 +357,11 @@ impl App {
             {
                 let cur = s.good(want);
                 s.goods_stock.insert(want, cur + deliver as f64);
+                // A trade-runner who keeps a town supplied lifts the hand of its
+                // Traders — the faction of roads and coin (#565): provision a
+                // place often enough and you shift who holds its council.
+                s.politics
+                    .adjust(crate::model::economy::Faction::Traders, 0.01);
             }
         }
         self.advance_clock_hour();
