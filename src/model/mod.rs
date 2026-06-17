@@ -12,6 +12,7 @@ pub mod gift;
 pub mod memorial;
 pub mod person;
 pub mod polity;
+pub mod province;
 pub mod quest;
 pub mod relation;
 pub mod terrain;

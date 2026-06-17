@@ -94,6 +94,11 @@ pub struct SimState {
     pub build_sites: Vec<crate::sim::structures::BuildSite>,
     #[serde(default)]
     pub caravans: Vec<crate::model::economy::Caravan>,
+    /// The web of standings among the province's settlements (#560): which towns
+    /// have grown into trade partners and which into rivals. Drifts in the daily
+    /// sim from the caravans they exchange and the goods they compete for.
+    #[serde(default)]
+    pub province_ties: crate::model::province::ProvinceTies,
 }
 
 impl SimState {
@@ -128,6 +133,7 @@ impl SimState {
             structures: Vec::new(),
             build_sites: Vec::new(),
             caravans: Vec::new(),
+            province_ties: crate::model::province::ProvinceTies::default(),
         };
         sim.init_npc_wants();
         sim
@@ -207,6 +213,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_build_sites(sim);
     tick_structure_decay(sim);
     tick_caravans(sim);
+    tick_province_ties(sim);
     tick_weather_fronts(sim);
     tick_settlement_life(sim);
     lifecycle::tick_lifecycle(sim);
@@ -1052,13 +1059,52 @@ fn tick_caravans(sim: &mut SimState) {
     if names[d] == origin {
         d = (d + 1) % names.len();
     }
+    let dest = names[d].clone();
+    // A caravan between two of the province's own towns deepens their
+    // partnership (#560): the more carts cross between them, the closer they
+    // grow. Caravans down the long roads from the named cities of the continent
+    // are not province ties — those cities are off the map.
+    if names.iter().any(|n| n == &origin) {
+        sim.province_ties.nudge(&origin, &dest, 0.05);
+    }
     let caravan = crate::model::economy::Caravan::generate(
         sim.world.seed.wrapping_add(tick),
         origin,
-        names[d].clone(),
+        dest,
         tick,
     );
     sim.caravans.push(caravan);
+}
+
+/// The province's web of standings drifts each day (#560): towns that make the
+/// same good in the same region grate toward rivalry, and every tie fades a
+/// little toward neutral when no fresh trade or friction keeps it up. Partnership
+/// is fed by the caravans (see `tick_caravans`); this is the friction and the
+/// forgetting.
+fn tick_province_ties(sim: &mut SimState) {
+    let tick = sim.world.tick;
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    // Competition: within a region, two living towns whose signature good is the
+    // same compete in one market — a small daily push toward rivalry.
+    for region in &sim.world.regions {
+        let makers: Vec<(&str, crate::model::ItemType)> = region
+            .settlements
+            .iter()
+            .filter(|s| s.population > 0)
+            .filter_map(|s| s.signature_good().map(|g| (s.name.as_str(), g)))
+            .collect();
+        for i in 0..makers.len() {
+            for j in (i + 1)..makers.len() {
+                if makers[i].1 == makers[j].1 {
+                    sim.province_ties.nudge(makers[i].0, makers[j].0, -0.02);
+                }
+            }
+        }
+    }
+    // The slow forgetting: a tie not kept up lapses toward neutral.
+    sim.province_ties.decay(0.01);
 }
 
 /// Remove structures that have fully weathered away (decay ratio >= 1.0).

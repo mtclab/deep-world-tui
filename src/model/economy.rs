@@ -994,6 +994,30 @@ impl Settlement {
         *e = (*e + amount).min(cap).max(0.0);
     }
 
+    /// The trade good this town is built to make most, read off its crafts
+    /// (#560 living province): the good whose producers are thickest here. Two
+    /// towns with the same signature compete in the same market — the seed of a
+    /// rivalry. `None` for a town that makes no trade good of its own.
+    pub fn signature_good(&self) -> Option<ItemType> {
+        let smiths = self.profession_count("smith") as f64;
+        let miners = self.profession_count("miner") as f64;
+        let weavers = self.profession_count("weaver") as f64;
+        let carpenters = self.profession_count("carpenter") as f64;
+        // Mirror the daily production rates so the signature is what the town
+        // actually turns out in plenty.
+        let weights = [
+            (ItemType::Iron, miners * 0.6 + smiths * 0.3),
+            (ItemType::Tool, smiths * 0.4),
+            (ItemType::Cloth, weavers * 0.5),
+            (ItemType::Wood, carpenters * 0.6),
+        ];
+        weights
+            .into_iter()
+            .filter(|&(_, w)| w > 0.0)
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .map(|(item, _)| item)
+    }
+
     /// Whether a completed building of this type stands here.
     pub fn has_building(&self, kind: BuildingType) -> bool {
         self.buildings
