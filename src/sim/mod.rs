@@ -99,6 +99,12 @@ pub struct SimState {
     /// sim from the caravans they exchange and the goods they compete for.
     #[serde(default)]
     pub province_ties: crate::model::province::ProvinceTies,
+    /// The last town the player carried goods INTO (#565 slice 3): if they then
+    /// provision a rival of it, the player is a cart crossing between enemies and
+    /// the rivalry thaws a little — trade is the solvent. Name, not id, to match
+    /// the province ties.
+    #[serde(default)]
+    pub last_provisioned_town: Option<String>,
 }
 
 impl SimState {
@@ -134,6 +140,7 @@ impl SimState {
             build_sites: Vec::new(),
             caravans: Vec::new(),
             province_ties: crate::model::province::ProvinceTies::default(),
+            last_provisioned_town: None,
         };
         sim.init_npc_wants();
         sim

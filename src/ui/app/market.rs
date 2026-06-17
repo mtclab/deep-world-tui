@@ -363,6 +363,32 @@ impl App {
                 s.politics
                     .adjust(crate::model::economy::Faction::Traders, 0.01);
             }
+            // Carrying goods between two RIVAL towns thaws their feud a little
+            // (#565 slice 3): the player is a cart crossing where no town's own
+            // cart will, and trade is the solvent. Their bond eases toward
+            // neutral, and a thaw the road notices is talked of.
+            let prev = sim.last_provisioned_town.take();
+            if let Some(prev_name) = prev {
+                if prev_name != pname
+                    && sim.province_ties.tie(&prev_name, &pname)
+                        == crate::model::province::TieKind::Rival
+                {
+                    sim.province_ties.nudge(&prev_name, &pname, 0.06);
+                    if sim.province_ties.tie(&prev_name, &pname)
+                        != crate::model::province::TieKind::Rival
+                    {
+                        let tick = sim.world.tick;
+                        sim.log(
+                            tick,
+                            crate::sim::journal::Voice::Rumor,
+                            format!(
+                                "The old bad blood between {prev_name} and {pname} is easing — a trader crosses between them again."
+                            ),
+                        );
+                    }
+                }
+            }
+            sim.last_provisioned_town = Some(pname.clone());
         }
         self.advance_clock_hour();
         self.god_affinity.adjust(GodName::Masa, 0.02);
