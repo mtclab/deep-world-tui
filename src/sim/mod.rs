@@ -1181,6 +1181,24 @@ fn tick_province_ties(sim: &mut SimState) {
     }
     // The slow forgetting: a tie not kept up lapses toward neutral.
     sim.province_ties.decay(0.01);
+
+    // A partnership that has just formed or a rivalry that has just hardened is
+    // talked of on the roads (#560 slice 4) — the province's trade-news.
+    let news = sim.province_ties.newly_crossed();
+    for (a, b, kind) in news {
+        use crate::model::province::TieKind;
+        let line = match kind {
+            TieKind::Partner => {
+                format!("{a} and {b} have grown close — their caravans run thick between them.")
+            }
+            TieKind::Rival => {
+                format!("Bad blood between {a} and {b} now — no cart crosses between them.")
+            }
+            TieKind::Neutral => continue,
+        };
+        let t = sim.world.tick;
+        sim.log(t, Voice::Rumor, line);
+    }
 }
 
 /// Remove structures that have fully weathered away (decay ratio >= 1.0).

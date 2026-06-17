@@ -40,3 +40,24 @@ fn the_provinces_towns_grow_close_or_at_odds() {
         "the province's towns formed standings (partners={partners}, rivals={rivals})"
     );
 }
+
+#[test]
+fn the_provinces_trade_news_reaches_the_road() {
+    let charts = load_charts().expect("charts");
+    let mut sim = SimState::new(42, charts);
+    // The journal is capped, so watch for a province trade-rumor as it lands.
+    let mut heard = false;
+    for _ in 0..(24 * 200) {
+        sim.step();
+        if sim
+            .journal
+            .entries
+            .iter()
+            .any(|e| e.text.contains("have grown close") || e.text.contains("Bad blood between"))
+        {
+            heard = true;
+            break;
+        }
+    }
+    assert!(heard, "a forming partnership or rivalry was talked of");
+}
