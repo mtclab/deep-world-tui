@@ -90,6 +90,44 @@ impl Season {
         }
     }
 
+    /// How hard the crafts turn out goods this season (#570 slice 1): the
+    /// forge and the loom keep working through winter, but the short cold days
+    /// slow them; the green season's long light and full larders quicken the
+    /// hands a little. A multiplier on daily goods production in the settlement
+    /// sim — distinct from the crops, which Frost kills outright.
+    pub fn production_modifier(self) -> f64 {
+        match self {
+            Season::Thaw => 1.0,
+            Season::Green => 1.1,
+            Season::Frost => 0.7,
+        }
+    }
+
+    /// How much a settlement eats from its stores this season (#570 slice 1):
+    /// winter draws harder on the granary — more is burned for warmth, less is
+    /// foraged fresh — so a town that ate comfortably in Green can run its
+    /// stores down in Frost. A multiplier on daily food consumption.
+    pub fn consumption_modifier(self) -> f64 {
+        match self {
+            Season::Frost => 1.25,
+            Season::Thaw => 1.0,
+            Season::Green => 0.95,
+        }
+    }
+
+    /// A plain seasonal pressure on the market (#570 slice 1), felt by the
+    /// player in every buy and sell: goods come dear in Frost — short supply,
+    /// thin roads, stores held back against winter — and cheap in high Green
+    /// when the land is generous. Distinct from the rare market-fair event;
+    /// this is the ordinary weather of prices through the year.
+    pub fn market_price_modifier(self) -> f64 {
+        match self {
+            Season::Frost => 1.12,
+            Season::Thaw => 1.0,
+            Season::Green => 0.92,
+        }
+    }
+
     pub fn need_decay_multiplier(self) -> f64 {
         match self {
             Season::Frost => 1.3,
@@ -838,6 +876,23 @@ mod tests {
         assert!((Season::Frost.gather_multiplier() - 0.3).abs() < f64::EPSILON);
 
         assert!((Season::Thaw.gather_multiplier() - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn season_drives_production_consumption_and_prices() {
+        // The crafts slow in Frost, quicken in Green; never stop, never double.
+        assert!(Season::Frost.production_modifier() < Season::Thaw.production_modifier());
+        assert!(Season::Green.production_modifier() > Season::Thaw.production_modifier());
+        for s in [Season::Thaw, Season::Green, Season::Frost] {
+            assert!(s.production_modifier() > 0.0 && s.production_modifier() <= 1.5);
+        }
+        // Winter eats harder than the generous Green.
+        assert!(Season::Frost.consumption_modifier() > Season::Green.consumption_modifier());
+        assert!(Season::Thaw.consumption_modifier() >= Season::Green.consumption_modifier());
+        // The market comes dear in Frost, cheap in Green; Thaw is the neutral.
+        assert!(Season::Frost.market_price_modifier() > 1.0);
+        assert!(Season::Green.market_price_modifier() < 1.0);
+        assert!((Season::Thaw.market_price_modifier() - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
