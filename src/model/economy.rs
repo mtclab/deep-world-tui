@@ -56,6 +56,29 @@ impl QualityTier {
             QualityTier::Rough
         }
     }
+
+    /// The durability a freshly-made piece of this quality starts at (#547):
+    /// the inverse of `from_durability`, so a crafted masterwork reads back as
+    /// masterwork and lasts the longest, a rough piece the least.
+    pub fn starting_durability(self) -> f64 {
+        match self {
+            QualityTier::Masterwork => 0.98,
+            QualityTier::Fine => 0.82,
+            QualityTier::Sturdy => 0.55,
+            QualityTier::Rough => 0.28,
+        }
+    }
+
+    /// What the work fetches at market, relative to a plain sturdy piece (#547):
+    /// a masterwork sells dearer, a rough piece cheap.
+    pub fn sell_multiplier(self) -> f64 {
+        match self {
+            QualityTier::Masterwork => 1.3,
+            QualityTier::Fine => 1.12,
+            QualityTier::Sturdy => 1.0,
+            QualityTier::Rough => 0.8,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -312,6 +335,24 @@ impl Inventory {
     pub fn add(&mut self, item: ItemType, count: u32) {
         *self.items.entry(item).or_insert(0) += count;
         self.durability.entry(item).or_insert(1.0);
+    }
+
+    /// Add `count` of an item at a given starting `durability` (#547 craft
+    /// quality): the new pieces blend into any existing stack by count — a
+    /// masterwork mixed into a worn lot raises the lot's average, a rough piece
+    /// lowers it. (The inventory keeps one durability per type, so a stack's
+    /// quality is its weighted average, not per-piece.)
+    pub fn add_with_quality(&mut self, item: ItemType, count: u32, durability: f64) {
+        let old_count = self.get(item) as f64;
+        let old_dur = self.durability(item);
+        *self.items.entry(item).or_insert(0) += count;
+        let total = old_count + count as f64;
+        let blended = if total > 0.0 {
+            (old_dur * old_count + durability.clamp(0.0, 1.0) * count as f64) / total
+        } else {
+            durability
+        };
+        self.durability.insert(item, blended);
     }
 
     pub fn remove(&mut self, item: ItemType, count: u32) -> bool {
@@ -1549,6 +1590,34 @@ pub struct PlayerFarm {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quality_starting_durability_roundtrips() {
+        for tier in [
+            QualityTier::Rough,
+            QualityTier::Sturdy,
+            QualityTier::Fine,
+            QualityTier::Masterwork,
+        ] {
+            assert_eq!(
+                QualityTier::from_durability(tier.starting_durability()),
+                tier,
+                "a freshly-made {tier:?} reads back as {tier:?}"
+            );
+        }
+        assert!(QualityTier::Masterwork.sell_multiplier() > QualityTier::Rough.sell_multiplier());
+    }
+
+    #[test]
+    fn add_with_quality_blends_into_a_stack() {
+        let mut inv = Inventory::default();
+        inv.add_with_quality(ItemType::Tool, 1, 0.2); // a rough one
+        assert!((inv.durability(ItemType::Tool) - 0.2).abs() < 1e-9);
+        inv.add_with_quality(ItemType::Tool, 1, 1.0); // a masterwork one
+                                                      // Two pieces, durabilities 0.2 and 1.0 → average 0.6.
+        assert!((inv.durability(ItemType::Tool) - 0.6).abs() < 1e-9);
+        assert_eq!(inv.get(ItemType::Tool), 2);
+    }
 
     fn roundtrip<
         T: serde::Serialize + for<'de> serde::Deserialize<'de> + PartialEq + std::fmt::Debug,

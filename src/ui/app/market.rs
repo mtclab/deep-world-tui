@@ -600,6 +600,17 @@ impl App {
             .unwrap_or(1.0)
     }
 
+    /// What the quality of the player's own piece does to its sale price (#547):
+    /// a masterwork fetches more, a worn or rough one less. Reads the durability
+    /// the item carries (craft quality + wear). `1.0` for what you do not hold.
+    fn craft_quality_modifier(&self, item: ItemType) -> f64 {
+        self.player_start
+            .as_ref()
+            .filter(|ps| ps.inventory.has(item))
+            .map(|ps| ps.inventory.quality(item).sell_multiplier())
+            .unwrap_or(1.0)
+    }
+
     /// A trade good's price leans on the settlement's **own stock** (#540 living
     /// economy): a town holding plenty of what its trades make sells it cheap; a
     /// town that lacks it pays dear. Drives inter-settlement arbitrage — buy
@@ -647,6 +658,7 @@ impl App {
             * self.caravan_price_modifier(item)
             * self.food_scarcity_modifier(item)
             * self.goods_abundance_modifier(item)
+            * self.craft_quality_modifier(item)
             * luck
             * coin
             * gift;
