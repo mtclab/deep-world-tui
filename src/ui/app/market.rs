@@ -342,7 +342,11 @@ impl App {
             return;
         }
         // A fair provisioning premium over the bare base price — they need it.
-        let pay = (deliver as f64 * want.base_price() as f64 * 1.25).round() as u32;
+        // In wartime the roads are raided and goods scarce (#579 slice 4): a
+        // runner who gets supplies through the blockade is paid better still.
+        let at_war = self.polity_at_war();
+        let war_premium = if at_war { 1.4 } else { 1.0 };
+        let pay = (deliver as f64 * want.base_price() as f64 * 1.25 * war_premium).round() as u32;
         if let Some(ref mut ps) = self.player_start {
             ps.inventory.remove(want, deliver);
             ps.inventory.add(ItemType::Coin, pay);
@@ -374,6 +378,12 @@ impl App {
                     s.remembered_deed = Some(format!(
                         "{player_name}, the stranger who kept us fed through the lean year"
                     ));
+                } else if at_war && s.remembered_deed.is_none() && !player_name.is_empty() {
+                    // Kept supplied while the roads were closed and raided: a war
+                    // analogue of the lean-year deed (#579 slice 4).
+                    s.remembered_deed = Some(format!(
+                        "{player_name}, who ran supplies to us through the war"
+                    ));
                 }
             }
             // Carrying goods between two RIVAL towns thaws their feud a little
@@ -386,7 +396,13 @@ impl App {
                     && sim.province_ties.tie(&prev_name, &pname)
                         == crate::model::province::TieKind::Rival
                 {
-                    sim.province_ties.nudge(&prev_name, &pname, 0.06);
+                    // Crossing between two DEEP rivals — the raiding kind (#579
+                    // slice 4) — is the braver run, and it cools the feud
+                    // harder: the player is the cart that crosses where raids
+                    // fly.
+                    let deep = sim.province_ties.bond(&prev_name, &pname) <= -0.7;
+                    sim.province_ties
+                        .nudge(&prev_name, &pname, if deep { 0.10 } else { 0.06 });
                     if sim.province_ties.tie(&prev_name, &pname)
                         != crate::model::province::TieKind::Rival
                     {
@@ -422,10 +438,17 @@ impl App {
                 format!("I carried {deliver} {} into {pname}, who were short of it. They paid well, and will know my face.", want.name()),
             );
         }
-        self.status_msg = Some(format!(
-            "You provision {pname} with {deliver} {} (+{pay} coin, standing rises, 1h)",
-            want.name()
-        ));
+        self.status_msg = Some(if at_war {
+            format!(
+                "You run {deliver} {} into {pname} past the war's closed roads (+{pay} coin, standing rises, 1h)",
+                want.name()
+            )
+        } else {
+            format!(
+                "You provision {pname} with {deliver} {} (+{pay} coin, standing rises, 1h)",
+                want.name()
+            )
+        });
     }
 
     pub fn work_for_hire(&mut self) {
@@ -533,6 +556,19 @@ impl App {
     /// Frost and cheap in high Green. Felt in every buy and sell.
     pub fn season_price_modifier(&self) -> f64 {
         self.clock.season().market_price_modifier()
+    }
+
+    /// Whether the province's polity is at open tension with its rival right now
+    /// (#579): the war the player can run supplies through. Deterministic on the
+    /// same season clock the war rumor, levy, and road-watch use.
+    pub fn polity_at_war(&self) -> bool {
+        let Some(sim) = self.sim.as_ref() else {
+            return false;
+        };
+        let day = self.clock.day;
+        let season_ord = (day / 30) % 4;
+        let year = day / 120;
+        sim.world.polity.in_tension(self.seed, season_ord, year)
     }
 
     /// Whether the town the player stands in is mid-festival (#570 slice 3):
@@ -761,6 +797,21 @@ mod festival_tests {
             scroll: 0,
         };
         app
+    }
+
+    #[test]
+    fn polity_at_war_tracks_the_tension_seasons() {
+        let mut app = app_in_first_settlement();
+        app.enter_map(0);
+        let polity = app.sim.as_ref().unwrap().world.polity;
+        let seed = app.seed;
+        let war = (0..600u32).find(|&d| polity.in_tension(seed, (d / 30) % 4, d / 120));
+        let peace = (0..600u32).find(|&d| !polity.in_tension(seed, (d / 30) % 4, d / 120));
+        let (war, peace) = (war.expect("a war season"), peace.expect("a peace season"));
+        app.clock.day = peace;
+        assert!(!app.polity_at_war(), "peace reads as peace");
+        app.clock.day = war;
+        assert!(app.polity_at_war(), "tension reads as war");
     }
 
     #[test]
