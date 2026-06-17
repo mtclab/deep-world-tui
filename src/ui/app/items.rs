@@ -65,6 +65,38 @@ pub(crate) fn craft_botch_chance_for(fortune: crate::model::Fortune, craftless: 
     }
 }
 
+/// The quality a craft turns out at (#547): the innate gift makes fine and
+/// masterwork work, a learned hand sturdy-to-fine, the plain hand mostly sturdy
+/// (rough on a bad day, fine on a good one). Fortune leans it up a touch.
+pub(crate) fn craft_quality(
+    gift_aids: bool,
+    learned_aids: bool,
+    fortune: crate::model::Fortune,
+    rng: &mut crate::rng::SeedRng,
+) -> crate::model::economy::QualityTier {
+    use crate::model::economy::QualityTier::*;
+    let r = (rng.gen_f64() + fortune.value() * 0.1).clamp(0.0, 1.0);
+    if gift_aids {
+        if r > 0.5 {
+            Masterwork
+        } else {
+            Fine
+        }
+    } else if learned_aids {
+        if r > 0.6 {
+            Fine
+        } else {
+            Sturdy
+        }
+    } else if r > 0.85 {
+        Fine
+    } else if r > 0.2 {
+        Sturdy
+    } else {
+        Rough
+    }
+}
+
 impl App {
     /// How rich the ground is in medicinal plants — the supply half of
     /// herbalism (#456). Real boreal physic comes from the deep wood and the
@@ -429,9 +461,23 @@ impl App {
                         } else {
                             ""
                         };
-                        inv.add(recipe.output, output_count);
+                        // The hand shows in the work (#547): a gifted crafter
+                        // turns out fine and masterwork; a learned hand sturdy
+                        // work; the plain hand rough-to-sturdy. Fortune leans it.
+                        let tier = craft_quality(gift_aids, learned_aids, fortune, &mut rng);
+                        inv.add_with_quality(
+                            recipe.output,
+                            output_count,
+                            tier.starting_durability(),
+                        );
                         Some((
-                            format!("Crafted {} (x{}) (2h){}", recipe.name, output_count, flavor),
+                            format!(
+                                "Crafted a {} {} (x{}) (2h){}",
+                                tier.label(),
+                                recipe.name,
+                                output_count,
+                                flavor
+                            ),
                             true,
                             gift_aids,
                         ))
@@ -725,8 +771,30 @@ impl App {
 
 #[cfg(test)]
 mod tests {
-    use super::craft_botch_chance;
+    use super::{craft_botch_chance, craft_quality};
+    use crate::model::economy::QualityTier;
     use crate::model::Fortune;
+
+    #[test]
+    fn the_gift_makes_finer_work_than_the_plain_hand() {
+        let mut rng = crate::rng::SeedRng::new(99);
+        let mid = Fortune::from_value(0.0);
+        for _ in 0..200 {
+            // The innate gift never turns out rough work.
+            let g = craft_quality(true, false, mid, &mut rng);
+            assert!(
+                matches!(g, QualityTier::Fine | QualityTier::Masterwork),
+                "gifted craft is fine or masterwork, got {g:?}"
+            );
+            // The plain hand never turns out a masterwork.
+            let p = craft_quality(false, false, mid, &mut rng);
+            assert_ne!(
+                p,
+                QualityTier::Masterwork,
+                "the plain hand makes no masterwork"
+            );
+        }
+    }
 
     #[test]
     fn cursed_botch_more_than_blessed() {
