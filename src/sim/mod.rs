@@ -224,6 +224,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_weather_fronts(sim);
     tick_settlement_life(sim);
     tick_winter_relief(sim);
+    tick_alliance_relief(sim);
     tick_raids(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
@@ -1448,6 +1449,125 @@ fn tick_raids(sim: &mut SimState) {
             Voice::Rumor,
             format!("{raider} fell on {victim} in the night — stores carried off, and no peace between them."),
         );
+        // The bloc answers (#579 slice 3): the victim's deep allies take the
+        // raid as their own quarrel and sour on the raider. Read the standings
+        // first, then nudge — a raid on one is bad blood for all of them.
+        let allies: Vec<String> = sim
+            .province_ties
+            .bonds
+            .iter()
+            .filter(|(_, &v)| v >= DEEP_ALLY)
+            .filter_map(|((p, q), _)| {
+                if p == &victim && *q != raider && loc.contains_key(q) {
+                    Some(q.clone())
+                } else if q == &victim && *p != raider && loc.contains_key(p) {
+                    Some(p.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if !allies.is_empty() {
+            for ally in &allies {
+                sim.province_ties.nudge(ally, &raider, -0.04);
+            }
+            sim.log(
+                tick,
+                Voice::Rumor,
+                format!("{victim}'s friends have not forgotten the raid — {raider} finds the roads colder for it."),
+            );
+        }
+    }
+}
+
+/// The standing at which a partnership becomes an alliance (#579 slice 3) — deep
+/// enough to feed its own year-round and to answer a raid on a partner.
+const DEEP_ALLY: f64 = 0.7;
+
+/// Year-round mutual aid among allies (#579 slice 3): winter relief feeds an
+/// ordinary partner only through the Frost, but a deep alliance feeds its own in
+/// any season — a town gone to famine is sent grain by its sworn partners
+/// whatever the time of year. The relief deepens the alliance, rides as a
+/// caravan, and is talked of. System-first and deterministic (sorted pairs).
+fn tick_alliance_relief(sim: &mut SimState) {
+    use crate::model::economy::Caravan;
+    use crate::model::ItemType;
+    let tick = sim.world.tick;
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let mut loc: std::collections::HashMap<String, (usize, usize)> =
+        std::collections::HashMap::new();
+    let mut store: std::collections::HashMap<String, (f64, u32)> = std::collections::HashMap::new();
+    for (ri, region) in sim.world.regions.iter().enumerate() {
+        for (si, s) in region.settlements.iter().enumerate() {
+            if s.population == 0 {
+                continue;
+            }
+            loc.insert(s.name.clone(), (ri, si));
+            store.insert(s.name.clone(), (s.food_stock, s.population));
+        }
+    }
+    let per_head = |name: &str| -> f64 {
+        store
+            .get(name)
+            .map(|(f, p)| f / (*p).max(1) as f64)
+            .unwrap_or(0.0)
+    };
+    let mut pairs: Vec<(String, String)> = sim
+        .province_ties
+        .bonds
+        .iter()
+        .filter(|(_, &v)| v >= DEEP_ALLY)
+        .map(|(k, _)| k.clone())
+        .filter(|(a, b)| store.contains_key(a) && store.contains_key(b))
+        .collect();
+    pairs.sort();
+    // A town below this per-head is in famine; an ally above the comfortable
+    // mark can spare grain. Aid flows from the surplus to the hunger.
+    const COMFORTABLE: f64 = 1.5;
+    const FAMINE: f64 = 0.4;
+    let mut transfers: Vec<(String, String, f64)> = Vec::new();
+    for (a, b) in &pairs {
+        let (donor, recip) = if per_head(a) >= per_head(b) {
+            (a, b)
+        } else {
+            (b, a)
+        };
+        if per_head(recip) >= FAMINE {
+            continue;
+        }
+        let spare = (per_head(donor) - COMFORTABLE) * store[donor].1 as f64;
+        let need = (FAMINE - per_head(recip)) * store[recip].1 as f64;
+        let aid = spare.min(need);
+        if aid >= 1.0 {
+            transfers.push((donor.clone(), recip.clone(), aid));
+        }
+    }
+    for (donor, recip, aid) in transfers {
+        if let Some(&(ri, si)) = loc.get(&donor) {
+            sim.world.regions[ri].settlements[si].food_stock -= aid;
+        }
+        if let Some(&(ri, si)) = loc.get(&recip) {
+            sim.world.regions[ri].settlements[si].food_stock += aid;
+        }
+        sim.province_ties.nudge(&donor, &recip, 0.04);
+        let mut caravan = Caravan::generate(
+            sim.world
+                .seed
+                .wrapping_add(tick)
+                .wrapping_add(si_hash(&recip)),
+            donor.clone(),
+            recip.clone(),
+            tick,
+        );
+        caravan.goods = vec![(ItemType::Food, (aid as u32).max(1))];
+        sim.caravans.push(caravan);
+        sim.log(
+            tick,
+            Voice::Rumor,
+            format!("{donor} sent grain to {recip} in its hunger — the alliance feeds its own, season be damned."),
+        );
     }
 }
 
@@ -1709,6 +1829,65 @@ mod tests {
             summer.caravans.len(),
             caravans_before,
             "relief is a winter thing — none flows in Green"
+        );
+    }
+
+    #[test]
+    fn an_alliance_feeds_a_starving_partner_year_round() {
+        let charts = charts::load_charts().unwrap();
+        let mut sim = SimState::new(42, charts);
+        let mut names = Vec::new();
+        'outer: for region in &sim.world.regions {
+            for s in &region.settlements {
+                if s.population > 1 {
+                    names.push(s.name.clone());
+                    if names.len() == 2 {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        assert_eq!(names.len(), 2);
+        let (full, starving) = (names[0].clone(), names[1].clone());
+        // A deep alliance, one ally comfortable and one in famine.
+        sim.province_ties.nudge(&full, &starving, 0.85);
+        let set_food = |sim: &mut SimState, name: &str, ph: f64| {
+            for region in sim.world.regions.iter_mut() {
+                for s in region.settlements.iter_mut() {
+                    if s.name == name {
+                        s.food_stock = ph * s.population.max(1) as f64;
+                    }
+                }
+            }
+        };
+        let get_food = |sim: &SimState, name: &str| -> f64 {
+            sim.world
+                .regions
+                .iter()
+                .flat_map(|r| r.settlements.iter())
+                .find(|s| s.name == name)
+                .map(|s| s.food_stock)
+                .unwrap_or(0.0)
+        };
+        set_food(&mut sim, &full, 3.0);
+        set_food(&mut sim, &starving, 0.0);
+        let before = get_food(&sim, &starving);
+        // High Green — the season winter relief would NOT fire in.
+        sim.world.tick = 45 * 24;
+        assert_eq!(
+            crate::model::Season::from_day(45),
+            crate::model::Season::Green
+        );
+        tick_alliance_relief(&mut sim);
+        assert!(
+            get_food(&sim, &starving) > before,
+            "the alliance feeds its starving partner even in Green"
+        );
+        assert!(
+            sim.caravans
+                .iter()
+                .any(|c| c.origin == full && c.destination == starving),
+            "an aid caravan rides the alliance road"
         );
     }
 
