@@ -57,6 +57,9 @@ pub fn handle_talk_input(
         KeyCode::Char('r') => {
             app.ask_province(region_idx, settlement_idx, person_idx);
         }
+        KeyCode::Char('s') => {
+            app.ask_season(region_idx, settlement_idx, person_idx);
+        }
         KeyCode::Down => {
             return scroll.saturating_add(1);
         }
