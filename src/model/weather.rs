@@ -140,6 +140,21 @@ impl Season {
         }
     }
 
+    /// How the season leans a town's council (#570 slice 3), as an additive
+    /// pull on the three factions `(crafter, trader, elder)`. Deep Frost turns a
+    /// place inward and cautious — the Elders gain, hoarding against winter and
+    /// keeping the roads close; high Green throws the gates wide and the Traders
+    /// gain on the season's plenty and busy roads; Thaw, rebuilding from winter,
+    /// favours the hands that make and mend. Small, so it tips a contested
+    /// council without overruling a town's settled character.
+    pub fn council_lean(self) -> (f64, f64, f64) {
+        match self {
+            Season::Thaw => (0.6, 0.0, 0.0),
+            Season::Green => (0.0, 0.8, 0.0),
+            Season::Frost => (0.0, 0.0, 0.9),
+        }
+    }
+
     pub fn need_decay_multiplier(self) -> f64 {
         match self {
             Season::Frost => 1.3,
@@ -914,6 +929,29 @@ mod tests {
         // Never certain, never silent: the roads always carry some chance.
         for s in [Season::Thaw, Season::Green, Season::Frost] {
             assert!(s.caravan_chance() > 0 && s.caravan_chance() < 100);
+        }
+    }
+
+    #[test]
+    fn the_season_leans_the_council() {
+        // Frost leans Elder, Green leans Trader, Thaw leans Crafter — each its
+        // own faction and no other.
+        let (tc, _, _) = Season::Thaw.council_lean();
+        let (_, gt, _) = Season::Green.council_lean();
+        let (_, _, fe) = Season::Frost.council_lean();
+        assert!(tc > 0.0, "Thaw favours the makers");
+        assert!(gt > 0.0, "Green favours the traders");
+        assert!(fe > 0.0, "Frost favours the elders");
+        assert_eq!(Season::Thaw.council_lean().1, 0.0);
+        assert_eq!(Season::Thaw.council_lean().2, 0.0);
+        assert_eq!(Season::Green.council_lean().0, 0.0);
+        assert_eq!(Season::Green.council_lean().2, 0.0);
+        assert_eq!(Season::Frost.council_lean().0, 0.0);
+        assert_eq!(Season::Frost.council_lean().1, 0.0);
+        // The lean is gentle — it never alone overrules a settled council.
+        for s in [Season::Thaw, Season::Green, Season::Frost] {
+            let (c, t, e) = s.council_lean();
+            assert!(c < 1.0 && t < 1.0 && e < 1.0);
         }
     }
 
