@@ -223,6 +223,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_province_ties(sim);
     tick_weather_fronts(sim);
     tick_settlement_life(sim);
+    tick_winter_relief(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
     // founding parties take rich empty land — slowly, the way the Fall's
@@ -1081,8 +1082,10 @@ fn tick_caravans(sim: &mut SimState) {
     let day = tick / 24;
     let mut rng =
         SeedRng::new(sim.world.seed.wrapping_add(day.wrapping_mul(7919))).fork_for("caravan");
-    // ~1 caravan every other day on average.
-    if rng.gen_range(2) == 0 {
+    // The roads run thick in Green and thin in Frost (#570): the daily chance a
+    // cart sets out turns with the season, in place of the old flat cadence.
+    let season = crate::model::Season::from_day(day as u32);
+    if rng.gen_range(100) >= season.caravan_chance() {
         return;
     }
     // A third of the caravans ride the LONG roads: they come from the named
@@ -1212,6 +1215,114 @@ fn tick_province_ties(sim: &mut SimState) {
         let t = sim.world.tick;
         sim.log(t, Voice::Rumor, line);
     }
+}
+
+/// Winter relief along the partner-roads (#570 slice 2): in deep Frost, a town
+/// whose stores are full sends grain to a *partner* town gone short — the
+/// living province caring for its own through the hard season. The relief moves
+/// real meals between the two, deepens the partnership that carried it, rides as
+/// a relief caravan, and is talked of on the road. System-first: the towns do
+/// this with no player input, and only between towns already bound as partners.
+fn tick_winter_relief(sim: &mut SimState) {
+    use crate::model::economy::Caravan;
+    use crate::model::province::TieKind;
+    use crate::model::ItemType;
+    let tick = sim.world.tick;
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let day = (tick / 24) as u32;
+    if crate::model::Season::from_day(day) != crate::model::Season::Frost {
+        return;
+    }
+    // Snapshot each living town's stores and where it sits, by name.
+    let mut loc: std::collections::HashMap<String, (usize, usize)> =
+        std::collections::HashMap::new();
+    let mut store: std::collections::HashMap<String, (f64, u32)> = std::collections::HashMap::new();
+    for (ri, region) in sim.world.regions.iter().enumerate() {
+        for (si, s) in region.settlements.iter().enumerate() {
+            if s.population == 0 {
+                continue;
+            }
+            loc.insert(s.name.clone(), (ri, si));
+            store.insert(s.name.clone(), (s.food_stock, s.population));
+        }
+    }
+    let per_head = |name: &str| -> f64 {
+        store
+            .get(name)
+            .map(|(f, p)| f / (*p).max(1) as f64)
+            .unwrap_or(0.0)
+    };
+    // Partner pairs only, in a sorted order so the relief is deterministic.
+    let mut pairs: Vec<(String, String)> = sim
+        .province_ties
+        .bonds
+        .keys()
+        .filter(|(a, b)| {
+            sim.province_ties.tie(a, b) == TieKind::Partner
+                && store.contains_key(a)
+                && store.contains_key(b)
+        })
+        .cloned()
+        .collect();
+    pairs.sort();
+    // A full town comfortably feeds itself above this per-head; a short one
+    // below the lower mark needs help. Relief flows from the surplus to the
+    // shortfall, never beyond either bound.
+    const COMFORTABLE: f64 = 1.5;
+    const SHORT: f64 = 0.7;
+    let mut transfers: Vec<(String, String, f64)> = Vec::new();
+    for (a, b) in &pairs {
+        // Whichever side has the surplus is the donor; the short side, the
+        // recipient. If neither is short or neither has spare, no cart rolls.
+        let (donor, recip) = if per_head(a) >= per_head(b) {
+            (a, b)
+        } else {
+            (b, a)
+        };
+        let spare = (per_head(donor) - COMFORTABLE) * store[donor].1 as f64;
+        let need = (SHORT - per_head(recip)) * store[recip].1 as f64;
+        let relief = spare.min(need);
+        if relief >= 1.0 {
+            transfers.push((donor.clone(), recip.clone(), relief));
+        }
+    }
+    for (donor, recip, relief) in transfers {
+        if let Some(&(ri, si)) = loc.get(&donor) {
+            sim.world.regions[ri].settlements[si].food_stock -= relief;
+        }
+        if let Some(&(ri, si)) = loc.get(&recip) {
+            sim.world.regions[ri].settlements[si].food_stock += relief;
+        }
+        // The kindness deepens the partnership that carried it.
+        sim.province_ties.nudge(&donor, &recip, 0.04);
+        // A relief caravan of grain rides the partner-road.
+        let mut caravan = Caravan::generate(
+            sim.world
+                .seed
+                .wrapping_add(tick)
+                .wrapping_add(si_hash(&recip)),
+            donor.clone(),
+            recip.clone(),
+            tick,
+        );
+        caravan.goods = vec![(ItemType::Food, (relief as u32).max(1))];
+        sim.caravans.push(caravan);
+        sim.log(
+            tick,
+            Voice::Rumor,
+            format!(
+                "In the hard winter {donor} sent grain to {recip} — the partner-road runs even through the frost."
+            ),
+        );
+    }
+}
+
+/// A small stable hash of a name, to spread relief-caravan seeds apart within a
+/// single day's relief so two reliefs do not collide on one id.
+fn si_hash(name: &str) -> u64 {
+    crate::rng::fnv1a_hash(name)
 }
 
 /// Remove structures that have fully weathered away (decay ratio >= 1.0).
@@ -1392,6 +1503,81 @@ mod tests {
         assert_eq!(w[3], 0.0, "a rival town never sees the cart");
         assert!(w[1] > w[2], "a partner is favoured over a neutral town");
         assert!(w[2] > 0.0, "a neutral town keeps a base chance");
+    }
+
+    #[test]
+    fn winter_relief_flows_from_a_full_partner_to_a_short_one() {
+        let charts = charts::load_charts().unwrap();
+        let mut sim = SimState::new(42, charts);
+        // Two real towns of the generated province.
+        let mut names = Vec::new();
+        'outer: for region in &sim.world.regions {
+            for s in &region.settlements {
+                if s.population > 1 {
+                    names.push(s.name.clone());
+                    if names.len() == 2 {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        assert_eq!(names.len(), 2, "the test world has at least two towns");
+        let (full, short) = (names[0].clone(), names[1].clone());
+        // Bind them as partners and set their stores: one comfortably full, one
+        // gone empty.
+        sim.province_ties.nudge(&full, &short, 0.8);
+        let set_food = |sim: &mut SimState, name: &str, f: f64| {
+            for region in sim.world.regions.iter_mut() {
+                for s in region.settlements.iter_mut() {
+                    if s.name == name {
+                        s.food_stock = f * s.population.max(1) as f64;
+                    }
+                }
+            }
+        };
+        let get_food = |sim: &SimState, name: &str| -> f64 {
+            sim.world
+                .regions
+                .iter()
+                .flat_map(|r| r.settlements.iter())
+                .find(|s| s.name == name)
+                .map(|s| s.food_stock)
+                .unwrap_or(0.0)
+        };
+        set_food(&mut sim, &full, 3.0);
+        set_food(&mut sim, &short, 0.0);
+        let short_before = get_food(&sim, &short);
+        let full_before = get_food(&sim, &full);
+        // A day in deep Frost (day-of-year 70).
+        sim.world.tick = 70 * 24;
+        tick_winter_relief(&mut sim);
+        assert!(
+            get_food(&sim, &short) > short_before,
+            "the short partner receives grain"
+        );
+        assert!(
+            get_food(&sim, &full) < full_before,
+            "the relief comes out of the full town's stores"
+        );
+        assert!(
+            sim.caravans
+                .iter()
+                .any(|c| c.origin == full && c.destination == short),
+            "a relief caravan rides the partner-road"
+        );
+        // Out of season, no relief moves at all.
+        let mut summer = SimState::new(42, charts::load_charts().unwrap());
+        summer.province_ties.nudge(&full, &short, 0.8);
+        set_food(&mut summer, &full, 3.0);
+        set_food(&mut summer, &short, 0.0);
+        summer.world.tick = 40 * 24; // Green
+        let caravans_before = summer.caravans.len();
+        tick_winter_relief(&mut summer);
+        assert_eq!(
+            summer.caravans.len(),
+            caravans_before,
+            "relief is a winter thing — none flows in Green"
+        );
     }
 
     #[test]

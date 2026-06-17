@@ -128,6 +128,18 @@ impl Season {
         }
     }
 
+    /// The chance in a hundred that a caravan sets out on a given day this
+    /// season (#570 slice 2): the roads run thick in the green season and thin
+    /// to a trickle in deep Frost, when the passes are hard and the stores are
+    /// held back against winter. Replaces the old flat every-other-day cadence.
+    pub fn caravan_chance(self) -> u32 {
+        match self {
+            Season::Green => 65,
+            Season::Thaw => 50,
+            Season::Frost => 28,
+        }
+    }
+
     pub fn need_decay_multiplier(self) -> f64 {
         match self {
             Season::Frost => 1.3,
@@ -893,6 +905,16 @@ mod tests {
         assert!(Season::Frost.market_price_modifier() > 1.0);
         assert!(Season::Green.market_price_modifier() < 1.0);
         assert!((Season::Thaw.market_price_modifier() - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn caravans_run_thick_in_green_and_thin_in_frost() {
+        assert!(Season::Green.caravan_chance() > Season::Thaw.caravan_chance());
+        assert!(Season::Thaw.caravan_chance() > Season::Frost.caravan_chance());
+        // Never certain, never silent: the roads always carry some chance.
+        for s in [Season::Thaw, Season::Green, Season::Frost] {
+            assert!(s.caravan_chance() > 0 && s.caravan_chance() < 100);
+        }
     }
 
     #[test]
