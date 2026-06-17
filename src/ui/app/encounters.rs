@@ -78,6 +78,24 @@ impl App {
         })
     }
 
+    /// Encounter-rate multiplier from the polity's war (#579 slice 1): while the
+    /// province's polity and its rival are at tension the roads are watched and
+    /// raided, so the traveller is found more often. 1.0 in peace. Deterministic
+    /// per season, on the same clock the war rumor and the levy use.
+    pub fn polity_war_mult(&self) -> f64 {
+        let Some(sim) = self.sim.as_ref() else {
+            return 1.0;
+        };
+        let day = self.clock.day;
+        let season_ord = (day / 30) % 4;
+        let year = day / 120;
+        if sim.world.polity.in_tension(self.seed, season_ord, year) {
+            1.25
+        } else {
+            1.0
+        }
+    }
+
     pub fn check_encounter(&mut self, terrain: Terrain) {
         let pp = Some(self.inter_people_bias.player_people);
         // Weather stirs or settles the land: storms raise encounter chance,
@@ -122,6 +140,10 @@ impl App {
             };
         // The roads of a people you have wronged or warred are not safe to you.
         let weather_mult = weather_mult * self.road_tension_mult();
+        // A province at war is a province of watched, raided roads (#579): the
+        // contested edge finds the traveller more often while the polity and its
+        // rival are at tension.
+        let weather_mult = weather_mult * self.polity_war_mult();
         // Sampsa's vow: you read the road before it turns — danger finds you less.
         let weather_mult = weather_mult * self.vow_encounter_mult();
         if let Some(enc) = Encounter::roll_biased_weather(
@@ -1380,5 +1402,32 @@ impl App {
         self.vitals.energy = self.vitals.energy.max(0.5);
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         self.screen = Screen::World { region_idx };
+    }
+}
+
+#[cfg(test)]
+mod war_tests {
+    use super::*;
+    use crate::charts::load::load_charts;
+
+    #[test]
+    fn war_raises_road_danger_only_in_tension() {
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.enter_map(0);
+        let polity = app.sim.as_ref().unwrap().world.polity;
+        let seed = app.seed;
+        // Find a war day and a peace day for this world's polity.
+        let war = (0..600u32).find(|&d| polity.in_tension(seed, (d / 30) % 4, d / 120));
+        let peace = (0..600u32).find(|&d| !polity.in_tension(seed, (d / 30) % 4, d / 120));
+        let (war, peace) = (war.expect("a war season"), peace.expect("a peace season"));
+        app.clock.day = peace;
+        assert!((app.polity_war_mult() - 1.0).abs() < 1e-9, "peace is quiet");
+        app.clock.day = war;
+        assert!(
+            app.polity_war_mult() > 1.0,
+            "war makes the contested roads more dangerous"
+        );
     }
 }

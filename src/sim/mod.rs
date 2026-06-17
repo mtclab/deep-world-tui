@@ -1170,6 +1170,30 @@ fn tick_caravans(sim: &mut SimState) {
         dest,
         tick,
     );
+    // War on the contested edge (#579 slice 1): while the province's polity is
+    // at tension with its rival, the roads are watched and raided — a share of
+    // the carts never reach the market, so the goods they would have carried
+    // stay dear. A taken caravan is talked of on the road. Deterministic per
+    // day, on the same season clock the rumor and the levy use.
+    let season_ord = (day as u32 / 30) % 4;
+    let war_year = day as u32 / 120;
+    if sim
+        .world
+        .polity
+        .in_tension(sim.world.seed, season_ord, war_year)
+        && rng.gen_range(100) < 35
+    {
+        let t = sim.world.tick;
+        sim.log(
+            t,
+            Voice::Rumor,
+            format!(
+                "A caravan was taken on the road to {} — the war makes the carts a prize.",
+                caravan.destination
+            ),
+        );
+        return;
+    }
     sim.caravans.push(caravan);
 }
 
