@@ -71,6 +71,21 @@ impl App {
         let day_before = self.clock.day;
         let season = self.clock.season();
         self.clock.advance(hours);
+        // The turning of the year is named for the player (#570 slice 4): when
+        // the season changes, its word reaches them on the road and in the
+        // journal — winter's bite, the green plenty, the thaw's opening.
+        let season_now = self.clock.season();
+        if season_now != season {
+            let line = season_now.turn_announcement();
+            self.status_msg = Some(line.to_string());
+            if let Some(ref mut sim) = self.sim {
+                sim.log(
+                    sim.world.tick,
+                    crate::sim::journal::Voice::Rumor,
+                    line.to_string(),
+                );
+            }
+        }
         // Harsh weather wears the body down faster too (need_decay_modifier
         // was defined per-weather but never applied to the player). The life's
         // hidden star leans the harshness — only the penalty over fair weather,

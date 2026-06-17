@@ -973,6 +973,56 @@ impl App {
         });
     }
 
+    /// Ask an NPC how their town fares for the season (#570 slice 4): the answer
+    /// reads off the turning year and the town's own stores — a fat granary in
+    /// the green, a lean one going into Frost — so the season is something the
+    /// player can ask after, not only feel in prices.
+    pub fn ask_season(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        let Some((people, pname, per_head)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| {
+                    s.people.get(person_idx).map(|p| {
+                        let ph = s.food_stock / s.population.max(1) as f64;
+                        (PeopleKind::from_name(&p.people), p.name.clone(), ph)
+                    })
+                })
+        }) else {
+            return;
+        };
+        let regard = self.inter_people_bias.effective_bias(people);
+        if regard < -0.15 {
+            self.status_msg = Some(format!("{pname} has no words for your kind."));
+            return;
+        }
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
+        use crate::model::Season;
+        let lean = per_head < 0.7;
+        let line = match (self.clock.season(), lean) {
+            (Season::Frost, true) => {
+                "The frost's hard on us — the stores run thin, and there's a way to go yet before the thaw."
+            }
+            (Season::Frost, false) => {
+                "We laid by enough before the cold. The frost won't take us this year."
+            }
+            (Season::Green, true) => {
+                "Poor year, even in the green — the granary's low when it ought to be full."
+            }
+            (Season::Green, false) => {
+                "Good season. The granary's full, the work goes well, the roads are busy."
+            }
+            (Season::Thaw, true) => {
+                "A thin thaw — we came through the winter lean, and the new fields aren't in yet."
+            }
+            (Season::Thaw, false) => {
+                "The thaw's kind this year. Stores held, and the first carts are moving again."
+            }
+        };
+        self.status_msg = Some(format!("{pname}: \"{line}\""));
+    }
+
     /// Commission a Tool from a settlement's smith (#527 tradespeople): bring
     /// the Iron and the fee, and the smith does the rest — no botch, no wasted
     /// stock, the way the player's own bench can fail. A gifted smith (iron-ear)
@@ -1924,6 +1974,42 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::compass_bearing;
+    use super::*;
+    use crate::charts::load::load_charts;
+
+    #[test]
+    fn ask_season_reads_the_year_and_the_stores() {
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.screen = Screen::Location {
+            region_idx: 0,
+            settlement_idx: 0,
+            scroll: 0,
+        };
+        // A lean town deep in Frost: the answer should speak of the hard winter.
+        if let Some(sim) = app.sim.as_mut() {
+            sim.world.regions[0].settlements[0].food_stock = 0.0;
+        }
+        app.clock.day = 70; // Frost
+        app.status_msg = None;
+        app.ask_season(0, 0, 0);
+        let msg = app.status_msg.clone().unwrap_or_default().to_lowercase();
+        assert!(msg.contains("frost"), "lean Frost names the cold: {msg}");
+        // A full granary in the green reads as a good season.
+        if let Some(sim) = app.sim.as_mut() {
+            let pop = sim.world.regions[0].settlements[0].population.max(1) as f64;
+            sim.world.regions[0].settlements[0].food_stock = pop * 3.0;
+        }
+        app.clock.day = 40; // Green
+        app.status_msg = None;
+        app.ask_season(0, 0, 0);
+        let msg = app.status_msg.clone().unwrap_or_default().to_lowercase();
+        assert!(
+            msg.contains("good season") || msg.contains("granary's full"),
+            "full Green reads well: {msg}"
+        );
+    }
 
     #[test]
     fn compass_bearing_names_the_cardinals() {

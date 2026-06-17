@@ -170,6 +170,23 @@ impl Season {
         }
     }
 
+    /// What the turning of the year brings, named for the player when the season
+    /// changes (#570 slice 4): the road's word of the season and the felt shape
+    /// of it — winter's bite, the green plenty, the thaw's opening.
+    pub fn turn_announcement(self) -> &'static str {
+        match self {
+            Season::Thaw => {
+                "The thaw is here. The roads soften and open, and the year's first carts move again."
+            }
+            Season::Green => {
+                "The green season is on us — the land is generous, the markets full, the roads thick with trade."
+            }
+            Season::Frost => {
+                "Frost is on us. The granaries will have to last; the roads thin, prices climb, and the cold bites harder now."
+            }
+        }
+    }
+
     pub fn glyph(self) -> char {
         match self {
             Season::Thaw => '❀',
@@ -930,6 +947,19 @@ mod tests {
         for s in [Season::Thaw, Season::Green, Season::Frost] {
             assert!(s.caravan_chance() > 0 && s.caravan_chance() < 100);
         }
+    }
+
+    #[test]
+    fn each_season_turn_is_named_distinctly() {
+        let t = Season::Thaw.turn_announcement();
+        let g = Season::Green.turn_announcement();
+        let f = Season::Frost.turn_announcement();
+        for s in [t, g, f] {
+            assert!(!s.is_empty());
+        }
+        assert!(t != g && g != f && t != f, "each turn reads differently");
+        // The frost line names the bite the player will feel.
+        assert!(f.to_lowercase().contains("frost"));
     }
 
     #[test]
