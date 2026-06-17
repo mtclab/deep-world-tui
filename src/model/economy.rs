@@ -911,6 +911,12 @@ pub struct Settlement {
     /// the population (and so the wanted footprint) moves.
     #[serde(default)]
     pub district: u32,
+    /// A lasting deed the town remembers the player by (#565 the player's mark):
+    /// the stranger who kept them fed through a lean year. Set when the player
+    /// provisions a town in famine; surfaced in its talk and on the wind, so a
+    /// long life is legible in the places it changed.
+    #[serde(default)]
+    pub remembered_deed: Option<String>,
 }
 
 impl Settlement {
@@ -2040,6 +2046,7 @@ mod tests {
             map_x: 0,
             map_y: 0,
             district: 0,
+            remembered_deed: None,
         };
 
         roundtrip(&s);
@@ -2096,6 +2103,7 @@ mod tests {
             map_x: 0,
             map_y: 0,
             district: 0,
+            remembered_deed: None,
         };
         assert_eq!(s.enclave_people(), Some(crate::model::PeopleKind::Khor));
         assert_eq!(s.display_name(), "Vaskiluuri, a Khör enclave");

@@ -98,6 +98,7 @@ mod tests {
                     map_x: 0,
                     map_y: 0,
                     district: 0,
+                    remembered_deed: None,
                 }],
                 weather: crate::model::Weather::Clear,
                 game_richness: 1.0,

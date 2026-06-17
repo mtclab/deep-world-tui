@@ -358,6 +358,7 @@ pub fn spawn_settlement(
         map_x: x as u32,
         map_y: y as u32,
         district: 0,
+        remembered_deed: None,
     };
     // Tile→settlement resolution is by footprint containment (anchor set
     // above), so vec order carries no meaning — append.

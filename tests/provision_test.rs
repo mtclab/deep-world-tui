@@ -136,6 +136,49 @@ fn carrying_goods_between_rivals_thaws_the_feud() {
 }
 
 #[test]
+fn feeding_a_town_through_famine_leaves_a_lasting_mark() {
+    // #565 slice 4: provision a town in famine and it remembers you for good.
+    let mut a = app();
+    let (_ri, si) = a.player_on_settlement().expect("town");
+    {
+        let s = &mut a.sim.as_mut().unwrap().world.regions[0].settlements[si];
+        s.famine_days = 5; // the lean year
+        for it in [
+            ItemType::Iron,
+            ItemType::Tool,
+            ItemType::Cloth,
+            ItemType::Wood,
+        ] {
+            s.goods_stock.insert(it, 0.0);
+        }
+    }
+    let want = a.settlement_shortfall().expect("a shortfall");
+    a.player_start.as_mut().unwrap().inventory.add(want, 5);
+    a.provision_settlement();
+    let deed = a.sim.as_ref().unwrap().world.regions[0].settlements[si]
+        .remembered_deed
+        .clone();
+    let player_name = a.player_start.as_ref().unwrap().person.name.clone();
+    assert!(
+        deed.as_deref().unwrap_or("").contains(&player_name),
+        "the town remembers the player by name: {deed:?}"
+    );
+
+    // The town speaks of it (the day is chosen so the recollection fires).
+    a.clock.day = 0; // day % 5 < 2 → the talk turns to the old kindness
+    a.status_msg = None;
+    a.ask_news(0, si, 0);
+    assert!(
+        a.status_msg
+            .as_deref()
+            .unwrap_or("")
+            .contains("still speak"),
+        "an NPC recalls the deed: {:?}",
+        a.status_msg
+    );
+}
+
+#[test]
 fn nothing_to_provision_if_you_carry_none() {
     let mut a = app();
     let (_ri, si) = a.player_on_settlement().expect("town");

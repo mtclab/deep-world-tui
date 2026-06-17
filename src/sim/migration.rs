@@ -664,6 +664,7 @@ mod tests {
             map_x: 0,
             map_y: 0,
             district: 0,
+            remembered_deed: None,
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(
@@ -702,6 +703,7 @@ mod tests {
             map_x: 0,
             map_y: 0,
             district: 0,
+            remembered_deed: None,
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(

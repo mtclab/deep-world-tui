@@ -633,6 +633,7 @@ fn generate_settlement(
         map_x: 0,
         map_y: 0,
         district: 0,
+        remembered_deed: None,
     }
 }
 

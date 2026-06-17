@@ -347,6 +347,11 @@ impl App {
             ps.inventory.remove(want, deliver);
             ps.inventory.add(ItemType::Coin, pay);
         }
+        let player_name = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.name.clone())
+            .unwrap_or_default();
         // The good actually lands in the town's stores.
         if let Some(ref mut sim) = self.sim {
             if let Some(s) = sim
@@ -362,6 +367,14 @@ impl App {
                 // place often enough and you shift who holds its council.
                 s.politics
                     .adjust(crate::model::economy::Faction::Traders, 0.01);
+                // A town fed through a famine remembers the stranger who did it
+                // (#565 slice 4): a lasting mark, set once, that its talk and the
+                // road will carry for as long as the town stands.
+                if s.famine_days > 0 && s.remembered_deed.is_none() && !player_name.is_empty() {
+                    s.remembered_deed = Some(format!(
+                        "{player_name}, the stranger who kept us fed through the lean year"
+                    ));
+                }
             }
             // Carrying goods between two RIVAL towns thaws their feud a little
             // (#565 slice 3): the player is a cart crossing where no town's own
