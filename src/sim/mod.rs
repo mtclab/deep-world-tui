@@ -1021,6 +1021,31 @@ pub fn city_arrival(idx: usize) -> &'static str {
     }
 }
 
+/// How likely a caravan leaving `origin` is to make for each town in `names`
+/// (#560 living province): a rival town never sees the cart (weight 0), the
+/// origin itself never (0), a neutral town keeps a base chance, and a partner
+/// scales up with the strength of the bond. Pure so the routing is testable.
+fn caravan_destination_weights(
+    names: &[String],
+    origin: &str,
+    ties: &crate::model::province::ProvinceTies,
+) -> Vec<f64> {
+    use crate::model::province::TieKind;
+    names
+        .iter()
+        .map(|n| {
+            if n == origin {
+                return 0.0;
+            }
+            if ties.tie(origin, n) == TieKind::Rival {
+                0.0 // bad blood — no cart crosses
+            } else {
+                1.0 + 4.0 * ties.bond(origin, n).max(0.0)
+            }
+        })
+        .collect()
+}
+
 fn tick_caravans(sim: &mut SimState) {
     let tick = sim.world.tick;
     // Goods disperse ~2 days after arrival.
@@ -1055,16 +1080,47 @@ fn tick_caravans(sim: &mut SimState) {
         let o = rng.gen_range(names.len() as u32) as usize;
         names[o].clone()
     };
-    let mut d = rng.gen_range(names.len() as u32) as usize;
-    if names[d] == origin {
-        d = (d + 1) % names.len();
-    }
-    let dest = names[d].clone();
+    // Where the caravan goes is no longer a blind draw (#560 living province):
+    // from one of the province's own towns it rides the standing roads — a
+    // partner town is far likelier to see the cart, a rival town never does.
+    // (Long-road caravans from the off-map cities still pick a destination at
+    // large.) The feedback closes the loop: the partnerships the carts deepen
+    // then pull still more carts.
+    let origin_is_local = names.iter().any(|n| n == &origin);
+    let dest = if origin_is_local {
+        let weights = caravan_destination_weights(&names, &origin, &sim.province_ties);
+        let total: f64 = weights.iter().sum();
+        if total <= 0.0 {
+            // Everyone a rival (or only self) — fall back to any other town.
+            let mut d = rng.gen_range(names.len() as u32) as usize;
+            if names[d] == origin {
+                d = (d + 1) % names.len();
+            }
+            names[d].clone()
+        } else {
+            let mut roll = rng.gen_f64() * total;
+            let mut chosen = 0usize;
+            for (i, w) in weights.iter().enumerate() {
+                roll -= w;
+                if roll <= 0.0 {
+                    chosen = i;
+                    break;
+                }
+            }
+            names[chosen].clone()
+        }
+    } else {
+        let mut d = rng.gen_range(names.len() as u32) as usize;
+        if names[d] == origin {
+            d = (d + 1) % names.len();
+        }
+        names[d].clone()
+    };
     // A caravan between two of the province's own towns deepens their
     // partnership (#560): the more carts cross between them, the closer they
     // grow. Caravans down the long roads from the named cities of the continent
     // are not province ties — those cities are off the map.
-    if names.iter().any(|n| n == &origin) {
+    if origin_is_local {
         sim.province_ties.nudge(&origin, &dest, 0.05);
     }
     let caravan = crate::model::economy::Caravan::generate(
@@ -1267,6 +1323,25 @@ mod tests {
     use super::*;
     use crate::charts;
     use crate::gen::world::generate_world;
+
+    #[test]
+    fn caravan_routes_follow_the_province_ties() {
+        use crate::model::province::ProvinceTies;
+        let names = vec![
+            "Home".to_string(),
+            "Partner".to_string(),
+            "Neutral".to_string(),
+            "Rival".to_string(),
+        ];
+        let mut ties = ProvinceTies::default();
+        ties.nudge("Home", "Partner", 0.8);
+        ties.nudge("Home", "Rival", -0.8);
+        let w = caravan_destination_weights(&names, "Home", &ties);
+        assert_eq!(w[0], 0.0, "the origin never ships to itself");
+        assert_eq!(w[3], 0.0, "a rival town never sees the cart");
+        assert!(w[1] > w[2], "a partner is favoured over a neutral town");
+        assert!(w[2] > 0.0, "a neutral town keeps a base chance");
+    }
 
     #[test]
     fn simstate_loads_when_obligations_field_missing() {
