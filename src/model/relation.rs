@@ -273,6 +273,18 @@ pub fn evolve_settlement_relations(
     None
 }
 
+/// How riven a settlement is by feud and rivalry (#552): the **strongest** sour
+/// bond (Feud or Rival) among its residents — size-independent, so one bitter
+/// rivalry weighs the same in a city as in a hamlet. `0.0` for a town at peace.
+pub fn feud_load(people: &[crate::model::Person]) -> f64 {
+    people
+        .iter()
+        .flat_map(|p| p.relations.iter())
+        .filter(|r| matches!(r.kind, RelationKind::Feud | RelationKind::Rival))
+        .map(|r| r.intensity)
+        .fold(0.0, f64::max)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -315,6 +327,24 @@ mod tests {
                 ..Default::default()
             },
         ]
+    }
+
+    #[test]
+    fn feud_load_measures_sour_bonds_per_head() {
+        let mut people = two_residents(); // Ana holds a sworn-friend bond (warm)
+        assert_eq!(feud_load(&people), 0.0, "no sour bonds, no unrest");
+        people[0].relations.push(InterNpcRelation {
+            kind: RelationKind::Rival,
+            target_person_id: "b".into(),
+            intensity: 0.6,
+            formed_at_tick: 0,
+            reason: "y".into(),
+        });
+        // The strongest sour bond stands as the load, whatever the head-count.
+        assert!(
+            (feud_load(&people) - 0.6).abs() < 1e-9,
+            "feud load is the worst grudge"
+        );
     }
 
     #[test]

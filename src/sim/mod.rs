@@ -696,6 +696,24 @@ fn tick_settlement_life(sim: &mut SimState) {
                     completed_msgs.push(msg);
                 }
             }
+            // A town riven by feud and rivalry lives uneasy (#552): its people's
+            // sense of safety frays, and now and then the grudges are talked of.
+            let unrest = crate::model::relation::feud_load(&settlement.people);
+            if unrest > 0.25 {
+                for person in settlement.people.iter_mut() {
+                    person.needs.decay(Need::Safety, 0.01);
+                }
+                let h = crate::rng::mix_u64(
+                    seed ^ tick.wrapping_mul(0x2545_F491_4F6C_DD1D)
+                        ^ (settlement.population as u64),
+                );
+                if crate::rng::unit_from_hash(h) < 0.10 {
+                    completed_msgs.push(format!(
+                        "Old grudges stir in {} — tempers run short there.",
+                        settlement.name
+                    ));
+                }
+            }
 
             // --- construction ---
             let builders = settlement.profession_count("carpenter")
