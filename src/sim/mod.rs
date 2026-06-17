@@ -763,13 +763,18 @@ fn tick_settlement_life(sim: &mut SimState) {
                 let keepers = (settlement.profession_count("priest")
                     + settlement.profession_count("scribe")
                     + settlement.profession_count("healer")) as f64;
+                // The season leans the council (#570): Frost turns it inward to
+                // the Elders, Green expansive to the Traders, Thaw to the hands
+                // that rebuild. Small, added to the town's own character.
+                let (lean_c, lean_t, lean_e) = season.council_lean();
                 // Base of 0.5 so no faction is ever wholly without a voice.
-                let crafter_pull = 0.5 + makers + goods_total * 0.05;
-                let trader_pull = 0.5 + merchants * 1.5 + prosperity;
+                let crafter_pull = 0.5 + makers + goods_total * 0.05 + lean_c;
+                let trader_pull = 0.5 + merchants * 1.5 + prosperity + lean_t;
                 let elder_pull = 0.5
                     + keepers * 1.5
                     + (settlement.population as f64 / 300.0).min(3.0)
-                    + (1.0 - unrest);
+                    + (1.0 - unrest)
+                    + lean_e;
                 settlement
                     .politics
                     .drift_toward(crafter_pull, trader_pull, elder_pull, 0.03);

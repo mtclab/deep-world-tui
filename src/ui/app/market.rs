@@ -535,6 +535,25 @@ impl App {
         self.clock.season().market_price_modifier()
     }
 
+    /// Whether the town the player stands in is mid-festival (#570 slice 3):
+    /// the doors are open, the drink flows, and the stalls sell a little under
+    /// the odds.
+    pub fn in_festival_here(&self) -> bool {
+        self.current_settlement()
+            .map(|s| s.in_festival(self.clock.day))
+            .unwrap_or(false)
+    }
+
+    /// A festival in town is a boon the player feels at the market: goods go a
+    /// little cheaper while the doors are open (#570 slice 3).
+    fn festival_discount(&self) -> f64 {
+        if self.in_festival_here() {
+            0.90
+        } else {
+            1.0
+        }
+    }
+
     /// Whether the player carries the scale-hand — the Väylä weight-sense that
     /// reads true value in a trade (#439).
     fn scale_hand(&self) -> bool {
@@ -636,6 +655,7 @@ impl App {
             * self.vow_buy_mult()
             * self.goods_abundance_modifier(item)
             * self.season_price_modifier()
+            * self.festival_discount()
             / coin;
         ((base as f64 * m).ceil() as u32).max(1)
     }
@@ -723,5 +743,49 @@ impl App {
         } else {
             1
         }
+    }
+}
+
+#[cfg(test)]
+mod festival_tests {
+    use super::*;
+    use crate::charts::load::load_charts;
+
+    fn app_in_first_settlement() -> App {
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.screen = Screen::Location {
+            region_idx: 0,
+            settlement_idx: 0,
+            scroll: 0,
+        };
+        app
+    }
+
+    #[test]
+    fn a_festival_in_town_cheapens_the_stalls() {
+        let mut app = app_in_first_settlement();
+        // A coat is dear enough that the discount clears the rounding.
+        let item = ItemType::Coat;
+        // No festival in town: the plain price, no discount.
+        if let Some(sim) = app.sim.as_mut() {
+            sim.world.regions[0].settlements[0].festival_until_day = 0;
+        }
+        assert!(!app.in_festival_here());
+        assert!((app.festival_discount() - 1.0).abs() < 1e-9);
+        let plain = app.quote_buy_price(item);
+        // The town turns to festival, running past today.
+        let today = app.clock.day;
+        if let Some(sim) = app.sim.as_mut() {
+            sim.world.regions[0].settlements[0].festival_until_day = today + 3;
+        }
+        assert!(app.in_festival_here(), "the player's town is mid-festival");
+        assert!((app.festival_discount() - 0.90).abs() < 1e-9);
+        let feast = app.quote_buy_price(item);
+        assert!(
+            feast < plain,
+            "festival goods are cheaper: {feast} should be under {plain}"
+        );
     }
 }

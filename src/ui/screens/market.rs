@@ -20,13 +20,20 @@ pub(crate) fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
     ])
     .split(f.area());
 
-    let header = Paragraph::new(Line::from(vec![Span::styled(
+    let mut header_spans = vec![Span::styled(
         " Market",
         Style::default()
             .fg(theme.archive_red())
             .add_modifier(Modifier::BOLD),
-    )]))
-    .block(Block::default().borders(Borders::BOTTOM));
+    )];
+    if app.in_festival_here() {
+        header_spans.push(Span::styled(
+            "  ✿ festival — the stalls sell under the odds",
+            Style::default().fg(theme.warm_brown()),
+        ));
+    }
+    let header =
+        Paragraph::new(Line::from(header_spans)).block(Block::default().borders(Borders::BOTTOM));
     f.render_widget(header, chunks[0]);
 
     let inv = app.player_inventory();
