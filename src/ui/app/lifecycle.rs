@@ -645,6 +645,15 @@ impl App {
                 sim.reputation
                     .adjust_local(&npc_person.id, &heir_settlement_id, carry);
             }
+            // The forebear's mark on the province seeds the heir's standing
+            // wherever it was made (#588 slice 1): every town that holds a
+            // remembered_deed of the dead — the places kept fed through a lean
+            // year, run supplies to through the war — opens its door to the
+            // heir, who arrives there a half-friend, not a stranger.
+            let remembering = towns_remembering(&sim.world, &heir_settlement_id, &dead_person.name);
+            for sid in remembering {
+                sim.reputation.adjust_local(&npc_person.id, &sid, 0.2);
+            }
         }
 
         // Switch player
@@ -665,5 +674,64 @@ impl App {
         // Continue on Map screen
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         self.screen = Screen::World { region_idx };
+    }
+}
+
+/// The settlements across the province that hold a `remembered_deed` naming the
+/// forebear (#588 slice 1), other than the town the heir is taking up in — the
+/// places a long life marked, where the heir arrives a half-friend, not a
+/// stranger. Pure: reads the deeds laid down by play.
+fn towns_remembering(
+    world: &crate::model::World,
+    exclude_settlement_id: &str,
+    forebear_name: &str,
+) -> Vec<String> {
+    world
+        .regions
+        .iter()
+        .flat_map(|r| r.settlements.iter())
+        .filter(|s| {
+            s.id != exclude_settlement_id
+                && s.remembered_deed
+                    .as_deref()
+                    .is_some_and(|d| d.contains(forebear_name))
+        })
+        .map(|s| s.id.clone())
+        .collect()
+}
+
+#[cfg(test)]
+mod legacy_tests {
+    use super::towns_remembering;
+    use crate::charts::load::load_charts;
+    use crate::gen::world::generate_world;
+
+    #[test]
+    fn the_heir_is_remembered_where_the_forebear_was() {
+        let charts = load_charts().unwrap();
+        let mut world = generate_world(42, &charts);
+        // Mark two towns with a deed of "Aino", and the death-town with another.
+        let mut marked = Vec::new();
+        let mut death_town = String::new();
+        for region in world.regions.iter_mut() {
+            for s in region.settlements.iter_mut() {
+                if marked.len() < 2 {
+                    s.remembered_deed =
+                        Some("Aino, the stranger who kept us fed through the lean year".into());
+                    marked.push(s.id.clone());
+                } else if death_town.is_empty() {
+                    s.remembered_deed = Some("Aino, who ran supplies to us through the war".into());
+                    death_town = s.id.clone();
+                }
+            }
+        }
+        assert_eq!(marked.len(), 2);
+        assert!(!death_town.is_empty());
+        // The heir takes up in the death-town; the other two remember the line.
+        let found = towns_remembering(&world, &death_town, "Aino");
+        assert_eq!(found.len(), 2, "both marked towns remember the forebear");
+        assert!(!found.contains(&death_town), "the death-town is excluded");
+        // A forebear no town named seeds nothing.
+        assert!(towns_remembering(&world, &death_town, "Nobody").is_empty());
     }
 }
