@@ -900,6 +900,57 @@ impl App {
         ));
     }
 
+    /// Ask how this town stands with the rest of the province (#560 slice 4):
+    /// the person names the town it holds its strongest standing with — a trade
+    /// partner whose caravans run thick, or a rival no cart crosses to. Reads the
+    /// province-ties web that forms on its own. Regard-gated like the others.
+    pub fn ask_province(&mut self, region_idx: usize, settlement_idx: usize, person_idx: usize) {
+        let Some((people, pname, town)) = self.sim.as_ref().and_then(|sim| {
+            sim.world
+                .regions
+                .get(region_idx)
+                .and_then(|r| r.settlements.get(settlement_idx))
+                .and_then(|s| {
+                    s.people.get(person_idx).map(|p| {
+                        (
+                            PeopleKind::from_name(&p.people),
+                            p.name.clone(),
+                            s.name.clone(),
+                        )
+                    })
+                })
+        }) else {
+            return;
+        };
+        let mut regard = self.inter_people_bias.effective_bias(people);
+        if let Some(god) = people.patron_god() {
+            if self.god_affinity.get(god) > 0.4 {
+                regard += 0.05;
+            }
+        }
+        if regard < -0.15 {
+            self.status_msg = Some(format!("{pname} keeps the town's dealings from your kind."));
+            return;
+        }
+        self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
+        let strongest = self
+            .sim
+            .as_ref()
+            .and_then(|sim| sim.province_ties.strongest_tie(&town));
+        use crate::model::province::TieKind;
+        self.status_msg = Some(match strongest {
+            Some((other, TieKind::Partner)) => format!(
+                "{pname}: \"We do good trade with {other} — their carts come and ours go, thick on the road.\""
+            ),
+            Some((other, TieKind::Rival)) => format!(
+                "{pname}: \"There's bad blood with {other}. No cart of ours crosses to them, nor theirs to us.\""
+            ),
+            _ => format!(
+                "{pname}: \"We keep to ourselves, mostly — no town we're close to, none we're at odds with.\""
+            ),
+        });
+    }
+
     /// Commission a Tool from a settlement's smith (#527 tradespeople): bring
     /// the Iron and the fee, and the smith does the rest — no botch, no wasted
     /// stock, the way the player's own bench can fail. A gifted smith (iron-ear)
