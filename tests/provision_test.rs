@@ -61,6 +61,42 @@ fn provisioning_a_short_good_pays_and_stocks_the_town() {
 }
 
 #[test]
+fn keeping_a_town_supplied_lifts_its_traders() {
+    // A trade-runner who provisions a town again and again shifts who holds its
+    // council toward the Traders (#565 the player's mark).
+    let mut a = app();
+    let (_ri, si) = a.player_on_settlement().expect("town");
+    let traders_before = a.sim.as_ref().unwrap().world.regions[0].settlements[si]
+        .politics
+        .standing(deep_world_tui::model::economy::Faction::Traders);
+    for _ in 0..20 {
+        // Keep the town short of everything and the pack full, so each call
+        // delivers.
+        for it in [
+            ItemType::Iron,
+            ItemType::Tool,
+            ItemType::Cloth,
+            ItemType::Wood,
+        ] {
+            a.sim.as_mut().unwrap().world.regions[0].settlements[si]
+                .goods_stock
+                .insert(it, 0.0);
+        }
+        if let Some(want) = a.settlement_shortfall() {
+            a.player_start.as_mut().unwrap().inventory.add(want, 5);
+            a.provision_settlement();
+        }
+    }
+    let traders_after = a.sim.as_ref().unwrap().world.regions[0].settlements[si]
+        .politics
+        .standing(deep_world_tui::model::economy::Faction::Traders);
+    assert!(
+        traders_after > traders_before,
+        "repeated provisioning lifted the Traders ({traders_before} -> {traders_after})"
+    );
+}
+
+#[test]
 fn nothing_to_provision_if_you_carry_none() {
     let mut a = app();
     let (_ri, si) = a.player_on_settlement().expect("town");
