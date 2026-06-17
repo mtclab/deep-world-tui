@@ -650,7 +650,17 @@ impl App {
             // Roughly two days in five, the talk turns to the old kindness.
             if (day % 5) < 2 {
                 self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
-                let line = format!("They still speak here of {deed}.");
+                // If the deed names one of the heir's own forebears, the town
+                // knows the heir for kin and speaks of the line (#588 slice 2):
+                // the legacy is read back as inheritance, not a stranger's
+                // legend. Only a forebear the lineage records can be recognised.
+                let forebear = forebear_in_deed(&self.lineage, &deed);
+                let line = match forebear {
+                    Some(name) => {
+                        format!("You have the look of {name} — they still speak here of {deed}.")
+                    }
+                    None => format!("They still speak here of {deed}."),
+                };
                 if let Some(ref mut sim) = self.sim {
                     let tick = sim.world.tick;
                     sim.log(tick, crate::sim::journal::Voice::Rumor, line.clone());
@@ -1971,11 +1981,47 @@ impl App {
     }
 }
 
+/// The most recent forebear in the heir's line whose name a town's
+/// `remembered_deed` carries (#588 slice 2) — whom the town would know the heir
+/// by. `None` when the deed names no forebear of the line (a stranger's legend,
+/// or a first life with no lineage at all).
+fn forebear_in_deed(lineage: &[crate::save::LineageRecord], deed: &str) -> Option<String> {
+    lineage.iter().rev().find_map(|rec| {
+        (!rec.predecessor_name.is_empty() && deed.contains(&rec.predecessor_name))
+            .then(|| rec.predecessor_name.clone())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::compass_bearing;
     use super::*;
     use crate::charts::load::load_charts;
+
+    #[test]
+    fn a_town_knows_the_heir_by_the_forebear_in_its_deed() {
+        let rec = |name: &str| crate::save::LineageRecord {
+            predecessor_name: name.to_string(),
+            predecessor_id: String::new(),
+            cause: String::new(),
+            settlement_id: String::new(),
+            tick: 0,
+        };
+        let lineage = vec![rec("Aino"), rec("Veikko")];
+        // A deed naming the most recent forebear is recognised as kin.
+        let deed = "Veikko, who ran supplies to us through the war";
+        assert_eq!(forebear_in_deed(&lineage, deed), Some("Veikko".to_string()));
+        // An older forebear is still recognised.
+        let old = "Aino, the stranger who kept us fed through the lean year";
+        assert_eq!(forebear_in_deed(&lineage, old), Some("Aino".to_string()));
+        // A deed naming no forebear of the line is a stranger's legend.
+        assert_eq!(
+            forebear_in_deed(&lineage, "Some other soul who built the bridge"),
+            None
+        );
+        // A first life has no lineage and so no kinship to claim.
+        assert_eq!(forebear_in_deed(&[], deed), None);
+    }
 
     #[test]
     fn ask_season_reads_the_year_and_the_stores() {
