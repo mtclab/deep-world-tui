@@ -444,7 +444,9 @@ fn tick_settlement_life(sim: &mut SimState) {
             settlement.food_stock += (harvested + gathered + trap_food).min(land_yield_cap);
 
             // --- consumption + spoilage ---
-            let eaten = settlement.population as f64 * 0.15;
+            // Winter draws harder on the stores (#570): a town eats more from
+            // the granary in Frost and a little less in the generous Green.
+            let eaten = settlement.population as f64 * 0.15 * season.consumption_modifier();
             settlement.food_stock = (settlement.food_stock - eaten).max(0.0);
             let keepers = settlement.profession_count("hearth-keeper") as f64;
             let hearth = if settlement.has_building(BuildingType::Hearth) {
@@ -469,11 +471,15 @@ fn tick_settlement_life(sim: &mut SimState) {
                 let cap = settlement.population as f64 * 0.5;
                 // Iron from mine and forge; Tools from the smiths; Cloth from
                 // the weavers; Wood worked by the carpenters.
+                // The crafts make less in deep Frost, a touch more in high
+                // Green (#570): the year drives the goods economy, not only the
+                // crops.
+                let prod = season.production_modifier();
                 let made = [
-                    (ItemType::Iron, (miners * 0.6 + smiths * 0.3) * scale),
-                    (ItemType::Tool, smiths * 0.4 * scale),
-                    (ItemType::Cloth, weavers * 0.5 * scale),
-                    (ItemType::Wood, carpenters * 0.6 * scale),
+                    (ItemType::Iron, (miners * 0.6 + smiths * 0.3) * scale * prod),
+                    (ItemType::Tool, smiths * 0.4 * scale * prod),
+                    (ItemType::Cloth, weavers * 0.5 * scale * prod),
+                    (ItemType::Wood, carpenters * 0.6 * scale * prod),
                 ];
                 for (item, amount) in made {
                     // Daily upkeep: the town spends a little of each good it

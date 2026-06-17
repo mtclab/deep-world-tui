@@ -529,6 +529,12 @@ impl App {
         1.0
     }
 
+    /// The season's plain pressure on the market (#570): goods come dear in
+    /// Frost and cheap in high Green. Felt in every buy and sell.
+    pub fn season_price_modifier(&self) -> f64 {
+        self.clock.season().market_price_modifier()
+    }
+
     /// Whether the player carries the scale-hand — the Väylä weight-sense that
     /// reads true value in a trade (#439).
     fn scale_hand(&self) -> bool {
@@ -629,6 +635,7 @@ impl App {
             * town_gift
             * self.vow_buy_mult()
             * self.goods_abundance_modifier(item)
+            * self.season_price_modifier()
             / coin;
         ((base as f64 * m).ceil() as u32).max(1)
     }
@@ -703,6 +710,7 @@ impl App {
             * self.food_scarcity_modifier(item)
             * self.goods_abundance_modifier(item)
             * self.craft_quality_modifier(item)
+            * self.season_price_modifier()
             * luck
             * coin
             * gift;
