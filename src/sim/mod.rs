@@ -1054,13 +1054,14 @@ fn tick_caravans(sim: &mut SimState) {
     if !tick.is_multiple_of(24) {
         return;
     }
-    let names: Vec<String> = sim
+    let towns: Vec<(String, f64)> = sim
         .world
         .regions
         .iter()
         .flat_map(|r| r.settlements.iter())
-        .map(|s| s.name.clone())
+        .map(|s| (s.name.clone(), s.politics.openness()))
         .collect();
+    let names: Vec<String> = towns.iter().map(|(n, _)| n.clone()).collect();
     if names.len() < 2 {
         return;
     }
@@ -1077,8 +1078,20 @@ fn tick_caravans(sim: &mut SimState) {
         let (city, _) = CANON_CITIES[rng.gen_range(CANON_CITIES.len() as u32) as usize];
         city.to_string()
     } else {
-        let o = rng.gen_range(names.len() as u32) as usize;
-        names[o].clone()
+        // Which town sends the cart is coloured by its council (#560): a
+        // Traders-led town throws its gates wide and ships more often, an
+        // Elders-led town keeps to itself. Weighted by each town's openness.
+        let total: f64 = towns.iter().map(|(_, o)| *o).sum();
+        let mut roll = rng.gen_f64() * total;
+        let mut chosen = 0usize;
+        for (i, (_, o)) in towns.iter().enumerate() {
+            roll -= o;
+            if roll <= 0.0 {
+                chosen = i;
+                break;
+            }
+        }
+        names[chosen].clone()
     };
     // Where the caravan goes is no longer a blind draw (#560 living province):
     // from one of the province's own towns it rides the standing roads — a
@@ -1118,10 +1131,17 @@ fn tick_caravans(sim: &mut SimState) {
     };
     // A caravan between two of the province's own towns deepens their
     // partnership (#560): the more carts cross between them, the closer they
-    // grow. Caravans down the long roads from the named cities of the continent
-    // are not province ties — those cities are off the map.
+    // grow — and an open, Traders-led origin forges the bond faster than an
+    // insular, Elders-led one. Caravans down the long roads from the named
+    // cities of the continent are not province ties — those cities are off the
+    // map.
     if origin_is_local {
-        sim.province_ties.nudge(&origin, &dest, 0.05);
+        let openness = towns
+            .iter()
+            .find(|(n, _)| n == &origin)
+            .map(|(_, o)| *o)
+            .unwrap_or(1.0);
+        sim.province_ties.nudge(&origin, &dest, 0.05 * openness);
     }
     let caravan = crate::model::economy::Caravan::generate(
         sim.world.seed.wrapping_add(tick),
