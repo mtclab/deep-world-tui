@@ -715,6 +715,45 @@ fn tick_settlement_life(sim: &mut SimState) {
                 }
             }
 
+            // --- the council lives (#556 living politics) ---
+            // Faction standings drift toward the town's character: the Crafters
+            // rise where much is made, the Traders where trade prospers, the
+            // Elders in an old, stable, low-feud town. A real dominant faction
+            // emerges (and its price-lever the player feels) instead of the
+            // frozen 0.5/0.5/0.5.
+            {
+                let makers = (settlement.profession_count("smith")
+                    + settlement.profession_count("miner")
+                    + settlement.profession_count("weaver")
+                    + settlement.profession_count("carpenter")) as f64;
+                let goods_total: f64 = [
+                    crate::model::ItemType::Iron,
+                    crate::model::ItemType::Tool,
+                    crate::model::ItemType::Cloth,
+                    crate::model::ItemType::Wood,
+                ]
+                .iter()
+                .map(|it| settlement.good(*it))
+                .sum();
+                let prosperity =
+                    (settlement.food_stock / settlement.population.max(1) as f64).min(3.0);
+                let merchants = (settlement.profession_count("trader")
+                    + settlement.profession_count("sailor")) as f64;
+                let keepers = (settlement.profession_count("priest")
+                    + settlement.profession_count("scribe")
+                    + settlement.profession_count("healer")) as f64;
+                // Base of 0.5 so no faction is ever wholly without a voice.
+                let crafter_pull = 0.5 + makers + goods_total * 0.05;
+                let trader_pull = 0.5 + merchants * 1.5 + prosperity;
+                let elder_pull = 0.5
+                    + keepers * 1.5
+                    + (settlement.population as f64 / 300.0).min(3.0)
+                    + (1.0 - unrest);
+                settlement
+                    .politics
+                    .drift_toward(crafter_pull, trader_pull, elder_pull, 0.03);
+            }
+
             // --- construction ---
             let builders = settlement.profession_count("carpenter")
                 + settlement.profession_count("labourer")

@@ -778,6 +778,31 @@ impl SettlementPolitics {
         }
     }
 
+    /// Drift the faction standings toward the town's character (#556 living
+    /// politics): each standing steps toward its share of the three pulls — a
+    /// town that makes much lifts the Crafters, one that trades and prospers the
+    /// Traders, an old and stable one the Elders. Pure and deterministic; the
+    /// standings converge on the town's nature over time, so a real dominant
+    /// faction emerges instead of the frozen 0.5/0.5/0.5.
+    pub fn drift_toward(
+        &mut self,
+        crafter_pull: f64,
+        trader_pull: f64,
+        elder_pull: f64,
+        rate: f64,
+    ) {
+        let sum = (crafter_pull + trader_pull + elder_pull).max(1e-9);
+        let tc = crafter_pull / sum;
+        let tt = trader_pull / sum;
+        let te = elder_pull / sum;
+        self.crafter_standing =
+            (self.crafter_standing + rate * (tc - self.crafter_standing)).clamp(0.0, 1.0);
+        self.trader_standing =
+            (self.trader_standing + rate * (tt - self.trader_standing)).clamp(0.0, 1.0);
+        self.elder_standing =
+            (self.elder_standing + rate * (te - self.elder_standing)).clamp(0.0, 1.0);
+    }
+
     pub fn dominant_faction(&self) -> Faction {
         if self.crafter_standing >= self.trader_standing
             && self.crafter_standing >= self.elder_standing
@@ -1590,6 +1615,21 @@ pub struct PlayerFarm {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn faction_standings_drift_toward_the_pull() {
+        let mut p = SettlementPolitics::new(); // 0.5 / 0.5 / 0.5
+                                               // A town that trades and prospers lifts the Traders.
+        for _ in 0..300 {
+            p.drift_toward(0.5, 8.0, 0.5, 0.05);
+        }
+        assert_eq!(p.dominant_faction(), Faction::Traders);
+        // Turn it into a town of makers, and the Crafters take the council.
+        for _ in 0..300 {
+            p.drift_toward(8.0, 0.5, 0.5, 0.05);
+        }
+        assert_eq!(p.dominant_faction(), Faction::Crafters);
+    }
 
     #[test]
     fn quality_starting_durability_roundtrips() {
