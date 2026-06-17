@@ -824,6 +824,24 @@ impl SettlementPolitics {
         }
     }
 
+    /// How readily the town opens its roads to the rest of the province (#560
+    /// living province): a Traders council throws the gates wide — caravans go
+    /// out more often and partnerships form faster — while an Elders council
+    /// keeps to itself. Scales a town's outbound trade and how strongly its
+    /// caravans deepen a tie. Weighted by how firmly the faction actually holds,
+    /// so a contested council moves the needle less than a settled one.
+    pub fn openness(&self) -> f64 {
+        let (target, hold) = match self.dominant_faction() {
+            Faction::Traders => (1.6, self.trader_standing),
+            Faction::Crafters => (1.0, self.crafter_standing),
+            Faction::Elders => (0.5, self.elder_standing),
+        };
+        // Pull from the neutral 1.0 toward the faction's target by how firmly it
+        // sits (a third-share is no grip at all; a clear majority, full grip).
+        let grip = ((hold - 0.34) / 0.5).clamp(0.0, 1.0);
+        1.0 + (target - 1.0) * grip
+    }
+
     pub fn roll_leadership_event(&mut self, seed: u64) -> Option<LeadershipEvent> {
         let val = (seed.wrapping_mul(2654435761) >> 48) as u32 % 100;
         let event = if val < 15 {
@@ -2611,5 +2629,31 @@ mod tests {
         let result = p.roll_leadership_event(0xFFFFFFFFFFFFFFFF);
 
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn trader_council_opens_roads_elder_council_closes_them() {
+        let mut trader = SettlementPolitics::new();
+        trader.trader_standing = 0.9;
+        let mut elder = SettlementPolitics::new();
+        elder.elder_standing = 0.9;
+
+        assert!(
+            trader.openness() > 1.0,
+            "a firm Traders council throws the gates wide"
+        );
+        assert!(
+            elder.openness() < 1.0,
+            "a firm Elders council keeps to itself"
+        );
+        assert!(trader.openness() > elder.openness());
+
+        // A contested council barely moves the needle off the neutral 1.0.
+        let mut split = SettlementPolitics::new();
+        split.trader_standing = 0.36;
+        assert!(
+            (split.openness() - 1.0).abs() < 0.2,
+            "a near-tie is middling"
+        );
     }
 }
