@@ -139,9 +139,28 @@ fn reputation_key(person_id: &str, settlement: &str) -> String {
     format!("{}@{}", person_id, settlement)
 }
 
-pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
+pub fn spread_reputation(
+    store: &mut ReputationStore,
+    world: &World,
+    ties: &crate::model::province::ProvinceTies,
+    dt: f64,
+) {
+    use crate::model::province::TieKind;
+    // The reputation store keys by settlement id; the province ties key by
+    // settlement name (#565 slice 2). Bridge them once.
+    let id_to_name: std::collections::HashMap<&str, &str> = world
+        .regions
+        .iter()
+        .flat_map(|r| r.settlements.iter())
+        .map(|s| (s.id.as_str(), s.name.as_str()))
+        .collect();
+
     let mut updates: Vec<(String, f64, IndexMap<String, f64>)> = Vec::new();
     let mut spread_acc: IndexMap<String, f64> = IndexMap::new();
+    // Partner towns the player has never reached, but whose road to a town that
+    // knows them is busy: open a channel (a fresh baseline entry) so word can
+    // travel into them over the coming days.
+    let mut open_channels: Vec<String> = Vec::new();
     for (key, entry) in &store.entries {
         let local_decayed = decay_toward(entry.reputation.local, BASELINE, LOCAL_DECAY_RATE * dt);
         let mut faction_decayed = IndexMap::new();
@@ -152,6 +171,7 @@ pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
             );
         }
         let person_settlement = &entry.settlement;
+        let source_name = id_to_name.get(person_settlement.as_str()).copied();
         for region in &world.regions {
             for settlement in &region.settlements {
                 if settlement.id == *person_settlement {
@@ -160,13 +180,30 @@ pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
                 if !same_region(world, person_settlement, &settlement.id) {
                     continue;
                 }
+                // Word travels faster down a thick trade road and not at all to a
+                // town with no standing road to the source (#560 ties): a partner
+                // carries it strongest, a rival still hears it (bad blood means
+                // they hear of you), a neutral town barely.
+                let tie = source_name
+                    .map(|sn| ties.tie(sn, &settlement.name))
+                    .unwrap_or(TieKind::Neutral);
+                let bond = source_name
+                    .map(|sn| ties.bond(sn, &settlement.name))
+                    .unwrap_or(0.0);
+                let factor = match tie {
+                    TieKind::Partner => 1.0 + 2.0 * bond,
+                    TieKind::Rival => 0.6,
+                    TieKind::Neutral => 0.4,
+                };
                 let neighbor_key = reputation_key(&entry.person_id, &settlement.id);
                 if let Some(neighbor) = store.entries.get(&neighbor_key) {
                     let diff = neighbor.reputation.local - entry.reputation.local;
                     if diff.abs() > f64::EPSILON {
-                        let spread = diff * SPREAD_RATE * dt;
+                        let spread = diff * SPREAD_RATE * factor * dt;
                         *spread_acc.entry(key.clone()).or_insert(0.0) += spread;
                     }
+                } else if tie == TieKind::Partner {
+                    open_channels.push(neighbor_key);
                 }
             }
         }
@@ -177,6 +214,23 @@ pub fn spread_reputation(store: &mut ReputationStore, world: &World, dt: f64) {
             let spread_delta = spread_acc.get(&key).copied().unwrap_or(0.0);
             entry.reputation.local = (local + spread_delta).clamp(0.0, 1.0);
             entry.reputation.by_faction = factions;
+        }
+    }
+    // Open the partner channels (at baseline) so the next days' diffusion can
+    // carry the player's standing into towns they have never set foot in.
+    for neighbor_key in open_channels {
+        if store.entries.contains_key(&neighbor_key) {
+            continue;
+        }
+        if let Some((pid, sid)) = neighbor_key.split_once('@') {
+            store.entries.insert(
+                neighbor_key.clone(),
+                ReputationEntry {
+                    person_id: pid.to_string(),
+                    settlement: sid.to_string(),
+                    reputation: Reputation::new(),
+                },
+            );
         }
     }
 }
@@ -350,7 +404,12 @@ mod tests {
         store.adjust_local("p1", "s1", 0.4);
         let before = store.get("p1", "s1");
         for _ in 0..10 {
-            spread_reputation(&mut store, &world, 1.0);
+            spread_reputation(
+                &mut store,
+                &world,
+                &crate::model::province::ProvinceTies::default(),
+                1.0,
+            );
         }
         let after = store.get("p1", "s1");
         assert!(
@@ -373,7 +432,12 @@ mod tests {
         store.adjust_local("p1", "s1", 0.4);
         let s2_before = store.get("p1", "s2");
         for _ in 0..5 {
-            spread_reputation(&mut store, &world, 1.0);
+            spread_reputation(
+                &mut store,
+                &world,
+                &crate::model::province::ProvinceTies::default(),
+                1.0,
+            );
         }
         let s2_after = store.get("p1", "s2");
         assert!(
@@ -390,13 +454,61 @@ mod tests {
         store1.adjust_local("p1", "s1", 0.3);
         store2.adjust_local("p1", "s1", 0.3);
         for _ in 0..10 {
-            spread_reputation(&mut store1, &world, 1.0);
-            spread_reputation(&mut store2, &world, 1.0);
+            spread_reputation(
+                &mut store1,
+                &world,
+                &crate::model::province::ProvinceTies::default(),
+                1.0,
+            );
+            spread_reputation(
+                &mut store2,
+                &world,
+                &crate::model::province::ProvinceTies::default(),
+                1.0,
+            );
         }
         assert_eq!(
             store1.get("p1", "s1"),
             store2.get("p1", "s1"),
             "spread_reputation must be deterministic"
+        );
+    }
+
+    #[test]
+    fn standing_travels_into_a_partner_town() {
+        // #565 slice 2: with a busy trade road between S1 and S2, the standing
+        // the player earns in S1 opens a channel to S2 and bleeds into it — they
+        // arrive a half-friend in the partner town they have never seen.
+        let world = make_simple_world();
+        let mut ties = crate::model::province::ProvinceTies::default();
+        ties.nudge("S1", "S2", 0.8); // partners
+        let mut store = ReputationStore::new();
+        store.adjust_local("p1", "s1", 0.4); // well-liked in S1
+        for _ in 0..30 {
+            spread_reputation(&mut store, &world, &ties, 1.0);
+        }
+        assert!(
+            store.get("p1", "s2") > BASELINE,
+            "the player's good name reached the partner town (s2={})",
+            store.get("p1", "s2")
+        );
+    }
+
+    #[test]
+    fn standing_does_not_travel_to_a_stranger_town() {
+        // With no tie, a town the player has never reached stays a stranger — no
+        // channel opens, no word travels.
+        let world = make_simple_world();
+        let ties = crate::model::province::ProvinceTies::default();
+        let mut store = ReputationStore::new();
+        store.adjust_local("p1", "s1", 0.4);
+        for _ in 0..30 {
+            spread_reputation(&mut store, &world, &ties, 1.0);
+        }
+        assert!(
+            (store.get("p1", "s2") - BASELINE).abs() < f64::EPSILON,
+            "an untied town learns nothing of the player (s2={})",
+            store.get("p1", "s2")
         );
     }
 

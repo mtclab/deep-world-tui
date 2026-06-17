@@ -196,7 +196,7 @@ pub fn sim_tick(sim: &mut SimState) {
     }
     tick_needs_with_params(&mut sim.world, 1.0, &sim.params);
     needs_dependent::propagate_dependent_needs(&mut sim.world, &sim.obligations);
-    reputation::spread_reputation(&mut sim.reputation, &sim.world, 1.0);
+    reputation::spread_reputation(&mut sim.reputation, &sim.world, &sim.province_ties, 1.0);
     sim.relationships.tick_converge(1.0);
     tick_npc_illness(sim, current_tick);
     for region in sim.world.regions.iter_mut() {
