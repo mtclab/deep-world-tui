@@ -637,6 +637,10 @@ impl App {
             .as_ref()
             .map(|sim| sim.reputation.get(&dead_person.id, &heir_settlement_id))
             .unwrap_or(0.5);
+        // How deep the line runs (the lineage record for this death is already
+        // pushed): a long, storied line opens doors wider than a first heir's
+        // (#588 slice 3).
+        let line_depth = self.lineage.len();
         if let Some(ref mut sim) = self.sim {
             sim.reputation
                 .adjust_local(&npc_person.id, &heir_settlement_id, 0.15);
@@ -650,9 +654,12 @@ impl App {
             // remembered_deed of the dead — the places kept fed through a lean
             // year, run supplies to through the war — opens its door to the
             // heir, who arrives there a half-friend, not a stranger.
+            // The line's renown compounds (#588 slice 3): a third-generation
+            // heir of a remembered line arrives better regarded than a first.
+            let bonus = inherited_standing_bonus(line_depth);
             let remembering = towns_remembering(&sim.world, &heir_settlement_id, &dead_person.name);
             for sid in remembering {
-                sim.reputation.adjust_local(&npc_person.id, &sid, 0.2);
+                sim.reputation.adjust_local(&npc_person.id, &sid, bonus);
             }
         }
 
@@ -681,6 +688,15 @@ impl App {
 /// forebear (#588 slice 1), other than the town the heir is taking up in — the
 /// places a long life marked, where the heir arrives a half-friend, not a
 /// stranger. Pure: reads the deeds laid down by play.
+/// How much standing the heir inherits in each town that remembers a forebear
+/// (#588 slice 3), growing with how deep the line runs: a base half-friend's
+/// regard, lifted a little for each generation the line has held, capped so a
+/// dynasty is renowned but never simply revered for its name alone.
+fn inherited_standing_bonus(line_depth: usize) -> f64 {
+    let extra = (line_depth.saturating_sub(1)).min(4) as f64 * 0.05;
+    0.2 + extra
+}
+
 fn towns_remembering(
     world: &crate::model::World,
     exclude_settlement_id: &str,
@@ -705,6 +721,26 @@ mod legacy_tests {
     use super::towns_remembering;
     use crate::charts::load::load_charts;
     use crate::gen::world::generate_world;
+
+    #[test]
+    fn inherited_standing_compounds_with_the_line_but_is_capped() {
+        use super::inherited_standing_bonus;
+        // A first heir gets the base; a deeper line a little more, capped.
+        let first = inherited_standing_bonus(1);
+        let third = inherited_standing_bonus(3);
+        let ancient = inherited_standing_bonus(50);
+        assert!((first - 0.2).abs() < 1e-9, "first heir gets the base");
+        assert!(third > first, "a deeper line inherits more");
+        assert!(
+            ancient <= 0.45,
+            "renown is capped — never revered for the name alone"
+        );
+        assert_eq!(
+            inherited_standing_bonus(0),
+            0.2,
+            "no prior line, just the base"
+        );
+    }
 
     #[test]
     fn the_heir_is_remembered_where_the_forebear_was() {
