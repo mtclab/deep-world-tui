@@ -636,8 +636,30 @@ impl App {
             self.status_msg = Some(format!("{pname} has no word for the likes of you."));
             return;
         }
-        // A stable answer per person per day.
+        // A town that owes the player a lean-year debt sometimes speaks of it
+        // first (#565 slice 4): the lasting mark a long life leaves on the places
+        // it saved. Only the deed names the player, so they hear their own legend.
         let day = self.clock.day;
+        let remembered = self
+            .sim
+            .as_ref()
+            .and_then(|sim| sim.world.regions.get(region_idx))
+            .and_then(|r| r.settlements.get(settlement_idx))
+            .and_then(|s| s.remembered_deed.clone());
+        if let Some(deed) = remembered {
+            // Roughly two days in five, the talk turns to the old kindness.
+            if (day % 5) < 2 {
+                self.record_npc_memory(settlement_idx, person_idx, EncounterAction::Talk, 0.01);
+                let line = format!("They still speak here of {deed}.");
+                if let Some(ref mut sim) = self.sim {
+                    let tick = sim.world.tick;
+                    sim.log(tick, crate::sim::journal::Voice::Rumor, line.clone());
+                }
+                self.status_msg = Some(format!("{pname}: \"{line}\""));
+                return;
+            }
+        }
+        // A stable answer per person per day.
         let salt = crate::rng::mix_u64(
             pid.bytes()
                 .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(b as u64))

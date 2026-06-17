@@ -183,6 +183,7 @@ mod minimap_tests {
                 map_x: 0,
                 map_y: 0,
                 district: 0,
+                remembered_deed: None,
             }],
             terrain: TerrainMap {
                 width: 2,
@@ -266,6 +267,7 @@ mod minimap_tests {
             map_x: 0,
             map_y: 0,
             district: 0,
+            remembered_deed: None,
         }];
         let color = dominant_people_color(&settlements, &theme);
         assert_eq!(color, theme.warm_brown());
@@ -296,6 +298,7 @@ mod minimap_tests {
             map_x: 0,
             map_y: 0,
             district: 0,
+            remembered_deed: None,
         }];
         let color = dominant_people_color(&settlements, &theme);
         assert_eq!(color, theme.archive_red());

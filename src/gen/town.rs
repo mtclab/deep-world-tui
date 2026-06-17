@@ -336,6 +336,7 @@ mod tests {
             map_x,
             map_y,
             district,
+            remembered_deed: None,
         }
     }
 

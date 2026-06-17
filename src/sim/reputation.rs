@@ -305,6 +305,7 @@ mod tests {
                         map_x: 0,
                         map_y: 0,
                         district: 0,
+                        remembered_deed: None,
                     },
                     crate::model::Settlement {
                         id: "s2".into(),
@@ -330,6 +331,7 @@ mod tests {
                         map_x: 0,
                         map_y: 0,
                         district: 0,
+                        remembered_deed: None,
                     },
                 ],
                 weather: crate::model::Weather::Clear,
