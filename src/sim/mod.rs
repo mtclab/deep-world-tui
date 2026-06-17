@@ -224,6 +224,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_weather_fronts(sim);
     tick_settlement_life(sim);
     tick_winter_relief(sim);
+    tick_raids(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
     // founding parties take rich empty land — slowly, the way the Fall's
@@ -1348,6 +1349,108 @@ fn tick_winter_relief(sim: &mut SimState) {
     }
 }
 
+/// Rivalries with teeth (#579 slice 2): a deep ProvinceTie rivalry now and then
+/// spills into a raid. The stronger of the two rival towns falls on the weaker —
+/// carrying off food and a trade good, fraying the victim's sense of safety —
+/// and the raid deepens the rivalry it sprang from, a feedback the peace must
+/// break. System-first and deterministic: the bonds are read in sorted order and
+/// the roll is seeded, so a given world always raids the same way.
+fn tick_raids(sim: &mut SimState) {
+    use crate::model::province::TieKind;
+    use crate::model::Need;
+    let tick = sim.world.tick;
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let day = (tick / 24) as u32;
+    // Where each living town sits, and how many it musters (population stands in
+    // for strength — the bigger town raids the smaller).
+    let mut loc: std::collections::HashMap<String, (usize, usize)> =
+        std::collections::HashMap::new();
+    let mut pop: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    for (ri, region) in sim.world.regions.iter().enumerate() {
+        for (si, s) in region.settlements.iter().enumerate() {
+            if s.population == 0 {
+                continue;
+            }
+            loc.insert(s.name.clone(), (ri, si));
+            pop.insert(s.name.clone(), s.population);
+        }
+    }
+    // Only the hard rivalries raid — a bond well past the rival threshold.
+    const DEEP_RIVAL: f64 = -0.7;
+    let mut pairs: Vec<(String, String)> = sim
+        .province_ties
+        .bonds
+        .iter()
+        .filter(|(_, &v)| v <= DEEP_RIVAL)
+        .map(|(k, _)| k.clone())
+        .filter(|(a, b)| {
+            sim.province_ties.tie(a, b) == TieKind::Rival
+                && loc.contains_key(a)
+                && loc.contains_key(b)
+        })
+        .collect();
+    pairs.sort();
+    for (a, b) in pairs {
+        // The stronger town is the aggressor; ties broken by name for
+        // determinism.
+        let (raider, victim) = if pop[&a] >= pop[&b] {
+            (a.clone(), b.clone())
+        } else {
+            (b.clone(), a.clone())
+        };
+        // A seeded daily roll: raids are occasional, not constant — roughly one
+        // week in six a deep rivalry boils over.
+        let mut rng = SeedRng::new(
+            sim.world
+                .seed
+                .wrapping_add(si_hash(&raider) ^ si_hash(&victim)),
+        )
+        .fork_for(&format!("raid-{day}"));
+        if rng.gen_range(100) >= 16 {
+            continue;
+        }
+        let (vri, vsi) = loc[&victim];
+        // Carry off a fifth of the victim's stores and a measure of its chief
+        // trade good; the loot lands in the raider's hands.
+        let looted_food;
+        let looted_good;
+        {
+            let v = &mut sim.world.regions[vri].settlements[vsi];
+            looted_food = v.food_stock * 0.2;
+            v.food_stock -= looted_food;
+            looted_good = v.signature_good().map(|g| (g, (v.good(g) * 0.3).floor()));
+            if let Some((g, amt)) = looted_good {
+                if amt > 0.0 {
+                    v.produce_good(g, -amt, f64::MAX);
+                }
+            }
+            // The raid frays the town's nerve.
+            for person in v.people.iter_mut() {
+                person.needs.decay(Need::Safety, 0.08);
+            }
+        }
+        if let Some(&(rri, rsi)) = loc.get(&raider) {
+            let r = &mut sim.world.regions[rri].settlements[rsi];
+            r.food_stock += looted_food;
+            if let Some((g, amt)) = looted_good {
+                if amt > 0.0 {
+                    let cap = r.population as f64 * 0.5;
+                    r.produce_good(g, amt, cap);
+                }
+            }
+        }
+        // The raid deepens the bad blood it came from.
+        sim.province_ties.nudge(&raider, &victim, -0.05);
+        sim.log(
+            tick,
+            Voice::Rumor,
+            format!("{raider} fell on {victim} in the night — stores carried off, and no peace between them."),
+        );
+    }
+}
+
 /// A small stable hash of a name, to spread relief-caravan seeds apart within a
 /// single day's relief so two reliefs do not collide on one id.
 fn si_hash(name: &str) -> u64 {
@@ -1606,6 +1709,68 @@ mod tests {
             summer.caravans.len(),
             caravans_before,
             "relief is a winter thing — none flows in Green"
+        );
+    }
+
+    #[test]
+    fn a_deep_rivalry_boils_over_into_a_raid() {
+        let charts = charts::load_charts().unwrap();
+        let mut sim = SimState::new(42, charts);
+        let mut names = Vec::new();
+        'outer: for region in &sim.world.regions {
+            for s in &region.settlements {
+                if s.population > 1 {
+                    names.push(s.name.clone());
+                    if names.len() == 2 {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        assert_eq!(names.len(), 2);
+        let (x, y) = (names[0].clone(), names[1].clone());
+        // A hard rivalry, and a victim with stores to lose.
+        sim.province_ties.nudge(&x, &y, -0.9);
+        for region in sim.world.regions.iter_mut() {
+            for s in region.settlements.iter_mut() {
+                if s.name == x || s.name == y {
+                    s.food_stock = 100.0 * s.population.max(1) as f64;
+                }
+            }
+        }
+        let total_food = |sim: &SimState| -> f64 {
+            sim.world
+                .regions
+                .iter()
+                .flat_map(|r| r.settlements.iter())
+                .filter(|s| s.name == x || s.name == y)
+                .map(|s| s.food_stock)
+                .sum()
+        };
+        let before = total_food(&sim);
+        // Run a season of days; a deep rivalry raids roughly one week in six,
+        // so a raid should land — and a raid moves food between the two but the
+        // victim's loss to fear is none (loot is carried off, not destroyed).
+        let mut raided = false;
+        for d in 1..=60u64 {
+            sim.world.tick = d * 24;
+            tick_raids(&mut sim);
+            if sim
+                .journal
+                .entries
+                .iter()
+                .any(|e| e.text.contains("fell on") && e.text.contains(" in the night"))
+            {
+                raided = true;
+                break;
+            }
+        }
+        assert!(raided, "a deep rivalry boils over within the season");
+        // Loot is carried off, not vanished: the pair's combined food is
+        // conserved across a raid (within rounding).
+        assert!(
+            (total_food(&sim) - before).abs() < 1.0,
+            "raided food is looted, not destroyed"
         );
     }
 
