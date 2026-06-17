@@ -97,6 +97,45 @@ fn keeping_a_town_supplied_lifts_its_traders() {
 }
 
 #[test]
+fn carrying_goods_between_rivals_thaws_the_feud() {
+    // #565 slice 3: provisioning a town that is a rival of the last town you
+    // supplied eases their bad blood — the player is the cart that crosses where
+    // no town's own cart will.
+    let mut a = app();
+    let (_ri, si) = a.player_on_settlement().expect("town");
+    let here = a.sim.as_ref().unwrap().world.regions[0].settlements[si]
+        .name
+        .clone();
+    let rival = "Oldgrudge".to_string();
+    a.sim
+        .as_mut()
+        .unwrap()
+        .province_ties
+        .nudge(&here, &rival, -0.5); // sworn rivals
+    let before = a.sim.as_ref().unwrap().province_ties.bond(&here, &rival);
+    // The player just came from the rival town.
+    a.sim.as_mut().unwrap().last_provisioned_town = Some(rival.clone());
+    for it in [
+        ItemType::Iron,
+        ItemType::Tool,
+        ItemType::Cloth,
+        ItemType::Wood,
+    ] {
+        a.sim.as_mut().unwrap().world.regions[0].settlements[si]
+            .goods_stock
+            .insert(it, 0.0);
+    }
+    let want = a.settlement_shortfall().expect("a shortfall");
+    a.player_start.as_mut().unwrap().inventory.add(want, 5);
+    a.provision_settlement();
+    let after = a.sim.as_ref().unwrap().province_ties.bond(&here, &rival);
+    assert!(
+        after > before,
+        "the rivalry eased toward neutral ({before} -> {after})"
+    );
+}
+
+#[test]
 fn nothing_to_provision_if_you_carry_none() {
     let mut a = app();
     let (_ri, si) = a.player_on_settlement().expect("town");
