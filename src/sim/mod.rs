@@ -225,6 +225,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_settlement_life(sim);
     tick_winter_relief(sim);
     tick_alliance_relief(sim);
+    tick_faith_spread(sim);
     tick_raids(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
@@ -1386,6 +1387,62 @@ fn tick_winter_relief(sim: &mut SimState) {
 /// and the raid deepens the rivalry it sprang from, a feedback the peace must
 /// break. System-first and deterministic: the bonds are read in sorted order and
 /// the roll is seeded, so a given world always raids the same way.
+/// Faith rides the roads (#595 slice 2): devotion spreads like trade. A town
+/// bound to a partner of another god slowly takes on some of that god's
+/// devotion — the caravans carry belief, not only goods — so a faith can sweep
+/// a whole partner bloc. System-first and deterministic: each town's prevailing
+/// god is read into a snapshot first, the partner pairs are taken in sorted
+/// order, and the drift is applied after, so the spread runs the same every run.
+fn tick_faith_spread(sim: &mut SimState) {
+    use crate::model::province::TieKind;
+    let tick = sim.world.tick;
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let mut loc: std::collections::HashMap<String, (usize, usize)> =
+        std::collections::HashMap::new();
+    let mut god: std::collections::HashMap<String, crate::model::GodName> =
+        std::collections::HashMap::new();
+    for (ri, region) in sim.world.regions.iter().enumerate() {
+        for (si, s) in region.settlements.iter().enumerate() {
+            if s.population == 0 {
+                continue;
+            }
+            loc.insert(s.name.clone(), (ri, si));
+            god.insert(s.name.clone(), s.prevailing_god());
+        }
+    }
+    let mut pairs: Vec<(String, String)> = sim
+        .province_ties
+        .bonds
+        .keys()
+        .filter(|(a, b)| {
+            sim.province_ties.tie(a, b) == TieKind::Partner
+                && god.contains_key(a)
+                && god.contains_key(b)
+        })
+        .cloned()
+        .collect();
+    pairs.sort();
+    // Collect the drifts off the snapshot, then apply — so neither town's shift
+    // colours what its partner carries this day.
+    let mut drifts: Vec<(String, crate::model::GodName)> = Vec::new();
+    for (a, b) in &pairs {
+        let (ga, gb) = (god[a], god[b]);
+        if ga != gb {
+            drifts.push((a.clone(), gb));
+            drifts.push((b.clone(), ga));
+        }
+    }
+    for (town, target) in drifts {
+        if let Some(&(ri, si)) = loc.get(&town) {
+            sim.world.regions[ri].settlements[si]
+                .faith
+                .drift_toward(target, 0.01);
+        }
+    }
+}
+
 fn tick_raids(sim: &mut SimState) {
     use crate::model::province::TieKind;
     use crate::model::Need;
@@ -1859,6 +1916,58 @@ mod tests {
             summer.caravans.len(),
             caravans_before,
             "relief is a winter thing — none flows in Green"
+        );
+    }
+
+    #[test]
+    fn faith_spreads_along_the_partner_roads() {
+        use crate::model::economy::SettlementFaith;
+        use crate::model::GodName;
+        let charts = charts::load_charts().unwrap();
+        let mut sim = SimState::new(42, charts);
+        let mut names = Vec::new();
+        'outer: for region in &sim.world.regions {
+            for s in &region.settlements {
+                if s.population > 1 {
+                    names.push(s.name.clone());
+                    if names.len() == 2 {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        assert_eq!(names.len(), 2);
+        let (a, b) = (names[0].clone(), names[1].clone());
+        // Partners of two different gods.
+        sim.province_ties.nudge(&a, &b, 0.8);
+        let set_faith = |sim: &mut SimState, name: &str, g: GodName| {
+            for region in sim.world.regions.iter_mut() {
+                for s in region.settlements.iter_mut() {
+                    if s.name == name {
+                        s.faith = SettlementFaith::seeded(g);
+                    }
+                }
+            }
+        };
+        let masa_in = |sim: &SimState, name: &str| -> f64 {
+            sim.world
+                .regions
+                .iter()
+                .flat_map(|r| r.settlements.iter())
+                .find(|s| s.name == name)
+                .map(|s| s.faith.get(GodName::Masa))
+                .unwrap_or(0.0)
+        };
+        set_faith(&mut sim, &a, GodName::Keuru);
+        set_faith(&mut sim, &b, GodName::Masa);
+        let a_masa_before = masa_in(&sim, &a);
+        for d in 1..=30u64 {
+            sim.world.tick = d * 24;
+            tick_faith_spread(&mut sim);
+        }
+        assert!(
+            masa_in(&sim, &a) > a_masa_before,
+            "the Masa-worshipping partner spreads its god to the Keuru town"
         );
     }
 
