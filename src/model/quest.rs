@@ -55,6 +55,12 @@ pub enum QuestKind {
         a: String,
         b: String,
     },
+    /// A town whose faith has split near-even calls for a devotee to come and
+    /// steady it (#614): make an offering there to tip the balance and quiet the
+    /// looming schism. Resolved by the act of devotion, not recomputed.
+    SteadyFaith {
+        settlement: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

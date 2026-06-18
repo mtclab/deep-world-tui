@@ -291,6 +291,7 @@ impl App {
         let mut have_famine: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut have_truce: std::collections::HashSet<(String, String)> =
             std::collections::HashSet::new();
+        let mut have_faith: std::collections::HashSet<String> = std::collections::HashSet::new();
         for q in &sim.quests {
             match &q.kind {
                 QuestKind::RelievePlague { settlement } => {
@@ -304,6 +305,10 @@ impl App {
                 QuestKind::BrokerTruce { a, b } => {
                     active += 1;
                     have_truce.insert((a.clone(), b.clone()));
+                }
+                QuestKind::SteadyFaith { settlement } => {
+                    active += 1;
+                    have_faith.insert(settlement.clone());
                 }
                 _ => {}
             }
@@ -348,6 +353,25 @@ impl App {
                     });
                     msgs.push(format!(
                         "Word on the road: {} has gone hungry — they would pay well for grain.",
+                        s.name
+                    ));
+                } else if s.faith.is_contested() && !have_faith.contains(&s.name) {
+                    new_quests.push(Quest {
+                        kind: QuestKind::SteadyFaith {
+                            settlement: s.name.clone(),
+                        },
+                        description: format!(
+                            "Steady the faith of {} — two gods contend, and a schism looms.",
+                            s.name
+                        ),
+                        reward: QuestReward::Reputation { amount: 0.14 },
+                        progress: 0,
+                        target: 1,
+                        deadline_day: day + 35,
+                        assigned_day: day,
+                    });
+                    msgs.push(format!(
+                        "Word on the road: {}'s faith is split two ways — a devotee could steady it.",
                         s.name
                     ));
                 }
@@ -518,6 +542,66 @@ impl App {
                 tick,
                 crate::sim::journal::Voice::Travel,
                 "The peace I carried between them holds. They will not forget it.".into(),
+            );
+        }
+        self.milestones.record_quest_completed(self.clock.day);
+    }
+
+    /// Resolve a steady-faith task when the player has made an offering in a
+    /// contested town (#614 slice 3): the act of devotion answers the call. Pays
+    /// the reward into the player's standing there, clears the task, records it.
+    /// A no-op if no matching task stands for the town.
+    pub(super) fn complete_faith_task(&mut self, settlement: &str) {
+        use crate::model::quest::QuestKind;
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let here_id = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                sim.world
+                    .regions
+                    .get(pos.region_idx)?
+                    .settlements
+                    .first()
+                    .map(|s| s.id.clone())
+            })
+            .unwrap_or_default();
+        let found = self.sim.as_ref().and_then(|sim| {
+            sim.quests.iter().enumerate().find_map(|(i, q)| {
+                let hit =
+                    matches!(&q.kind, QuestKind::SteadyFaith { settlement: s } if s == settlement);
+                hit.then(|| (i, q.reward.clone()))
+            })
+        });
+        let Some((idx, reward)) = found else {
+            return;
+        };
+        if let (Some(ps), Some(sim)) = (self.player_start.as_mut(), self.sim.as_mut()) {
+            crate::sim::quest_gen::apply_quest_reward(
+                &reward,
+                &mut ps.inventory,
+                &mut sim.reputation,
+                &player_id,
+                &here_id,
+                &mut sim.relationships,
+                sim.world.tick,
+            );
+        }
+        if let Some(ref mut sim) = self.sim {
+            if idx < sim.quests.len() {
+                sim.quests.remove(idx);
+            }
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                "My offering steadied a town whose faith was tearing. They will remember it."
+                    .into(),
             );
         }
         self.milestones.record_quest_completed(self.clock.day);

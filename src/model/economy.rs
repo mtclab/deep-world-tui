@@ -909,6 +909,15 @@ impl SettlementFaith {
         best.map(|(g, _)| g)
     }
 
+    /// A town whose faith is split — its two strongest gods run near-even, each
+    /// with real weight (#614). Such a town is ripe for a schism, and the world
+    /// posts a call for a devotee to come and steady it. Deterministic.
+    pub fn is_contested(&self) -> bool {
+        let mut weights: Vec<f64> = GodName::all().iter().map(|&g| self.get(g)).collect();
+        weights.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        weights[0] >= 0.28 && weights[1] >= 0.24 && (weights[0] - weights[1]) <= 0.06
+    }
+
     /// Drift the devotion a little toward a god (#595): the target rises, the
     /// rest ease back, and the whole is renormalised so devotion is always a
     /// share of one. Fills to all Five on first touch. Pure and deterministic.
