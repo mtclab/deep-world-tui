@@ -167,7 +167,38 @@ pub(crate) fn draw_game_over_screen(f: &mut Frame, app: &App) {
             }
         },
     );
-    if !legacy_lines.is_empty() {
+    // The line itself, when there is one (#588 slice 3): name its depth and the
+    // towns that still remember its forebears, so a dynasty built across
+    // generations is legible at the last.
+    let dynasty = if app.lineage.is_empty() {
+        None
+    } else {
+        let generations = app.lineage.len() + 1;
+        let reach = app.sim.as_ref().map_or(0, |s| {
+            s.world
+                .regions
+                .iter()
+                .flat_map(|r| r.settlements.iter())
+                .filter(|st| {
+                    st.remembered_deed.as_deref().is_some_and(|d| {
+                        app.lineage.iter().any(|rec| {
+                            !rec.predecessor_name.is_empty() && d.contains(&rec.predecessor_name)
+                        })
+                    })
+                })
+                .count()
+        });
+        let mut s = format!("A line {generations} generations deep");
+        if reach > 0 {
+            s.push_str(&format!(
+                ", remembered in {reach} town{}",
+                if reach == 1 { "" } else { "s" }
+            ));
+        }
+        s.push('.');
+        Some(s)
+    };
+    if !legacy_lines.is_empty() || dynasty.is_some() {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             "  Legacy:",
@@ -175,6 +206,12 @@ pub(crate) fn draw_game_over_screen(f: &mut Frame, app: &App) {
                 .fg(theme.ink())
                 .add_modifier(Modifier::BOLD),
         )));
+        if let Some(d) = &dynasty {
+            lines.push(Line::from(Span::styled(
+                format!("  {}", d),
+                Style::default().fg(theme.dark_brown()),
+            )));
+        }
         for ll in &legacy_lines {
             lines.push(Line::from(Span::styled(
                 format!("  {}", ll),
