@@ -18,6 +18,72 @@ fn collect_region_names(sim: &SimState) -> Vec<String> {
     sim.world.regions.iter().map(|r| r.name.clone()).collect()
 }
 
+/// A full fingerprint of the living-world state the daily sim drives — the
+/// fields the seasons/economy/faith/plague/province systems mutate — so a
+/// determinism check sees divergence in any of them, not only in names. All
+/// map-backed fields are sorted, and floats are fixed-precision, so the string
+/// is a stable, order-independent witness of the whole simulated state.
+fn living_world_fingerprint(sim: &SimState) -> String {
+    let mut out = String::new();
+    for region in &sim.world.regions {
+        for s in &region.settlements {
+            out.push_str(&format!(
+                "{}|pop{}|food{:.3}|fam{}|plag{}|",
+                s.id, s.population, s.food_stock, s.famine_days, s.plague_days
+            ));
+            let mut goods: Vec<String> = s
+                .goods_stock
+                .iter()
+                .map(|(it, v)| format!("{it:?}={v:.3}"))
+                .collect();
+            goods.sort();
+            out.push_str(&goods.join(","));
+            out.push('|');
+            let mut faith: Vec<String> = s
+                .faith
+                .devotion
+                .iter()
+                .map(|(g, v)| format!("{g:?}={v:.3}"))
+                .collect();
+            faith.sort();
+            out.push_str(&faith.join(","));
+            out.push_str(";\n");
+        }
+    }
+    let mut bonds: Vec<String> = sim
+        .province_ties
+        .bonds
+        .iter()
+        .map(|((a, b), v)| format!("{a}-{b}={v:.3}"))
+        .collect();
+    bonds.sort();
+    out.push_str(&bonds.join(","));
+    out
+}
+
+/// Long full-state determinism: the slow living-world systems (migration @30t,
+/// lifecycle @72t, faith upheavals, plague) only fire on their own cadences, so
+/// the short name-only replay above cannot see a nondeterminism bug in them.
+/// Run two worlds on one seed past all those cadences and compare the entire
+/// living-world fingerprint.
+#[test]
+fn long_run_full_state_deterministic() {
+    let charts = load_charts().expect("charts should load");
+    let seed = 424242u64;
+    let mut a = SimState::new(seed, charts.clone());
+    let mut b = SimState::new(seed, charts.clone());
+    for _ in 0..900 {
+        a.step();
+        b.step();
+    }
+    assert_eq!(a.world.tick, b.world.tick);
+    assert_eq!(
+        living_world_fingerprint(&a),
+        living_world_fingerprint(&b),
+        "same seed must drive the whole living world identically over a long run"
+    );
+}
+
 #[test]
 fn same_seed_produces_identical_world() {
     let charts = load_charts().expect("charts should load");

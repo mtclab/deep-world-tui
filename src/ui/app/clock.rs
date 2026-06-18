@@ -386,13 +386,17 @@ impl App {
         // whose bad blood runs past the raiding mark posts a broker-truce task.
         // Pairs are stored name-ordered by the province ties, so the dedup key
         // matches either way.
-        let deep_rivals: Vec<(String, String)> = sim
+        let mut deep_rivals: Vec<(String, String)> = sim
             .province_ties
             .bonds
             .iter()
             .filter(|(_, &v)| v <= -0.7)
             .map(|((a, b), _)| (a.clone(), b.clone()))
             .collect();
+        // bonds is a HashMap, whose iteration order is not stable across runs;
+        // sort so which truce tasks post (when more deep rivals exist than the
+        // cap allows) is deterministic, not down to hash seeding.
+        deep_rivals.sort();
         for (a, b) in deep_rivals {
             if active + new_quests.len() >= MAX_WORLD_TASKS {
                 break;

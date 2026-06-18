@@ -1,6 +1,28 @@
 # Changelog
 
-## Unreleased
+## v0.10.0 — The world lives, and asks
+
+The big living-world arc: the simulation now runs **six interlocking systems on its own** — seasons, inter-province war & alliance, dynasty/legacy, faith, plague — and, atop them, a **quest engine that turns the world's own emergent troubles into calls the player can answer**. Everything below is system-first and deterministic; the player plugs into a world that was already moving.
+
+**The world cries for help — a quest engine off the living systems (#614)** — the living world now **posts the tasks it needs done**, harvested from its own state rather than authored. A town in the grip of a **plague** or gone to **famine** posts a relief call (answered by bringing medicine / provisioning it); two towns at deep **raiding rivalry** post a *broker-truce* call (answered by running goods between them until the feud breaks); a town whose **faith has split** near-even posts a *steady-faith* call (answered by an aligned offering at its shrine); a town cut off from trade and **starved of tools and cloth** posts a *supply* call (answered by provisioning it). Posted as a separate board layer (four at a time, urgent calls first, the common supply call last), resolved by the acts the player already had, and counted toward their standing — the world's emergent troubles are now legible *as things to do*.
+
+**Plague rides the roads (#604)** — a settlement can **fall to a plague** under famine, war, or a plague-year, its days of sickness counting; the plague **rides the caravans** to healthy trading partners, **war feeds it** while plagued towns **quarantine their roads**, and the player can **bring Salve or Bandage** to ease it — a remembered deed, the way a town remembers the stranger who kept it fed.
+
+**A living faith (#595)** — each settlement now keeps a **living devotion** among the Five that **drifts** toward its council's god and holy days, **spreads along partner roads**, and breaks into **revival or schism** on its own. The player meets it: an **offering aligned with a town's prevailing god** lands the deeper, tips the town's faith, and earns standing.
+
+**Legacy beyond death — the heir (#588)** — a life's deeds now **outlast it**. The heir **inherits standing** in every town that holds a remembered deed of the forebear, towns **name the heir as kin** of the one who helped them, and the line's **renown compounds with each generation**, shown on the game-over Legacy summary — a long game is now a *dynasty*, not a single life.
+
+**Inter-province war & alliance (#579)** — the polity's seasonal **tensions raid caravans** and raise road danger; deep **rivalries between towns harden into raids** that loot food and goods and fray safety; deep **partnerships become alliances** with year-round famine relief and bloc-answers-a-raid; and the player can **run the blockade** for a war premium or **broker peace** between deep rivals.
+
+**Seasons as a living driver (#570)** — the **season** now drives production, consumption, and market prices; sets the **caravan cadence** and winter relief among partners; leans each town's **council temper** and its festival market boon; and the **turning of the year** is talked of on the road and felt in the body.
+
+**Journal polish** — routine labour-migration was flooding the journal one line per person; it is now a single **seasonal summary** ("N tradespeople crossed the ridges this season, chasing steady work."), while the rarer marriage and flight moves keep their own words — the journal reads as a balanced chronicle of the world's churn.
+
+**Determinism hardened** — a long full-state determinism test now runs two worlds on one seed past every slow system's cadence and compares the entire living-world fingerprint (population, stores, goods, faith, plague, province ties); and the quest board posts its truce calls in a stable, sorted order rather than hash-iteration order.
+
+---
+
+*The entries below shipped in this release too — the living economy, social web, politics, and province-ties groundwork the arc above is built on.*
 
 **The province remembers (#565 the player's mark)** — a town you carry through a **famine** now **remembers you for good**. Provision a settlement while its stores stand empty and the lean days are counting, and it keeps a lasting mark — *"They still speak here of <you>, the stranger who kept us fed through the lean year."* — which its people bring up unprompted when you ask the news, two days in five, for as long as the town stands. The capstone of the player's-mark epic: a long life of deeds is now **legible in the places it changed**, your own legend told back to you on the road. Set once, never overwritten, carried in the save.
 
