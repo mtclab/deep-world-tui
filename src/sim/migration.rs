@@ -1,5 +1,6 @@
 use crate::model::{PeopleKind, World};
 use crate::rng::SeedRng;
+use crate::sim::journal::Voice;
 
 const MIGRATION_INTERVAL: u64 = 30;
 const JOB_SEEKING_STABILITY_THRESHOLD: f64 = 0.3;
@@ -92,7 +93,11 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
     }
 
     let seed = sim.world.seed;
-    let mut migrants: Vec<(MigrationCandidate, SettlementRef, String)> = Vec::new();
+    // The fourth field marks a routine job-seeking move (#614 polish): these are
+    // the bulk of migration and were flooding the player's journal one line per
+    // person. They are now tallied into a single seasonal summary, while the
+    // rarer, character-driven marriage and flight moves keep their own lines.
+    let mut migrants: Vec<(MigrationCandidate, SettlementRef, String, bool)> = Vec::new();
 
     let settlement_refs = find_settlement_refs(&sim.world);
     if settlement_refs.len() < 2 {
@@ -139,6 +144,7 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
                         },
                         target,
                         reason,
+                        true,
                     ));
                     continue;
                 }
@@ -163,6 +169,7 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
                         },
                         partner_target,
                         reason,
+                        false,
                     ));
                     continue;
                 }
@@ -197,6 +204,7 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
                             },
                             target,
                             reason,
+                            false,
                         ));
                     }
                 }
@@ -206,8 +214,8 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
 
     // Apply migrations - reverse sort by source region/settlement to preserve indices
     migrants.sort_by(
-        |a: &(MigrationCandidate, SettlementRef, String),
-         b: &(MigrationCandidate, SettlementRef, String)| {
+        |a: &(MigrationCandidate, SettlementRef, String, bool),
+         b: &(MigrationCandidate, SettlementRef, String, bool)| {
             b.0.source_region_idx
                 .cmp(&a.0.source_region_idx)
                 .then(b.0.source_settlement_idx.cmp(&a.0.source_settlement_idx))
@@ -215,8 +223,9 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
     );
 
     let mut migrated_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut routine_count = 0u32;
 
-    for (cand, target, reason) in &migrants {
+    for (cand, target, reason, routine) in &migrants {
         if migrated_ids.contains(&cand.person_id) {
             continue;
         }
@@ -258,8 +267,13 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
 
         migrated_ids.insert(cand.person_id.clone());
 
-        // Journal the migration
-        sim.log_journal(tick, reason.clone());
+        // Routine job-seeking moves are tallied for one summary line below; the
+        // rarer marriage and flight moves are journaled in their own words.
+        if *routine {
+            routine_count += 1;
+        } else {
+            sim.log_journal(tick, reason.clone());
+        }
 
         // Update population counts (derived from people.len())
         sim.world.regions[source_region_idx].settlements[source_settlement_idx].population =
@@ -270,6 +284,20 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
             sim.world.regions[target_region_idx].settlements[target_settlement_idx]
                 .people
                 .len() as u32;
+    }
+
+    // One seasonal summary stands in for the many routine job-seeking moves, so
+    // the journal carries the world's churn without drowning in it (#614 polish).
+    if routine_count > 0 {
+        let line = if routine_count == 1 {
+            "Word on the road: a tradesperson crossed the ridges this season, chasing steady work."
+                .to_string()
+        } else {
+            format!(
+                "Word on the road: {routine_count} tradespeople crossed the ridges this season, chasing steady work."
+            )
+        };
+        sim.log(tick, Voice::Rumor, line);
     }
 }
 
