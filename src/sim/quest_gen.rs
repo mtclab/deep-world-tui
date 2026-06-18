@@ -424,6 +424,11 @@ pub fn check_quests(quests: &mut [Quest], ctx: &QuestContext) -> QuestCheckResul
                 }
             }
             QuestKind::TalkToPeople { count: _ } => dealings.min(quest.target),
+            // Living-world relief quests are not recomputed here: the act of
+            // tending the plague or provisioning the famine sets their progress
+            // directly (see the App). Carry it through, so they complete when
+            // the deed is done and expire on the generic deadline if it is not.
+            QuestKind::RelievePlague { .. } | QuestKind::RelieveFamine { .. } => quest.progress,
         };
 
         quest.progress = progress;

@@ -97,6 +97,10 @@ fn new_quest_kinds_generate() {
                 QuestKind::RaiseBuilding { .. } => 6,
                 QuestKind::VisitDiscovery { .. } => 7,
                 QuestKind::TalkToPeople { .. } => 8,
+                // Living-world relief tasks are posted by the App from world
+                // state, not by generate_quests — they never appear here.
+                QuestKind::RelievePlague { .. } => 9,
+                QuestKind::RelieveFamine { .. } => 10,
             });
         }
     }

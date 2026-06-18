@@ -273,7 +273,155 @@ impl App {
         }
     }
 
+    /// The living world calls for help (#613-epic): towns thrown into plague or
+    /// famine by the daily sim post a relief task the player can take up, so the
+    /// drama the systems make becomes something to *do*, not only to read. Capped
+    /// so a plague-year does not flood the list, deduped by town, and surfaced as
+    /// word on the road. Completed by the act of tending/provisioning (see those
+    /// methods); expired on their deadline by the generic quest check.
+    pub(super) fn generate_world_task_quests(&mut self) {
+        use crate::model::quest::{Quest, QuestKind, QuestReward};
+        const MAX_WORLD_TASKS: usize = 4;
+        let day = self.clock.day;
+        let Some(sim) = self.sim.as_mut() else {
+            return;
+        };
+        let mut active = 0usize;
+        let mut have_plague: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut have_famine: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for q in &sim.quests {
+            match &q.kind {
+                QuestKind::RelievePlague { settlement } => {
+                    active += 1;
+                    have_plague.insert(settlement.clone());
+                }
+                QuestKind::RelieveFamine { settlement } => {
+                    active += 1;
+                    have_famine.insert(settlement.clone());
+                }
+                _ => {}
+            }
+        }
+        let mut new_quests: Vec<Quest> = Vec::new();
+        let mut msgs: Vec<String> = Vec::new();
+        'scan: for region in &sim.world.regions {
+            for s in &region.settlements {
+                if active + new_quests.len() >= MAX_WORLD_TASKS {
+                    break 'scan;
+                }
+                if s.population == 0 {
+                    continue;
+                }
+                if s.plague_days > 0 && !have_plague.contains(&s.name) {
+                    new_quests.push(Quest {
+                        kind: QuestKind::RelievePlague {
+                            settlement: s.name.clone(),
+                        },
+                        description: format!("Carry medicine to {} — a plague grips it.", s.name),
+                        reward: QuestReward::Reputation { amount: 0.15 },
+                        progress: 0,
+                        target: 1,
+                        deadline_day: day + 30,
+                        assigned_day: day,
+                    });
+                    msgs.push(format!(
+                        "Word on the road: a sickness has {} in its grip — they need medicine.",
+                        s.name
+                    ));
+                } else if s.famine_days > 0 && !have_famine.contains(&s.name) {
+                    new_quests.push(Quest {
+                        kind: QuestKind::RelieveFamine {
+                            settlement: s.name.clone(),
+                        },
+                        description: format!("Provision {} — its stores stand empty.", s.name),
+                        reward: QuestReward::Reputation { amount: 0.12 },
+                        progress: 0,
+                        target: 1,
+                        deadline_day: day + 30,
+                        assigned_day: day,
+                    });
+                    msgs.push(format!(
+                        "Word on the road: {} has gone hungry — they would pay well for grain.",
+                        s.name
+                    ));
+                }
+            }
+        }
+        let tick = sim.world.tick;
+        for q in new_quests {
+            sim.quests.push(q);
+        }
+        for m in msgs {
+            sim.log(tick, crate::sim::journal::Voice::Rumor, m);
+        }
+    }
+
+    /// Resolve a living-world relief task when the player has answered it
+    /// (#613-epic): pays the task's reward into the player's standing in the town
+    /// they stand in (having just relieved it), clears the task, records the
+    /// quest, and notes it on the road. A no-op if no matching task stands.
+    pub(super) fn complete_world_task(&mut self, kind_is_plague: bool, settlement: &str) {
+        use crate::model::quest::QuestKind;
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let here_id = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                sim.world
+                    .regions
+                    .get(pos.region_idx)?
+                    .settlements
+                    .first()
+                    .map(|s| s.id.clone())
+            })
+            .unwrap_or_default();
+        let found = self.sim.as_ref().and_then(|sim| {
+            sim.quests.iter().enumerate().find_map(|(i, q)| {
+                let hit = match &q.kind {
+                    QuestKind::RelievePlague { settlement: s } => kind_is_plague && s == settlement,
+                    QuestKind::RelieveFamine { settlement: s } => {
+                        !kind_is_plague && s == settlement
+                    }
+                    _ => false,
+                };
+                hit.then(|| (i, q.reward.clone()))
+            })
+        });
+        let Some((idx, reward)) = found else {
+            return;
+        };
+        if let (Some(ps), Some(sim)) = (self.player_start.as_mut(), self.sim.as_mut()) {
+            crate::sim::quest_gen::apply_quest_reward(
+                &reward,
+                &mut ps.inventory,
+                &mut sim.reputation,
+                &player_id,
+                &here_id,
+                &mut sim.relationships,
+                sim.world.tick,
+            );
+        }
+        if let Some(ref mut sim) = self.sim {
+            if idx < sim.quests.len() {
+                sim.quests.remove(idx);
+            }
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                "I answered the world's call. A town will remember it.".into(),
+            );
+        }
+        self.milestones.record_quest_completed(self.clock.day);
+    }
+
     pub(super) fn check_quests_on_tick(&mut self) {
+        self.generate_world_task_quests();
         let current_day = self.clock.day;
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
 

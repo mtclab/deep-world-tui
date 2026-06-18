@@ -372,6 +372,8 @@ impl App {
             );
         }
         self.advance_clock_hour();
+        // Answering a plague-relief task the living world posted (#613-epic).
+        self.complete_world_task(true, &pname);
         let note = if broke {
             " The worst of the sickness breaks."
         } else {
@@ -529,6 +531,9 @@ impl App {
                 format!("I carried {deliver} {} into {pname}, who were short of it. They paid well, and will know my face.", want.name()),
             );
         }
+        // Answering a famine-relief task the living world posted (#613-epic);
+        // a no-op if no such task stands for this town.
+        self.complete_world_task(false, &pname);
         self.status_msg = Some(if at_war {
             format!(
                 "You run {deliver} {} into {pname} past the war's closed roads (+{pay} coin, standing rises, 1h)",
@@ -903,6 +908,36 @@ mod festival_tests {
         assert!(!app.polity_at_war(), "peace reads as peace");
         app.clock.day = war;
         assert!(app.polity_at_war(), "tension reads as war");
+    }
+
+    #[test]
+    fn a_plagued_town_posts_a_relief_task_the_player_can_answer() {
+        use crate::model::quest::QuestKind;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        let town = {
+            let s = &mut app.sim.as_mut().unwrap().world.regions[0].settlements[0];
+            s.plague_days = 8;
+            s.name.clone()
+        };
+        // The living world posts the call.
+        app.generate_world_task_quests();
+        let posted = app.sim.as_ref().unwrap().quests.iter().any(
+            |q| matches!(&q.kind, QuestKind::RelievePlague { settlement } if *settlement == town),
+        );
+        assert!(posted, "the plagued town posts a relief task");
+        // Answering it (the act of tending) resolves it: reward paid, task
+        // cleared, quest recorded.
+        app.complete_world_task(true, &town);
+        let still_open = app.sim.as_ref().unwrap().quests.iter().any(
+            |q| matches!(&q.kind, QuestKind::RelievePlague { settlement } if *settlement == town),
+        );
+        assert!(!still_open, "answering the call clears the task");
+        assert_eq!(
+            app.milestones.quests_completed, 1,
+            "the answered call counts as a quest done"
+        );
     }
 
     #[test]

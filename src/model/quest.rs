@@ -38,6 +38,16 @@ pub enum QuestKind {
     TalkToPeople {
         count: u32,
     },
+    /// A town the living world has thrown into need calls for the player
+    /// (#613-epic): relieve a plague by bringing medicine until the sickness
+    /// lifts. Progress is set by the act of tending, not recomputed.
+    RelievePlague {
+        settlement: String,
+    },
+    /// Provision a town gone to famine until its stores recover.
+    RelieveFamine {
+        settlement: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
