@@ -298,6 +298,92 @@ impl App {
     /// fair premium for it and remember the hand that brought it. The town's own
     /// stock rises by what you delivered — you have actually supplied it, not
     /// just turned a coin. The most direct way to be useful to a community.
+    /// Tend a plagued town with medicine (#604 slice 4): if the player stands in
+    /// a stricken settlement and carries a Salve or Bandage, lay it down — easing
+    /// the plague (cutting its days), paid a fair fee, and remembered for it the
+    /// way a town remembers the stranger who kept it fed. Returns true when it
+    /// handled the act (medicine given, or named the need so plain provisioning
+    /// does not run its bread path over a town that wants physic). False when the
+    /// town is not plagued, so ordinary provisioning proceeds.
+    fn tend_plague_here(&mut self) -> bool {
+        let Some((ri, si)) = self.player_on_settlement() else {
+            return false;
+        };
+        let (plagued, pname) = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(ri)?.settlements.get(si))
+            .map(|s| (s.plague_days > 0, s.name.clone()))
+            .unwrap_or((false, String::new()));
+        if !plagued {
+            return false;
+        }
+        let med = [ItemType::Salve, ItemType::Bandage].into_iter().find(|m| {
+            self.player_start
+                .as_ref()
+                .map(|ps| ps.inventory.get(*m) > 0)
+                .unwrap_or(false)
+        });
+        let Some(med) = med else {
+            // The town is stricken but the player has no physic; provisioning it
+            // with bread is still allowed, so let the ordinary path run.
+            return false;
+        };
+        let pay = (med.base_price() as f64 * 1.25).round() as u32;
+        let player_name = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.name.clone())
+            .unwrap_or_default();
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(med, 1);
+            ps.inventory.add(ItemType::Coin, pay);
+        }
+        let pid = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let mut broke = false;
+        if let Some(ref mut sim) = self.sim {
+            if let Some(s) = sim
+                .world
+                .regions
+                .get_mut(ri)
+                .and_then(|r| r.settlements.get_mut(si))
+            {
+                s.plague_days = s.plague_days.saturating_sub(4);
+                broke = s.plague_days == 0;
+                if s.remembered_deed.is_none() && !player_name.is_empty() {
+                    s.remembered_deed = Some(format!(
+                        "{player_name}, who brought medicine through the plague"
+                    ));
+                }
+                let sid = s.id.clone();
+                if !pid.is_empty() {
+                    sim.reputation.adjust_local(&pid, &sid, 0.03);
+                }
+            }
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Faith,
+                format!("I carried {} into {pname} in its sickness.", med.name()),
+            );
+        }
+        self.advance_clock_hour();
+        let note = if broke {
+            " The worst of the sickness breaks."
+        } else {
+            ""
+        };
+        self.status_msg = Some(format!(
+            "You bring {} to {pname} in the grip of the plague (+{pay} coin, standing rises).{note} (1h)",
+            med.name()
+        ));
+        true
+    }
+
     pub fn provision_settlement(&mut self) {
         let Some((ri, si)) = self.player_on_settlement() else {
             self.status_msg = Some("No settlement here to provision.".into());
@@ -305,6 +391,11 @@ impl App {
         };
         if self.market_barred() {
             self.status_msg = Some("They'll take nothing from your hand here.".into());
+            return;
+        }
+        // A town in the grip of a plague needs medicine before bread (#604 slice
+        // 4): if the player carries it, tending the sickness takes precedence.
+        if self.tend_plague_here() {
             return;
         }
         let Some(want) = self.settlement_shortfall() else {
@@ -812,6 +903,55 @@ mod festival_tests {
         assert!(!app.polity_at_war(), "peace reads as peace");
         app.clock.day = war;
         assert!(app.polity_at_war(), "tension reads as war");
+    }
+
+    #[test]
+    fn bringing_medicine_eases_a_plagued_town() {
+        use crate::model::economy::SettlementService;
+        use crate::model::PlayerPos;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.screen = Screen::Location {
+            region_idx: 0,
+            settlement_idx: 0,
+            scroll: 0,
+        };
+        // Plague the town, stand the player on its ground, hand them a Salve.
+        let (mx, my) = {
+            let s = &mut app.sim.as_mut().unwrap().world.regions[0].settlements[0];
+            s.plague_days = 10;
+            s.services.push(SettlementService::Shrine);
+            (s.map_x as usize + 1, s.map_y as usize + 1)
+        };
+        app.player_pos = Some(PlayerPos {
+            region_idx: 0,
+            px: mx,
+            py: my,
+        });
+        app.player_start
+            .as_mut()
+            .unwrap()
+            .inventory
+            .add(ItemType::Salve, 1);
+        // Only proceed if the player actually stands in town (footprint paint).
+        if app.player_on_settlement().is_some() {
+            app.provision_settlement();
+            let s = &app.sim.as_ref().unwrap().world.regions[0].settlements[0];
+            assert!(s.plague_days < 10, "the medicine eases the plague");
+            assert!(
+                s.remembered_deed
+                    .as_deref()
+                    .unwrap_or("")
+                    .contains("medicine"),
+                "the town remembers the medicine-bringer"
+            );
+            assert!(app
+                .status_msg
+                .as_deref()
+                .unwrap_or("")
+                .contains("grip of the plague"));
+        }
     }
 
     #[test]
