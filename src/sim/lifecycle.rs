@@ -53,6 +53,36 @@ fn is_skilled(profession: &str) -> bool {
     )
 }
 
+/// Who takes up a dead master's skilled trade (#623 slice 6). Adoption before
+/// chance: if the master kept an apprentice (a relation of their own) who still
+/// lives among `people` and does not already hold the trade, the trade — and,
+/// in a real sense, the line — passes to that apprentice; the bool marks it an
+/// adoption. Failing an apprentice, the trade falls to any young plain hand
+/// (labourer/farmer) who can take it up. `None` if no one can. Pure and
+/// deterministic; `people` must not include the dead.
+fn trade_successor(dead: &Person, people: &[Person]) -> Option<(usize, bool)> {
+    let apprentice_id = dead
+        .relations
+        .iter()
+        .find(|r| r.kind == crate::model::relation::RelationKind::Apprentice)
+        .map(|r| r.target_person_id.as_str());
+    if let Some(appr_id) = apprentice_id {
+        if let Some(idx) = people
+            .iter()
+            .position(|q| q.id == appr_id && q.profession != dead.profession)
+        {
+            return Some((idx, true));
+        }
+    }
+    people
+        .iter()
+        .position(|q| {
+            matches!(q.age_band.as_str(), "youth" | "adult")
+                && matches!(q.profession.as_str(), "labourer" | "farmer")
+        })
+        .map(|idx| (idx, false))
+}
+
 pub fn tick_lifecycle(sim: &mut SimState) {
     let tick = sim.world.tick;
     if tick == 0 || !tick.is_multiple_of(TICKS_PER_LIFE_YEAR) {
@@ -139,15 +169,20 @@ pub fn tick_lifecycle(sim: &mut SimState) {
                     .saturating_sub(scale)
                     .max(settlement.people.len() as u32);
                 if is_skilled(&dead.profession) {
-                    if let Some(heir) = settlement.people.iter_mut().find(|q| {
-                        matches!(q.age_band.as_str(), "youth" | "adult")
-                            && matches!(q.profession.as_str(), "labourer" | "farmer")
-                    }) {
-                        heir.profession = dead.profession.clone();
-                        events.push(format!(
-                            "{} of {} has died. {} takes up the {}'s work.",
-                            dead.name, settlement.name, heir.name, dead.profession
-                        ));
+                    if let Some((idx, adopted)) = trade_successor(&dead, &settlement.people) {
+                        let heir_name = settlement.people[idx].name.clone();
+                        settlement.people[idx].profession = dead.profession.clone();
+                        events.push(if adopted {
+                            format!(
+                                "{} of {} has died with no child to leave the trade to — {}, the apprentice, takes up the {}'s work and the master's name with it.",
+                                dead.name, settlement.name, heir_name, dead.profession
+                            )
+                        } else {
+                            format!(
+                                "{} of {} has died. {} takes up the {}'s work.",
+                                dead.name, settlement.name, heir_name, dead.profession
+                            )
+                        });
                         continue;
                     }
                 }
@@ -209,9 +244,62 @@ pub fn tick_lifecycle(sim: &mut SimState) {
 
 #[cfg(test)]
 mod tests {
-    use super::childbirth_complication_chance;
+    use super::{childbirth_complication_chance, trade_successor};
+    use crate::model::relation::{InterNpcRelation, RelationKind};
     use crate::model::Fortune;
-    use crate::rng::fnv1a_hash;
+    use crate::rng::{fnv1a_hash, SeedRng};
+
+    fn a_person(profession: &str, age_band: &str) -> crate::model::Person {
+        let charts = crate::charts::load::load_charts().expect("charts");
+        let mut rng = SeedRng::new(1).fork_for(&format!("test-person-{profession}-{age_band}"));
+        let mut p = crate::gen::person::generate_person(&mut rng, &charts);
+        p.profession = profession.into();
+        p.age_band = age_band.into();
+        p.relations.clear();
+        p
+    }
+
+    #[test]
+    fn a_master_leaves_the_trade_to_their_apprentice() {
+        let mut master = a_person("smith", "elder");
+        let apprentice = a_person("labourer", "adult");
+        // The master kept this apprentice — a relation of their own.
+        master.relations.push(InterNpcRelation {
+            kind: RelationKind::Apprentice,
+            target_person_id: apprentice.id.clone(),
+            intensity: 0.6,
+            formed_at_tick: 0,
+            reason: "apprenticed at the bench".into(),
+        });
+        let bystander = a_person("farmer", "adult");
+        // People list: bystander first, apprentice second — adoption must beat
+        // the plain-hand fallback even though the bystander could take it.
+        let people = vec![bystander, apprentice.clone()];
+        let (idx, adopted) = trade_successor(&master, &people).expect("a successor");
+        assert!(adopted, "the apprentice is adopted into the trade");
+        assert_eq!(
+            people[idx].id, apprentice.id,
+            "it is the apprentice who inherits"
+        );
+    }
+
+    #[test]
+    fn with_no_apprentice_a_young_hand_takes_the_trade() {
+        let master = a_person("weaver", "elder"); // no apprentice relation
+        let young = a_person("labourer", "youth");
+        let people = vec![young.clone()];
+        let (idx, adopted) = trade_successor(&master, &people).expect("a successor");
+        assert!(!adopted, "no apprentice — this is chance, not adoption");
+        assert_eq!(people[idx].id, young.id);
+    }
+
+    #[test]
+    fn a_trade_with_no_one_to_take_it_passes_to_no_one() {
+        let master = a_person("scribe", "elder");
+        // Only skilled elders about — no young plain hand, no apprentice.
+        let people = vec![a_person("smith", "elder")];
+        assert!(trade_successor(&master, &people).is_none());
+    }
 
     #[test]
     fn cursed_mother_takes_more_complications() {
