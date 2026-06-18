@@ -289,6 +289,8 @@ impl App {
         let mut active = 0usize;
         let mut have_plague: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut have_famine: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut have_truce: std::collections::HashSet<(String, String)> =
+            std::collections::HashSet::new();
         for q in &sim.quests {
             match &q.kind {
                 QuestKind::RelievePlague { settlement } => {
@@ -298,6 +300,10 @@ impl App {
                 QuestKind::RelieveFamine { settlement } => {
                     active += 1;
                     have_famine.insert(settlement.clone());
+                }
+                QuestKind::BrokerTruce { a, b } => {
+                    active += 1;
+                    have_truce.insert((a.clone(), b.clone()));
                 }
                 _ => {}
             }
@@ -346,6 +352,42 @@ impl App {
                     ));
                 }
             }
+        }
+        // Deep, raiding rivalries call for a peacemaker (#614 slice 2): a pair
+        // whose bad blood runs past the raiding mark posts a broker-truce task.
+        // Pairs are stored name-ordered by the province ties, so the dedup key
+        // matches either way.
+        let deep_rivals: Vec<(String, String)> = sim
+            .province_ties
+            .bonds
+            .iter()
+            .filter(|(_, &v)| v <= -0.7)
+            .map(|((a, b), _)| (a.clone(), b.clone()))
+            .collect();
+        for (a, b) in deep_rivals {
+            if active + new_quests.len() >= MAX_WORLD_TASKS {
+                break;
+            }
+            if have_truce.contains(&(a.clone(), b.clone())) {
+                continue;
+            }
+            new_quests.push(Quest {
+                kind: QuestKind::BrokerTruce {
+                    a: a.clone(),
+                    b: b.clone(),
+                },
+                description: format!(
+                    "Broker a truce between {a} and {b} — carry goods where no cart will cross."
+                ),
+                reward: QuestReward::Reputation { amount: 0.18 },
+                progress: 0,
+                target: 1,
+                deadline_day: day + 40,
+                assigned_day: day,
+            });
+            msgs.push(format!(
+                "Word on the road: bad blood between {a} and {b} — a peacemaker could ease it."
+            ));
         }
         let tick = sim.world.tick;
         for q in new_quests {
@@ -415,6 +457,67 @@ impl App {
                 tick,
                 crate::sim::journal::Voice::Travel,
                 "I answered the world's call. A town will remember it.".into(),
+            );
+        }
+        self.milestones.record_quest_completed(self.clock.day);
+    }
+
+    /// Resolve a broker-truce task when the player has eased a deep rivalry
+    /// (#614 slice 2): called by the broker act once the bad blood lifts out of
+    /// rivalry. Matches the pair in either order, pays the reward into the
+    /// player's current standing, clears the task, records the quest.
+    pub(super) fn complete_truce_task(&mut self, x: &str, y: &str) {
+        use crate::model::quest::QuestKind;
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let here_id = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                sim.world
+                    .regions
+                    .get(pos.region_idx)?
+                    .settlements
+                    .first()
+                    .map(|s| s.id.clone())
+            })
+            .unwrap_or_default();
+        let found = self.sim.as_ref().and_then(|sim| {
+            sim.quests.iter().enumerate().find_map(|(i, q)| {
+                let hit = match &q.kind {
+                    QuestKind::BrokerTruce { a, b } => (a == x && b == y) || (a == y && b == x),
+                    _ => false,
+                };
+                hit.then(|| (i, q.reward.clone()))
+            })
+        });
+        let Some((idx, reward)) = found else {
+            return;
+        };
+        if let (Some(ps), Some(sim)) = (self.player_start.as_mut(), self.sim.as_mut()) {
+            crate::sim::quest_gen::apply_quest_reward(
+                &reward,
+                &mut ps.inventory,
+                &mut sim.reputation,
+                &player_id,
+                &here_id,
+                &mut sim.relationships,
+                sim.world.tick,
+            );
+        }
+        if let Some(ref mut sim) = self.sim {
+            if idx < sim.quests.len() {
+                sim.quests.remove(idx);
+            }
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                "The peace I carried between them holds. They will not forget it.".into(),
             );
         }
         self.milestones.record_quest_completed(self.clock.day);

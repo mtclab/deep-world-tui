@@ -450,6 +450,7 @@ impl App {
             .map(|ps| ps.person.name.clone())
             .unwrap_or_default();
         // The good actually lands in the town's stores.
+        let mut brokered_truce: Option<(String, String)> = None;
         if let Some(ref mut sim) = self.sim {
             if let Some(s) = sim
                 .world
@@ -507,10 +508,16 @@ impl App {
                                 "The old bad blood between {prev_name} and {pname} is easing — a trader crosses between them again."
                             ),
                         );
+                        // The feud is out of rivalry: a broker-truce task, if one
+                        // stood for this pair, is answered (#614 slice 2).
+                        brokered_truce = Some((prev_name.clone(), pname.clone()));
                     }
                 }
             }
             sim.last_provisioned_town = Some(pname.clone());
+        }
+        if let Some((x, y)) = brokered_truce {
+            self.complete_truce_task(&x, &y);
         }
         self.advance_clock_hour();
         self.god_affinity.adjust(GodName::Masa, 0.02);
@@ -908,6 +915,48 @@ mod festival_tests {
         assert!(!app.polity_at_war(), "peace reads as peace");
         app.clock.day = war;
         assert!(app.polity_at_war(), "tension reads as war");
+    }
+
+    #[test]
+    fn a_deep_rivalry_posts_a_broker_truce_task() {
+        use crate::model::quest::QuestKind;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        // Two named towns at deep rivalry.
+        let (a, b) = {
+            let regs = &app.sim.as_ref().unwrap().world.regions;
+            let mut names = Vec::new();
+            'o: for r in regs {
+                for s in &r.settlements {
+                    if s.population > 1 {
+                        names.push(s.name.clone());
+                        if names.len() == 2 {
+                            break 'o;
+                        }
+                    }
+                }
+            }
+            (names[0].clone(), names[1].clone())
+        };
+        app.sim.as_mut().unwrap().province_ties.nudge(&a, &b, -0.9);
+        app.generate_world_task_quests();
+        let posted = app.sim.as_ref().unwrap().quests.iter().any(|q| {
+            matches!(&q.kind, QuestKind::BrokerTruce { a: qa, b: qb }
+                if (qa == &a && qb == &b) || (qa == &b && qb == &a))
+        });
+        assert!(posted, "a deep rivalry posts a broker-truce task");
+        // Answering it (the peace brokered) resolves it.
+        app.complete_truce_task(&a, &b);
+        let still = app
+            .sim
+            .as_ref()
+            .unwrap()
+            .quests
+            .iter()
+            .any(|q| matches!(&q.kind, QuestKind::BrokerTruce { .. }));
+        assert!(!still, "brokering the peace clears the task");
+        assert_eq!(app.milestones.quests_completed, 1);
     }
 
     #[test]

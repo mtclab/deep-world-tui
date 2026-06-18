@@ -48,6 +48,13 @@ pub enum QuestKind {
     RelieveFamine {
         settlement: String,
     },
+    /// Two towns at deep, raiding rivalry call for a peacemaker (#614): carry
+    /// goods between them until the bad blood eases out of rivalry. Towns stored
+    /// name-ordered so the pair is the same either way.
+    BrokerTruce {
+        a: String,
+        b: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
