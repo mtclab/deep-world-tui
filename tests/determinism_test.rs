@@ -26,6 +26,7 @@ fn collect_region_names(sim: &SimState) -> Vec<String> {
 fn living_world_fingerprint(sim: &SimState) -> String {
     let mut out = String::new();
     for region in &sim.world.regions {
+        out.push_str(&format!("[{}:march{}]", region.id, region.is_march));
         for s in &region.settlements {
             out.push_str(&format!(
                 "{}|pop{}|food{:.3}|fam{}|plag{}|",

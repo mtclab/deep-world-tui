@@ -82,6 +82,58 @@ pub fn tick_frontier(sim: &mut crate::sim::SimState) {
     form_bands(sim);
     bands_act(sim);
     settle_holds(sim);
+    march_tide(sim);
+}
+
+/// A hold this size has grown past an outlaw camp into a real town, and
+/// governance creeps back over its country — the march is tamed.
+const MARCH_TAME_POP: u32 = 40;
+
+/// The Fall's tide at the scale of whole regions (#630 slice 4): the wild and
+/// the settled trade ground, slowly. A march where a hold has grown into a real
+/// town is **tamed** — the dark recedes, the region joins the settled province.
+/// A settled region whose every town has died **falls back** to march — the
+/// ungoverned dark returns to the empty country. Seasonal and deterministic, so
+/// the line of the frontier moves over a long game, not day to day.
+pub fn march_tide(sim: &mut crate::sim::SimState) {
+    let day = (sim.world.tick / 24) as u32;
+    if day == 0 || !day.is_multiple_of(30) {
+        return;
+    }
+    let mut logs: Vec<String> = Vec::new();
+    for region in sim.world.regions.iter_mut() {
+        let biggest = region
+            .settlements
+            .iter()
+            .filter(|s| s.population > 0)
+            .map(|s| s.population)
+            .max();
+        if region.is_march {
+            // Tamed: a hold has grown into a town the province must reckon with.
+            if biggest.is_some_and(|p| p >= MARCH_TAME_POP) {
+                region.is_march = false;
+                logs.push(format!(
+                    "Word on the road: the wild country of {} has a town to its name now — the march is tamed, and the province reaches a little further.",
+                    region.name
+                ));
+            }
+        } else if biggest.is_none() {
+            // Fallen back: every town in the region is gone, and the dark
+            // returns. Only a region that once held towns can fall — a region
+            // with no settlement record was never the province's to lose.
+            if !region.settlements.is_empty() {
+                region.is_march = true;
+                logs.push(format!(
+                    "Word on the road: {} has fallen back to the wild — its towns are emptied, and the ungoverned dark closes over the country again.",
+                    region.name
+                ));
+            }
+        }
+    }
+    let tick = sim.world.tick;
+    for line in logs {
+        sim.log(tick, Voice::Rumor, line);
+    }
 }
 
 /// When enough wanderers have gathered, they muster into a band — a living
