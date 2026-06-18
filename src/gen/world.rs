@@ -202,14 +202,21 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts, is_march: bo
         .resolve_and_sample("", &region_type, "", "", &mut rng)
         .unwrap_or_else(|| "generic".into());
 
-    let description = charts
-        .region_descriptions
-        .get(&region_type)
-        .and_then(|descs| {
-            let idx = rng.gen_range(descs.len() as u32) as usize;
-            descs.get(idx).cloned()
-        })
-        .unwrap_or_else(|| "An uncharted tract of land".into());
+    // A march reads as the ungoverned wilderness it is, not as a settled region
+    // (#630). Its own land still shows through the region_type, but the framing
+    // is the wild country past the towns' reach.
+    let description = if is_march {
+        crate::sim::frontier::march_description(&region_type).to_string()
+    } else {
+        charts
+            .region_descriptions
+            .get(&region_type)
+            .and_then(|descs| {
+                let idx = rng.gen_range(descs.len() as u32) as usize;
+                descs.get(idx).cloned()
+            })
+            .unwrap_or_else(|| "An uncharted tract of land".into())
+    };
 
     let mut settlements = Vec::with_capacity(n_settlements);
     for si in 0..n_settlements {

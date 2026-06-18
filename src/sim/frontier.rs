@@ -89,6 +89,20 @@ pub fn tick_frontier(sim: &mut crate::sim::SimState) {
 /// governance creeps back over its country — the march is tamed.
 const MARCH_TAME_POP: u32 = 40;
 
+/// How a march reads to a traveller (#630): the ungoverned wilderness past the
+/// towns' reach, framed by the land it is made of. Deterministic, no roll.
+pub fn march_description(region_type: &str) -> &'static str {
+    match region_type {
+        "forest" => "Wild forest the towns have let go — no road, no hearth, only the deep wood and what moves in it.",
+        "upland" => "High, ungoverned country. The stone keeps no law but its own, and the passes belong to whoever holds them.",
+        "steppe" => "Open march country, grass to the horizon and no town to claim it — the kind of ground a band can cross unseen.",
+        "coast" => "A wild shore beyond the province's reach, its coves known only to those with reason to be unknown.",
+        "delta" => "Trackless mire-march where the water hides the ground — and more than the ground.",
+        "river_valley" => "A river valley gone back to the wild, its old fields under thorn, its roads swallowed.",
+        _ => "Ungoverned march — the open country past the towns' reach, where the Fall's dark never lifted.",
+    }
+}
+
 /// The Fall's tide at the scale of whole regions (#630 slice 4): the wild and
 /// the settled trade ground, slowly. A march where a hold has grown into a real
 /// town is **tamed** — the dark recedes, the region joins the settled province.
@@ -123,6 +137,7 @@ pub fn march_tide(sim: &mut crate::sim::SimState) {
             // with no settlement record was never the province's to lose.
             if !region.settlements.is_empty() {
                 region.is_march = true;
+                region.description = march_description(&region.region_type).to_string();
                 logs.push(format!(
                     "Word on the road: {} has fallen back to the wild — its towns are emptied, and the ungoverned dark closes over the country again.",
                     region.name

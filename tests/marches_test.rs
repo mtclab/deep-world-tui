@@ -97,3 +97,22 @@ fn a_settled_region_emptied_falls_back_to_march() {
         "a settled region emptied of its towns falls back to march"
     );
 }
+
+#[test]
+fn a_march_reads_as_wilderness_not_a_settled_region() {
+    let charts = load_charts().expect("charts");
+    // Find a seed whose world has a march, and confirm its description frames it
+    // as ungoverned wild — not a settled region's blurb.
+    for seed in 0..40u64 {
+        let world = generate_world(seed, &charts);
+        if let Some(march) = world.regions.iter().find(|r| r.is_march) {
+            let d = march.description.to_lowercase();
+            assert!(
+                d.contains("wild") || d.contains("ungoverned") || d.contains("march"),
+                "a march should read as wilderness, got: {}",
+                march.description
+            );
+            return;
+        }
+    }
+}
