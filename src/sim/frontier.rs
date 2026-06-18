@@ -139,6 +139,35 @@ fn richest_prey(sim: &crate::sim::SimState, region_idx: usize) -> Option<usize> 
         .map(|(i, _)| i)
 }
 
+/// Where a band seated in `region_idx` finds its prey (#630 slice 2): the
+/// richest town in its own country first, and failing that — the case for a
+/// band holed up in a march, which has no town of its own — the richest town in
+/// a neighbouring region. A band of the marches strikes the settled edge and
+/// melts back into the dark. Returns the prey's (region, settlement). Neighbours
+/// are scanned in a fixed order, so the raid is deterministic.
+/// The name of the town a band seated in `region_idx` preys on — its own
+/// country's, or a neighbour's if it holes up in a town-less march (#630). For
+/// the bounty board, so a town raided from the dark can still put coin on the
+/// band's head.
+pub fn band_prey_town(sim: &crate::sim::SimState, region_idx: usize) -> Option<String> {
+    raid_target(sim, region_idx)
+        .and_then(|(r, s)| sim.world.regions.get(r)?.settlements.get(s))
+        .map(|s| s.name.clone())
+}
+
+fn raid_target(sim: &crate::sim::SimState, region_idx: usize) -> Option<(usize, usize)> {
+    if let Some(si) = richest_prey(sim, region_idx) {
+        return Some((region_idx, si));
+    }
+    let region = sim.world.regions.get(region_idx)?;
+    let n = &region.neighbors;
+    [n.north, n.east, n.south, n.west]
+        .into_iter()
+        .flatten()
+        .filter(|&i| i < sim.world.regions.len())
+        .find_map(|ni| richest_prey(sim, ni).map(|si| (ni, si)))
+}
+
 /// Each band's day in the wild (#623 slice 3): it preys on the nearest town if
 /// its country holds one — taking food and goods, fraying the people's safety,
 /// and growing fat on the spoils — or, finding only empty country, roams to a
@@ -157,13 +186,14 @@ fn bands_act(sim: &mut crate::sim::SimState) {
         };
         let mut rng = SeedRng::new(seed).fork_for(&format!("band-act-{band_id}-{day}"));
 
-        match richest_prey(sim, region_idx) {
-            Some(si) => {
+        match raid_target(sim, region_idx) {
+            Some((prey_region, si)) => {
+                let from_the_dark = prey_region != region_idx;
                 // The raid: spoils scaled by the band's strength and the town's
                 // larder, bounded so a single raid stings but never empties a
                 // town in a night. The people's sense of safety frays.
                 let (town_name, loot_food, looted_goods, killed) = {
-                    let s = &mut sim.world.regions[region_idx].settlements[si];
+                    let s = &mut sim.world.regions[prey_region].settlements[si];
                     let loot_food = (s.food_stock * 0.15).min(size as f64 * 1.5);
                     s.food_stock = (s.food_stock - loot_food).max(0.0);
                     let mut looted = 0.0f64;
@@ -197,13 +227,18 @@ fn bands_act(sim: &mut crate::sim::SimState) {
                 // Spoils swell the band — success draws more of the road's lost.
                 let grow = if loot_food + looted_goods > 1.0 { 1 } else { 0 };
                 sim.frontier.bands[bi].size = (size + grow).min(40);
+                let melt_back = if from_the_dark {
+                    "and rode back into the marches"
+                } else {
+                    "and melted back into the country"
+                };
                 if killed {
                     logs.push(format!(
-                        "Word on the road: {band_name} fell on {town_name} in the night — stores carried off, and a life taken."
+                        "Word on the road: {band_name} fell on {town_name} in the night — stores carried off, a life taken, {melt_back}."
                     ));
                 } else {
                     logs.push(format!(
-                        "Word on the road: {band_name} raided {town_name} — they took what they could and melted back into the country."
+                        "Word on the road: {band_name} raided {town_name} — they took what they could {melt_back}."
                     ));
                 }
             }
