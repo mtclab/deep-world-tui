@@ -58,6 +58,7 @@ fn living_world_fingerprint(sim: &SimState) -> String {
         .collect();
     bonds.sort();
     out.push_str(&bonds.join(","));
+    out.push_str(&format!("|wanderers{}", sim.frontier.wanderers));
     out
 }
 

@@ -104,11 +104,48 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
         return;
     }
 
+    // Souls who leave the settled lands entirely — not for another town, but
+    // for the open road (#623). Gathered here, removed and counted below.
+    let mut leavers: Vec<(MigrationCandidate, String)> = Vec::new();
+
     for (sri, sref) in settlement_refs.iter().enumerate() {
         let settlement = &sim.world.regions[sref.region_idx].settlements[sref.settlement_idx];
         let adjacent = find_adjacent_settlements(&sim.world, sref.region_idx);
 
+        // A village worn by hunger or feud, or simply crowded past its land,
+        // pushes its restless toward the road (#623). One pressure read per
+        // town, deterministic; the harder-pressed shed the more.
+        let town_pressure = {
+            let famine = settlement.famine_days > 0;
+            let feud = crate::model::relation::feud_load(&settlement.people) >= 0.4;
+            famine || feud
+        };
+
         for person in settlement.people.iter() {
+            // The road takes the young and unattached first (#623): a youth or
+            // young adult with no spouse, in a pressed town, whose own safety
+            // has worn thin, may leave the settled lands for the ungoverned
+            // dark. Rare and deterministic — a village sheds a few, not a flood.
+            if town_pressure
+                && !person.has_spouse
+                && matches!(person.age_band.as_str(), "youth" | "adult")
+                && person.needs.get(crate::model::Need::Safety) < 0.35
+            {
+                let mut leave_rng =
+                    SeedRng::new(seed).fork_for(&format!("road-{}-{}-{}", person.id, sri, tick));
+                if leave_rng.gen_f64() < 0.06 {
+                    leavers.push((
+                        MigrationCandidate {
+                            person_id: person.id.clone(),
+                            source_settlement_idx: sref.settlement_idx,
+                            source_region_idx: sref.region_idx,
+                        },
+                        person.name.clone(),
+                    ));
+                    continue;
+                }
+            }
+
             if person.age_band != "adult" && person.age_band != "elder" {
                 continue;
             }
@@ -295,6 +332,37 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
         } else {
             format!(
                 "Word on the road: {routine_count} tradespeople crossed the ridges this season, chasing steady work."
+            )
+        };
+        sim.log(tick, Voice::Rumor, line);
+    }
+
+    // The road takes the restless (#623): remove those who left the settled
+    // lands, shrink their town, and add them to the frontier's wanderers — the
+    // raw material of the bands to come. One named line carries the season's
+    // leaving, so a village emptying of its young is felt, not droned.
+    let mut left_names: Vec<String> = Vec::new();
+    for (cand, name) in &leavers {
+        if migrated_ids.contains(&cand.person_id) {
+            continue;
+        }
+        let s =
+            &mut sim.world.regions[cand.source_region_idx].settlements[cand.source_settlement_idx];
+        if let Some(idx) = s.people.iter().position(|p| p.id == cand.person_id) {
+            s.people.remove(idx);
+            s.population = s.population.saturating_sub(1).max(s.people.len() as u32);
+            migrated_ids.insert(cand.person_id.clone());
+            sim.frontier.take_the_road();
+            left_names.push(name.clone());
+        }
+    }
+    if let Some(first) = left_names.first() {
+        let line = if left_names.len() == 1 {
+            format!("Word on the road: {first} left the village for the open country, done with the life the land offered.")
+        } else {
+            format!(
+                "Word on the road: {first} and {} others took the road into the ungoverned country this season.",
+                left_names.len() - 1
             )
         };
         sim.log(tick, Voice::Rumor, line);
