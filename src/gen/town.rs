@@ -327,6 +327,7 @@ mod tests {
             people: Vec::new(),
             services: Vec::new(),
             politics: crate::model::SettlementPolitics::new(),
+            faith: Default::default(),
             food_stock: 0.0,
             goods_stock: Default::default(),
             farms: Vec::new(),
