@@ -227,6 +227,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_alliance_relief(sim);
     tick_faith_spread(sim);
     tick_faith_upheavals(sim);
+    tick_plague(sim);
     tick_raids(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
@@ -1388,6 +1389,76 @@ fn tick_winter_relief(sim: &mut SimState) {
 /// and the raid deepens the rivalry it sprang from, a feedback the peace must
 /// break. System-first and deterministic: the bonds are read in sorted order and
 /// the roll is seeded, so a given world always raids the same way.
+/// A town can fall to a plague (#604 slice 1): under the conditions that breed
+/// it — a famine-weakened town, or a plague-year season (#417) — a sickness
+/// breaks out, grips the town for a span (sickening its people and taking a
+/// toll), then runs its course. Talked of at its start and its end. System-first
+/// and deterministic: the outbreak roll is seeded per town per day.
+fn tick_plague(sim: &mut SimState) {
+    use crate::model::{Need, Season, WorldEvent};
+    let tick = sim.world.tick;
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let day = (tick / 24) as u32;
+    let seed = sim.world.seed;
+    let season = Season::from_day(day);
+    let plague_year =
+        WorldEvent::current(seed, season, day / Season::YEAR_DAYS) == Some(WorldEvent::PlagueYear);
+    let mut msgs: Vec<String> = Vec::new();
+    for region in sim.world.regions.iter_mut() {
+        for s in region.settlements.iter_mut() {
+            if s.population == 0 {
+                continue;
+            }
+            if s.plague_days == 0 {
+                // The conditions that breed a plague raise its odds: a
+                // famine-weakened town, and above all a plague-year season.
+                let mut rng =
+                    SeedRng::new(seed ^ si_hash(&s.name)).fork_for(&format!("plague-{day}"));
+                let mut chance = 3u32; // per thousand, in an ordinary season
+                if s.famine_days > 0 {
+                    chance += 8;
+                }
+                if plague_year {
+                    chance += 15;
+                }
+                if rng.gen_range(1000) < chance {
+                    s.plague_days = 1;
+                    for person in s.people.iter_mut() {
+                        person.needs.decay(Need::Safety, 0.05);
+                    }
+                    msgs.push(format!("A sickness has broken out in {}.", s.name));
+                }
+            } else {
+                // The plague burns: it sickens the people and takes a small
+                // toll each day, then runs its course after a couple of weeks.
+                s.plague_days += 1;
+                for person in s.people.iter_mut() {
+                    person.needs.decay(Need::Safety, 0.04);
+                    person.needs.decay(Need::Care, 0.03);
+                }
+                let toll = ((s.population as f64) * 0.004).ceil() as u32;
+                s.population = s.population.saturating_sub(toll);
+                // A smaller town holds less: keep the goods cap (population/2)
+                // in step with the toll so stores never sit above what the
+                // shrunken town can hold.
+                let cap = s.population as f64 * 0.5;
+                for v in s.goods_stock.values_mut() {
+                    *v = v.min(cap);
+                }
+                if s.plague_days >= 16 {
+                    s.plague_days = 0;
+                    msgs.push(format!("The sickness in {} has run its course.", s.name));
+                }
+            }
+        }
+    }
+    for m in msgs {
+        sim.log(tick, Voice::Rumor, m);
+    }
+}
+
 /// Revival and schism (#595 slice 3): now and then a town's faith shifts hard.
 /// A revival is a sudden fervor that drives the town toward one god; a schism is
 /// two gods contending near-equally for its devotion, which leaves the town
@@ -1980,6 +2051,40 @@ mod tests {
             caravans_before,
             "relief is a winter thing — none flows in Green"
         );
+    }
+
+    #[test]
+    fn a_plague_breaks_out_and_runs_its_course() {
+        let charts = charts::load_charts().unwrap();
+        let mut sim = SimState::new(42, charts);
+        // Weaken every town with famine so a plague is likely to catch.
+        for region in sim.world.regions.iter_mut() {
+            for s in region.settlements.iter_mut() {
+                s.famine_days = 5;
+            }
+        }
+        let mut broke_out = false;
+        let mut ran_course = false;
+        // A couple of years of days; an outbreak should land, then end.
+        for d in 1..=200u64 {
+            sim.world.tick = d * 24;
+            tick_plague(&mut sim);
+            let j = &sim.journal.entries;
+            if j.iter()
+                .any(|e| e.text.contains("A sickness has broken out"))
+            {
+                broke_out = true;
+            }
+            if j.iter().any(|e| e.text.contains("has run its course")) {
+                ran_course = true;
+                break;
+            }
+        }
+        assert!(
+            broke_out,
+            "a plague breaks out under famine within two years"
+        );
+        assert!(ran_course, "and the plague runs its course");
     }
 
     #[test]
