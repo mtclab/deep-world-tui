@@ -41,6 +41,49 @@ fn a_pressed_village_sheds_its_young_to_the_road() {
 }
 
 #[test]
+fn gathered_wanderers_muster_into_a_band() {
+    let charts = load_charts().expect("charts");
+    let mut sim = SimState::new(5150, charts);
+    // Enough lost souls have gathered in the dark to make a band of them.
+    sim.frontier.wanderers = 12;
+    // Step a day so the frontier takes its turn (it acts on the day boundary).
+    for _ in 0..24 {
+        sim.step();
+    }
+    assert_eq!(
+        sim.frontier.bands.len(),
+        1,
+        "a band gathers from the wanderers"
+    );
+    let band = &sim.frontier.bands[0];
+    assert!(band.size >= 8, "a band musters real numbers: {}", band.size);
+    assert!(
+        sim.frontier.wanderers < 12,
+        "the muster drew down the loose wanderers"
+    );
+    assert!(band.region_idx < sim.world.regions.len());
+}
+
+#[test]
+fn band_formation_is_deterministic() {
+    let charts = load_charts().expect("charts");
+    let mut a = SimState::new(909, charts.clone());
+    let mut b = SimState::new(909, charts);
+    a.frontier.wanderers = 20;
+    b.frontier.wanderers = 20;
+    for _ in 0..48 {
+        a.step();
+        b.step();
+    }
+    let an: Vec<_> = a.frontier.bands.iter().map(|x| &x.name).collect();
+    let bn: Vec<_> = b.frontier.bands.iter().map(|x| &x.name).collect();
+    assert_eq!(
+        an, bn,
+        "the same seed musters the same bands by the same names"
+    );
+}
+
+#[test]
 fn the_road_taking_is_deterministic() {
     let charts = load_charts().expect("charts");
     let mut a = SimState::new(771, charts.clone());
