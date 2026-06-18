@@ -228,6 +228,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_faith_spread(sim);
     tick_faith_upheavals(sim);
     tick_plague(sim);
+    tick_plague_spread(sim);
     tick_raids(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
@@ -1389,6 +1390,66 @@ fn tick_winter_relief(sim: &mut SimState) {
 /// and the raid deepens the rivalry it sprang from, a feedback the peace must
 /// break. System-first and deterministic: the bonds are read in sorted order and
 /// the roll is seeded, so a given world always raids the same way.
+/// Plague rides the caravans (#604 slice 2): a cart that set out from a plagued
+/// town can carry the contagion to where it lands — the trade that carries goods
+/// carries the sickness — so a plague creeps along the busy partner-roads, town
+/// to town. The road it rode is talked of. System-first and deterministic: the
+/// caravans are read in order, the roll seeded per caravan per day, the new
+/// outbreaks applied after.
+fn tick_plague_spread(sim: &mut SimState) {
+    use crate::model::Need;
+    let tick = sim.world.tick;
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let day = tick / 24;
+    let seed = sim.world.seed;
+    let mut loc: std::collections::HashMap<String, (usize, usize)> =
+        std::collections::HashMap::new();
+    let mut plagued: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
+    for (ri, region) in sim.world.regions.iter().enumerate() {
+        for (si, s) in region.settlements.iter().enumerate() {
+            if s.population == 0 {
+                continue;
+            }
+            loc.insert(s.name.clone(), (ri, si));
+            plagued.insert(s.name.clone(), s.plague_days > 0);
+        }
+    }
+    // Read the carts in order; a cart out of a plagued town can carry the
+    // sickness to a healthy destination.
+    let mut new_outbreaks: Vec<(String, String)> = Vec::new();
+    for c in &sim.caravans {
+        if plagued.get(&c.origin).copied().unwrap_or(false)
+            && !plagued.get(&c.destination).copied().unwrap_or(true)
+        {
+            let mut rng =
+                SeedRng::new(seed ^ si_hash(&c.id)).fork_for(&format!("plague-ride-{day}"));
+            if rng.gen_range(100) < 30 {
+                new_outbreaks.push((c.origin.clone(), c.destination.clone()));
+            }
+        }
+    }
+    let mut msgs: Vec<String> = Vec::new();
+    for (from, to) in new_outbreaks {
+        if let Some(&(ri, si)) = loc.get(&to) {
+            let s = &mut sim.world.regions[ri].settlements[si];
+            if s.plague_days == 0 {
+                s.plague_days = 1;
+                for person in s.people.iter_mut() {
+                    person.needs.decay(Need::Safety, 0.05);
+                }
+                msgs.push(format!(
+                    "The sickness rode the road from {from} to {to} — a cart carried more than goods."
+                ));
+            }
+        }
+    }
+    for m in msgs {
+        sim.log(tick, Voice::Rumor, m);
+    }
+}
+
 /// A town can fall to a plague (#604 slice 1): under the conditions that breed
 /// it — a famine-weakened town, or a plague-year season (#417) — a sickness
 /// breaks out, grips the town for a span (sickening its people and taking a
@@ -2051,6 +2112,69 @@ mod tests {
             caravans_before,
             "relief is a winter thing — none flows in Green"
         );
+    }
+
+    #[test]
+    fn plague_rides_a_caravan_to_a_healthy_town() {
+        use crate::model::economy::Caravan;
+        let charts = charts::load_charts().unwrap();
+        let mut sim = SimState::new(42, charts);
+        let mut names = Vec::new();
+        'outer: for region in &sim.world.regions {
+            for s in &region.settlements {
+                if s.population > 1 {
+                    names.push(s.name.clone());
+                    if names.len() == 2 {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        assert_eq!(names.len(), 2);
+        let (sick, healthy) = (names[0].clone(), names[1].clone());
+        let plague_of = |sim: &SimState, name: &str| -> u32 {
+            sim.world
+                .regions
+                .iter()
+                .flat_map(|r| r.settlements.iter())
+                .find(|s| s.name == name)
+                .map(|s| s.plague_days)
+                .unwrap_or(0)
+        };
+        // One town plagued; a cart rides from it to the healthy one each day.
+        for region in sim.world.regions.iter_mut() {
+            for s in region.settlements.iter_mut() {
+                if s.name == sick {
+                    s.plague_days = 3;
+                }
+            }
+        }
+        let mut caught = false;
+        for d in 1..=40u64 {
+            sim.world.tick = d * 24;
+            // Refresh a fresh cart from the sick town each day.
+            sim.caravans.clear();
+            sim.caravans.push(Caravan::generate(
+                sim.world.seed.wrapping_add(d),
+                sick.clone(),
+                healthy.clone(),
+                d * 24,
+            ));
+            // Keep the source plagued so it can keep carrying.
+            for region in sim.world.regions.iter_mut() {
+                for s in region.settlements.iter_mut() {
+                    if s.name == sick {
+                        s.plague_days = 3;
+                    }
+                }
+            }
+            tick_plague_spread(&mut sim);
+            if plague_of(&sim, &healthy) > 0 {
+                caught = true;
+                break;
+            }
+        }
+        assert!(caught, "the plague rides the caravan to the healthy town");
     }
 
     #[test]
