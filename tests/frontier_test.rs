@@ -124,8 +124,10 @@ fn a_band_preys_on_the_town_in_its_country() {
 fn a_band_in_empty_country_wears_down_and_scatters() {
     let charts = load_charts().expect("charts");
     let mut sim = SimState::new(8401, charts);
-    // Seat a small band in a region with NO living town, so it only roams and
-    // starves — it should wear down to nothing and scatter.
+    // Seat a lone band in a region with NO living town. With no prey in its
+    // country it roams and the hungry road wears it down — a size-1 band loses
+    // its last soul that very turn and scatters, before any roam could carry it
+    // onto a town. Deterministic regardless of which way it drifts.
     let empty = sim
         .world
         .regions
@@ -135,20 +137,17 @@ fn a_band_in_empty_country_wears_down_and_scatters() {
         sim.frontier.bands.push(Band {
             id: "band-test-2".into(),
             name: "the Doomed of Nowhere".into(),
-            size: 2,
+            size: 1,
             region_idx: empty_idx,
             formed_day: 0,
         });
-        // Enough days for a size-2 band to starve out (it loses 1/turn in empty
-        // country, but roaming may carry it onto a town — so allow many days and
-        // only assert it does not grow without bound).
-        for _ in 0..(24 * 6) {
+        // One frontier turn (the day boundary).
+        for _ in 0..24 {
             sim.step();
         }
-        let still = sim.frontier.bands.iter().find(|b| b.id == "band-test-2");
         assert!(
-            still.map(|b| b.size <= 4).unwrap_or(true),
-            "a band starved of prey does not balloon"
+            !sim.frontier.bands.iter().any(|b| b.id == "band-test-2"),
+            "a lone band with no prey in its country scatters"
         );
     }
 }

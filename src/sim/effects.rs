@@ -324,6 +324,7 @@ mod tests {
                 }],
                 weather: crate::model::Weather::Clear,
                 game_richness: 1.0,
+                is_march: false,
             }],
             charts_version: "0.1.0".into(),
             region_cols: 1,
@@ -463,6 +464,7 @@ mod tests {
                     }],
                     weather: crate::model::Weather::Clear,
                     game_richness: 1.0,
+                    is_march: false,
                 },
                 crate::model::Region {
                     id: "r2".into(),
@@ -498,6 +500,7 @@ mod tests {
                     }],
                     weather: crate::model::Weather::Clear,
                     game_richness: 1.0,
+                    is_march: false,
                 },
             ],
             charts_version: "0.1.0".into(),

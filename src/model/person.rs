@@ -1566,6 +1566,7 @@ mod tests {
             }],
             weather: crate::model::Weather::Clear,
             game_richness: 1.0,
+            is_march: false,
         };
 
         world.regions.push(region);

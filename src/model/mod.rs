@@ -140,6 +140,12 @@ pub struct Region {
     /// the seasons. Over-trap a valley and it goes quiet.
     #[serde(default = "default_game_richness")]
     pub game_richness: f64,
+    /// A march (#630): an edge region beyond the province's settled reach —
+    /// wilderness, few or no towns, where the frontier's bands and holds (#623)
+    /// and the deep wild's dreads concentrate. Ungoverned country, not by fiat
+    /// but because it lies past the towns' grasp.
+    #[serde(default)]
+    pub is_march: bool,
 }
 
 fn default_game_richness() -> f64 {

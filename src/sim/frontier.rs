@@ -184,6 +184,14 @@ fn bands_act(sim: &mut crate::sim::SimState) {
                     } else {
                         false
                     };
+                    // A town the raid shrank cannot hold goods past what its
+                    // fewer people can: re-clamp to the new cap so the stock
+                    // never floats above the population that day (the daily
+                    // settlement clamp ran before this frontier turn).
+                    let cap = (s.population as f64 * 0.5).max(0.0);
+                    for v in s.goods_stock.values_mut() {
+                        *v = v.min(cap);
+                    }
                     (s.name.clone(), loot_food, looted, killed)
                 };
                 // Spoils swell the band — success draws more of the road's lost.

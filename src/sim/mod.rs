@@ -247,6 +247,21 @@ pub fn sim_tick(sim: &mut SimState) {
             founding::tick_world_building(sim, day / 30);
         }
     }
+
+    // Authoritative cap: a town's trade goods can never hold above what its
+    // people can (population*0.5, #540). Goods are clamped where they are made,
+    // but several systems shrink a population *after* that — famine decline,
+    // band raids, deaths of age — so without a final sweep a shrunk town could
+    // end a tick holding goods above its new cap. One pass here guarantees the
+    // invariant at every tick's close, whichever system did the shrinking.
+    for region in sim.world.regions.iter_mut() {
+        for s in region.settlements.iter_mut() {
+            let cap = s.population as f64 * 0.5;
+            for v in s.goods_stock.values_mut() {
+                *v = v.min(cap);
+            }
+        }
+    }
 }
 
 /// Daily weather fronts: each region's sky persists (~55%), drifts in from a
@@ -660,6 +675,18 @@ fn tick_settlement_life(sim: &mut SimState) {
                     settlement.services.clear();
                     settlement.farms.clear();
                     settlement.description = "Abandoned. Doors hang open; nothing moves.".into();
+                }
+            }
+
+            // Goods cannot float above what the town's people can hold. Stock was
+            // capped to population*0.5 when produced, but the decline above can
+            // shrink the population after that — re-clamp to the final count so
+            // the cap invariant holds at the end of every tick, not just at
+            // production (the same correction the plague toll makes, #540).
+            {
+                let cap = settlement.population as f64 * 0.5;
+                for v in settlement.goods_stock.values_mut() {
+                    *v = v.min(cap);
                 }
             }
 

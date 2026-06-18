@@ -99,10 +99,13 @@ fn the_nonhuman_peoples_trade_is_rumored_where_they_dwell() {
     let charts = load_charts().expect("charts");
     for seed in [42u64, 555, 777] {
         let sim = SimState::new(seed, charts.clone());
+        // Only settled regions speak through their people; a march (#630) has
+        // the type but no town, so it cannot rumor its people.
         let types: std::collections::HashSet<String> = sim
             .world
             .regions
             .iter()
+            .filter(|r| !r.is_march)
             .map(|r| r.region_type.clone())
             .collect();
         // Collect every rumor the world will tell over a year and four salts.
