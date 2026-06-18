@@ -402,10 +402,35 @@ impl WildSpecies {
     /// Deterministic species roll for the tile and day. None when nothing of
     /// the roster lives on this ground.
     pub fn roll(terrain: Terrain, season: Season, seed: u64) -> Option<WildSpecies> {
+        Self::roll_biased(terrain, season, seed, 1)
+    }
+
+    /// Roll a species, weighting the uncanny up by `uncanny_boost` (#630 slice
+    /// 3). In the settled province this is 1 — the strange stays a rarity. In
+    /// the deep wild of a march the dreads gather, so a higher boost makes the
+    /// old terrors of the dark far likelier where the towns' reach ends. The
+    /// floor is 1, so settled land still keeps its thin thread of the uncanny.
+    pub fn roll_biased(
+        terrain: Terrain,
+        season: Season,
+        seed: u64,
+        uncanny_boost: u32,
+    ) -> Option<WildSpecies> {
+        let boost = uncanny_boost.max(1);
         let candidates: Vec<(WildSpecies, u32)> = Self::all()
             .iter()
             .filter(|s| s.habitats().contains(&terrain))
-            .map(|&s| (s, s.season_weight(season)))
+            .map(|&s| {
+                let w = s.season_weight(season);
+                (
+                    s,
+                    if s.uncanny() {
+                        w.saturating_mul(boost)
+                    } else {
+                        w
+                    },
+                )
+            })
             .filter(|&(_, w)| w > 0)
             .collect();
         let total: u32 = candidates.iter().map(|&(_, w)| w).sum();
@@ -427,6 +452,34 @@ impl WildSpecies {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_deep_wild_boost_gathers_the_dreads() {
+        use crate::model::{Season, Terrain};
+        // Over many rolls on the same ground, the uncanny appear far more often
+        // with the march's boost than in the settled province (boost 1).
+        let count_uncanny = |boost: u32| {
+            (0..4000u64)
+                .filter_map(|seed| {
+                    WildSpecies::roll_biased(Terrain::Forest, Season::Green, seed, boost)
+                })
+                .filter(|s| s.uncanny())
+                .count()
+        };
+        let settled = count_uncanny(1);
+        let deep_wild = count_uncanny(6);
+        assert!(
+            deep_wild > settled * 2,
+            "the march should gather the dreads: settled={settled}, deep_wild={deep_wild}"
+        );
+        // ...but never to the point of banishing the mundane: the boost floors
+        // at 1, so the settled roll is unchanged from the plain roll.
+        let plain = (0..4000u64)
+            .filter_map(|seed| WildSpecies::roll(Terrain::Forest, Season::Green, seed))
+            .filter(|s| s.uncanny())
+            .count();
+        assert_eq!(plain, settled, "boost 1 is the plain roll");
+    }
 
     #[test]
     fn tranche_three_is_terrain_true_and_uncanny_stays_rare() {
