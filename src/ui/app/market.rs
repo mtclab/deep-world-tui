@@ -990,6 +990,39 @@ mod festival_tests {
     }
 
     #[test]
+    fn a_contested_faith_posts_a_steady_faith_task() {
+        use crate::model::quest::QuestKind;
+        use crate::model::GodName;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        let town = {
+            let s = &mut app.sim.as_mut().unwrap().world.regions[0].settlements[0];
+            // Split the town's faith near-even between two gods — a schism looms.
+            s.faith.devotion.clear();
+            s.faith.devotion.insert(GodName::Keuru, 0.31);
+            s.faith.devotion.insert(GodName::Masa, 0.27);
+            s.faith.devotion.insert(GodName::Kukri, 0.16);
+            s.faith.devotion.insert(GodName::Oltzed, 0.13);
+            s.faith.devotion.insert(GodName::Sampsa, 0.13);
+            assert!(s.faith.is_contested(), "the split faith reads as contested");
+            s.name.clone()
+        };
+        app.generate_world_task_quests();
+        let posted = app.sim.as_ref().unwrap().quests.iter().any(
+            |q| matches!(&q.kind, QuestKind::SteadyFaith { settlement } if *settlement == town),
+        );
+        assert!(posted, "the contested town posts a steady-faith task");
+        // The act of devotion (an aligned offering) answers it.
+        app.complete_faith_task(&town);
+        let still = app.sim.as_ref().unwrap().quests.iter().any(
+            |q| matches!(&q.kind, QuestKind::SteadyFaith { settlement } if *settlement == town),
+        );
+        assert!(!still, "steadying the faith clears the task");
+        assert_eq!(app.milestones.quests_completed, 1);
+    }
+
+    #[test]
     fn bringing_medicine_eases_a_plagued_town() {
         use crate::model::economy::SettlementService;
         use crate::model::PlayerPos;

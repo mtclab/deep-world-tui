@@ -102,6 +102,7 @@ fn new_quest_kinds_generate() {
                 QuestKind::RelievePlague { .. } => 9,
                 QuestKind::RelieveFamine { .. } => 10,
                 QuestKind::BrokerTruce { .. } => 11,
+                QuestKind::SteadyFaith { .. } => 12,
             });
         }
     }

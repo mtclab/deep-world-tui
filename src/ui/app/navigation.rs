@@ -1023,6 +1023,11 @@ impl App {
                     }
                 }
             }
+            // An offering to the town's own god answers a steady-faith call
+            // (#614 slice 3): the devotee tips a contended faith back toward one.
+            if let Some(name) = self.current_settlement().map(|s| s.name.clone()) {
+                self.complete_faith_task(&name);
+            }
         }
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;

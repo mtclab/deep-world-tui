@@ -430,7 +430,8 @@ pub fn check_quests(quests: &mut [Quest], ctx: &QuestContext) -> QuestCheckResul
             // the deed is done and expire on the generic deadline if it is not.
             QuestKind::RelievePlague { .. }
             | QuestKind::RelieveFamine { .. }
-            | QuestKind::BrokerTruce { .. } => quest.progress,
+            | QuestKind::BrokerTruce { .. }
+            | QuestKind::SteadyFaith { .. } => quest.progress,
         };
 
         quest.progress = progress;
