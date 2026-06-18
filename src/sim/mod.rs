@@ -226,6 +226,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_winter_relief(sim);
     tick_alliance_relief(sim);
     tick_faith_spread(sim);
+    tick_faith_upheavals(sim);
     tick_raids(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
@@ -1387,6 +1388,68 @@ fn tick_winter_relief(sim: &mut SimState) {
 /// and the raid deepens the rivalry it sprang from, a feedback the peace must
 /// break. System-first and deterministic: the bonds are read in sorted order and
 /// the roll is seeded, so a given world always raids the same way.
+/// Revival and schism (#595 slice 3): now and then a town's faith shifts hard.
+/// A revival is a sudden fervor that drives the town toward one god; a schism is
+/// two gods contending near-equally for its devotion, which leaves the town
+/// uneasy — its people's sense of safety frays. Both are talked of on the road.
+/// Deterministic: the roll is seeded per town per day.
+fn tick_faith_upheavals(sim: &mut SimState) {
+    use crate::model::{GodName, Need};
+    let tick = sim.world.tick;
+    if !tick.is_multiple_of(24) {
+        return;
+    }
+    let day = tick / 24;
+    let seed = sim.world.seed;
+    let mut msgs: Vec<String> = Vec::new();
+    for region in sim.world.regions.iter_mut() {
+        for s in region.settlements.iter_mut() {
+            if s.population == 0 {
+                continue;
+            }
+            let mut rng =
+                SeedRng::new(seed ^ si_hash(&s.name)).fork_for(&format!("faith-upheaval-{day}"));
+            if rng.gen_range(1000) < 12 {
+                // A revival: the town turns fervently to one of the Five.
+                let target = GodName::all()[rng.gen_range(5) as usize];
+                s.faith.drift_toward(target, 0.3);
+                // Mark the new prevailing as announced so the ordinary turn-of-
+                // faith line does not also fire for the same shift.
+                s.faith.announced = s.faith.prevailing();
+                msgs.push(format!(
+                    "A revival sweeps {} — they turn fervent to {}.",
+                    s.name,
+                    target.label()
+                ));
+            } else {
+                // A schism: the top two gods contend near-equally, and the town
+                // lives uneasy under it.
+                let mut tops: Vec<(GodName, f64)> = GodName::all()
+                    .iter()
+                    .map(|&g| (g, s.faith.get(g)))
+                    .collect();
+                tops.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                if tops[0].1 > 0.28 && (tops[0].1 - tops[1].1) < 0.05 {
+                    for person in s.people.iter_mut() {
+                        person.needs.decay(Need::Safety, 0.02);
+                    }
+                    if rng.gen_range(100) < 8 {
+                        msgs.push(format!(
+                            "{} is split between the worship of {} and {} — an uneasy town.",
+                            s.name,
+                            tops[0].0.label(),
+                            tops[1].0.label()
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    for m in msgs {
+        sim.log(tick, Voice::Rumor, m);
+    }
+}
+
 /// Faith rides the roads (#595 slice 2): devotion spreads like trade. A town
 /// bound to a partner of another god slowly takes on some of that god's
 /// devotion — the caravans carry belief, not only goods — so a faith can sweep
@@ -1917,6 +1980,27 @@ mod tests {
             caravans_before,
             "relief is a winter thing — none flows in Green"
         );
+    }
+
+    #[test]
+    fn a_revival_sweeps_a_town_within_the_season() {
+        let charts = charts::load_charts().unwrap();
+        let mut sim = SimState::new(42, charts);
+        let mut swept = false;
+        for d in 1..=90u64 {
+            sim.world.tick = d * 24;
+            tick_faith_upheavals(&mut sim);
+            if sim
+                .journal
+                .entries
+                .iter()
+                .any(|e| e.text.contains("A revival sweeps"))
+            {
+                swept = true;
+                break;
+            }
+        }
+        assert!(swept, "a revival lands somewhere within the season");
     }
 
     #[test]
