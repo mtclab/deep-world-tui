@@ -982,9 +982,48 @@ impl App {
             .unwrap_or(crate::model::GodName::Kukri);
         let have = self.god_affinity.get(god);
         let holy = crate::model::calendar::holy_day_god(self.clock.day) == Some(god);
-        let delta = 0.06 * (1.0 - have).max(0.0) * if holy { 1.5 } else { 1.0 };
+        // The faith aligns when the town shares the god the player keeps (#595
+        // slice 4): an offering to a town's own god lands the deeper, the
+        // congregation taking it up as their own.
+        let aligned = self
+            .current_settlement()
+            .map(|s| s.prevailing_god() == god)
+            .unwrap_or(false);
+        let align_mult = if aligned { 1.4 } else { 1.0 };
+        let delta = 0.06 * (1.0 - have).max(0.0) * if holy { 1.5 } else { 1.0 } * align_mult;
         self.god_affinity.adjust(god, delta);
         self.advance_clock(1);
+        // In a town of the player's own faith, the offering tips the town's
+        // devotion a touch further toward that god (the devout add their voice)
+        // and earns a little standing with its people.
+        if aligned {
+            if let Some((ri, si)) = self.player_on_settlement() {
+                let sid = self
+                    .sim
+                    .as_ref()
+                    .and_then(|sim| sim.world.regions.get(ri))
+                    .and_then(|r| r.settlements.get(si))
+                    .map(|s| s.id.clone());
+                let pid = self
+                    .player_start
+                    .as_ref()
+                    .map(|ps| ps.person.id.clone())
+                    .unwrap_or_default();
+                if let Some(ref mut sim) = self.sim {
+                    if let Some(s) = sim
+                        .world
+                        .regions
+                        .get_mut(ri)
+                        .and_then(|r| r.settlements.get_mut(si))
+                    {
+                        s.faith.drift_toward(god, 0.02);
+                    }
+                    if let (Some(sid), false) = (sid, pid.is_empty()) {
+                        sim.reputation.adjust_local(&pid, &sid, 0.02);
+                    }
+                }
+            }
+        }
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;
             sim.log(
@@ -998,8 +1037,13 @@ impl App {
         } else {
             ""
         };
+        let align_note = if aligned {
+            " This is a town of your god — the congregation takes the gift as their own."
+        } else {
+            ""
+        };
         self.status_msg =
-            Some(format!("You lay an offering at the shrine — bread given, not bartered. The keeping deepens.{holy_note} (1h)"));
+            Some(format!("You lay an offering at the shrine — bread given, not bartered. The keeping deepens.{holy_note}{align_note} (1h)"));
     }
 
     /// Keep the festival in earnest (#457): when a settlement's holy day is
@@ -1237,5 +1281,54 @@ fn city_goods(idx: usize) -> Vec<(crate::model::ItemType, u32)> {
         2 => vec![(I::Food, 3)], // Halkess — grain
         3 => vec![(I::Tool, 1), (I::Glass, 1)], // Velkarath — salvage, harbor-goods
         _ => vec![(I::Wood, 3)], // Keuramark — timber, amber
+    }
+}
+
+#[cfg(test)]
+mod faith_offering_tests {
+    use super::*;
+    use crate::charts::load::load_charts;
+    use crate::model::economy::SettlementFaith;
+    use crate::model::{ItemType, SettlementService};
+
+    #[test]
+    fn an_offering_aligned_with_the_towns_faith_lands_heavier() {
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.screen = Screen::Location {
+            region_idx: 0,
+            settlement_idx: 0,
+            scroll: 0,
+        };
+        // The god make_offering will choose for this player.
+        let god = app
+            .god_affinity
+            .strongest_ally()
+            .or_else(|| crate::sim::god::patron_of(app.inter_people_bias.player_people.label()))
+            .unwrap_or(crate::model::GodName::Kukri);
+        if let Some(sim) = app.sim.as_mut() {
+            let s = &mut sim.world.regions[0].settlements[0];
+            s.services.push(SettlementService::Shrine);
+            s.faith = SettlementFaith::seeded(god); // prevailing == the player's god
+        }
+        app.player_start
+            .as_mut()
+            .unwrap()
+            .inventory
+            .add(ItemType::Food, 1);
+        let before = app.god_affinity.get(god);
+        app.make_offering();
+        assert!(
+            app.god_affinity.get(god) > before,
+            "an aligned offering deepens devotion"
+        );
+        assert!(
+            app.status_msg
+                .as_deref()
+                .unwrap_or("")
+                .contains("town of your god"),
+            "the alignment is named in the offering's word"
+        );
     }
 }
