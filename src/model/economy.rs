@@ -2134,14 +2134,16 @@ mod tests {
 
             politics: SettlementPolitics::new(),
 
-            faith: Default::default(),
+            // A populated faith and an active plague, so the roundtrip proves
+            // the living-world fields survive a save, not just that they compile.
+            faith: SettlementFaith::seeded(crate::model::GodName::Keuru),
             food_stock: 0.0,
             goods_stock: Default::default(),
             farms: Vec::new(),
             buildings: Vec::new(),
             festival_until_day: 0,
             famine_days: 0,
-            plague_days: 0,
+            plague_days: 7,
             map_x: 0,
             map_y: 0,
             district: 0,
@@ -2149,6 +2151,11 @@ mod tests {
         };
 
         roundtrip(&s);
+        // And the faith's prevailing god is preserved across the save.
+        let json = ron::ser::to_string(&s).unwrap();
+        let back: Settlement = ron::from_str(&json).unwrap();
+        assert_eq!(back.faith.prevailing(), Some(crate::model::GodName::Keuru));
+        assert_eq!(back.plague_days, 7);
     }
 
     #[test]
