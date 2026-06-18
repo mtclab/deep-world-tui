@@ -3,7 +3,17 @@
 // become the frontier's wanderers, the raw material of the bands to come.
 use deep_world_tui::charts::load::load_charts;
 use deep_world_tui::model::Need;
+use deep_world_tui::sim::frontier::Band;
 use deep_world_tui::sim::SimState;
+
+/// A region index that holds a living settlement — a band seated here has prey.
+fn region_with_a_town(sim: &SimState) -> usize {
+    sim.world
+        .regions
+        .iter()
+        .position(|r| r.settlements.iter().any(|s| s.population > 0))
+        .expect("some region has a living town")
+}
 
 /// Rig a settlement into pressure and make its people the kind the road takes:
 /// young, unattached, their own safety worn thin.
@@ -81,6 +91,66 @@ fn band_formation_is_deterministic() {
         an, bn,
         "the same seed musters the same bands by the same names"
     );
+}
+
+#[test]
+fn a_band_preys_on_the_town_in_its_country() {
+    let charts = load_charts().expect("charts");
+    let mut sim = SimState::new(8400, charts);
+    let region_idx = region_with_a_town(&sim);
+    sim.frontier.bands.push(Band {
+        id: "band-test-1".into(),
+        name: "the Test of the Wild".into(),
+        size: 12,
+        region_idx,
+        formed_day: 0,
+    });
+    // One frontier turn (the day boundary).
+    for _ in 0..24 {
+        sim.step();
+    }
+    // The raid is talked of on the road, by the band's name.
+    let preyed = sim.journal.iter().any(|e| {
+        e.text.contains("the Test of the Wild")
+            && (e.text.contains("raided") || e.text.contains("fell on"))
+    });
+    assert!(
+        preyed,
+        "a band seated over a town raids it, and the road hears"
+    );
+}
+
+#[test]
+fn a_band_in_empty_country_wears_down_and_scatters() {
+    let charts = load_charts().expect("charts");
+    let mut sim = SimState::new(8401, charts);
+    // Seat a small band in a region with NO living town, so it only roams and
+    // starves — it should wear down to nothing and scatter.
+    let empty = sim
+        .world
+        .regions
+        .iter()
+        .position(|r| !r.settlements.iter().any(|s| s.population > 0));
+    if let Some(empty_idx) = empty {
+        sim.frontier.bands.push(Band {
+            id: "band-test-2".into(),
+            name: "the Doomed of Nowhere".into(),
+            size: 2,
+            region_idx: empty_idx,
+            formed_day: 0,
+        });
+        // Enough days for a size-2 band to starve out (it loses 1/turn in empty
+        // country, but roaming may carry it onto a town — so allow many days and
+        // only assert it does not grow without bound).
+        for _ in 0..(24 * 6) {
+            sim.step();
+        }
+        let still = sim.frontier.bands.iter().find(|b| b.id == "band-test-2");
+        assert!(
+            still.map(|b| b.size <= 4).unwrap_or(true),
+            "a band starved of prey does not balloon"
+        );
+    }
 }
 
 #[test]

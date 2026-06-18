@@ -64,18 +64,26 @@ const BAND_EPITHETS: &[&str] = &[
     "Ragged", "Unsworn", "Cold",
 ];
 
-/// The frontier's own turn (#623 slice 2): when enough wanderers have gathered
-/// in the dark, they muster into a band — a living agent that holds a patch of
-/// wild country. Daily, deterministic; the loose remainder stays as wanderers,
-/// the seed of the next band.
+/// The frontier's own turn (#623): the dark gathers its bands (slice 2) and the
+/// bands that already hold the wild country roam and prey (slice 3). Daily and
+/// deterministic.
 pub fn tick_frontier(sim: &mut crate::sim::SimState) {
     let tick = sim.world.tick;
     if !tick.is_multiple_of(24) {
         return;
     }
+    form_bands(sim);
+    bands_act(sim);
+}
+
+/// When enough wanderers have gathered, they muster into a band — a living
+/// agent that holds a patch of wild country. The loose remainder stays as
+/// wanderers, the seed of the next band.
+fn form_bands(sim: &mut crate::sim::SimState) {
     if sim.frontier.wanderers < BAND_FORMS_AT {
         return;
     }
+    let tick = sim.world.tick;
     let day = (tick / 24) as u32;
     let seed = sim.world.seed;
 
@@ -109,6 +117,126 @@ pub fn tick_frontier(sim: &mut crate::sim::SimState) {
             "Word on the road: {muster} of the road's lost have banded together in the wild country of {region_name} — they call them {name}."
         ),
     );
+}
+
+/// The largest living settlement in a region, if any — a band's nearest prey.
+fn richest_prey(sim: &crate::sim::SimState, region_idx: usize) -> Option<usize> {
+    let region = sim.world.regions.get(region_idx)?;
+    region
+        .settlements
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s.population > 0)
+        .max_by_key(|(_, s)| s.population)
+        .map(|(i, _)| i)
+}
+
+/// Each band's day in the wild (#623 slice 3): it preys on the nearest town if
+/// its country holds one — taking food and goods, fraying the people's safety,
+/// and growing fat on the spoils — or, finding only empty country, roams to a
+/// neighbouring region and is worn down by the hungry road. A band ground down
+/// to nothing scatters. All deterministic per band and day.
+fn bands_act(sim: &mut crate::sim::SimState) {
+    let tick = sim.world.tick;
+    let day = (tick / 24) as u32;
+    let seed = sim.world.seed;
+    let mut logs: Vec<String> = Vec::new();
+
+    for bi in 0..sim.frontier.bands.len() {
+        let (band_id, band_name, region_idx, size) = {
+            let b = &sim.frontier.bands[bi];
+            (b.id.clone(), b.name.clone(), b.region_idx, b.size)
+        };
+        let mut rng = SeedRng::new(seed).fork_for(&format!("band-act-{band_id}-{day}"));
+
+        match richest_prey(sim, region_idx) {
+            Some(si) => {
+                // The raid: spoils scaled by the band's strength and the town's
+                // larder, bounded so a single raid stings but never empties a
+                // town in a night. The people's sense of safety frays.
+                let (town_name, loot_food, looted_goods, killed) = {
+                    let s = &mut sim.world.regions[region_idx].settlements[si];
+                    let loot_food = (s.food_stock * 0.15).min(size as f64 * 1.5);
+                    s.food_stock = (s.food_stock - loot_food).max(0.0);
+                    let mut looted = 0.0f64;
+                    for v in s.goods_stock.values_mut() {
+                        let take = (*v * 0.2).min(size as f64 * 0.5);
+                        *v -= take;
+                        looted += take;
+                    }
+                    for p in s.people.iter_mut() {
+                        p.needs.decay(crate::model::Need::Safety, 0.15);
+                    }
+                    // A hard raid on a small place can cost a life — the band is
+                    // not gentle. Rare, and never the last soul.
+                    let killed = if s.people.len() > 2 && rng.gen_f64() < 0.10 {
+                        s.people.pop();
+                        s.population = s.population.saturating_sub(1).max(s.people.len() as u32);
+                        true
+                    } else {
+                        false
+                    };
+                    (s.name.clone(), loot_food, looted, killed)
+                };
+                // Spoils swell the band — success draws more of the road's lost.
+                let grow = if loot_food + looted_goods > 1.0 { 1 } else { 0 };
+                sim.frontier.bands[bi].size = (size + grow).min(40);
+                if killed {
+                    logs.push(format!(
+                        "Word on the road: {band_name} fell on {town_name} in the night — stores carried off, and a life taken."
+                    ));
+                } else {
+                    logs.push(format!(
+                        "Word on the road: {band_name} raided {town_name} — they took what they could and melted back into the country."
+                    ));
+                }
+            }
+            None => {
+                // Empty country: the band roams to a neighbour and the hungry
+                // road wears it down a little.
+                if let Some(next) = roam_target(sim, region_idx, &mut rng) {
+                    sim.frontier.bands[bi].region_idx = next;
+                }
+                sim.frontier.bands[bi].size = size.saturating_sub(1);
+            }
+        }
+    }
+
+    // A band ground down to nothing scatters back into the dark.
+    let mut scattered: Vec<String> = Vec::new();
+    sim.frontier.bands.retain(|b| {
+        if b.size == 0 {
+            scattered.push(b.name.clone());
+            false
+        } else {
+            true
+        }
+    });
+    for name in scattered {
+        logs.push(format!(
+            "Word on the road: {name} has scattered — hunger and the road undid them, and the country is quiet again."
+        ));
+    }
+
+    for line in logs {
+        sim.log(tick, Voice::Rumor, line);
+    }
+}
+
+/// A neighbouring region for a roaming band to drift into, chosen
+/// deterministically. `None` if the region has no mapped neighbours.
+fn roam_target(sim: &crate::sim::SimState, region_idx: usize, rng: &mut SeedRng) -> Option<usize> {
+    let region = sim.world.regions.get(region_idx)?;
+    let n = &region.neighbors;
+    let nbs: Vec<usize> = [n.north, n.east, n.south, n.west]
+        .into_iter()
+        .flatten()
+        .filter(|&i| i < sim.world.regions.len())
+        .collect();
+    if nbs.is_empty() {
+        return None;
+    }
+    Some(nbs[rng.gen_range(nbs.len() as u32) as usize])
 }
 
 /// The least-governed region: fewest living settlements, richest game on a tie.
