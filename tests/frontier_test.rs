@@ -124,31 +124,75 @@ fn a_band_preys_on_the_town_in_its_country() {
 fn a_band_in_empty_country_wears_down_and_scatters() {
     let charts = load_charts().expect("charts");
     let mut sim = SimState::new(8401, charts);
-    // Seat a lone band in a region with NO living town. With no prey in its
-    // country it roams and the hungry road wears it down — a size-1 band loses
-    // its last soul that very turn and scatters, before any roam could carry it
-    // onto a town. Deterministic regardless of which way it drifts.
-    let empty = sim
-        .world
-        .regions
-        .iter()
-        .position(|r| !r.settlements.iter().any(|s| s.population > 0));
-    if let Some(empty_idx) = empty {
-        sim.frontier.bands.push(Band {
-            id: "band-test-2".into(),
-            name: "the Doomed of Nowhere".into(),
-            size: 1,
-            region_idx: empty_idx,
-            formed_day: 0,
-        });
-        // One frontier turn (the day boundary).
-        for _ in 0..24 {
-            sim.step();
+    // No prey anywhere — empty every town, so the band cannot raid its own
+    // country nor a neighbour's (#630 slice 2 lets a band strike the settled
+    // edge, so true starvation needs the whole reach barren). A lone band then
+    // only roams and the hungry road wears it down: a size-1 band loses its last
+    // soul that very turn and scatters.
+    for r in sim.world.regions.iter_mut() {
+        for s in r.settlements.iter_mut() {
+            s.population = 0;
+            s.people.clear();
         }
-        assert!(
-            !sim.frontier.bands.iter().any(|b| b.id == "band-test-2"),
-            "a lone band with no prey in its country scatters"
-        );
+    }
+    sim.frontier.bands.push(Band {
+        id: "band-test-2".into(),
+        name: "the Doomed of Nowhere".into(),
+        size: 1,
+        region_idx: 0,
+        formed_day: 0,
+    });
+    // One frontier turn (the day boundary).
+    for _ in 0..24 {
+        sim.step();
+    }
+    assert!(
+        !sim.frontier.bands.iter().any(|b| b.id == "band-test-2"),
+        "a lone band with no prey anywhere in reach scatters"
+    );
+}
+
+#[test]
+fn a_band_in_a_march_raids_the_settled_edge() {
+    let charts = load_charts().expect("charts");
+    // A world with a march (needs >= 4 regions). Find the march and confirm a
+    // neighbouring region holds a town to strike.
+    let mut sim = SimState::new(7, charts);
+    let march = sim.world.regions.iter().position(|r| r.is_march);
+    if let Some(march_idx) = march {
+        let n = &sim.world.regions[march_idx].neighbors;
+        let has_neighbor_town = [n.north, n.east, n.south, n.west]
+            .into_iter()
+            .flatten()
+            .any(|ni| {
+                sim.world
+                    .regions
+                    .get(ni)
+                    .map(|r| r.settlements.iter().any(|s| s.population > 0))
+                    .unwrap_or(false)
+            });
+        if has_neighbor_town {
+            sim.frontier.bands.push(Band {
+                id: "band-march-1".into(),
+                name: "the Marchers".into(),
+                size: 12,
+                region_idx: march_idx,
+                formed_day: 0,
+            });
+            for _ in 0..24 {
+                sim.step();
+            }
+            // The band holed in the town-less march struck the settled edge and
+            // rode back into the dark — the road tells it.
+            let raided = sim
+                .journal
+                .iter()
+                .any(|e| e.text.contains("the Marchers") && e.text.contains("marches"));
+            assert!(
+                raided,
+                "a band in a march raids a neighbouring town from the dark"
+            );
+        }
     }
 }
 

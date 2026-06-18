@@ -495,20 +495,9 @@ impl App {
                 continue;
             }
             // The band must actually be preying on a town for that town to know
-            // of it and put coin on its head: the richest living settlement in
-            // the band's country.
-            let Some(town) = sim
-                .world
-                .regions
-                .get(band.region_idx)
-                .and_then(|r| {
-                    r.settlements
-                        .iter()
-                        .filter(|s| s.population > 0)
-                        .max_by_key(|s| s.population)
-                })
-                .map(|s| s.name.clone())
-            else {
+            // of it and put coin on its head — its own country's, or a
+            // neighbour's if the band raids the settled edge from a march (#630).
+            let Some(town) = crate::sim::frontier::band_prey_town(sim, band.region_idx) else {
                 continue;
             };
             new_quests.push(Quest {
