@@ -236,6 +236,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_plague(sim);
     tick_plague_spread(sim);
     tick_raids(sim);
+    frontier::tick_frontier(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
     // founding parties take rich empty land — slowly, the way the Fall's
