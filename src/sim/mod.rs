@@ -6,6 +6,7 @@ use crate::rng::SeedRng;
 pub mod collapse_log;
 pub mod effects;
 pub mod founding;
+pub mod frontier;
 pub mod god;
 pub mod hints;
 pub mod illness;
@@ -105,6 +106,10 @@ pub struct SimState {
     /// the province ties.
     #[serde(default)]
     pub last_provisioned_town: Option<String>,
+    /// The ungoverned country and who has gone into it (#623): the restless the
+    /// settled lands have shed to the open road. Seed of the bands to come.
+    #[serde(default)]
+    pub frontier: crate::sim::frontier::Frontier,
 }
 
 impl SimState {
@@ -141,6 +146,7 @@ impl SimState {
             caravans: Vec::new(),
             province_ties: crate::model::province::ProvinceTies::default(),
             last_provisioned_town: None,
+            frontier: crate::sim::frontier::Frontier::default(),
         };
         sim.init_npc_wants();
         sim
