@@ -146,6 +146,14 @@ impl App {
         let weather_mult = weather_mult * self.polity_war_mult();
         // Sampsa's vow: you read the road before it turns — danger finds you less.
         let weather_mult = weather_mult * self.vow_encounter_mult();
+        // The deep wild of a march finds the traveller more often, and the old
+        // dreads gather there where the towns' reach ends (#630 slice 3).
+        let in_march = self
+            .player_pos
+            .and_then(|pos| self.sim.as_ref()?.world.regions.get(pos.region_idx))
+            .map(|r| r.is_march)
+            .unwrap_or(false);
+        let weather_mult = weather_mult * if in_march { 1.6 } else { 1.0 };
         if let Some(enc) = Encounter::roll_biased_weather(
             terrain,
             self.clock.hour,
@@ -160,10 +168,14 @@ impl App {
                 let sp_seed = self
                     .seed
                     .wrapping_add(((self.clock.day as u64) << 8) | self.clock.hour as u64);
-                let species = crate::model::wildlife::WildSpecies::roll(
+                // In a march the dreads of the deep wild gather: the uncanny
+                // weigh far heavier here than in the settled province (#630).
+                let uncanny_boost = if in_march { 6 } else { 1 };
+                let species = crate::model::wildlife::WildSpecies::roll_biased(
                     terrain,
                     self.clock.season(),
                     sp_seed,
+                    uncanny_boost,
                 );
                 if let Some(ref mut e) = self.encounter {
                     e.species = species;
