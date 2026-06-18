@@ -104,6 +104,7 @@ fn new_quest_kinds_generate() {
                 QuestKind::BrokerTruce { .. } => 11,
                 QuestKind::SteadyFaith { .. } => 12,
                 QuestKind::SupplyGoods { .. } => 13,
+                QuestKind::BountyOnBand { .. } => 14,
             });
         }
     }

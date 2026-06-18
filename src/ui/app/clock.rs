@@ -464,6 +464,96 @@ impl App {
         }
     }
 
+    /// Towns post **living, stale-able bounties** on the bands that prey them
+    /// (#623 slice 5). A bounty goes up when a band raids a town and is left up
+    /// for a long age — so a notice on the board may be years old and its band
+    /// long scattered, settled, or roamed away: a real cold trail the reader
+    /// only learns by checking. Posted separately from the relief calls (its own
+    /// small cap), deduped by band, and left to expire on its own long deadline.
+    pub(super) fn generate_band_bounties(&mut self) {
+        use crate::model::quest::{Quest, QuestKind, QuestReward};
+        const BOUNTY_CAP: usize = 3;
+        let day = self.clock.day;
+        let Some(sim) = self.sim.as_mut() else {
+            return;
+        };
+        let mut active = 0usize;
+        let mut have: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for q in &sim.quests {
+            if let QuestKind::BountyOnBand { band_id, .. } = &q.kind {
+                active += 1;
+                have.insert(band_id.clone());
+            }
+        }
+        let mut new_quests: Vec<Quest> = Vec::new();
+        let mut msgs: Vec<String> = Vec::new();
+        for band in &sim.frontier.bands {
+            if active + new_quests.len() >= BOUNTY_CAP {
+                break;
+            }
+            if have.contains(&band.id) {
+                continue;
+            }
+            // The band must actually be preying on a town for that town to know
+            // of it and put coin on its head: the richest living settlement in
+            // the band's country.
+            let Some(town) = sim
+                .world
+                .regions
+                .get(band.region_idx)
+                .and_then(|r| {
+                    r.settlements
+                        .iter()
+                        .filter(|s| s.population > 0)
+                        .max_by_key(|s| s.population)
+                })
+                .map(|s| s.name.clone())
+            else {
+                continue;
+            };
+            new_quests.push(Quest {
+                kind: QuestKind::BountyOnBand {
+                    band_id: band.id.clone(),
+                    band_name: band.name.clone(),
+                    settlement: town.clone(),
+                },
+                description: format!(
+                    "{town} will pay to be rid of {} — the band that raids their country.",
+                    band.name
+                ),
+                reward: QuestReward::Reputation { amount: 0.2 },
+                progress: 0,
+                target: 1,
+                // A long age: the notice outlives the band, going cold on the
+                // board for whoever reads it too late.
+                deadline_day: day + 365,
+                assigned_day: day,
+            });
+            msgs.push(format!(
+                "Word on the road: {town} has put a bounty on {}, who raid their country.",
+                band.name
+            ));
+        }
+        let tick = sim.world.tick;
+        for q in new_quests {
+            sim.quests.push(q);
+        }
+        for m in msgs {
+            sim.log(tick, crate::sim::journal::Voice::Rumor, m);
+        }
+    }
+
+    /// Whether a band-bounty's trail has gone cold — the named band is no longer
+    /// abroad in the world (scattered, settled, or simply gone). The board still
+    /// shows the notice; only checking against the living world tells the reader
+    /// the quarry is gone (#623 slice 5).
+    pub fn band_bounty_is_cold(&self, band_id: &str) -> bool {
+        self.sim
+            .as_ref()
+            .map(|sim| !sim.frontier.bands.iter().any(|b| b.id == band_id))
+            .unwrap_or(true)
+    }
+
     /// Resolve a living-world relief task when the player has answered it
     /// (#613-epic): pays the task's reward into the player's standing in the town
     /// they stand in (having just relieved it), clears the task, records the
@@ -711,6 +801,7 @@ impl App {
 
     pub(super) fn check_quests_on_tick(&mut self) {
         self.generate_world_task_quests();
+        self.generate_band_bounties();
         let current_day = self.clock.day;
         let region_idx = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
 
