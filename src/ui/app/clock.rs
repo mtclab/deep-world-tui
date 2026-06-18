@@ -292,6 +292,7 @@ impl App {
         let mut have_truce: std::collections::HashSet<(String, String)> =
             std::collections::HashSet::new();
         let mut have_faith: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut have_supply: std::collections::HashSet<String> = std::collections::HashSet::new();
         for q in &sim.quests {
             match &q.kind {
                 QuestKind::RelievePlague { settlement } => {
@@ -309,6 +310,10 @@ impl App {
                 QuestKind::SteadyFaith { settlement } => {
                     active += 1;
                     have_faith.insert(settlement.clone());
+                }
+                QuestKind::SupplyGoods { settlement } => {
+                    active += 1;
+                    have_supply.insert(settlement.clone());
                 }
                 _ => {}
             }
@@ -412,6 +417,39 @@ impl App {
             msgs.push(format!(
                 "Word on the road: bad blood between {a} and {b} — a peacemaker could ease it."
             ));
+        }
+        // Goods-supply tasks are the lowest priority (#614 slice 4): a town cut
+        // off from trade is a slow ache, not the emergency a plague, famine,
+        // schism, or raiding feud is — and goods-starved towns are common, so
+        // posting them last keeps them from crowding the urgent calls out of the
+        // task cap. They fill only whatever slots are left.
+        'supply: for region in &sim.world.regions {
+            for s in &region.settlements {
+                if active + new_quests.len() >= MAX_WORLD_TASKS {
+                    break 'supply;
+                }
+                if s.population == 0 || have_supply.contains(&s.name) || !s.is_goods_starved() {
+                    continue;
+                }
+                new_quests.push(Quest {
+                    kind: QuestKind::SupplyGoods {
+                        settlement: s.name.clone(),
+                    },
+                    description: format!(
+                        "Supply {} — cut off from trade, it wants tools and cloth.",
+                        s.name
+                    ),
+                    reward: QuestReward::Reputation { amount: 0.13 },
+                    progress: 0,
+                    target: 1,
+                    deadline_day: day + 30,
+                    assigned_day: day,
+                });
+                msgs.push(format!(
+                    "Word on the road: {} has run out of tools and cloth — a trader could set it right.",
+                    s.name
+                ));
+            }
         }
         let tick = sim.world.tick;
         for q in new_quests {
@@ -607,6 +645,66 @@ impl App {
         self.milestones.record_quest_completed(self.clock.day);
     }
 
+    /// Resolve a supply-goods task when the player has provisioned a town the
+    /// living economy left goods-starved (#614 slice 4): the act of supplying it
+    /// answers the call. Pays the reward into local standing, clears the task,
+    /// records it. A no-op if no matching task stands for the town.
+    pub(super) fn complete_supply_task(&mut self, settlement: &str) {
+        use crate::model::quest::QuestKind;
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let here_id = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                sim.world
+                    .regions
+                    .get(pos.region_idx)?
+                    .settlements
+                    .first()
+                    .map(|s| s.id.clone())
+            })
+            .unwrap_or_default();
+        let found = self.sim.as_ref().and_then(|sim| {
+            sim.quests.iter().enumerate().find_map(|(i, q)| {
+                let hit =
+                    matches!(&q.kind, QuestKind::SupplyGoods { settlement: s } if s == settlement);
+                hit.then(|| (i, q.reward.clone()))
+            })
+        });
+        let Some((idx, reward)) = found else {
+            return;
+        };
+        if let (Some(ps), Some(sim)) = (self.player_start.as_mut(), self.sim.as_mut()) {
+            crate::sim::quest_gen::apply_quest_reward(
+                &reward,
+                &mut ps.inventory,
+                &mut sim.reputation,
+                &player_id,
+                &here_id,
+                &mut sim.relationships,
+                sim.world.tick,
+            );
+        }
+        if let Some(ref mut sim) = self.sim {
+            if idx < sim.quests.len() {
+                sim.quests.remove(idx);
+            }
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                "I carried trade back to a town the roads had forgotten. It will thrive again."
+                    .into(),
+            );
+        }
+        self.milestones.record_quest_completed(self.clock.day);
+    }
+
     pub(super) fn check_quests_on_tick(&mut self) {
         self.generate_world_task_quests();
         let current_day = self.clock.day;
@@ -778,7 +876,16 @@ impl App {
             .wrapping_add(tick.wrapping_mul(1009))
             .wrapping_add(7);
         if let Some(ref mut sim) = self.sim {
-            if sim.quests.len() < 2 {
+            // Count only ordinary quests: the living-world tasks (plague, famine,
+            // supply, ...) are a separate board layer and are common enough that
+            // counting them here would keep the board "full" and freeze the
+            // ordinary quest stream (#614 slice 4).
+            let regular = sim
+                .quests
+                .iter()
+                .filter(|q| !q.kind.is_world_task())
+                .count();
+            if regular < 2 {
                 let mut fresh = crate::sim::quest_gen::generate_quests(
                     salt,
                     player_people,

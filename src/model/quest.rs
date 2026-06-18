@@ -61,6 +61,12 @@ pub enum QuestKind {
     SteadyFaith {
         settlement: String,
     },
+    /// A town cut off from the goods economy — its tools and cloth run dry, so
+    /// it stalls though its granaries are full (#614, #540): provision it with
+    /// what it lacks to set it thriving again. Resolved by the act of supplying.
+    SupplyGoods {
+        settlement: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -79,6 +85,24 @@ pub struct Quest {
     pub target: u32,
     pub deadline_day: u32,
     pub assigned_day: u32,
+}
+
+impl QuestKind {
+    /// Whether this is a living-world task the App posts from world state
+    /// (#613/#614) rather than an ordinary quest `generate_quests` makes. These
+    /// form a separate board layer (capped, deduped per town) and must not count
+    /// toward the ordinary quest regen, or — being common — they would suppress
+    /// it and freeze the board.
+    pub fn is_world_task(&self) -> bool {
+        matches!(
+            self,
+            QuestKind::RelievePlague { .. }
+                | QuestKind::RelieveFamine { .. }
+                | QuestKind::BrokerTruce { .. }
+                | QuestKind::SteadyFaith { .. }
+                | QuestKind::SupplyGoods { .. }
+        )
+    }
 }
 
 impl Quest {

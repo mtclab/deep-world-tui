@@ -103,6 +103,7 @@ fn new_quest_kinds_generate() {
                 QuestKind::RelieveFamine { .. } => 10,
                 QuestKind::BrokerTruce { .. } => 11,
                 QuestKind::SteadyFaith { .. } => 12,
+                QuestKind::SupplyGoods { .. } => 13,
             });
         }
     }
