@@ -431,7 +431,8 @@ pub fn check_quests(quests: &mut [Quest], ctx: &QuestContext) -> QuestCheckResul
             QuestKind::RelievePlague { .. }
             | QuestKind::RelieveFamine { .. }
             | QuestKind::BrokerTruce { .. }
-            | QuestKind::SteadyFaith { .. } => quest.progress,
+            | QuestKind::SteadyFaith { .. }
+            | QuestKind::SupplyGoods { .. } => quest.progress,
         };
 
         quest.progress = progress;

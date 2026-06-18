@@ -541,6 +541,9 @@ impl App {
         // Answering a famine-relief task the living world posted (#613-epic);
         // a no-op if no such task stands for this town.
         self.complete_world_task(false, &pname);
+        // ...and a supply-goods task, if the town was goods-starved (#614 slice
+        // 4): carrying tools and cloth in is exactly what it asked for.
+        self.complete_supply_task(&pname);
         self.status_msg = Some(if at_war {
             format!(
                 "You run {deliver} {} into {pname} past the war's closed roads (+{pay} coin, standing rises, 1h)",
@@ -1019,6 +1022,39 @@ mod festival_tests {
             |q| matches!(&q.kind, QuestKind::SteadyFaith { settlement } if *settlement == town),
         );
         assert!(!still, "steadying the faith clears the task");
+        assert_eq!(app.milestones.quests_completed, 1);
+    }
+
+    #[test]
+    fn a_goods_starved_town_posts_a_supply_task() {
+        use crate::model::quest::QuestKind;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        let town = {
+            let s = &mut app.sim.as_mut().unwrap().world.regions[0].settlements[0];
+            // A town big enough to count, stripped of tools and cloth — cut off
+            // from the goods economy.
+            s.population = s.population.max(100);
+            s.goods_stock.insert(ItemType::Tool, 0.0);
+            s.goods_stock.insert(ItemType::Cloth, 0.0);
+            assert!(
+                s.is_goods_starved(),
+                "the stripped town reads as goods-starved"
+            );
+            s.name.clone()
+        };
+        app.generate_world_task_quests();
+        let posted = app.sim.as_ref().unwrap().quests.iter().any(
+            |q| matches!(&q.kind, QuestKind::SupplyGoods { settlement } if *settlement == town),
+        );
+        assert!(posted, "the goods-starved town posts a supply task");
+        // Provisioning it (the act of supply) answers the call.
+        app.complete_supply_task(&town);
+        let still = app.sim.as_ref().unwrap().quests.iter().any(
+            |q| matches!(&q.kind, QuestKind::SupplyGoods { settlement } if *settlement == town),
+        );
+        assert!(!still, "supplying the town clears the task");
         assert_eq!(app.milestones.quests_completed, 1);
     }
 

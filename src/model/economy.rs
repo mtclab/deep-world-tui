@@ -1098,6 +1098,20 @@ impl Settlement {
         self.goods_stock.get(&item).copied().unwrap_or(0.0)
     }
 
+    /// A town cut off from the goods economy (#540, #614): its tools and cloth
+    /// per head have run below the thriving bar, so it stalls though its
+    /// granaries may be full. The same `furnished` test the growth sim uses,
+    /// gated to a town big enough that the shortfall is real (not a hamlet that
+    /// simply makes nothing). Deterministic.
+    pub fn is_goods_starved(&self) -> bool {
+        if self.population < 40 {
+            return false;
+        }
+        let furnished = (self.good(ItemType::Tool) + self.good(ItemType::Cloth))
+            / self.population.max(1) as f64;
+        furnished < 0.03
+    }
+
     /// Add to a good's stock, capped at `cap` (#540): a town holds only so much
     /// before the surplus goes nowhere (it sells, or it sits).
     pub fn produce_good(&mut self, item: ItemType, amount: f64, cap: f64) {
