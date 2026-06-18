@@ -1120,6 +1120,16 @@ fn tick_caravans(sim: &mut SimState) {
     if names.len() < 2 {
         return;
     }
+    // Towns under plague close their roads (#604 slice 3): they send no carts,
+    // and no cart rides into a stricken town.
+    let plagued: std::collections::HashSet<String> = sim
+        .world
+        .regions
+        .iter()
+        .flat_map(|r| r.settlements.iter())
+        .filter(|s| s.plague_days > 0)
+        .map(|s| s.name.clone())
+        .collect();
     let day = tick / 24;
     let mut rng =
         SeedRng::new(sim.world.seed.wrapping_add(day.wrapping_mul(7919))).fork_for("caravan");
@@ -1199,6 +1209,22 @@ fn tick_caravans(sim: &mut SimState) {
             .map(|(_, o)| *o)
             .unwrap_or(1.0);
         sim.province_ties.nudge(&origin, &dest, 0.05 * openness);
+    }
+    // The quarantine: a plagued origin keeps its carts home (its closed roads
+    // are talked of now and then), and no cart rides into a plagued town.
+    if plagued.contains(&origin) {
+        if rng.gen_range(100) < 20 {
+            let t = sim.world.tick;
+            sim.log(
+                t,
+                Voice::Rumor,
+                format!("{origin} has closed its roads against the sickness."),
+            );
+        }
+        return;
+    }
+    if plagued.contains(&dest) {
+        return;
     }
     let caravan = crate::model::economy::Caravan::generate(
         sim.world.seed.wrapping_add(tick),
@@ -1466,6 +1492,9 @@ fn tick_plague(sim: &mut SimState) {
     let season = Season::from_day(day);
     let plague_year =
         WorldEvent::current(seed, season, day / Season::YEAR_DAYS) == Some(WorldEvent::PlagueYear);
+    // A province at war breeds sickness too (#604 slice 3): the crowding and
+    // displacement of a war season raise the odds an outbreak catches.
+    let at_war = sim.world.polity.in_tension(seed, (day / 30) % 4, day / 120);
     let mut msgs: Vec<String> = Vec::new();
     for region in sim.world.regions.iter_mut() {
         for s in region.settlements.iter_mut() {
@@ -1474,12 +1503,16 @@ fn tick_plague(sim: &mut SimState) {
             }
             if s.plague_days == 0 {
                 // The conditions that breed a plague raise its odds: a
-                // famine-weakened town, and above all a plague-year season.
+                // famine-weakened town, a war season, and above all a
+                // plague-year.
                 let mut rng =
                     SeedRng::new(seed ^ si_hash(&s.name)).fork_for(&format!("plague-{day}"));
                 let mut chance = 3u32; // per thousand, in an ordinary season
                 if s.famine_days > 0 {
                     chance += 8;
+                }
+                if at_war {
+                    chance += 5;
                 }
                 if plague_year {
                     chance += 15;
@@ -2111,6 +2144,28 @@ mod tests {
             summer.caravans.len(),
             caravans_before,
             "relief is a winter thing — none flows in Green"
+        );
+    }
+
+    #[test]
+    fn a_plagued_town_closes_its_roads() {
+        let charts = charts::load_charts().unwrap();
+        let mut sim = SimState::new(42, charts);
+        // Plague every town: with no healthy origin or destination, the
+        // quarantine should keep every cart home.
+        for region in sim.world.regions.iter_mut() {
+            for s in region.settlements.iter_mut() {
+                s.plague_days = 5;
+            }
+        }
+        sim.caravans.clear();
+        for d in 1..=60u64 {
+            sim.world.tick = d * 24;
+            tick_caravans(&mut sim);
+        }
+        assert!(
+            sim.caravans.is_empty(),
+            "no cart sets out while every town is under quarantine"
         );
     }
 
