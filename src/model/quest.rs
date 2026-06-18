@@ -67,6 +67,17 @@ pub enum QuestKind {
     SupplyGoods {
         settlement: String,
     },
+    /// A town preyed on by an outlaw band posts a standing bounty on it (#623
+    /// slice 5). Unlike the relief calls, this is a **living, stale-able** notice:
+    /// it is posted when the band raids and left up for a long age, so by the
+    /// time anyone reads it the band may be long scattered, settled, or roamed
+    /// to other country — a real cold trail. Holds the band's id so the world
+    /// can tell whether the trail is still warm.
+    BountyOnBand {
+        band_id: String,
+        band_name: String,
+        settlement: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -101,6 +112,7 @@ impl QuestKind {
                 | QuestKind::BrokerTruce { .. }
                 | QuestKind::SteadyFaith { .. }
                 | QuestKind::SupplyGoods { .. }
+                | QuestKind::BountyOnBand { .. }
         )
     }
 }

@@ -921,6 +921,69 @@ mod festival_tests {
     }
 
     #[test]
+    fn a_raiding_band_draws_a_living_bounty_that_can_go_cold() {
+        use crate::model::quest::QuestKind;
+        use crate::sim::frontier::Band;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        // Seat a band in a region that holds a town — a town that would know to
+        // post a bounty on it.
+        let (region_idx, town) = {
+            let regs = &app.sim.as_ref().unwrap().world.regions;
+            let ri = regs
+                .iter()
+                .position(|r| r.settlements.iter().any(|s| s.population > 0))
+                .unwrap();
+            let town = regs[ri]
+                .settlements
+                .iter()
+                .filter(|s| s.population > 0)
+                .max_by_key(|s| s.population)
+                .unwrap()
+                .name
+                .clone();
+            (ri, town)
+        };
+        app.sim.as_mut().unwrap().frontier.bands.push(Band {
+            id: "band-bounty-1".into(),
+            name: "the Cold of the Marches".into(),
+            size: 12,
+            region_idx,
+            formed_day: 0,
+        });
+        app.generate_band_bounties();
+        let posted = app.sim.as_ref().unwrap().quests.iter().any(|q| {
+            matches!(&q.kind, QuestKind::BountyOnBand { band_id, settlement, .. }
+                if band_id == "band-bounty-1" && *settlement == town)
+        });
+        assert!(posted, "a raided town posts a living bounty on the band");
+        // While the band is abroad the trail is warm.
+        assert!(
+            !app.band_bounty_is_cold("band-bounty-1"),
+            "warm while the band roams"
+        );
+        // The band scatters/settles — the notice stays up, but the trail goes
+        // cold: a goose-chase for whoever reads it now.
+        app.sim.as_mut().unwrap().frontier.bands.clear();
+        assert!(
+            app.band_bounty_is_cold("band-bounty-1"),
+            "cold once the band is gone"
+        );
+        let still_posted = app
+            .sim
+            .as_ref()
+            .unwrap()
+            .quests
+            .iter()
+            .any(|q| matches!(&q.kind, QuestKind::BountyOnBand { .. }));
+        assert!(
+            still_posted,
+            "the notice lingers on the board even gone cold"
+        );
+    }
+
+    #[test]
     fn a_deep_rivalry_posts_a_broker_truce_task() {
         use crate::model::quest::QuestKind;
         let mut app = App::new(7, load_charts().unwrap());
