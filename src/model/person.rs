@@ -49,6 +49,18 @@ impl GodName {
             GodName::Kukri => '🕯',
         }
     }
+
+    /// The Five, in a fixed order — so any code that ranges over the gods
+    /// (the living faith, #595) does so deterministically.
+    pub fn all() -> [GodName; 5] {
+        [
+            GodName::Oltzed,
+            GodName::Keuru,
+            GodName::Sampsa,
+            GodName::Masa,
+            GodName::Kukri,
+        ]
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -1538,6 +1550,8 @@ mod tests {
                 services: vec![],
 
                 politics: SettlementPolitics::new(),
+
+                faith: Default::default(),
                 food_stock: 0.0,
                 goods_stock: Default::default(),
                 farms: Vec::new(),

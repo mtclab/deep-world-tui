@@ -781,6 +781,36 @@ fn tick_settlement_life(sim: &mut SimState) {
                     .politics
                     .drift_toward(crafter_pull, trader_pull, elder_pull, 0.03);
             }
+            // --- the faith lives (#595 slice 1) ---
+            // The town's devotion drifts toward its council's god (the powers
+            // that hold it shape what it worships), and a god's holy day pulls
+            // the whole province toward that god a little harder. Seeded from the
+            // people's patron on first touch. A turn of the prevailing faith is
+            // talked of on the road, once.
+            {
+                use crate::model::economy::SettlementFaith;
+                let day = (tick / 24) as u32;
+                if settlement.faith.devotion.is_empty() {
+                    settlement.faith = SettlementFaith::seeded(settlement.patron_seed_god());
+                }
+                let council_god = settlement.politics.dominant_faction().god();
+                settlement.faith.drift_toward(council_god, 0.01);
+                if let Some(holy) = crate::model::calendar::holy_day_god(day) {
+                    settlement.faith.drift_toward(holy, 0.03);
+                }
+                let now = settlement.faith.prevailing();
+                if let Some(g) = now {
+                    if settlement.faith.announced.is_some() && settlement.faith.announced != Some(g)
+                    {
+                        completed_msgs.push(format!(
+                            "{} has turned to the worship of {}.",
+                            settlement.name,
+                            g.label()
+                        ));
+                    }
+                    settlement.faith.announced = Some(g);
+                }
+            }
             // The council turns over now and then (#556): an election, a
             // dispute, or a festival — shifting who holds it, and talked of when
             // it lands. Checked once a season per town.

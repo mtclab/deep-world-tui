@@ -861,6 +861,75 @@ impl SettlementPolitics {
     }
 }
 
+/// A settlement's living devotion (#595): how the town's faith is shared among
+/// the Five. Seeded from its people's patron god, it drifts in the daily sim
+/// toward the town's character and its holy days — belief that breathes, instead
+/// of a fixed patron. The mirror, for faith, of `SettlementPolitics`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct SettlementFaith {
+    /// Per-god devotion weight; the prevailing god is the strongest. Empty until
+    /// first seeded/drifted, when it fills to all Five.
+    #[serde(default)]
+    pub devotion: std::collections::HashMap<GodName, f64>,
+    /// The last prevailing god the world announced for this town (#595), so a
+    /// turn of faith is talked of once, not every day.
+    #[serde(default)]
+    pub announced: Option<GodName>,
+}
+
+impl SettlementFaith {
+    /// A faith seeded toward a patron god — most of the town keeps it, the rest
+    /// spread thin among the others.
+    pub fn seeded(patron: GodName) -> Self {
+        let mut devotion = std::collections::HashMap::new();
+        for g in GodName::all() {
+            devotion.insert(g, if g == patron { 0.4 } else { 0.15 });
+        }
+        Self {
+            devotion,
+            announced: None,
+        }
+    }
+
+    pub fn get(&self, god: GodName) -> f64 {
+        self.devotion.get(&god).copied().unwrap_or(0.0)
+    }
+
+    /// The town's prevailing god — the strongest devotion, by a fixed god order
+    /// so a tie resolves the same way every run (determinism). `None` only for a
+    /// faith never seeded.
+    pub fn prevailing(&self) -> Option<GodName> {
+        let mut best: Option<(GodName, f64)> = None;
+        for g in GodName::all() {
+            let v = self.get(g);
+            if v > 0.0 && best.map(|(_, b)| v > b).unwrap_or(true) {
+                best = Some((g, v));
+            }
+        }
+        best.map(|(g, _)| g)
+    }
+
+    /// Drift the devotion a little toward a god (#595): the target rises, the
+    /// rest ease back, and the whole is renormalised so devotion is always a
+    /// share of one. Fills to all Five on first touch. Pure and deterministic.
+    pub fn drift_toward(&mut self, target: GodName, rate: f64) {
+        for g in GodName::all() {
+            self.devotion.entry(g).or_insert(0.2);
+        }
+        for g in GodName::all() {
+            let tgt = if g == target { 1.0 } else { 0.0 };
+            let e = self.devotion.get_mut(&g).unwrap();
+            *e += rate * (tgt - *e);
+        }
+        let sum: f64 = self.devotion.values().sum();
+        if sum > 0.0 {
+            for v in self.devotion.values_mut() {
+                *v /= sum;
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settlement {
     pub id: String,
@@ -874,6 +943,11 @@ pub struct Settlement {
     pub services: Vec<SettlementService>,
     #[serde(default)]
     pub politics: SettlementPolitics,
+    /// The town's living devotion (#595): how its faith is shared among the
+    /// Five, drifting in the daily sim. Empty until first drifted, when it
+    /// seeds from the people's patron.
+    #[serde(default)]
+    pub faith: SettlementFaith,
     /// Communal food supply, in meals. Farms/fishers/herders fill it, the
     /// population draws from it, and scarcity moves market prices.
     #[serde(default)]
@@ -1022,6 +1096,24 @@ impl Settlement {
     /// (#560 living province): the good whose producers are thickest here. Two
     /// towns with the same signature compete in the same market — the seed of a
     /// rivalry. `None` for a town that makes no trade good of its own.
+    /// The god the town's dominant people keep by tradition (#595) — the seed
+    /// its living faith starts from. Masa (the common people's god) for a town
+    /// of no clear patron.
+    pub fn patron_seed_god(&self) -> GodName {
+        self.people
+            .first()
+            .and_then(|p| crate::model::PeopleKind::from_name(&p.people).patron_god())
+            .unwrap_or(GodName::Masa)
+    }
+
+    /// The town's prevailing god right now (#595): the strongest of its living
+    /// devotion, or — before its faith has drifted at all — its people's patron.
+    pub fn prevailing_god(&self) -> GodName {
+        self.faith
+            .prevailing()
+            .unwrap_or_else(|| self.patron_seed_god())
+    }
+
     pub fn signature_good(&self) -> Option<ItemType> {
         let smiths = self.profession_count("smith") as f64;
         let miners = self.profession_count("miner") as f64;
@@ -2037,6 +2129,8 @@ mod tests {
             services: vec![],
 
             politics: SettlementPolitics::new(),
+
+            faith: Default::default(),
             food_stock: 0.0,
             goods_stock: Default::default(),
             farms: Vec::new(),
@@ -2094,6 +2188,7 @@ mod tests {
             }],
             services: vec![],
             politics: SettlementPolitics::new(),
+            faith: Default::default(),
             food_stock: 0.0,
             goods_stock: Default::default(),
             farms: Vec::new(),
@@ -2607,6 +2702,31 @@ mod tests {
         p.elder_standing = 0.3;
 
         assert_eq!(p.dominant_faction(), Faction::Traders);
+    }
+
+    #[test]
+    fn faith_seeds_drifts_and_picks_a_prevailing_god() {
+        // A seeded faith prevails toward its patron.
+        let f = SettlementFaith::seeded(GodName::Keuru);
+        assert_eq!(f.prevailing(), Some(GodName::Keuru));
+        // A fresh faith has none until touched.
+        assert_eq!(SettlementFaith::default().prevailing(), None);
+        // Drift pulls the prevailing god over toward the target, and devotion
+        // stays a share of one.
+        let mut f = SettlementFaith::seeded(GodName::Keuru);
+        for _ in 0..200 {
+            f.drift_toward(GodName::Masa, 0.05);
+        }
+        assert_eq!(f.prevailing(), Some(GodName::Masa));
+        let sum: f64 = f.devotion.values().sum();
+        assert!((sum - 1.0).abs() < 1e-6, "devotion is a share of one");
+        // Prevailing is deterministic across runs (fixed god order on ties).
+        let g = SettlementFaith::default();
+        let mut tied = g.clone();
+        for god in GodName::all() {
+            tied.devotion.insert(god, 0.2);
+        }
+        assert_eq!(tied.prevailing(), Some(GodName::Oltzed), "tie → first god");
     }
 
     #[test]

@@ -349,6 +349,7 @@ pub fn spawn_settlement(
         people: settlers,
         services: crate::gen::world::settlement_services("hamlet", &dominant_people),
         politics: crate::model::SettlementPolitics::new(),
+        faith: Default::default(),
         food_stock: population as f64 * 2.0,
         goods_stock: std::collections::HashMap::new(),
         farms: Vec::new(),
