@@ -11,8 +11,15 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::model::Terrain;
 use crate::rng::SeedRng;
 use crate::sim::journal::Voice;
+
+/// A band this strong and this long-lived may lay down its arms and raise a hold.
+const HOLD_SETTLE_SIZE: u32 = 12;
+/// Days a band must have held its country before it settles — the restless do
+/// not put down roots overnight.
+const HOLD_SETTLE_AGE_DAYS: u32 = 60;
 
 /// Enough wanderers gathered in one country before they make a band of it.
 const BAND_FORMS_AT: u32 = 8;
@@ -74,6 +81,7 @@ pub fn tick_frontier(sim: &mut crate::sim::SimState) {
     }
     form_bands(sim);
     bands_act(sim);
+    settle_holds(sim);
 }
 
 /// When enough wanderers have gathered, they muster into a band — a living
@@ -237,6 +245,100 @@ fn roam_target(sim: &crate::sim::SimState, region_idx: usize, rng: &mut SeedRng)
         return None;
     }
     Some(nbs[rng.gen_range(nbs.len() as u32) as usize])
+}
+
+/// The outlaw-hold (#623 slice 4): a band grown strong and grown old in its
+/// country may lay down its arms and raise a hold of its own — a rough, lawless
+/// place, but a place, with people and a hearth. Mechanically it is a hamlet
+/// like any other, so the living world takes it up from there: it farms, trades,
+/// holds a faith, and over generations the Fall's long tail may make an honest
+/// town of it. Deterministic; one hold at most per band.
+fn settle_holds(sim: &mut crate::sim::SimState) {
+    let tick = sim.world.tick;
+    let day = (tick / 24) as u32;
+    let seed = sim.world.seed;
+
+    // Which bands are ready to settle, by id (snapshot before we mutate world).
+    let ready: Vec<(String, String, usize, u32)> = sim
+        .frontier
+        .bands
+        .iter()
+        .filter(|b| {
+            b.size >= HOLD_SETTLE_SIZE
+                && day.saturating_sub(b.formed_day) >= HOLD_SETTLE_AGE_DAYS
+                && region_has_room(sim, b.region_idx)
+        })
+        .map(|b| (b.id.clone(), b.name.clone(), b.region_idx, b.size))
+        .collect();
+
+    let mut settled: Vec<String> = Vec::new();
+    for (band_id, band_name, region_idx, size) in ready {
+        let Some((x, y)) = open_frontier_site(sim, region_idx) else {
+            continue;
+        };
+        let region_id = sim.world.regions[region_idx].id.clone();
+        // The hold's founders are the band made flesh — a roster generated from
+        // the region's own people-mix, capped to a hamlet's sample.
+        let n = size.min(12);
+        let mut settlers = Vec::with_capacity(n as usize);
+        for k in 0..n {
+            let prng = SeedRng::new(seed).fork_for(&format!("hold-{band_id}-{k}"));
+            settlers.push(crate::gen::person::generate_person_from(
+                prng,
+                &region_id,
+                "",
+                &sim.charts,
+            ));
+        }
+        let mut rng = SeedRng::new(seed).fork_for(&format!("hold-spawn-{band_id}"));
+        if let Some((_id, hold_name)) =
+            crate::sim::founding::spawn_settlement(sim, region_idx, x, y, settlers, &mut rng)
+        {
+            settled.push(band_id.clone());
+            sim.log(
+                tick,
+                Voice::Rumor,
+                format!(
+                    "Word on the road: {band_name} have laid down their arms and raised a hold at {hold_name} — a lawless place, but a place, with smoke from its roofs."
+                ),
+            );
+        }
+    }
+    sim.frontier.bands.retain(|b| !settled.contains(&b.id));
+}
+
+/// A region with room for one more settlement. A band settles a hold in the
+/// country it has held and terrorized — it grew strong on the raids there — so
+/// the only bar is room, not emptiness (a band in truly empty country starves
+/// before it ever grows old enough to settle).
+fn region_has_room(sim: &crate::sim::SimState, region_idx: usize) -> bool {
+    sim.world
+        .regions
+        .get(region_idx)
+        .map(|r| r.settlements.len() < 3)
+        .unwrap_or(false)
+}
+
+/// Open ground for a hold: a Grass tile well clear of any settled tile. `None`
+/// if the region has no such room. Deterministic — first such tile in scan
+/// order, like the founding land-take.
+fn open_frontier_site(sim: &crate::sim::SimState, region_idx: usize) -> Option<(usize, usize)> {
+    let terr = &sim.world.regions.get(region_idx)?.terrain;
+    for y in 0..terr.height {
+        for x in 0..terr.width {
+            if terr.get(x, y) != Some(Terrain::Grass) {
+                continue;
+            }
+            let near = (y.saturating_sub(8)..(y + 9).min(terr.height)).any(|ty| {
+                (x.saturating_sub(8)..(x + 9).min(terr.width))
+                    .any(|tx| terr.get(tx, ty) == Some(Terrain::Settlement))
+            });
+            if !near {
+                return Some((x, y));
+            }
+        }
+    }
+    None
 }
 
 /// The least-governed region: fewest living settlements, richest game on a tie.

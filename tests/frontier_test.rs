@@ -154,6 +154,39 @@ fn a_band_in_empty_country_wears_down_and_scatters() {
 }
 
 #[test]
+fn a_strong_old_band_settles_a_hold() {
+    let charts = load_charts().expect("charts");
+    let mut sim = SimState::new(8402, charts);
+    // A region with a town (so the band can prey, survive, and grow old) that
+    // still has room for one more settlement.
+    let region_idx = sim
+        .world
+        .regions
+        .iter()
+        .position(|r| r.settlements.iter().any(|s| s.population > 0) && r.settlements.len() < 3)
+        .expect("a region with a town and room");
+    let holds_before = sim.world.regions[region_idx].settlements.len();
+    sim.frontier.bands.push(Band {
+        id: "band-hold-1".into(),
+        name: "the Ragged of the Reach".into(),
+        size: 14,
+        region_idx,
+        formed_day: 0,
+    });
+    // Past the settle age (60 days), preying all the while.
+    for _ in 0..(24 * 65) {
+        sim.step();
+    }
+    let band_gone = !sim.frontier.bands.iter().any(|b| b.id == "band-hold-1");
+    let holds_after = sim.world.regions[region_idx].settlements.len();
+    assert!(band_gone, "the band that settled is no longer roaming");
+    assert!(
+        holds_after > holds_before,
+        "a hold was raised in the band's country ({holds_before} -> {holds_after})"
+    );
+}
+
+#[test]
 fn the_road_taking_is_deterministic() {
     let charts = load_charts().expect("charts");
     let mut a = SimState::new(771, charts.clone());
