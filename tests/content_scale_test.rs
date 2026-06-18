@@ -101,6 +101,7 @@ fn new_quest_kinds_generate() {
                 // state, not by generate_quests — they never appear here.
                 QuestKind::RelievePlague { .. } => 9,
                 QuestKind::RelieveFamine { .. } => 10,
+                QuestKind::BrokerTruce { .. } => 11,
             });
         }
     }
