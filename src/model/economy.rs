@@ -973,6 +973,10 @@ pub struct Settlement {
     /// settlement itself.
     #[serde(default)]
     pub famine_days: u32,
+    /// Days a plague has gripped the town (#604): 0 when healthy. While it
+    /// burns it sickens the people and takes a toll, then runs its course.
+    #[serde(default)]
+    pub plague_days: u32,
     /// Anchor tile (top-left of the footprint) on the region map. A
     /// settlement is not a point: its footprint scales with its size and is
     /// painted as Settlement terrain, so a town LOOKS like a town.
@@ -2137,6 +2141,7 @@ mod tests {
             buildings: Vec::new(),
             festival_until_day: 0,
             famine_days: 0,
+            plague_days: 0,
             map_x: 0,
             map_y: 0,
             district: 0,
@@ -2195,6 +2200,7 @@ mod tests {
             buildings: Vec::new(),
             festival_until_day: 0,
             famine_days: 0,
+            plague_days: 0,
             map_x: 0,
             map_y: 0,
             district: 0,

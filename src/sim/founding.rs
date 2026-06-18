@@ -356,6 +356,7 @@ pub fn spawn_settlement(
         buildings: Vec::new(),
         festival_until_day: 0,
         famine_days: 0,
+        plague_days: 0,
         map_x: x as u32,
         map_y: y as u32,
         district: 0,

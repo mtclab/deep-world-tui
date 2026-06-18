@@ -334,6 +334,7 @@ mod tests {
             buildings: Vec::new(),
             festival_until_day: 0,
             famine_days: 0,
+            plague_days: 0,
             map_x,
             map_y,
             district,
