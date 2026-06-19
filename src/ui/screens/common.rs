@@ -390,6 +390,7 @@ pub(crate) fn wayfarer_glyph(kind: crate::sim::wayfarers::WayfarerKind) -> (char
         WinterSurvivor => ('s', Color::Rgb(150, 190, 230)), // cold-blue
         FuneralProcession => ('†', Color::Rgb(150, 150, 150)), // mourning grey
         EscapedLivestock => ('q', Color::Rgb(190, 160, 120)), // a strayed beast
+        ThresholdKeeper => ('k', Color::Rgb(190, 170, 210)), // an uncanny keeper, eerie pale
     }
 }
 
