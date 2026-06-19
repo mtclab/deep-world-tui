@@ -581,7 +581,9 @@ impl App {
                 }
                 self.log_travel(terrain);
                 self.reveal_around(region_idx, px, py);
-                self.check_encounter(terrain);
+                // The random encounter roll is retired (#649 slice 1): nothing
+                // pops while walking. Meetings live on the grid now — people you
+                // see and walk up to, not a popup off a probability.
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
                 self.check_quests_on_travel(region_idx);
@@ -674,7 +676,7 @@ impl App {
                         self.explored[region_idx].reveal(fx, fy, 4);
                     }
                 }
-                self.check_encounter(terrain);
+                // Random encounters retired (#649 slice 1) — see above.
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
                 if self.encounter.is_none() {
