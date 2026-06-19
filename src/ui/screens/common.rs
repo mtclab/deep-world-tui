@@ -383,6 +383,8 @@ pub(crate) fn wayfarer_glyph(kind: crate::sim::wayfarers::WayfarerKind) -> (char
         Bard => ('y', Color::Rgb(200, 150, 210)),     // a minstrel, song-bright
         Pilgrim => ('u', Color::Rgb(220, 215, 170)),  // pale devotional gold
         Hermit => ('e', Color::Rgb(160, 160, 150)),   // weathered grey
+        // A trader reads by their own people's mark, trade-gold.
+        Trader(pk) => (pk.glyph(), Color::Rgb(230, 200, 90)),
     }
 }
 

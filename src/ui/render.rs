@@ -107,6 +107,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::Encounter => {
             draw_encounter_screen(f, app);
         }
+        Screen::RoadBarter { people } => {
+            screens::road_barter::draw_road_barter_screen(f, app, people);
+        }
         Screen::Collapse => {
             draw_collapse_screen(f, app);
         }

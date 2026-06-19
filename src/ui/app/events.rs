@@ -232,6 +232,9 @@ impl App {
                 Screen::Encounter => {
                     crate::ui::input::encounter::handle_encounter_input(self, key);
                 }
+                Screen::RoadBarter { people } => {
+                    crate::ui::input::road_barter::handle_road_barter_input(self, key, people);
+                }
                 Screen::Collapse => {
                     crate::ui::input::collapse::handle_collapse_input(self, key);
                 }
