@@ -1069,6 +1069,50 @@ mod festival_tests {
     }
 
     #[test]
+    fn meeting_a_caravan_trader_opens_the_road_trade() {
+        // Bump-to-interact (#641 slice 2): walking into the trader of a caravan
+        // opens the merchant-caravan deal on the road, no village needed.
+        use crate::sim::caravans::CaravanRole;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.player_pos = Some(crate::model::PlayerPos {
+            region_idx: 0,
+            px: 5,
+            py: 5,
+        });
+        app.bump_caravan(CaravanRole::Trader);
+        assert!(
+            matches!(app.screen, Screen::Encounter),
+            "the trader stops to deal — the encounter opens"
+        );
+        assert!(
+            matches!(
+                app.encounter.as_ref().map(|e| e.kind),
+                Some(crate::model::EncounterKind::MerchantCaravan)
+            ),
+            "it is the merchant-caravan trade"
+        );
+    }
+
+    #[test]
+    fn a_caravan_guard_waves_you_on() {
+        use crate::sim::caravans::CaravanRole;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.bump_caravan(CaravanRole::Guard);
+        assert!(
+            !matches!(app.screen, Screen::Encounter),
+            "a guard is not a trade — no encounter opens"
+        );
+        assert!(
+            app.status_msg.as_ref().is_some_and(|m| m.contains("guard")),
+            "the guard waves you on"
+        );
+    }
+
+    #[test]
     fn a_big_band_fight_is_tense_not_a_death_sentence() {
         // Balance (#637 slice 5): clearing a sizeable band costs real energy but
         // leaves the player standing — the toll is tense, not instant collapse.

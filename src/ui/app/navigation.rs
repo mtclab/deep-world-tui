@@ -466,6 +466,29 @@ impl App {
                 }
             }
         }
+        // A caravan on the road is people, not a wall (#641 slice 2): step into
+        // its trader to deal on the road, into its guard and they wave you on,
+        // into a drover or pack animal and you give the train the road. You do
+        // not walk through a caravan.
+        if let Some(pos) = self.player_pos {
+            let (nx, ny) = (pos.px as i32 + dx, pos.py as i32 + dy);
+            if nx >= 0 && ny >= 0 {
+                let (ux, uy) = (nx as usize, ny as usize);
+                let now = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+                let hit = self.sim.as_ref().and_then(|sim| {
+                    sim.caravans.iter().find_map(|c| {
+                        crate::sim::caravans::caravan_train_tiles(sim, &c.id, pos.region_idx, now)
+                            .into_iter()
+                            .find(|((tx, ty), _)| *tx == ux && *ty == uy)
+                            .map(|(_, role)| role)
+                    })
+                });
+                if let Some(role) = hit {
+                    self.bump_caravan(role);
+                    return;
+                }
+            }
+        }
         // A door is a way in, not a wall (#458): you step through it onto the
         // building's floor. Crossing the threshold from outside, the tavern
         // serves, the temple blesses, a home answers the knock — once, as you

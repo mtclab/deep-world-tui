@@ -763,6 +763,47 @@ impl App {
         ));
     }
 
+    /// Meet a caravan on the road (#641 slice 2): what stepping into a member
+    /// of the train does, by their part in it. The trader stops to deal — the
+    /// merchant-caravan trade opens on the spot, no separate village needed. A
+    /// guard waves you past; a drover or pack animal you simply give the road.
+    /// The player does not move onto the tile in any case.
+    pub(super) fn bump_caravan(&mut self, role: crate::sim::caravans::CaravanRole) {
+        use crate::sim::caravans::CaravanRole;
+        match role {
+            CaravanRole::Trader => {
+                // Deal on the road: the merchant-caravan meeting, opened by
+                // walking up to the trader rather than a random roll.
+                let terrain = self
+                    .player_pos
+                    .and_then(|pos| {
+                        let sim = self.sim.as_ref()?;
+                        sim.world
+                            .regions
+                            .get(pos.region_idx)?
+                            .terrain
+                            .get(pos.px, pos.py)
+                    })
+                    .unwrap_or(crate::model::Terrain::Grass);
+                self.encounter = Some(crate::model::Encounter {
+                    kind: crate::model::EncounterKind::MerchantCaravan,
+                    terrain,
+                    species: None,
+                });
+                self.encounter_band = None;
+                self.screen = Screen::Encounter;
+                self.trigger_flash();
+            }
+            CaravanRole::Guard => {
+                self.status_msg =
+                    Some("A caravan guard waves you on — they want no trouble on the road.".into());
+            }
+            CaravanRole::Drover | CaravanRole::Pack => {
+                self.status_msg = Some("You stand aside and let the caravan keep the road.".into());
+            }
+        }
+    }
+
     /// Resolve a living-world relief task when the player has answered it
     /// (#613-epic): pays the task's reward into the player's standing in the town
     /// they stand in (having just relieved it), clears the task, records the
