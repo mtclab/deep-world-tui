@@ -768,8 +768,16 @@ impl App {
     /// merchant-caravan trade opens on the spot, no separate village needed. A
     /// guard waves you past; a drover or pack animal you simply give the road.
     /// The player does not move onto the tile in any case.
-    pub(super) fn bump_caravan(&mut self, role: crate::sim::caravans::CaravanRole) {
+    pub(super) fn bump_caravan(&mut self, role: crate::sim::caravans::CaravanRole, raided: bool) {
         use crate::sim::caravans::CaravanRole;
+        // A wrecked caravan has nothing to deal and no one to wave you on — only
+        // the aftermath of the road's danger (#641 slice 4).
+        if raided {
+            self.status_msg = Some(
+                "The caravan is a wreck — its goods carried off, nothing left to trade.".into(),
+            );
+            return;
+        }
         match role {
             CaravanRole::Trader => {
                 // Deal on the road: the merchant-caravan meeting, opened by

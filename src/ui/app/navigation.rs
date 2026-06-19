@@ -480,11 +480,11 @@ impl App {
                         crate::sim::caravans::caravan_train_tiles(sim, &c.id, pos.region_idx, now)
                             .into_iter()
                             .find(|((tx, ty), _)| *tx == ux && *ty == uy)
-                            .map(|(_, role)| role)
+                            .map(|(_, role)| (role, c.raided))
                     })
                 });
-                if let Some(role) = hit {
-                    self.bump_caravan(role);
+                if let Some((role, raided)) = hit {
+                    self.bump_caravan(role, raided);
                     return;
                 }
             }

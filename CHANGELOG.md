@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — Live on the grid
+
+The world the last release made *live* now also **stands on the map**. Combat and the roads' traffic stop being abstract menus and become actors you see, meet, and fight where you stand — the roguelike core, tying together everything the living-world arc built.
+
+**Live combat in the world — roguelike, on the grid (#637)** — the abstract encounter screen is retired for fighting. Outlaw **bands stand on the map as their members** — you cut a band down one outlaw at a time by walking into them, and scattering it claims its bounty (#636). **Wild beasts are actors on the grid** too — a bear is a real, draining fight; a hare drops in a blow and yields meat — spawned from each region's wildness, the dreads weighing heavier in the deep wild. **Townsfolk read by their trade** at a glance (smith, baker, guard, healer — each its own glyph and colour), met by walking up to them. The fight is the world's own turn loop: bump to strike, the foe strikes back, HP and exhaustion funnel into the existing collapse/death system — no cut-away. Finally, the **marches read as survival country**: a per-region danger gauge (*settled → wary → perilous → deadly*) reads off the land's wildness and what stands on it now, shown on the map header, and the band/beast toll is balanced to be tense, not swingy — a big band is feared and picked off, not waded into.
+
+**The roads live — caravans & travellers as individuals on the grid (#641)** — the no-blobs rule now holds for moving groups. **Caravans ride the road as a train of individuals** — a lead drover, the trader, a pack animal, a guard — their place interpolated along the route by the clock; walk up to the trader to deal on the road, and a guard waves you on. A **migration is a family on the move**, not an instant teleport in the roster: the migrant leaves their town, walks the road as a party you can see crossing the country, and joins their new home only when they arrive. And the frontier **preys on what it can see** — a band whose country a caravan is crossing rides it down, its goods carried off and the train left limping as a wreck, so the marches (thick with bands) become the dangerous roads they should be.
+
+---
+
 ## v0.10.0 — The world lives, and asks
 
 The big living-world arc: the simulation now runs **six interlocking systems on its own** — seasons, inter-province war & alliance, dynasty/legacy, faith, plague — and, atop them, a **quest engine that turns the world's own emergent troubles into calls the player can answer**. Everything below is system-first and deterministic; the player plugs into a world that was already moving.
