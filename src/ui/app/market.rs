@@ -1069,6 +1069,44 @@ mod festival_tests {
     }
 
     #[test]
+    fn a_big_band_fight_is_tense_not_a_death_sentence() {
+        // Balance (#637 slice 5): clearing a sizeable band costs real energy but
+        // leaves the player standing — the toll is tense, not instant collapse.
+        use crate::sim::frontier::Band;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.player_pos = Some(crate::model::PlayerPos {
+            region_idx: 0,
+            px: 1,
+            py: 1,
+        });
+        app.sim.as_mut().unwrap().frontier.bands.push(Band {
+            id: "band-big-1".into(),
+            name: "the Long of the Reach".into(),
+            size: 8,
+            region_idx: 0,
+            formed_day: 0,
+        });
+        app.vitals.energy = 1.0;
+        for _ in 0..12 {
+            if app.sim.as_ref().unwrap().frontier.bands.is_empty() {
+                break;
+            }
+            app.bump_attack_band("band-big-1");
+        }
+        assert!(
+            app.sim.as_ref().unwrap().frontier.bands.is_empty(),
+            "the band is broken"
+        );
+        assert!(app.vitals.energy < 1.0, "the fight wore the player down");
+        assert!(
+            app.vitals.energy > 0.0,
+            "a full-strength player survives breaking an eight-strong band — tense, not swingy"
+        );
+    }
+
+    #[test]
     fn breaking_a_band_in_the_field_claims_its_bounty() {
         use crate::model::quest::QuestKind;
         use crate::model::{Encounter, EncounterAction, EncounterKind, PlayerPos, Terrain};
