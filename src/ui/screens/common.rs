@@ -385,6 +385,11 @@ pub(crate) fn wayfarer_glyph(kind: crate::sim::wayfarers::WayfarerKind) -> (char
         Hermit => ('e', Color::Rgb(160, 160, 150)),   // weathered grey
         // A trader reads by their own people's mark, trade-gold.
         Trader(pk) => (pk.glyph(), Color::Rgb(230, 200, 90)),
+        // Someone in need on the road — read at a glance, walked up to to help.
+        LostChild => ('c', Color::Rgb(230, 220, 180)), // small and pale
+        WinterSurvivor => ('s', Color::Rgb(150, 190, 230)), // cold-blue
+        FuneralProcession => ('†', Color::Rgb(150, 150, 150)), // mourning grey
+        EscapedLivestock => ('q', Color::Rgb(190, 160, 120)), // a strayed beast
     }
 }
 
