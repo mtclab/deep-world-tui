@@ -421,6 +421,43 @@ impl App {
                 }
             }
         }
+        // An outlaw band on the grid is a thing you walk into to fight (#637):
+        // stepping onto a band's tile engages it — no random ambush, a foe you
+        // saw and chose. The band-claim wiring (#636) resolves the fight.
+        if let Some(pos) = self.player_pos {
+            let (nx, ny) = (pos.px as i32 + dx, pos.py as i32 + dy);
+            if nx >= 0 && ny >= 0 {
+                let (ux, uy) = (nx as usize, ny as usize);
+                let band_id = self.sim.as_ref().and_then(|sim| {
+                    sim.frontier
+                        .bands
+                        .iter()
+                        .filter(|b| b.region_idx == pos.region_idx)
+                        .find(|b| {
+                            crate::sim::frontier::band_field_tile(sim, &b.id, pos.region_idx)
+                                == Some((ux, uy))
+                        })
+                        .map(|b| b.id.clone())
+                });
+                if let Some(bid) = band_id {
+                    let terrain = self
+                        .sim
+                        .as_ref()
+                        .and_then(|s| s.world.regions.get(pos.region_idx))
+                        .and_then(|r| r.terrain.get(ux, uy))
+                        .unwrap_or(Terrain::Grass);
+                    self.encounter = Some(crate::model::Encounter {
+                        kind: crate::model::EncounterKind::Bandit,
+                        terrain,
+                        species: None,
+                    });
+                    self.encounter_band = Some(bid);
+                    self.encounters_had += 1;
+                    self.screen = Screen::Encounter;
+                    return;
+                }
+            }
+        }
         // A door is a way in, not a wall (#458): you step through it onto the
         // building's floor. Crossing the threshold from outside, the tavern
         // serves, the temple blesses, a home answers the knock — once, as you

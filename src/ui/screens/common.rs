@@ -210,6 +210,35 @@ pub(crate) fn build_npc_map(
         }
     }
 
+    // Outlaw bands of the frontier stand on the grid too (#637): a hostile mark
+    // in the wild country, where you can see them and choose to walk in. Drawn
+    // last so a band on open ground reads over the empty land.
+    if let Some(sim) = app.sim.as_ref() {
+        for band in &sim.frontier.bands {
+            if band.region_idx != region_idx {
+                continue;
+            }
+            if let Some((bx, by)) = crate::sim::frontier::band_field_tile(sim, &band.id, region_idx)
+            {
+                if bx >= vp.cam_x
+                    && by >= vp.cam_y
+                    && bx < vp.cam_x + vp.view_w
+                    && by < vp.cam_y + vp.view_h
+                    && !(bx == vp.px && by == vp.py)
+                {
+                    // 'r' for raiders, blood-red — a thing to fear or to hunt.
+                    npcs.insert(
+                        (bx, by),
+                        MapNpc {
+                            glyph: 'r',
+                            color: Color::Rgb(220, 60, 60),
+                        },
+                    );
+                }
+            }
+        }
+    }
+
     npcs
 }
 

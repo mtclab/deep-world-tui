@@ -921,6 +921,49 @@ mod festival_tests {
     }
 
     #[test]
+    fn walking_into_a_band_on_the_grid_engages_it() {
+        use crate::model::PlayerPos;
+        use crate::sim::frontier::{band_field_tile, Band};
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        let region_idx = 0;
+        app.sim.as_mut().unwrap().frontier.bands.push(Band {
+            id: "band-grid-1".into(),
+            name: "the Grey of the Reach".into(),
+            size: 6,
+            region_idx,
+            formed_day: 0,
+        });
+        // Where the band stands on the grid, and a tile beside it to step from.
+        let (bx, by) =
+            band_field_tile(app.sim.as_ref().unwrap(), "band-grid-1", region_idx).expect("a tile");
+        app.player_pos = Some(PlayerPos {
+            region_idx,
+            px: bx + 1,
+            py: by,
+        });
+        app.screen = Screen::World { region_idx };
+        // Step west, into the band.
+        app.move_player(-1, 0);
+        assert!(
+            matches!(app.screen, Screen::Encounter),
+            "walking into a band opens the fight, not the empty land"
+        );
+        assert_eq!(
+            app.encounter_band.as_deref(),
+            Some("band-grid-1"),
+            "the fight is with that band, not a random cutpurse"
+        );
+        // And the player did not step onto the band's tile.
+        assert_eq!(
+            app.player_pos.map(|p| (p.px, p.py)),
+            Some((bx + 1, by)),
+            "you do not walk through a band"
+        );
+    }
+
+    #[test]
     fn breaking_a_band_in_the_field_claims_its_bounty() {
         use crate::model::quest::QuestKind;
         use crate::model::{Encounter, EncounterAction, EncounterKind, PlayerPos, Terrain};

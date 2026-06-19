@@ -212,6 +212,51 @@ fn richest_prey(sim: &crate::sim::SimState, region_idx: usize) -> Option<usize> 
 /// a neighbouring region. A band of the marches strikes the settled edge and
 /// melts back into the dark. Returns the prey's (region, settlement). Neighbours
 /// are scanned in a fixed order, so the raid is deterministic.
+/// Where a band stands on the region grid (#637): a deterministic wild tile in
+/// the country it holds, clear of any settlement, derived from the band's id so
+/// it sits in the same place every render. `None` if the region has no open
+/// wild ground. The player can see it and choose to walk into it.
+pub fn band_field_tile(
+    sim: &crate::sim::SimState,
+    band_id: &str,
+    region_idx: usize,
+) -> Option<(usize, usize)> {
+    let region = sim.world.regions.get(region_idx)?;
+    let terr = &region.terrain;
+    let h = crate::rng::fnv1a_hash(band_id);
+    // Wild ground a band would hold: grass or forest, never a settled tile.
+    let mut candidates = 0u64;
+    // First pass: count, so the pick is uniform and stable.
+    for y in 0..terr.height {
+        for x in 0..terr.width {
+            if matches!(
+                terr.get(x, y),
+                Some(crate::model::Terrain::Grass | crate::model::Terrain::Forest)
+            ) {
+                candidates += 1;
+            }
+        }
+    }
+    if candidates == 0 {
+        return None;
+    }
+    let mut target = h % candidates;
+    for y in 0..terr.height {
+        for x in 0..terr.width {
+            if matches!(
+                terr.get(x, y),
+                Some(crate::model::Terrain::Grass | crate::model::Terrain::Forest)
+            ) {
+                if target == 0 {
+                    return Some((x, y));
+                }
+                target -= 1;
+            }
+        }
+    }
+    None
+}
+
 /// A band the player would cross while travelling `region_idx` (#630 slice 5):
 /// one that holds the region, or one that raids into it from a neighbouring
 /// march. Returns its id. Deterministic — bands are scanned in order.
