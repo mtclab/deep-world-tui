@@ -543,6 +543,95 @@ impl App {
             .unwrap_or(true)
     }
 
+    /// The player drove an outlaw band off in the field (#630 slice 5): break
+    /// the living band, and — if that scattered it for good — answer the bounty
+    /// any town set on its head (reward into local standing, quest cleared,
+    /// milestone recorded). Returns a line for the telling.
+    pub(super) fn break_band_and_claim(&mut self, band_id: &str) -> String {
+        use crate::model::quest::QuestKind;
+        let Some((band_name, scattered)) = self
+            .sim
+            .as_mut()
+            .and_then(|sim| crate::sim::frontier::break_band(sim, band_id))
+        else {
+            return String::new();
+        };
+        if !scattered {
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Travel,
+                    format!(
+                        "I bloodied {band_name} and they broke off — but they are not finished."
+                    ),
+                );
+            }
+            return format!(
+                " You bloody {band_name}, and they scatter into the dark — but they will reform."
+            );
+        }
+        // Scattered for good: answer the bounty, if one stood.
+        let player_id = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.id.clone())
+            .unwrap_or_default();
+        let here_id = self
+            .sim
+            .as_ref()
+            .and_then(|sim| {
+                let pos = self.player_pos?;
+                sim.world
+                    .regions
+                    .get(pos.region_idx)?
+                    .settlements
+                    .first()
+                    .map(|s| s.id.clone())
+            })
+            .unwrap_or_default();
+        let bounty = self.sim.as_ref().and_then(|sim| {
+            sim.quests.iter().enumerate().find_map(|(i, q)| {
+                matches!(&q.kind, QuestKind::BountyOnBand { band_id: b, .. } if b == band_id)
+                    .then(|| (i, q.reward.clone()))
+            })
+        });
+        let mut claimed = false;
+        if let Some((idx, reward)) = bounty {
+            if let (Some(ps), Some(sim)) = (self.player_start.as_mut(), self.sim.as_mut()) {
+                crate::sim::quest_gen::apply_quest_reward(
+                    &reward,
+                    &mut ps.inventory,
+                    &mut sim.reputation,
+                    &player_id,
+                    &here_id,
+                    &mut sim.relationships,
+                    sim.world.tick,
+                );
+            }
+            if let Some(ref mut sim) = self.sim {
+                if idx < sim.quests.len() {
+                    sim.quests.remove(idx);
+                }
+            }
+            self.milestones.record_quest_completed(self.clock.day);
+            claimed = true;
+        }
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                format!("I scattered {band_name} for good. The country they preyed is the quieter for it."),
+            );
+        }
+        if claimed {
+            format!(" You break {band_name} for good, and the bounty on them is yours.")
+        } else {
+            format!(" You break {band_name} for good — the country is the quieter for it.")
+        }
+    }
+
     /// Resolve a living-world relief task when the player has answered it
     /// (#613-epic): pays the task's reward into the player's standing in the town
     /// they stand in (having just relieved it), clears the task, records the

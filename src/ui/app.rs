@@ -105,6 +105,10 @@ pub struct App {
     pub collapse: Option<Collapse>,
     pub death_cause: Option<DeathCause>,
     pub encounter: Option<Encounter>,
+    /// When the current encounter is an outlaw band crossed in the field (#630
+    /// slice 5), the id of that band — so driving them off strikes the living
+    /// band and answers its bounty. `None` for an ordinary cutpurse.
+    pub encounter_band: Option<String>,
     pub god_affinity: GodAffinity,
     pub inter_people_bias: InterPeopleBias,
     pub llm_enabled: bool,
@@ -238,6 +242,7 @@ impl App {
             clock: GameClock::default(),
             vitals: PlayerVitals::default(),
             encounter: None,
+            encounter_band: None,
             collapse: None,
             death_cause: None,
             god_affinity: GodAffinity::new(),
