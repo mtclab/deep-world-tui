@@ -7,10 +7,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::Terrain;
+use crate::model::{PeopleKind, Terrain};
 use crate::rng::SeedRng;
 
-/// Who is on the road — a wanderer, met for the word they carry.
+/// Who is on the road — a wanderer met for the word they carry, or a trader of
+/// one of the peoples (a Khör, a Mëräk, a Häl) down from their own country to
+/// barter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WayfarerKind {
     /// A fellow traveller, full of road-news.
@@ -21,17 +23,45 @@ pub enum WayfarerKind {
     Pilgrim,
     /// A hermit at the edge of the settled land, sparing with words.
     Hermit,
+    /// A trader of one of the peoples (Khör, Mëräk, Häl), met on the road to
+    /// barter in kind — they take no coin. Named by their own people, never an
+    /// umbrella term.
+    Trader(PeopleKind),
 }
 
 impl WayfarerKind {
-    /// A short word for the meeting, for the status line.
+    /// A short word for the meeting, for the status line. Traders are named by
+    /// their own people at the call site (via `trader_people`), not here.
     pub fn label(self) -> &'static str {
         match self {
             WayfarerKind::Traveler => "a traveller",
             WayfarerKind::Bard => "a wandering bard",
             WayfarerKind::Pilgrim => "a pilgrim",
             WayfarerKind::Hermit => "a hermit",
+            WayfarerKind::Trader(_) => "a trader",
         }
+    }
+
+    /// The people this wayfarer trades for, if they are a trader.
+    pub fn trader_people(self) -> Option<PeopleKind> {
+        match self {
+            WayfarerKind::Trader(pk) => Some(pk),
+            _ => None,
+        }
+    }
+}
+
+/// Which people, if any, sends a trader to the roads of a region of this kind
+/// (#649 slice 2b): the canon home-terrains — the Mëräk from the coasts and
+/// deltas, the Khör from the open and high country, the Häl from the deep woods.
+/// The deep-cave Tzäkhar and deep-desert She'ar keep to their own country and
+/// are met in their enclaves, not on the province's roads.
+fn road_trader_people(region_type: &str) -> Option<PeopleKind> {
+    match region_type {
+        "coast" | "delta" => Some(PeopleKind::Merak),
+        "steppe" | "upland" => Some(PeopleKind::Khor),
+        "forest" | "river_valley" => Some(PeopleKind::Hal),
+        _ => None,
     }
 }
 
@@ -81,12 +111,13 @@ pub fn tick_wayfarers(sim: &mut crate::sim::SimState) {
     let seed = sim.world.seed;
     let region_count = sim.world.regions.len();
     for ri in 0..region_count {
-        let (has_road, settlements) = {
+        let (has_road, settlements, trader_people) = {
             let r = &sim.world.regions[ri];
             let has_road = r.terrain.tiles.iter().any(|t| matches!(t, Terrain::Road));
             (
                 has_road,
                 r.settlements.iter().filter(|s| s.population > 0).count(),
+                road_trader_people(&r.region_type),
             )
         };
         let target = target_wayfarers(has_road, settlements);
@@ -96,11 +127,16 @@ pub fn tick_wayfarers(sim: &mut crate::sim::SimState) {
         }
         let n = sim.wayfarers.len();
         let mut rng = SeedRng::new(seed).fork_for(&format!("wayfarer-{ri}-{day}-{n}"));
-        let kind = match rng.next_u64() % 4 {
+        // Most who walk the road are wandering folk; now and then the country's
+        // own people sends a trader down to barter.
+        let kind = match rng.next_u64() % 5 {
             0 => WayfarerKind::Traveler,
             1 => WayfarerKind::Bard,
             2 => WayfarerKind::Pilgrim,
-            _ => WayfarerKind::Hermit,
+            3 => WayfarerKind::Hermit,
+            _ => trader_people
+                .map(WayfarerKind::Trader)
+                .unwrap_or(WayfarerKind::Traveler),
         };
         let Some((px, py)) = road_tile(sim, ri, &mut rng) else {
             continue;

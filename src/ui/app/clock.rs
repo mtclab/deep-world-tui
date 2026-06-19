@@ -769,6 +769,15 @@ impl App {
     /// and the journal. The player does not move onto the wanderer's tile.
     pub(super) fn greet_wayfarer(&mut self, kind: crate::sim::wayfarers::WayfarerKind) {
         use crate::sim::wayfarers::WayfarerKind;
+        // A trader on the road lays out their barter — the trade panel, not a word.
+        if let WayfarerKind::Trader(people) = kind {
+            self.screen = Screen::RoadBarter { people };
+            self.status_msg = Some(format!(
+                "A {} trader stops to barter — they take no coin.",
+                people.label()
+            ));
+            return;
+        }
         let day = self.clock.day;
         let news = self.sim.as_ref().and_then(|sim| {
             crate::sim::rumors::informed_rumor(sim, day, self.seed ^ (day as u64).wrapping_mul(131))
@@ -788,6 +797,8 @@ impl App {
             WayfarerKind::Hermit => news.unwrap_or_else(|| {
                 "A hermit at the wild's edge spares you a few weathered words.".into()
             }),
+            // Traders open the barter panel above and never reach this word.
+            WayfarerKind::Trader(_) => return,
         };
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;

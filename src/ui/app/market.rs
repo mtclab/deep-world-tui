@@ -3,6 +3,10 @@ use crate::sim::hints;
 
 use super::*;
 
+/// One road-barter trade offer: the good laid down (and how many), and what the
+/// trader gives for it in kind (#649 slice 2b).
+pub(crate) type BarterOffer = (ItemType, u32, Vec<(ItemType, u32)>);
+
 impl App {
     pub fn enter_market(&mut self, region_idx: usize, settlement_idx: usize) {
         self.screen = Screen::Market {
@@ -165,6 +169,61 @@ impl App {
         }
         self.status_msg = Some(format!(
             "The {} take your {} and lay out {} in fair measure. No coin, no haggle. (1h)",
+            people.label(),
+            offered.name(),
+            got.join(", ")
+        ));
+    }
+
+    /// The goods a road trader of `people` will take in barter that the player
+    /// is actually carrying (#649 slice 2b), each with what it fetches — for the
+    /// road-barter panel. The fixed rates are the same as their enclaves'.
+    pub(crate) fn road_barter_offers(&self, people: crate::model::PeopleKind) -> Vec<BarterOffer> {
+        let Some(ps) = self.player_start.as_ref() else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for item in ItemType::tradeable_items() {
+            if let Some((cost, gives)) = crate::model::enclave_barter(people, item) {
+                if ps.inventory.get(item) >= cost {
+                    out.push((item, cost, gives));
+                }
+            }
+        }
+        out
+    }
+
+    /// Barter a good with a trader met on the road (#649 slice 2b): the same
+    /// in-kind rates as the people's enclaves, but settled on the open road —
+    /// no settlement, no coin. The panel only offers trades the player can make,
+    /// so this expects to succeed; it no-ops gracefully if not.
+    pub(crate) fn road_barter(&mut self, people: crate::model::PeopleKind, offered: ItemType) {
+        let Some((cost, gives)) = crate::model::enclave_barter(people, offered) else {
+            return;
+        };
+        let Some(ref mut ps) = self.player_start else {
+            return;
+        };
+        if ps.inventory.get(offered) < cost {
+            self.status_msg = Some(format!(
+                "The {} ask {} {} for that trade.",
+                people.label(),
+                cost,
+                offered.name()
+            ));
+            return;
+        }
+        ps.inventory.remove(offered, cost);
+        let mut got: Vec<String> = Vec::new();
+        for (item, qty) in &gives {
+            ps.inventory.add(*item, *qty);
+            got.push(format!("{} {}", qty, item.name()));
+        }
+        self.play_sound(crate::audio::SoundEvent::Trade);
+        self.advance_clock_hour();
+        self.check_quests_on_tick();
+        self.status_msg = Some(format!(
+            "The {} take your {} on the road and lay out {} in fair measure. (1h)",
             people.label(),
             offered.name(),
             got.join(", ")
@@ -1109,6 +1168,49 @@ mod festival_tests {
         assert!(
             app.status_msg.as_ref().is_some_and(|m| m.contains("guard")),
             "the guard waves you on"
+        );
+    }
+
+    #[test]
+    fn a_road_trader_opens_a_barter_panel_and_trades_in_kind() {
+        // #649 slice 2b: a trader met on the road opens the barter panel (not the
+        // encounter screen), and a trade swaps goods in kind — no coin.
+        use crate::model::PeopleKind;
+        use crate::sim::wayfarers::WayfarerKind;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        // Greeting a trader opens the road-barter panel, named by their people.
+        app.greet_wayfarer(WayfarerKind::Trader(PeopleKind::Khor));
+        assert!(
+            matches!(
+                app.screen,
+                Screen::RoadBarter {
+                    people: PeopleKind::Khor
+                }
+            ),
+            "a road trader opens the barter panel, not an encounter"
+        );
+        // The Khör take a tool and give härkä-leather and food in kind.
+        let ps = app.player_start.as_mut().unwrap();
+        ps.inventory.add(ItemType::Tool, 1);
+        let hide_before = ps.inventory.get(ItemType::Hide);
+        let tool_before = app
+            .player_start
+            .as_ref()
+            .unwrap()
+            .inventory
+            .get(ItemType::Tool);
+        app.road_barter(PeopleKind::Khor, ItemType::Tool);
+        let ps = app.player_start.as_ref().unwrap();
+        assert_eq!(
+            ps.inventory.get(ItemType::Tool),
+            tool_before - 1,
+            "the tool is laid down"
+        );
+        assert!(
+            ps.inventory.get(ItemType::Hide) > hide_before,
+            "and hide taken in kind, no coin"
         );
     }
 

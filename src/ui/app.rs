@@ -72,6 +72,12 @@ pub enum Screen {
         scroll: u16,
     },
     Encounter,
+    /// Bartering with a trader met on the road (#649 slice 2b): a small panel of
+    /// what this people will take and give, in kind — no coin, no JRPG popup,
+    /// just the trade laid out where you stopped.
+    RoadBarter {
+        people: crate::model::PeopleKind,
+    },
     Collapse,
     GameOver,
     Help,
