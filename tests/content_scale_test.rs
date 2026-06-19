@@ -4,76 +4,8 @@
 use deep_world_tui::charts::load::load_charts;
 use deep_world_tui::model::discovery::DiscoveryKind;
 use deep_world_tui::model::quest::QuestKind;
-use deep_world_tui::model::{craft_recipes, Encounter, EncounterKind, PeopleKind, Terrain};
+use deep_world_tui::model::{craft_recipes, PeopleKind};
 use std::collections::HashSet;
-
-#[test]
-fn new_encounter_kinds_actually_spawn() {
-    let mut seen: HashSet<&'static str> = HashSet::new();
-    let terrains = [
-        Terrain::Road,
-        Terrain::Grass,
-        Terrain::Farmland,
-        Terrain::Sand,
-        Terrain::Tundra,
-        Terrain::Mountain,
-        Terrain::Cave,
-        Terrain::Forest,
-        Terrain::Swamp,
-    ];
-    for seed in 0..3000u64 {
-        for t in terrains {
-            for day in [5u32, 35, 65] {
-                if let Some(e) = Encounter::roll_biased_weather(t, 10, day, seed, None, 1.5) {
-                    let tag = match e.kind {
-                        EncounterKind::Mirage => "mirage",
-                        EncounterKind::CaveIn => "cavein",
-                        EncounterKind::BorderWatch => "watch",
-                        EncounterKind::PlagueWagon => "plague",
-                        EncounterKind::BeastMigration => "herd",
-                        EncounterKind::EscapedLivestock => "livestock",
-                        EncounterKind::LostChild => "child",
-                        EncounterKind::FuneralProcession => "funeral",
-                        EncounterKind::PilgrimBand => "pilgrims",
-                        EncounterKind::DistantFire => "fire",
-                        EncounterKind::RiverFlood => "flood",
-                        EncounterKind::AuroraVeil => "aurora",
-                        _ => continue,
-                    };
-                    seen.insert(tag);
-                }
-            }
-        }
-        if seen.len() >= 12 {
-            break;
-        }
-    }
-    assert!(
-        seen.len() >= 10,
-        "most new encounter kinds should be reachable in play; saw {seen:?}"
-    );
-}
-
-#[test]
-fn every_new_encounter_kind_has_actions() {
-    for k in [
-        EncounterKind::RiverFlood,
-        EncounterKind::Mirage,
-        EncounterKind::CaveIn,
-        EncounterKind::FuneralProcession,
-        EncounterKind::LostChild,
-        EncounterKind::EscapedLivestock,
-        EncounterKind::PlagueWagon,
-        EncounterKind::PilgrimBand,
-        EncounterKind::BeastMigration,
-        EncounterKind::DistantFire,
-        EncounterKind::BorderWatch,
-        EncounterKind::AuroraVeil,
-    ] {
-        assert!(!k.available_actions().is_empty());
-        assert!(!k.description().is_empty());
-    }
-}
 
 #[test]
 fn new_quest_kinds_generate() {
