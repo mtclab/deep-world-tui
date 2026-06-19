@@ -1216,6 +1216,10 @@ pub struct Caravan {
     pub departure_tick: u64,
     pub arrival_tick: u64,
     pub travel_cost: u32,
+    /// Fallen to a band on the road (#641 slice 4): its goods carried off, the
+    /// train limping on as a wreck. Set when the frontier preys on it.
+    #[serde(default)]
+    pub raided: bool,
 }
 
 impl Caravan {
@@ -1243,6 +1247,7 @@ impl Caravan {
             departure_tick,
             arrival_tick,
             travel_cost,
+            raided: false,
         }
     }
 
