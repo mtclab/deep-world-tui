@@ -247,3 +247,34 @@ fn the_road_taking_is_deterministic() {
         "the same seed sheds the same souls to the road"
     );
 }
+
+#[test]
+fn a_band_stands_as_individual_members_on_the_grid() {
+    use deep_world_tui::sim::frontier::{band_member_tiles, Band, BAND_MEMBERS_SHOWN};
+    let charts = load_charts().expect("charts");
+    let mut sim = SimState::new(7, charts);
+    let region_idx = region_with_a_town(&sim);
+    sim.frontier.bands.push(Band {
+        id: "band-members-1".into(),
+        name: "the Many".into(),
+        size: 7,
+        region_idx,
+        formed_day: 0,
+    });
+    let tiles = band_member_tiles(&sim, "band-members-1", region_idx);
+    assert_eq!(tiles.len(), 7, "a band of 7 shows 7 outlaws, not one blob");
+    // No two members share a tile.
+    let uniq: std::collections::HashSet<_> = tiles.iter().collect();
+    assert_eq!(
+        uniq.len(),
+        tiles.len(),
+        "each outlaw stands on their own tile"
+    );
+    // A huge band is capped to what the grid shows.
+    sim.frontier.bands[0].size = 99;
+    assert_eq!(
+        band_member_tiles(&sim, "band-members-1", region_idx).len(),
+        BAND_MEMBERS_SHOWN,
+        "a great band is capped to the shown members"
+    );
+}

@@ -49,6 +49,35 @@ fn main() -> anyhow::Result<()> {
         match parts[0] {
             "quit" | "q" => break,
             "help" | "h" => print_help(),
+            // Dev-only: seat an outlaw band on the tile just west of the player
+            // so the bump-strike combat (#637) can be played and watched.
+            "spawnband" => {
+                if let (Some(pos), Some(sim)) = (app.player_pos, app.sim.as_mut()) {
+                    let band = deep_world_tui::sim::frontier::Band {
+                        id: "dev-band".into(),
+                        name: "the Test of the Reach".into(),
+                        size: 10,
+                        region_idx: pos.region_idx,
+                        formed_day: 0,
+                    };
+                    sim.frontier.bands.push(band);
+                    let tile = deep_world_tui::sim::frontier::band_field_tile(
+                        sim,
+                        "dev-band",
+                        pos.region_idx,
+                    );
+                    if let Some((bx, by)) = tile {
+                        // Stand the player just east of the band so `move w`
+                        // strikes it.
+                        app.player_pos = Some(deep_world_tui::model::PlayerPos {
+                            region_idx: pos.region_idx,
+                            px: bx + 1,
+                            py: by,
+                        });
+                        println!("  Seeded a band (strength 10) at ({bx}, {by}); you stand at ({}, {by}). 'move w' to strike.", bx + 1);
+                    }
+                }
+            }
             "status" | "st" => {}
             "move" | "m" => {
                 let (dx, dy) = match parts.get(1).copied().unwrap_or("") {

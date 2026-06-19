@@ -434,26 +434,16 @@ impl App {
                         .iter()
                         .filter(|b| b.region_idx == pos.region_idx)
                         .find(|b| {
-                            crate::sim::frontier::band_field_tile(sim, &b.id, pos.region_idx)
-                                == Some((ux, uy))
+                            crate::sim::frontier::band_member_tiles(sim, &b.id, pos.region_idx)
+                                .contains(&(ux, uy))
                         })
                         .map(|b| b.id.clone())
                 });
                 if let Some(bid) = band_id {
-                    let terrain = self
-                        .sim
-                        .as_ref()
-                        .and_then(|s| s.world.regions.get(pos.region_idx))
-                        .and_then(|r| r.terrain.get(ux, uy))
-                        .unwrap_or(Terrain::Grass);
-                    self.encounter = Some(crate::model::Encounter {
-                        kind: crate::model::EncounterKind::Bandit,
-                        terrain,
-                        species: None,
-                    });
-                    self.encounter_band = Some(bid);
-                    self.encounters_had += 1;
-                    self.screen = Screen::Encounter;
+                    // Bump-to-strike (#637): no menu, no battle screen — you hit
+                    // where the band stands, it hits back, and you stay on the
+                    // grid. Bump again to strike again. The roguelike turn loop.
+                    self.bump_attack_band(&bid);
                     return;
                 }
             }

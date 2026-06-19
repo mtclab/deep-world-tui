@@ -548,7 +548,6 @@ impl App {
     /// any town set on its head (reward into local standing, quest cleared,
     /// milestone recorded). Returns a line for the telling.
     pub(super) fn break_band_and_claim(&mut self, band_id: &str) -> String {
-        use crate::model::quest::QuestKind;
         let Some((band_name, scattered)) = self
             .sim
             .as_mut()
@@ -572,6 +571,27 @@ impl App {
             );
         }
         // Scattered for good: answer the bounty, if one stood.
+        let claimed = self.award_band_bounty(band_id);
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(
+                tick,
+                crate::sim::journal::Voice::Travel,
+                format!("I scattered {band_name} for good. The country they preyed is the quieter for it."),
+            );
+        }
+        if claimed {
+            format!(" You break {band_name} for good, and the bounty on them is yours.")
+        } else {
+            format!(" You break {band_name} for good — the country is the quieter for it.")
+        }
+    }
+
+    /// Pay out any standing `BountyOnBand` for a band the player has just
+    /// scattered for good: reward into the player's local standing, quest
+    /// cleared, milestone recorded. Returns whether a bounty was claimed.
+    fn award_band_bounty(&mut self, band_id: &str) -> bool {
+        use crate::model::quest::QuestKind;
         let player_id = self
             .player_start
             .as_ref()
@@ -596,40 +616,77 @@ impl App {
                     .then(|| (i, q.reward.clone()))
             })
         });
-        let mut claimed = false;
-        if let Some((idx, reward)) = bounty {
-            if let (Some(ps), Some(sim)) = (self.player_start.as_mut(), self.sim.as_mut()) {
-                crate::sim::quest_gen::apply_quest_reward(
-                    &reward,
-                    &mut ps.inventory,
-                    &mut sim.reputation,
-                    &player_id,
-                    &here_id,
-                    &mut sim.relationships,
-                    sim.world.tick,
-                );
-            }
-            if let Some(ref mut sim) = self.sim {
-                if idx < sim.quests.len() {
-                    sim.quests.remove(idx);
-                }
-            }
-            self.milestones.record_quest_completed(self.clock.day);
-            claimed = true;
-        }
-        if let Some(ref mut sim) = self.sim {
-            let tick = sim.world.tick;
-            sim.log(
-                tick,
-                crate::sim::journal::Voice::Travel,
-                format!("I scattered {band_name} for good. The country they preyed is the quieter for it."),
+        let Some((idx, reward)) = bounty else {
+            return false;
+        };
+        if let (Some(ps), Some(sim)) = (self.player_start.as_mut(), self.sim.as_mut()) {
+            crate::sim::quest_gen::apply_quest_reward(
+                &reward,
+                &mut ps.inventory,
+                &mut sim.reputation,
+                &player_id,
+                &here_id,
+                &mut sim.relationships,
+                sim.world.tick,
             );
         }
-        if claimed {
-            format!(" You break {band_name} for good, and the bounty on them is yours.")
-        } else {
-            format!(" You break {band_name} for good — the country is the quieter for it.")
+        if let Some(ref mut sim) = self.sim {
+            if idx < sim.quests.len() {
+                sim.quests.remove(idx);
+            }
         }
+        self.milestones.record_quest_completed(self.clock.day);
+        true
+    }
+
+    /// One stand-up exchange with a band on the grid (#637): the player strikes,
+    /// cutting the band's strength; the band fights back, and the press of it
+    /// wears the player down (energy — the same exhaustion that funnels to a
+    /// collapse, so a long fight against a big band can put you on the ground).
+    /// Scatter the band and the bounty on it is yours. Bumping again strikes
+    /// again — the roguelike turn loop, no menu. Sets the status line for the
+    /// blow. Returns true while the band still stands (more bumps to come).
+    pub(super) fn bump_attack_band(&mut self, band_id: &str) {
+        // One strike fells the one outlaw you stepped into — a band is fought a
+        // man at a time. A tool in hand wears you less than bare fists.
+        let armed = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.get(crate::model::ItemType::Tool) > 0)
+            .unwrap_or(false);
+        let Some((name, scattered, remaining)) = self
+            .sim
+            .as_mut()
+            .and_then(|sim| crate::sim::frontier::strike_band(sim, band_id, 1))
+        else {
+            return;
+        };
+        if scattered {
+            let claimed = self.award_band_bounty(band_id);
+            if let Some(ref mut sim) = self.sim {
+                let tick = sim.world.tick;
+                sim.log(
+                    tick,
+                    crate::sim::journal::Voice::Travel,
+                    format!("I cut down the last of {name} where they stood."),
+                );
+            }
+            self.status_msg = Some(if claimed {
+                format!("You cut down the last of {name} — the bounty on them is yours.")
+            } else {
+                format!("You cut down the last of {name}. The country is the quieter for it.")
+            });
+            return;
+        }
+        // The rest of the band fights back: the more still standing, the harder
+        // they press. Energy is the wound here — run it out against a big band
+        // and you go down through the existing collapse funnel. A tool eases it.
+        let press = (0.05 + 0.012 * remaining as f64) * if armed { 0.7 } else { 1.0 };
+        self.vitals.energy = (self.vitals.energy - press).max(0.0);
+        self.status_msg = Some(format!(
+            "You cut down one of {name} — {remaining} still standing. They press back. (energy {:.0}%)",
+            self.vitals.energy * 100.0
+        ));
     }
 
     /// Resolve a living-world relief task when the player has answered it

@@ -944,16 +944,24 @@ mod festival_tests {
             py: by,
         });
         app.screen = Screen::World { region_idx };
-        // Step west, into the band.
+        let size_before = app.sim.as_ref().unwrap().frontier.bands[0].size;
+        // Step west, into the band — a direct strike, no menu, no battle screen.
         app.move_player(-1, 0);
         assert!(
-            matches!(app.screen, Screen::Encounter),
-            "walking into a band opens the fight, not the empty land"
+            matches!(app.screen, Screen::World { .. }),
+            "the fight is on the grid — no cut-away to an encounter screen"
         );
-        assert_eq!(
-            app.encounter_band.as_deref(),
-            Some("band-grid-1"),
-            "the fight is with that band, not a random cutpurse"
+        let size_after = app
+            .sim
+            .as_ref()
+            .unwrap()
+            .frontier
+            .bands
+            .first()
+            .map(|b| b.size);
+        assert!(
+            size_after.is_none_or(|s| s < size_before),
+            "the strike cut the band's strength"
         );
         // And the player did not step onto the band's tile.
         assert_eq!(
@@ -961,6 +969,55 @@ mod festival_tests {
             Some((bx + 1, by)),
             "you do not walk through a band"
         );
+    }
+
+    #[test]
+    fn striking_a_band_down_scatters_it_and_claims_the_bounty() {
+        use crate::model::quest::QuestKind;
+        use crate::sim::frontier::Band;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        let region_idx = {
+            let regs = &app.sim.as_ref().unwrap().world.regions;
+            regs.iter()
+                .position(|r| r.settlements.iter().any(|s| s.population > 0))
+                .unwrap()
+        };
+        app.player_pos = Some(crate::model::PlayerPos {
+            region_idx,
+            px: 1,
+            py: 1,
+        });
+        app.sim.as_mut().unwrap().frontier.bands.push(Band {
+            id: "band-strike-1".into(),
+            name: "the Lean of the Reach".into(),
+            size: 5,
+            region_idx,
+            formed_day: 0,
+        });
+        app.generate_band_bounties();
+        let milestones_before = app.milestones.quests_completed;
+        // Strike until they break — a few blows for a small band.
+        for _ in 0..6 {
+            if app.sim.as_ref().unwrap().frontier.bands.is_empty() {
+                break;
+            }
+            app.bump_attack_band("band-strike-1");
+        }
+        assert!(
+            app.sim.as_ref().unwrap().frontier.bands.is_empty(),
+            "enough blows scatter the band"
+        );
+        assert!(
+            !app.sim.as_ref().unwrap().quests.iter().any(
+                |q| matches!(&q.kind, QuestKind::BountyOnBand { band_id, .. } if band_id == "band-strike-1")
+            ),
+            "scattering the band claims its bounty"
+        );
+        assert_eq!(app.milestones.quests_completed, milestones_before + 1);
+        // The fight cost energy.
+        assert!(app.vitals.energy < 1.0, "the fight wore the player down");
     }
 
     #[test]
