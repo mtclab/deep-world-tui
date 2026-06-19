@@ -1113,6 +1113,26 @@ mod festival_tests {
     }
 
     #[test]
+    fn greeting_a_wanderer_gives_a_word_no_screen() {
+        // #649 slice 2: a wanderer on the road is greeted in place — a word on
+        // the status line, no encounter screen. A bard's song lifts the body.
+        use crate::sim::wayfarers::WayfarerKind;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.greet_wayfarer(WayfarerKind::Traveler);
+        assert!(
+            !matches!(app.screen, Screen::Encounter),
+            "greeting opens no encounter screen"
+        );
+        assert!(app.status_msg.is_some(), "the wanderer gives a word");
+
+        app.vitals.energy = 0.5;
+        app.greet_wayfarer(WayfarerKind::Bard);
+        assert!(app.vitals.energy > 0.5, "a bard's song lifts a weary body");
+    }
+
+    #[test]
     fn a_raided_caravan_reads_as_a_wreck_not_a_trade() {
         // #641 slice 4: a wrecked caravan offers no deal and no guard's word.
         use crate::sim::caravans::CaravanRole;
