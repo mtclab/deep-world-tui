@@ -719,6 +719,23 @@ impl App {
             (b.species, b.hp)
         };
         let name = species.name();
+        // The näšvyly's miasma (#455/#649): closing with the forest-fever shape
+        // risks a wood-fever — the rot in the air gets into the body, deniable
+        // (you were deep in cold wet forest, of course you took a fever).
+        // Fortune leans whether it takes. Moved off the retired encounter screen
+        // onto the grid creature you now strike.
+        if species == crate::model::wildlife::WildSpecies::Nashvyly {
+            let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+            let p = self.fortune.tilt_bad(0.35);
+            let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x4EA5_7E11));
+            if crate::rng::unit_from_hash(h) < p {
+                self.afflict(
+                    crate::model::Disease::Fever,
+                    "The grey shape was upwind, and the rot in the air got into me. By dusk the \
+                     fever has me — the wet wood and the cold, surely.",
+                );
+            }
+        }
         if blow >= hp {
             // Down. Take what it gives — the hunt's yield, where it has one.
             let (hide, meat) = species.hunt_yield();
