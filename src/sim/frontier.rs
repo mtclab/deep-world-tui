@@ -212,6 +212,48 @@ fn richest_prey(sim: &crate::sim::SimState, region_idx: usize) -> Option<usize> 
 /// a neighbouring region. A band of the marches strikes the settled edge and
 /// melts back into the dark. Returns the prey's (region, settlement). Neighbours
 /// are scanned in a fixed order, so the raid is deterministic.
+/// A band the player would cross while travelling `region_idx` (#630 slice 5):
+/// one that holds the region, or one that raids into it from a neighbouring
+/// march. Returns its id. Deterministic — bands are scanned in order.
+pub fn band_menacing_region(sim: &crate::sim::SimState, region_idx: usize) -> Option<String> {
+    // A band based in this very country.
+    if let Some(b) = sim
+        .frontier
+        .bands
+        .iter()
+        .find(|b| b.region_idx == region_idx)
+    {
+        return Some(b.id.clone());
+    }
+    // Else a band that strikes this region from its march.
+    sim.frontier
+        .bands
+        .iter()
+        .find(|b| raid_target(sim, b.region_idx).map(|(r, _)| r) == Some(region_idx))
+        .map(|b| b.id.clone())
+}
+
+/// Break a band the player drove off in the field (#630 slice 5): it loses the
+/// better part of its strength, and is scattered outright if that breaks it.
+/// Returns the band's name and whether it scattered, for the telling — and
+/// `None` if no such band stands (already gone).
+pub fn break_band(sim: &mut crate::sim::SimState, band_id: &str) -> Option<(String, bool)> {
+    let idx = sim.frontier.bands.iter().position(|b| b.id == band_id)?;
+    let (name, size) = {
+        let b = &sim.frontier.bands[idx];
+        (b.name.clone(), b.size)
+    };
+    // A fought-off band loses more than half its strength; a small one breaks.
+    let loss = (size / 2).max(3);
+    if loss >= size {
+        sim.frontier.bands.remove(idx);
+        Some((name, true))
+    } else {
+        sim.frontier.bands[idx].size = size - loss;
+        Some((name, false))
+    }
+}
+
 /// The name of the town a band seated in `region_idx` preys on — its own
 /// country's, or a neighbour's if it holes up in a town-less march (#630). For
 /// the bounty board, so a town raided from the dark can still put coin on the

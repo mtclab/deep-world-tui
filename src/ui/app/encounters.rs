@@ -163,6 +163,18 @@ impl App {
             weather_mult,
         ) {
             self.encounter = Some(enc);
+            // A Bandit met where an outlaw band holds or raids the country is
+            // that band, not a lone cutpurse (#630 slice 5): tag it, so driving
+            // them off strikes the living band and answers its bounty.
+            self.encounter_band = if enc.kind == crate::model::EncounterKind::Bandit {
+                self.player_pos.and_then(|pos| {
+                    self.sim.as_ref().and_then(|sim| {
+                        crate::sim::frontier::band_menacing_region(sim, pos.region_idx)
+                    })
+                })
+            } else {
+                None
+            };
             // Wildlife gets a face: a terrain- and season-true species.
             if enc.kind == crate::model::EncounterKind::Wildlife {
                 let sp_seed = self
@@ -476,10 +488,19 @@ impl App {
             }
             EncounterAction::Intimidate => {
                 self.play_sound(crate::audio::SoundEvent::Combat);
-                if enc_mod.intimidate + god_intimidate_bonus > 0.03 {
-                    "You loomed large. They scattered before you.".into()
+                let base = if enc_mod.intimidate + god_intimidate_bonus > 0.03 {
+                    "You loomed large. They scattered before you."
                 } else {
-                    "You stared them down. They backed off.".into()
+                    "You stared them down. They backed off."
+                };
+                // If this was an outlaw band of the frontier, driving them off
+                // strikes the living band — and breaks them for good if they
+                // were small, answering any bounty on their head (#630 slice 5).
+                if let Some(band_id) = self.encounter_band.take() {
+                    let claim = self.break_band_and_claim(&band_id);
+                    format!("{base}{claim}")
+                } else {
+                    base.into()
                 }
             }
             EncounterAction::Talk => {
@@ -1070,6 +1091,8 @@ impl App {
             });
         }
         self.encounter = None;
+        // The encounter is over: drop any band tag (only Intimidate spends it).
+        self.encounter_band = None;
         let msg_with_witness = match witness {
             WitnessLevel::Unseen | WitnessLevel::Rumored => {
                 let base = msg.trim_end_matches('.').to_string();
