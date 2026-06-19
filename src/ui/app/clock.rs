@@ -763,6 +763,39 @@ impl App {
         ));
     }
 
+    /// Greet a wanderer on the road (#649 slice 2): a traveller or pilgrim
+    /// carries the road's news, a bard's song lifts a weary heart, a hermit
+    /// offers a spare word. No menu — a word in passing, set on the status line
+    /// and the journal. The player does not move onto the wanderer's tile.
+    pub(super) fn greet_wayfarer(&mut self, kind: crate::sim::wayfarers::WayfarerKind) {
+        use crate::sim::wayfarers::WayfarerKind;
+        let day = self.clock.day;
+        let news = self.sim.as_ref().and_then(|sim| {
+            crate::sim::rumors::informed_rumor(sim, day, self.seed ^ (day as u64).wrapping_mul(131))
+        });
+        let line = match kind {
+            WayfarerKind::Traveler => news.unwrap_or_else(|| {
+                "A traveller shares the road a while — quiet country ahead, they say.".into()
+            }),
+            WayfarerKind::Pilgrim => news.unwrap_or_else(|| {
+                "A pilgrim bound for a far shrine gives you the day's blessing.".into()
+            }),
+            WayfarerKind::Bard => {
+                // A song eases the road — a small comfort to a worn body.
+                self.vitals.energy = (self.vitals.energy + 0.05).min(1.0);
+                "A wandering bard plays you a tune — the road feels shorter for it.".into()
+            }
+            WayfarerKind::Hermit => news.unwrap_or_else(|| {
+                "A hermit at the wild's edge spares you a few weathered words.".into()
+            }),
+        };
+        if let Some(ref mut sim) = self.sim {
+            let tick = sim.world.tick;
+            sim.log(tick, crate::sim::journal::Voice::Travel, line.clone());
+        }
+        self.status_msg = Some(line);
+    }
+
     /// Meet a caravan on the road (#641 slice 2): what stepping into a member
     /// of the train does, by their part in it. The trader stops to deal — the
     /// merchant-caravan trade opens on the spot, no separate village needed. A

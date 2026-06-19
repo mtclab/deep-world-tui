@@ -489,6 +489,26 @@ impl App {
                 }
             }
         }
+        // A wanderer on the road is someone to greet (#649 slice 2): step into a
+        // traveller, bard, pilgrim, or hermit for a word — the old roadside
+        // encounter, now a meeting on the grid, no popup. You stop to talk; you
+        // do not walk through them.
+        if let Some(pos) = self.player_pos {
+            let (nx, ny) = (pos.px as i32 + dx, pos.py as i32 + dy);
+            if nx >= 0 && ny >= 0 {
+                let (ux, uy) = (nx as usize, ny as usize);
+                let kind = self.sim.as_ref().and_then(|sim| {
+                    sim.wayfarers
+                        .iter()
+                        .find(|w| w.region_idx == pos.region_idx && w.px == ux && w.py == uy)
+                        .map(|w| w.kind)
+                });
+                if let Some(kind) = kind {
+                    self.greet_wayfarer(kind);
+                    return;
+                }
+            }
+        }
         // A door is a way in, not a wall (#458): you step through it onto the
         // building's floor. Crossing the threshold from outside, the tavern
         // serves, the temple blesses, a home answers the knock — once, as you

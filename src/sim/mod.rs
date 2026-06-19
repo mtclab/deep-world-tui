@@ -26,6 +26,7 @@ pub mod rumors;
 pub mod signals;
 pub mod structures;
 pub mod wants;
+pub mod wayfarers;
 pub mod weather;
 
 use effects::{EffectContext, EffectQueue};
@@ -121,6 +122,11 @@ pub struct SimState {
     /// the road as a party for a day or two (seen on the grid), then arrives.
     #[serde(default)]
     pub migrant_parties: Vec<crate::sim::migration::MigrantParty>,
+    /// Wandering folk on the road (#649 slice 2): travellers, bards, pilgrims,
+    /// and hermits as actors on the grid, met by walking up to them — the old
+    /// roadside encounters, now seen, not popped.
+    #[serde(default)]
+    pub wayfarers: Vec<crate::sim::wayfarers::Wayfarer>,
 }
 
 impl SimState {
@@ -160,6 +166,7 @@ impl SimState {
             frontier: crate::sim::frontier::Frontier::default(),
             beasts: Vec::new(),
             migrant_parties: Vec::new(),
+            wayfarers: Vec::new(),
         };
         sim.init_npc_wants();
         sim
@@ -252,6 +259,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_raids(sim);
     frontier::tick_frontier(sim);
     beasts::tick_beasts(sim);
+    wayfarers::tick_wayfarers(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
     // founding parties take rich empty land — slowly, the way the Fall's

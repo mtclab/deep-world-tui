@@ -344,15 +344,46 @@ pub(crate) fn build_npc_map(
                     && !(mx == vp.px && my == vp.py)
                 {
                     npcs.entry((mx, my)).or_insert(MapNpc {
-                        glyph: 'a', // a wayfarer on the road
+                        glyph: 'a', // a migrant family on the road
                         color: Color::Rgb(200, 190, 150),
                     });
                 }
             }
         }
+
+        // Wandering folk stand on the road as actors too (#649 slice 2): a
+        // traveller, bard, pilgrim, or hermit you see ahead and walk up to for a
+        // word — the old roadside encounters, now seen, not popped.
+        for w in &sim.wayfarers {
+            if w.region_idx != region_idx {
+                continue;
+            }
+            let (wx, wy) = (w.px, w.py);
+            if wx >= vp.cam_x
+                && wy >= vp.cam_y
+                && wx < vp.cam_x + vp.view_w
+                && wy < vp.cam_y + vp.view_h
+                && !(wx == vp.px && wy == vp.py)
+            {
+                let (glyph, color) = wayfarer_glyph(w.kind);
+                npcs.entry((wx, wy)).or_insert(MapNpc { glyph, color });
+            }
+        }
     }
 
     npcs
+}
+
+/// How a wanderer reads on the road (#649): a traveller, a bard, a pilgrim, a
+/// hermit — each its own mark and colour, told apart at a glance.
+pub(crate) fn wayfarer_glyph(kind: crate::sim::wayfarers::WayfarerKind) -> (char, Color) {
+    use crate::sim::wayfarers::WayfarerKind::*;
+    match kind {
+        Traveler => ('i', Color::Rgb(210, 200, 160)), // a figure on the road
+        Bard => ('y', Color::Rgb(200, 150, 210)),     // a minstrel, song-bright
+        Pilgrim => ('u', Color::Rgb(220, 215, 170)),  // pale devotional gold
+        Hermit => ('e', Color::Rgb(160, 160, 150)),   // weathered grey
+    }
 }
 
 #[cfg(test)]
