@@ -736,6 +736,77 @@ impl App {
                 );
             }
         }
+        // The uncanny that cannot be fought, only suffered (#455/#649): a strike
+        // does not fell the spectral elk or the stir on the slope — closing with
+        // them is the danger. The elk leads you astray and never tires; the
+        // mountain's scree turns treacherous beneath you. Then they are gone —
+        // old light through the trunks, the mountain settling, surely.
+        use crate::model::wildlife::WildSpecies;
+        if matches!(
+            species,
+            WildSpecies::SpectralElk | WildSpecies::MountainShade
+        ) {
+            let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+            if let Some(ref mut sim) = self.sim {
+                sim.beasts.remove(idx);
+            }
+            match species {
+                WildSpecies::SpectralElk => {
+                    self.vitals.energy = (self.vitals.energy - 0.35).max(0.0);
+                    self.vitals.hunger = (self.vitals.hunger - 0.15).max(0.0);
+                    let astray = self.fortune.tilt_bad(0.30);
+                    let h =
+                        crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x735C_0FFE));
+                    if crate::rng::unit_from_hash(h) < astray {
+                        self.vitals.energy = 0.0;
+                    }
+                    if let Some(ref mut sim) = self.sim {
+                        sim.log(
+                            sim.world.tick,
+                            crate::sim::journal::Voice::Scar,
+                            "I followed the elk past where I meant to, and the trail simply \
+                             stopped. Old light through the trunks, surely. I do not rightly \
+                             know how I got back."
+                                .into(),
+                        );
+                    }
+                    self.status_msg = Some(
+                        "You give chase, but the elk only draws you deeper and never tires. \
+                         When you stop, it is gone. (energy spent)"
+                            .into(),
+                    );
+                }
+                _ => {
+                    self.vitals.energy = (self.vitals.energy - 0.3).max(0.0);
+                    self.vitals.hunger = (self.vitals.hunger - 0.1).max(0.0);
+                    let turned = self.fortune.tilt_bad(0.25);
+                    let h =
+                        crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x5C2E_3311));
+                    if crate::rng::unit_from_hash(h) < turned {
+                        self.afflict(
+                            crate::model::Disease::Sprain,
+                            "The scree went out from under me on the shifting slope. A turned \
+                             ankle — the mountain settling, surely.",
+                        );
+                    }
+                    if let Some(ref mut sim) = self.sim {
+                        sim.log(
+                            sim.world.tick,
+                            crate::sim::journal::Voice::Scar,
+                            "The slope stirred, and I crossed beneath it on treacherous footing. \
+                             It went still the moment I looked. The mountain does not say."
+                                .into(),
+                        );
+                    }
+                    self.status_msg = Some(
+                        "You cross beneath the stirring slope on treacherous scree. It goes \
+                         still the moment you look back."
+                            .into(),
+                    );
+                }
+            }
+            return;
+        }
         if blow >= hp {
             // Down. Take what it gives — the hunt's yield, where it has one.
             let (hide, meat) = species.hunt_yield();

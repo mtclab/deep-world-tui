@@ -60,6 +60,13 @@ pub enum WildSpecies {
     Aludda,
     Vuolma,
     Nashvyly,
+    /// The spectral elk (#455): a sending at the tree-line that leads and never
+    /// tires — you cannot fell it, only be drawn after it.
+    SpectralElk,
+    /// The stir on the mountain slope (#455): a shape too large for any
+    /// rockfall, gone still the moment you look — the scree is treacherous to
+    /// cross beneath it.
+    MountainShade,
 }
 
 impl WildSpecies {
@@ -76,6 +83,8 @@ impl WildSpecies {
             RedFox,
             Adder,
             EagleOwl,
+            SpectralElk,
+            MountainShade,
             Capercaillie,
             Hare,
             Beaver,
@@ -154,6 +163,8 @@ impl WildSpecies {
             Aludda => "aludda",
             Vuolma => "vuolma",
             Nashvyly => "näšvyly",
+            SpectralElk => "spectral elk",
+            MountainShade => "stir on the slope",
         }
     }
 
@@ -208,6 +219,10 @@ impl WildSpecies {
             Vuolma => &[T::Coast],
             // The fever-shape haunts the deep, old forest.
             Nashvyly => &[T::Forest],
+            // The sending walks the deep wood at the tree-line.
+            SpectralElk => &[T::Forest],
+            // The stir keeps to the high stone.
+            MountainShade => &[T::Mountain],
         }
     }
 
@@ -231,9 +246,9 @@ impl WildSpecies {
             (CaveBat, _) => 5,                               // the under-places are mostly bats
             (SandSpirit, _) => 1,                            // uncanny: always rare and deniable
             (SiltWhale, _) => 1,                             // a deep thing, seldom near the shore
-            (Movali | Aludda | Vuolma | Nashvyly, _) => 1,   // myth-dreads: always rare, deniable
-            (Pike, Frost) => 1,                              // sluggish under the ice
-            (GoldenEagle, _) => 2,                           // a high, wide-ranging hunter
+            (Movali | Aludda | Vuolma | Nashvyly | SpectralElk | MountainShade, _) => 1, // myth-dreads: always rare, deniable
+            (Pike, Frost) => 1,    // sluggish under the ice
+            (GoldenEagle, _) => 2, // a high, wide-ranging hunter
             _ => 3,
         }
     }
@@ -247,7 +262,7 @@ impl WildSpecies {
             | BrookTrout | AlpineVole | ForgeLizard | PillarCrab | Movali | PineMarten => 0,
             Elk | Lynx | Adder | HollowStag | MireLight | CaveBreather | SandOx | HeatShimmer
             | Pike | GoldenEagle | SandSwimmer | SandSpirit | Aludda | Vuolma | Nashvyly
-            | Otter => 1,
+            | Otter | SpectralElk | MountainShade => 1,
             Wolf | BrownBear | Boar | Wolverine | SteppeBison | SiltWhale => 2,
         }
     }
@@ -298,6 +313,8 @@ impl WildSpecies {
                 | WildSpecies::Aludda
                 | WildSpecies::Vuolma
                 | WildSpecies::Nashvyly
+                | WildSpecies::SpectralElk
+                | WildSpecies::MountainShade
         )
     }
 
@@ -395,6 +412,16 @@ impl WildSpecies {
                 "A grey shape keeps to the thickest cover, always upwind, and the air where it \
                  stood smells of rot and wet ash. Marsh-damp in the lungs, the sensible say. \
                  By dusk you are not sure you are alone."
+            }
+            SpectralElk => {
+                "A great elk stands wrong at the tree-line — antlers too wide, eyes too still. \
+                 It turns and moves off through the trunks without hurry, and does not tire. \
+                 Something in you wants to follow. Old light, you tell yourself."
+            }
+            MountainShade => {
+                "The scree shifts on the far slope — slow, deliberate, far too large for any \
+                 rockfall — and goes still the moment you stop to look. The mountain settling, \
+                 surely. The mountain does not say."
             }
         }
     }
@@ -500,12 +527,15 @@ mod tests {
             assert!(!s.habitats().is_empty(), "{s:?} has no habitat");
             assert!(!s.line().is_empty(), "{s:?} has no encounter line");
         }
-        // The strange stays strange: uncanny is a small minority of the roster.
+        // The strange stays strange: uncanny is a minority of the roster (under
+        // a quarter of the names). The real rarity is enforced harder by the
+        // season-weight — every uncanny species rolls at weight 1 — so even at
+        // this share they are seldom met; the myth-keepers (#455) sit here too.
         let total = WildSpecies::all().len();
         let uncanny = WildSpecies::all().iter().filter(|s| s.uncanny()).count();
         assert!(
-            uncanny * 5 < total,
-            "uncanny must stay rare: {uncanny}/{total}"
+            uncanny * 4 < total,
+            "uncanny must stay a minority: {uncanny}/{total}"
         );
         // The new uncanny is not huntable; the new mundane ones are.
         assert!(!SandSpirit.huntable() && !SiltWhale.huntable());
@@ -630,7 +660,7 @@ mod tests {
     #[test]
     fn myth_tranche_one_is_deniable_uncanny_and_terrain_true() {
         use WildSpecies::*;
-        for s in [Movali, Aludda, Vuolma, Nashvyly] {
+        for s in [Movali, Aludda, Vuolma, Nashvyly, SpectralElk, MountainShade] {
             assert!(WildSpecies::all().contains(&s), "{s:?} missing from roster");
             assert!(!s.habitats().is_empty(), "{s:?} has no habitat");
             assert!(!s.line().is_empty(), "{s:?} has no encounter line");

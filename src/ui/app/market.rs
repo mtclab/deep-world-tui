@@ -1294,6 +1294,57 @@ mod festival_tests {
     }
 
     #[test]
+    fn the_spectral_elk_cannot_be_felled_only_followed() {
+        // #455/#649: striking the spectral elk does not kill it — it draws you
+        // after it, spends you, and is gone. No yield, no body.
+        use crate::model::wildlife::WildSpecies;
+        use crate::sim::beasts::WildBeast;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.player_pos = Some(crate::model::PlayerPos {
+            region_idx: 0,
+            px: 5,
+            py: 5,
+        });
+        app.vitals.energy = 1.0;
+        app.sim.as_mut().unwrap().beasts.push(WildBeast {
+            id: "elk-1".into(),
+            species: WildSpecies::SpectralElk,
+            region_idx: 0,
+            px: 4,
+            py: 5,
+            hp: crate::sim::beasts::beast_hp(WildSpecies::SpectralElk),
+        });
+        let hide_before = app
+            .player_start
+            .as_ref()
+            .unwrap()
+            .inventory
+            .get(ItemType::Hide);
+        app.bump_attack_beast("elk-1");
+        assert!(
+            app.sim
+                .as_ref()
+                .unwrap()
+                .beasts
+                .iter()
+                .all(|b| b.id != "elk-1"),
+            "the elk is gone, not slain"
+        );
+        assert!(app.vitals.energy < 1.0, "the chase spent you");
+        assert_eq!(
+            app.player_start
+                .as_ref()
+                .unwrap()
+                .inventory
+                .get(ItemType::Hide),
+            hide_before,
+            "no hide — the uncanny is not taken for trade"
+        );
+    }
+
+    #[test]
     fn a_big_band_fight_is_tense_not_a_death_sentence() {
         // Balance (#637 slice 5): clearing a sizeable band costs real energy but
         // leaves the player standing — the toll is tense, not instant collapse.
