@@ -1,7 +1,7 @@
 use crate::charts::Charts;
 use crate::model::{
-    Collapse, DeathCause, Encounter, EncounterLog, GameClock, GodAffinity, InterPeopleBias,
-    PlayerPos, PlayerStart, PlayerVitals,
+    Collapse, DeathCause, GameClock, GodAffinity, InterPeopleBias, PlayerPos, PlayerStart,
+    PlayerVitals,
 };
 use crate::rng::SeedRng;
 use crate::save::LineageRecord;
@@ -71,7 +71,6 @@ pub enum Screen {
         settlement_idx: usize,
         scroll: u16,
     },
-    Encounter,
     /// Bartering with a trader met on the road (#649 slice 2b): a small panel of
     /// what this people will take and give, in kind — no coin, no JRPG popup,
     /// just the trade laid out where you stopped.
@@ -82,9 +81,6 @@ pub enum Screen {
     GameOver,
     Help,
     Settings,
-    EncounterLog {
-        scroll: u16,
-    },
     /// The faith ledger (#457): a read-only panel of where you stand with each
     /// of the Five — affinity, devotion rank, the grace each tier grants.
     Faith {
@@ -110,11 +106,6 @@ pub struct App {
     pub vitals: PlayerVitals,
     pub collapse: Option<Collapse>,
     pub death_cause: Option<DeathCause>,
-    pub encounter: Option<Encounter>,
-    /// When the current encounter is an outlaw band crossed in the field (#630
-    /// slice 5), the id of that band — so driving them off strikes the living
-    /// band and answers its bounty. `None` for an ordinary cutpurse.
-    pub encounter_band: Option<String>,
     pub god_affinity: GodAffinity,
     pub inter_people_bias: InterPeopleBias,
     pub llm_enabled: bool,
@@ -127,8 +118,6 @@ pub struct App {
     pub audio_enabled: bool,
     pub audio_volume: f32,
     pub previous_screen: Option<Screen>,
-    pub encounters_had: u32,
-    pub encounter_log: EncounterLog,
     /// The player's worked fields (plant/harvest at the homestead).
     pub player_farms: Vec<crate::model::economy::PlayerFarm>,
     /// Settlers camped by the homestead, drawn out of real settlements —
@@ -247,8 +236,6 @@ impl App {
             player_pos: None,
             clock: GameClock::default(),
             vitals: PlayerVitals::default(),
-            encounter: None,
-            encounter_band: None,
             collapse: None,
             death_cause: None,
             god_affinity: GodAffinity::new(),
@@ -263,8 +250,6 @@ impl App {
             audio_enabled: settings.audio_enabled,
             audio_volume: settings.audio_volume,
             previous_screen: None,
-            encounters_had: 0,
-            encounter_log: EncounterLog::new(),
             player_farms: Vec::new(),
             enclaves_seen: Vec::new(),
             god_vow: None,

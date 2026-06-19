@@ -55,7 +55,6 @@ mod tests {
             player_pos: None,
             god_affinity: GodAffinity::new(),
             inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
-            encounters_had: 0,
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
@@ -71,7 +70,6 @@ mod tests {
             gift: Default::default(),
             tax_unpaid_seasons: 0,
             last_tax_day: 0,
-            encounter_log: Default::default(),
             player_farms: Vec::new(),
             homestead_settlers: Vec::new(),
             homestead_rumored: false,
@@ -137,11 +135,9 @@ mod tests {
     #[test]
     fn migration_preserves_data() {
         let mut data = make_save(0);
-        data.encounters_had = 7;
         data.collapses_had = 3;
         migrate(&mut data).unwrap();
         assert_eq!(data.version, CURRENT_SAVE_VERSION);
-        assert_eq!(data.encounters_had, 7);
         assert_eq!(data.collapses_had, 3);
     }
 }

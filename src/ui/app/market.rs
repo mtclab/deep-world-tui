@@ -1150,7 +1150,7 @@ mod festival_tests {
             .get(ItemType::Herb);
         app.bump_caravan(CaravanRole::Trader, false);
         assert!(
-            !matches!(app.screen, Screen::Encounter),
+            !matches!(app.screen, Screen::RoadBarter { .. }),
             "the trade is in place — no encounter screen"
         );
         assert!(
@@ -1172,7 +1172,7 @@ mod festival_tests {
         app.accept_player();
         app.bump_caravan(CaravanRole::Guard, false);
         assert!(
-            !matches!(app.screen, Screen::Encounter),
+            !matches!(app.screen, Screen::RoadBarter { .. }),
             "a guard is not a trade — no encounter opens"
         );
         assert!(
@@ -1239,7 +1239,7 @@ mod festival_tests {
         let sampsa_before = app.god_affinity.get(GodName::Sampsa);
         app.greet_wayfarer(WayfarerKind::ThresholdKeeper);
         assert!(
-            !matches!(app.screen, Screen::Encounter),
+            !matches!(app.screen, Screen::RoadBarter { .. }),
             "the keeper opens no encounter screen"
         );
         assert_eq!(
@@ -1271,7 +1271,7 @@ mod festival_tests {
         let keuru_before = app.god_affinity.get(GodName::Keuru);
         app.greet_wayfarer(WayfarerKind::LostChild);
         assert!(
-            !matches!(app.screen, Screen::Encounter),
+            !matches!(app.screen, Screen::RoadBarter { .. }),
             "no encounter screen opens"
         );
         assert!(
@@ -1308,7 +1308,7 @@ mod festival_tests {
         app.accept_player();
         app.greet_wayfarer(WayfarerKind::Traveler);
         assert!(
-            !matches!(app.screen, Screen::Encounter),
+            !matches!(app.screen, Screen::RoadBarter { .. }),
             "greeting opens no encounter screen"
         );
         assert!(app.status_msg.is_some(), "the wanderer gives a word");
@@ -1327,7 +1327,7 @@ mod festival_tests {
         app.accept_player();
         app.bump_caravan(CaravanRole::Trader, true);
         assert!(
-            !matches!(app.screen, Screen::Encounter),
+            !matches!(app.screen, Screen::RoadBarter { .. }),
             "a raided caravan opens no trade"
         );
         assert!(
@@ -1423,76 +1423,6 @@ mod festival_tests {
             app.vitals.energy > 0.0,
             "a full-strength player survives breaking an eight-strong band — tense, not swingy"
         );
-    }
-
-    #[test]
-    fn breaking_a_band_in_the_field_claims_its_bounty() {
-        use crate::model::quest::QuestKind;
-        use crate::model::{Encounter, EncounterAction, EncounterKind, PlayerPos, Terrain};
-        use crate::sim::frontier::Band;
-        let mut app = App::new(7, load_charts().unwrap());
-        app.generate_player();
-        app.accept_player();
-        // Stand the player in a region that holds a town (so a bounty can be
-        // posted there), and seat a small band in that region.
-        let region_idx = {
-            let regs = &app.sim.as_ref().unwrap().world.regions;
-            regs.iter()
-                .position(|r| r.settlements.iter().any(|s| s.population > 0))
-                .unwrap()
-        };
-        app.player_pos = Some(PlayerPos {
-            region_idx,
-            px: 1,
-            py: 1,
-        });
-        app.sim.as_mut().unwrap().frontier.bands.push(Band {
-            id: "band-claim-1".into(),
-            name: "the Broken of the Reach".into(),
-            size: 3, // small enough that being driven off scatters them
-            region_idx,
-            formed_day: 0,
-        });
-        app.generate_band_bounties();
-        assert!(
-            app.sim.as_ref().unwrap().quests.iter().any(
-                |q| matches!(&q.kind, QuestKind::BountyOnBand { band_id, .. } if band_id == "band-claim-1")
-            ),
-            "the town posts a bounty on the band"
-        );
-        // Cross the band in the field and drive them off.
-        app.encounter = Some(Encounter {
-            kind: EncounterKind::Bandit,
-            terrain: Terrain::Forest,
-            species: None,
-        });
-        app.encounter_band = Some("band-claim-1".into());
-        let milestones_before = app.milestones.quests_completed;
-        app.resolve_encounter(EncounterAction::Intimidate);
-        // The band is broken for good...
-        assert!(
-            !app.sim
-                .as_ref()
-                .unwrap()
-                .frontier
-                .bands
-                .iter()
-                .any(|b| b.id == "band-claim-1"),
-            "driving off a small band scatters it for good"
-        );
-        // ...and its bounty is answered.
-        assert!(
-            !app.sim.as_ref().unwrap().quests.iter().any(
-                |q| matches!(&q.kind, QuestKind::BountyOnBand { band_id, .. } if band_id == "band-claim-1")
-            ),
-            "the bounty is claimed when the band is broken"
-        );
-        assert_eq!(
-            app.milestones.quests_completed,
-            milestones_before + 1,
-            "claiming the bounty counts as a quest done"
-        );
-        assert!(app.encounter_band.is_none(), "the band tag is spent");
     }
 
     #[test]

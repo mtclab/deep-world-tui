@@ -1,4 +1,4 @@
-use crate::model::{EncounterAction, ItemType, SettlementService};
+use crate::model::{ItemType, SettlementService};
 use crate::save::{self, SaveData};
 use crate::save_migrations;
 
@@ -31,7 +31,6 @@ impl App {
             player_pos: self.player_pos,
             god_affinity: self.god_affinity,
             inter_people_bias: self.inter_people_bias.clone(),
-            encounters_had: self.encounters_had,
             collapses_had: self.collapses_had,
             collapse_log: self.collapse_log.clone(),
             lineage: self.lineage.clone(),
@@ -47,7 +46,6 @@ impl App {
             gift: self.gift,
             tax_unpaid_seasons: self.tax_unpaid_seasons,
             last_tax_day: self.last_tax_day,
-            encounter_log: self.encounter_log.clone(),
             player_farms: self.player_farms.clone(),
             homestead_settlers: self.homestead_settlers.clone(),
             homestead_rumored: self.homestead_rumored,
@@ -151,22 +149,6 @@ impl App {
                 self.craft_recipe(*recipe_idx);
                 self.exit_craft();
             }
-            C::ResolveEncounter { action } => {
-                let act = match action.to_ascii_lowercase().as_str() {
-                    "flee" => Some(EncounterAction::Flee),
-                    "bribe" => Some(EncounterAction::Bribe),
-                    "calm" => Some(EncounterAction::Calm),
-                    "intimidate" => Some(EncounterAction::Intimidate),
-                    "talk" => Some(EncounterAction::Talk),
-                    "trade" => Some(EncounterAction::Trade),
-                    "shelter" => Some(EncounterAction::Shelter),
-                    "push" | "pushthrough" => Some(EncounterAction::PushThrough),
-                    _ => None,
-                };
-                if let Some(a) = act {
-                    self.resolve_encounter(a);
-                }
-            }
             C::DismissCollapse => self.dismiss_collapse(),
             C::BuyItem { item } => {
                 if let Some(i) = Self::item_from_name(item) {
@@ -258,7 +240,6 @@ impl App {
         }
         self.god_affinity = data.god_affinity;
         self.inter_people_bias = data.inter_people_bias;
-        self.encounters_had = data.encounters_had;
         self.collapses_had = data.collapses_had;
         self.collapse_log = data.collapse_log;
         self.lineage = data.lineage;
@@ -268,7 +249,6 @@ impl App {
         self.god_vow = data.god_vow;
         self.learned_sense = data.learned_sense;
         self.milestones = data.milestones;
-        self.encounter_log = data.encounter_log;
         self.player_farms = data.player_farms;
         if upscaled {
             for f in self.player_farms.iter_mut() {

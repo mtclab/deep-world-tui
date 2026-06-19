@@ -607,9 +607,7 @@ impl App {
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
                 self.check_quests_on_travel(region_idx);
-                if self.encounter.is_none() {
-                    self.screen = Screen::World { region_idx };
-                }
+                self.screen = Screen::World { region_idx };
             }
             Some(MoveResult::Step { region_idx, px, py }) => {
                 if let Some(ref mut p) = self.player_pos {
@@ -699,9 +697,7 @@ impl App {
                 // Random encounters retired (#649 slice 1) — see above.
                 self.check_memorial();
                 self.check_discovery(region_idx, px, py);
-                if self.encounter.is_none() {
-                    self.screen = Screen::World { region_idx };
-                }
+                self.screen = Screen::World { region_idx };
             }
             Some(MoveResult::Blocked { msg }) => {
                 self.status_msg = Some(msg);

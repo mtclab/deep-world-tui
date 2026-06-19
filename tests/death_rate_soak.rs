@@ -21,10 +21,6 @@ fn run_life(seed: u64, day_cap: u32) -> (Option<DeathCause>, u32, u32) {
                 break;
             }
             a.gather();
-            // Encounters and collapses resolve themselves the timid way.
-            if a.encounter.is_some() {
-                a.dismiss_encounter();
-            }
             if a.collapse.is_some() {
                 a.dismiss_collapse();
             }
@@ -72,9 +68,6 @@ fn run_bold_life(seed: u64, day_cap: u32) -> (Option<DeathCause>, u32, u32) {
             a.move_player(dirs[di].0, dirs[di].1);
             // Cycle direction when a step is refused (edge, water, wall).
             di = (di + 1) % dirs.len();
-            if a.encounter.is_some() {
-                a.dismiss_encounter(); // flee
-            }
             if a.collapse.is_some() {
                 a.dismiss_collapse();
             }
@@ -87,9 +80,6 @@ fn run_bold_life(seed: u64, day_cap: u32) -> (Option<DeathCause>, u32, u32) {
         let inv = a.player_inventory();
         if inv.get(ItemType::Food) == 0 || inv.get(ItemType::Water) == 0 {
             a.gather();
-            if a.encounter.is_some() {
-                a.dismiss_encounter();
-            }
             if a.collapse.is_some() {
                 a.dismiss_collapse();
             }

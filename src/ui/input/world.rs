@@ -88,9 +88,6 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
         KeyCode::Char('m') => {
             app.enter_journal();
         }
-        KeyCode::Char('H') => {
-            app.open_encounter_log();
-        }
         KeyCode::Char('F') => {
             app.open_faith();
         }

@@ -8,7 +8,7 @@
 //   the identical batch, enabling same-day repeat rewards)
 // - journal cap drops oldest entries without unbounded growth
 use deep_world_tui::charts::load::load_charts;
-use deep_world_tui::model::{Encounter, EncounterAction, EncounterKind, ItemType, Terrain};
+use deep_world_tui::model::ItemType;
 use deep_world_tui::sim::journal::{Journal, Voice};
 use deep_world_tui::ui::app::App;
 
@@ -20,20 +20,12 @@ fn played_app(seed: u64) -> App {
     a.running = true;
     a.enter_map(0);
     a.move_player(1, 0);
-    a.encounter = Some(Encounter {
-        kind: EncounterKind::Traveler,
-        terrain: Terrain::Grass,
-        species: None,
-    });
-    a.resolve_encounter(EncounterAction::Talk);
     a
 }
 
 #[test]
-fn load_restores_seed_explored_and_encounter_log() {
+fn load_restores_seed_and_explored() {
     let mut original = played_app(4242);
-    let log_len = original.encounter_log.len();
-    assert!(log_len > 0, "setup should have logged an encounter");
     original.save_to_slot(1);
 
     // A different session: new App with a different startup seed.
@@ -45,11 +37,6 @@ fn load_restores_seed_explored_and_encounter_log() {
         other.seed(),
         4242,
         "loading must re-anchor the RNG seed to the saved world"
-    );
-    assert_eq!(
-        other.encounter_log.len(),
-        log_len,
-        "encounter history must survive save/load"
     );
     let pos = other.player_pos.expect("pos restored");
     assert!(

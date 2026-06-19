@@ -2,10 +2,7 @@
 // it tilts every risk a little — the cautious are safer, never safe — and a
 // blessed life is sometimes pulled back from a death a cursed one would meet.
 use deep_world_tui::charts::load::load_charts;
-use deep_world_tui::model::wildlife::WildSpecies;
-use deep_world_tui::model::{
-    Encounter, EncounterAction, EncounterKind, Fortune, PlayerPos, Terrain,
-};
+use deep_world_tui::model::{Fortune, PlayerPos};
 use deep_world_tui::ui::app::App;
 
 fn app(seed: u64, fortune: f64) -> App {
@@ -25,44 +22,6 @@ fn app(seed: u64, fortune: f64) -> App {
     }
     a.fortune = Fortune::from_value(fortune);
     a
-}
-
-#[test]
-fn a_blessed_life_flees_a_predator_better_than_a_cursed_one() {
-    // Same seed, same wolves, same flights — only the star differs. The blessed
-    // bleed less; the cursed pay more for the very same caution.
-    fn hits(fortune: f64) -> u32 {
-        let mut a = app(7, fortune);
-        let mut count = 0;
-        for tick in 0..3000u64 {
-            a.sim.as_mut().unwrap().world.tick = tick;
-            a.vitals.energy = 1.0;
-            a.vitals.hunger = 1.0;
-            a.collapse = None;
-            let before = a.collapses_had;
-            a.encounter = Some(Encounter {
-                kind: EncounterKind::Wildlife,
-                terrain: Terrain::Forest,
-                species: Some(WildSpecies::Wolf),
-            });
-            a.resolve_encounter(EncounterAction::Flee);
-            if a.collapses_had > before || a.vitals.energy < 0.8 {
-                count += 1;
-            }
-        }
-        count
-    }
-    let blessed = hits(1.0);
-    let cursed = hits(-1.0);
-    assert!(
-        blessed < cursed,
-        "the blessed bleed less ({blessed} vs {cursed})"
-    );
-    // …but a blessed life is not an invulnerable one.
-    assert!(
-        blessed > 0,
-        "even fortune does not make flight free ({blessed})"
-    );
 }
 
 #[test]
