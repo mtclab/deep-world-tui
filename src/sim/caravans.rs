@@ -55,7 +55,7 @@ fn route_progress(c: &Caravan, tick: u64) -> f64 {
 /// running straight out from the town at (`tx`,`ty`). `None` if `other` is not
 /// a direct neighbour (a longer haul across a third region waits for a later
 /// slice).
-fn border_toward(
+pub(crate) fn border_toward(
     sim: &crate::sim::SimState,
     region_idx: usize,
     other: usize,
@@ -94,7 +94,26 @@ fn head_in_region(
     let (o_ri, ox, oy) = settlement_place(sim, &c.origin)?;
     let (d_ri, dx, dy) = settlement_place(sim, &c.destination)?;
     let t = route_progress(c, tick);
+    road_point_in_region(sim, region_idx, (o_ri, ox, oy), (d_ri, dx, dy), t)
+}
 
+/// Where a thing travelling a road from `origin` (region, x, y) to `dest` is
+/// seen in `region_idx` at progress `t` (0..=1), and the direction it travels —
+/// or `None` if it is not on this region's ground now (#641). Shared by
+/// caravans and migrant parties: a same-region run interpolates straight from
+/// origin to destination; a haul to a neighbour region shows in the origin
+/// region for the journey's first half (pulling out toward the border) and the
+/// destination region for the second half (in off the border toward the town).
+/// A longer haul across a third region is not shown.
+pub fn road_point_in_region(
+    sim: &crate::sim::SimState,
+    region_idx: usize,
+    origin: (usize, usize, usize),
+    dest: (usize, usize, usize),
+    t: f64,
+) -> Option<(f64, f64, (f64, f64))> {
+    let (o_ri, ox, oy) = origin;
+    let (d_ri, dx, dy) = dest;
     let lerp = |a: usize, b: usize, f: f64| a as f64 + (b as f64 - a as f64) * f;
     let dir = |fromx: f64, fromy: f64, tox: f64, toy: f64| {
         let (vx, vy) = (tox - fromx, toy - fromy);
@@ -107,14 +126,11 @@ fn head_in_region(
     };
 
     if o_ri == region_idx && d_ri == region_idx {
-        // A short haul inside one region: straight from town to town.
         let hx = lerp(ox, dx, t);
         let hy = lerp(oy, dy, t);
         return Some((hx, hy, dir(ox as f64, oy as f64, dx as f64, dy as f64)));
     }
     if o_ri == region_idx {
-        // The first leg: pulling out of the home town toward the border. Shown
-        // only while the journey's first half runs.
         if t >= 0.5 {
             return None;
         }
@@ -125,7 +141,6 @@ fn head_in_region(
         return Some((hx, hy, dir(ox as f64, oy as f64, bx as f64, by as f64)));
     }
     if d_ri == region_idx {
-        // The last leg: in off the border, on toward the destination town.
         if t < 0.5 {
             return None;
         }

@@ -42,12 +42,28 @@ fn healer_infections(seed_day: u32, a: &mut App) -> u32 {
     let mut infected = 0;
     for k in 0..60u64 {
         // vary the hazard roll
+        // Heal whichever settlement still holds people: heal_npc steps the
+        // clock, and the sim's migration may move souls off a given town's
+        // roster while they walk the road (#641), so a fixed (0,0,0) town can
+        // empty mid-run. Find a populated one each trial.
+        let Some((ri, si)) = (if let Some(ref sim) = a.sim {
+            sim.world.regions.iter().enumerate().find_map(|(ri, r)| {
+                r.settlements
+                    .iter()
+                    .position(|s| !s.people.is_empty())
+                    .map(|si| (ri, si))
+            })
+        } else {
+            None
+        }) else {
+            continue;
+        };
         if let Some(ref mut sim) = a.sim {
             sim.world.tick = 1000 + k * 7;
-            sim.world.regions[0].settlements[0].people[0]
+            sim.world.regions[ri].settlements[si].people[0]
                 .illnesses
                 .clear();
-            sim.world.regions[0].settlements[0].people[0]
+            sim.world.regions[ri].settlements[si].people[0]
                 .illnesses
                 .push(ActiveDisease::new(Disease::Plague, sim.world.tick));
         }
@@ -55,7 +71,7 @@ fn healer_infections(seed_day: u32, a: &mut App) -> u32 {
             ps.person.illnesses.clear();
             ps.inventory.add(ItemType::Herb, 1);
         }
-        a.heal_npc(0, 0, 0);
+        a.heal_npc(ri, si, 0);
         if a.player_start
             .as_ref()
             .is_some_and(|ps| !ps.person.illnesses.is_empty())
