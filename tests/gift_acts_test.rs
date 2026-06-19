@@ -2,9 +2,7 @@
 // in a trade (better prices, costs the body); still-sense settles a beast.
 use deep_world_tui::charts::load::load_charts;
 use deep_world_tui::model::economy::ItemType;
-use deep_world_tui::model::{
-    CraftSense, Encounter, EncounterAction, EncounterKind, Fortune, Gift, PlayerPos, Terrain,
-};
+use deep_world_tui::model::{CraftSense, Fortune, Gift, PlayerPos};
 use deep_world_tui::ui::app::App;
 
 fn app(seed: u64, gift: Option<CraftSense>) -> App {
@@ -65,24 +63,4 @@ fn the_craftless_trade_costs_nothing() {
     let mut a = app(7, None);
     a.buy_item(ItemType::Herb);
     assert!(!a.gift_revealed && a.gift_strain == 0.0);
-}
-
-#[test]
-fn the_still_sense_settles_a_beast_and_pays() {
-    let mut a = app(7, Some(CraftSense::StillSense));
-    a.encounter = Some(Encounter {
-        kind: EncounterKind::Wildlife,
-        terrain: Terrain::Forest,
-        species: None,
-    });
-    a.resolve_encounter(EncounterAction::Calm);
-    let msg = a.status_msg.clone().unwrap_or_default();
-    assert!(
-        msg.contains("stills") || msg.contains("quiet"),
-        "still-sense calm: {msg}"
-    );
-    assert!(
-        a.gift_revealed && a.gift_strain > 0.0,
-        "the calm taxed the body"
-    );
 }

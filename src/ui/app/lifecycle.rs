@@ -466,7 +466,6 @@ impl App {
         self.player_start = None;
         self.collapse = None;
         self.death_cause = None;
-        self.encounter = None;
         self.clock = GameClock::default();
         self.vitals = PlayerVitals::default();
         self.player_pos = None;

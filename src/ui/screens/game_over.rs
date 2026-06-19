@@ -90,8 +90,8 @@ pub(crate) fn draw_game_over_screen(f: &mut Frame, app: &App) {
     let quests = app.milestones.quests_completed;
     lines.push(Line::from(Span::styled(
         format!(
-            "  Days survived: {}  |  Encounters: {}  |  Collapses: {}",
-            app.clock.day, app.encounters_had, app.collapses_had
+            "  Days survived: {}  |  Collapses: {}",
+            app.clock.day, app.collapses_had
         ),
         Style::default().fg(theme.dark_brown()),
     )));

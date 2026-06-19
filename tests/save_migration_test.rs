@@ -24,7 +24,6 @@ fn make_save(version: u32) -> SaveData {
         player_pos: None,
         god_affinity: GodAffinity::new(),
         inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
-        encounters_had: 0,
         collapses_had: 0,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
@@ -40,7 +39,6 @@ fn make_save(version: u32) -> SaveData {
         gift: Default::default(),
         tax_unpaid_seasons: 0,
         last_tax_day: 0,
-        encounter_log: Default::default(),
         player_farms: Vec::new(),
         homestead_settlers: Vec::new(),
         homestead_rumored: false,
@@ -107,7 +105,6 @@ fn roundtrip_preserves_all_fields() {
         }),
         god_affinity: GodAffinity::new(),
         inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
-        encounters_had: 5,
         collapses_had: 2,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
@@ -123,7 +120,6 @@ fn roundtrip_preserves_all_fields() {
         gift: Default::default(),
         tax_unpaid_seasons: 0,
         last_tax_day: 0,
-        encounter_log: Default::default(),
         player_farms: Vec::new(),
         homestead_settlers: Vec::new(),
         homestead_rumored: false,
@@ -140,7 +136,6 @@ fn roundtrip_preserves_all_fields() {
     save::save_game(&data, "test_roundtrip.ron").expect("save should succeed");
     let loaded = save::load_game("test_roundtrip.ron").expect("load should succeed");
     assert_eq!(loaded.version, CURRENT_SAVE_VERSION);
-    assert_eq!(loaded.encounters_had, 5);
     assert_eq!(loaded.collapses_had, 2);
     assert!(loaded.player_pos.is_some());
     assert_eq!(data.sim.world.tick, loaded.sim.world.tick);

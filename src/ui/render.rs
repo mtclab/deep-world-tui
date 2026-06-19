@@ -12,8 +12,6 @@ use screens::character_creation::draw_character_creation;
 use screens::city::draw_city_screen;
 use screens::collapse::draw_collapse_screen;
 use screens::craft::draw_craft_screen;
-use screens::encounter_log::draw_encounter_log_screen;
-use screens::encounter_screen::draw_encounter_screen;
 use screens::game_over::draw_game_over_screen;
 use screens::help::draw_help_screen;
 use screens::inventory::draw_inventory_screen;
@@ -83,9 +81,6 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::Journal { scroll } => {
             draw_journal_screen(f, app, scroll);
         }
-        Screen::EncounterLog { scroll } => {
-            draw_encounter_log_screen(f, app, scroll);
-        }
         Screen::Faith { scroll } => {
             screens::faith::draw_faith_screen(f, app, scroll);
         }
@@ -103,9 +98,6 @@ pub fn draw(f: &mut Frame, app: &App) {
         }
         Screen::Market { scroll, .. } => {
             draw_market_screen(f, app, scroll);
-        }
-        Screen::Encounter => {
-            draw_encounter_screen(f, app);
         }
         Screen::RoadBarter { people } => {
             screens::road_barter::draw_road_barter_screen(f, app, people);

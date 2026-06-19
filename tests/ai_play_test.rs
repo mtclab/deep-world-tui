@@ -112,9 +112,6 @@ fn every_choice_variant_is_applicable() {
         PlayerChoice::StealItem {
             item: "Herb".into(),
         },
-        PlayerChoice::ResolveEncounter {
-            action: "talk".into(),
-        },
         PlayerChoice::Talk { person_idx: 0 },
         PlayerChoice::Court { person_idx: 0 },
         PlayerChoice::EnterSettlement {

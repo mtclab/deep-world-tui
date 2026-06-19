@@ -157,14 +157,6 @@ impl App {
                         self.screen = Screen::Journal { scroll: new_scroll };
                     }
                 }
-                Screen::EncounterLog { scroll } => {
-                    let new_scroll = crate::ui::input::encounter_log::handle_encounter_log_input(
-                        self, key, scroll,
-                    );
-                    if let Screen::EncounterLog { .. } = self.screen {
-                        self.screen = Screen::EncounterLog { scroll: new_scroll };
-                    }
-                }
                 Screen::Faith { scroll } => {
                     let new_scroll = crate::ui::input::faith::handle_faith_input(self, key, scroll);
                     if let Screen::Faith { .. } = self.screen {
@@ -228,9 +220,6 @@ impl App {
                             settlement_idx,
                         };
                     }
-                }
-                Screen::Encounter => {
-                    crate::ui::input::encounter::handle_encounter_input(self, key);
                 }
                 Screen::RoadBarter { people } => {
                     crate::ui::input::road_barter::handle_road_barter_input(self, key, people);

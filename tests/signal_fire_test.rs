@@ -81,44 +81,6 @@ fn the_fire_is_seen_from_far() {
 }
 
 #[test]
-fn the_lit_dark_is_quieter_near_the_fire() {
-    // Deterministic sweep: across many night-hours and seeds, the walker
-    // beside their own beacon meets fewer encounters than the one without.
-    let mut plain_count = 0u32;
-    let mut lit_count = 0u32;
-    for seed in [42u64, 555, 777, 1009, 31337] {
-        let (mut plain, px, py) = app_on_grass(seed);
-        let (mut lit, _, _) = app_on_grass(seed);
-        put(&mut lit, BuildKind::Beacon, px as u32, py as u32);
-        for a in [&mut plain, &mut lit] {
-            let ps = a.player_start.as_mut().unwrap();
-            ps.inventory.add(ItemType::Food, 50);
-            ps.inventory.add(ItemType::Water, 50);
-        }
-        for day in 1..30u32 {
-            for hour in [20u32, 22, 23] {
-                for a in [&mut plain, &mut lit] {
-                    a.clock.day = day;
-                    a.clock.hour = hour;
-                    a.encounter = None;
-                    a.check_encounter(Terrain::Grass);
-                }
-                if plain.encounter.is_some() {
-                    plain_count += 1;
-                }
-                if lit.encounter.is_some() {
-                    lit_count += 1;
-                }
-            }
-        }
-    }
-    assert!(
-        lit_count < plain_count,
-        "the fire holds the dark off ({lit_count} lit vs {plain_count} plain)"
-    );
-}
-
-#[test]
 fn the_fire_rots_like_everything() {
     assert!(
         BuildKind::Beacon.decay_years().is_some(),

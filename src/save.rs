@@ -52,7 +52,6 @@ pub struct SaveData {
     pub player_pos: Option<PlayerPos>,
     pub god_affinity: GodAffinity,
     pub inter_people_bias: InterPeopleBias,
-    pub encounters_had: u32,
     pub collapses_had: u32,
     #[serde(default)]
     pub collapse_log: Vec<CollapseEvent>,
@@ -86,10 +85,6 @@ pub struct SaveData {
     pub tax_unpaid_seasons: u32,
     #[serde(default)]
     pub last_tax_day: u32,
-    // The player's encounter history (day/hour/kind/action) lived in App but
-    // was never saved, so the log reset on every load.
-    #[serde(default)]
-    pub encounter_log: crate::model::EncounterLog,
     /// The player's worked fields.
     #[serde(default)]
     pub player_farms: Vec<crate::model::economy::PlayerFarm>,
@@ -139,9 +134,6 @@ pub enum PlayerChoice {
     },
     CraftRecipe {
         recipe_idx: usize,
-    },
-    ResolveEncounter {
-        action: String,
     },
     DismissCollapse,
     BuyItem {
@@ -343,7 +335,6 @@ pub fn restore_from_compact(
         player_pos: None,
         god_affinity: GodAffinity::new(),
         inter_people_bias: InterPeopleBias::new(crate::model::PeopleKind::Metsik),
-        encounters_had: 0,
         collapses_had: 0,
         collapse_log: Vec::new(),
         lineage: Vec::new(),
@@ -359,7 +350,6 @@ pub fn restore_from_compact(
         gift: Default::default(),
         tax_unpaid_seasons: 0,
         last_tax_day: 0,
-        encounter_log: Default::default(),
         player_farms: Vec::new(),
         homestead_settlers: Vec::new(),
         homestead_rumored: false,
@@ -393,7 +383,6 @@ mod tests {
             player_pos: None,
             god_affinity: GodAffinity::new(),
             inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
-            encounters_had: 0,
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
@@ -409,7 +398,6 @@ mod tests {
             gift: Default::default(),
             tax_unpaid_seasons: 0,
             last_tax_day: 0,
-            encounter_log: Default::default(),
             player_farms: Vec::new(),
             homestead_settlers: Vec::new(),
             homestead_rumored: false,
@@ -462,9 +450,6 @@ mod tests {
                 service: "tavern".into(),
             },
             PlayerChoice::CraftRecipe { recipe_idx: 2 },
-            PlayerChoice::ResolveEncounter {
-                action: "flee".into(),
-            },
             PlayerChoice::DismissCollapse,
         ];
         let data = CompactSave {
@@ -498,7 +483,6 @@ mod tests {
             player_pos: None,
             god_affinity: GodAffinity::new(),
             inter_people_bias: InterPeopleBias::new(PeopleKind::Metsik),
-            encounters_had: 0,
             collapses_had: 0,
             collapse_log: Vec::new(),
             lineage: Vec::new(),
@@ -514,7 +498,6 @@ mod tests {
             gift: Default::default(),
             tax_unpaid_seasons: 0,
             last_tax_day: 0,
-            encounter_log: Default::default(),
             player_farms: Vec::new(),
             homestead_settlers: Vec::new(),
             homestead_rumored: false,

@@ -3,8 +3,6 @@ pub mod city;
 pub mod collapse;
 pub mod common;
 pub mod craft;
-pub mod encounter_log;
-pub mod encounter_screen;
 pub mod faith;
 pub mod game_over;
 pub mod help;

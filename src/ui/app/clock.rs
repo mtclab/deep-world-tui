@@ -543,50 +543,6 @@ impl App {
             .unwrap_or(true)
     }
 
-    /// The player drove an outlaw band off in the field (#630 slice 5): break
-    /// the living band, and — if that scattered it for good — answer the bounty
-    /// any town set on its head (reward into local standing, quest cleared,
-    /// milestone recorded). Returns a line for the telling.
-    pub(super) fn break_band_and_claim(&mut self, band_id: &str) -> String {
-        let Some((band_name, scattered)) = self
-            .sim
-            .as_mut()
-            .and_then(|sim| crate::sim::frontier::break_band(sim, band_id))
-        else {
-            return String::new();
-        };
-        if !scattered {
-            if let Some(ref mut sim) = self.sim {
-                let tick = sim.world.tick;
-                sim.log(
-                    tick,
-                    crate::sim::journal::Voice::Travel,
-                    format!(
-                        "I bloodied {band_name} and they broke off — but they are not finished."
-                    ),
-                );
-            }
-            return format!(
-                " You bloody {band_name}, and they scatter into the dark — but they will reform."
-            );
-        }
-        // Scattered for good: answer the bounty, if one stood.
-        let claimed = self.award_band_bounty(band_id);
-        if let Some(ref mut sim) = self.sim {
-            let tick = sim.world.tick;
-            sim.log(
-                tick,
-                crate::sim::journal::Voice::Travel,
-                format!("I scattered {band_name} for good. The country they preyed is the quieter for it."),
-            );
-        }
-        if claimed {
-            format!(" You break {band_name} for good, and the bounty on them is yours.")
-        } else {
-            format!(" You break {band_name} for good — the country is the quieter for it.")
-        }
-    }
-
     /// Pay out any standing `BountyOnBand` for a band the player has just
     /// scattered for good: reward into the player's local standing, quest
     /// cleared, milestone recorded. Returns whether a bounty was claimed.

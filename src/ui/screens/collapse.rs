@@ -86,11 +86,10 @@ pub(crate) fn draw_collapse_screen(f: &mut Frame, app: &App) {
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         format!(
-            "  Hunger: {}  Energy: {}  |  Day {}  Encounters: {}",
+            "  Hunger: {}  Energy: {}  |  Day {}",
             app.vitals.hunger_label(),
             app.vitals.energy_label(),
             app.clock.day,
-            app.encounters_had
         ),
         Style::default().fg(theme.dark_brown()),
     )));

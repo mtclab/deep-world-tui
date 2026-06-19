@@ -1,7 +1,7 @@
 use std::io::{self, BufRead, Write};
 
 use deep_world_tui::charts::load::load_charts;
-use deep_world_tui::model::{EncounterAction, ItemType, PeopleKind, SettlementService};
+use deep_world_tui::model::{ItemType, PeopleKind, SettlementService};
 use deep_world_tui::save::{CompactSave, PlayerChoice};
 use deep_world_tui::ui::app::App;
 use deep_world_tui::voice::people_banks::PeopleBanks;
@@ -27,9 +27,7 @@ fn main() -> anyhow::Result<()> {
     println!(
         "  buy/sell/steal <item>, build [kind], work, plant, harvest, stash/take <item> [n], quests, journal [n], region,"
     );
-    println!(
-        "  encounter <action>, talk [idx], news [idx], way [idx], court [idx], collapse-dismiss,"
-    );
+    println!("  talk [idx], news [idx], way [idx], court [idx], collapse-dismiss,");
     println!("  save [slot], load [slot], record <file>, replay <file>, help, quit");
     println!();
 
@@ -131,17 +129,6 @@ fn main() -> anyhow::Result<()> {
                         px: p.px as u32,
                         py: p.py as u32,
                     });
-                }
-                if let Some(enc) = app.encounter {
-                    match enc.species {
-                        Some(sp) => println!(
-                            "  *** Encounter! {:?} ({}) on {:?}",
-                            enc.kind,
-                            sp.name(),
-                            enc.terrain
-                        ),
-                        None => println!("  *** Encounter! {:?} on {:?}", enc.kind, enc.terrain),
-                    }
                 }
                 if app.collapse.is_some() {
                     println!("  *** You collapsed!");
@@ -416,29 +403,6 @@ fn main() -> anyhow::Result<()> {
                 if let Some(pos) = app.player_pos {
                     app.apprentice_to(pos.region_idx, 0, idx);
                 }
-                print_msg(&app);
-            }
-            "encounter" | "enc" => {
-                let action = match parts.get(1).copied().unwrap_or("") {
-                    "flee" => EncounterAction::Flee,
-                    "bribe" => EncounterAction::Bribe,
-                    "talk" => EncounterAction::Talk,
-                    "calm" => EncounterAction::Calm,
-                    "intimidate" => EncounterAction::Intimidate,
-                    "push" => EncounterAction::PushThrough,
-                    "trade" => EncounterAction::Trade,
-                    "shelter" => EncounterAction::Shelter,
-                    _ => {
-                        println!(
-                            "  Actions: flee, bribe, talk, calm, intimidate, push, trade, shelter"
-                        );
-                        continue;
-                    }
-                };
-                recorded.push(PlayerChoice::ResolveEncounter {
-                    action: parts.get(1).copied().unwrap_or("").to_string(),
-                });
-                app.resolve_encounter(action);
                 print_msg(&app);
             }
             "buy" | "sell" | "steal" => {
@@ -734,7 +698,6 @@ fn print_help() {
     println!("  inventory    - Show inventory");
     println!("  craft <n>    - Craft recipe #n");
     println!("  use <svc>    - Use service (tavern/temple/forge/hearth/trap)");
-    println!("  encounter <a> - Resolve encounter");
     println!("  talk [idx]    - Talk to NPC (voice + people bank)");
     println!("  collapse-dismiss - Dismiss collapse");
     println!("  god          - Show god affinity and people bias");
