@@ -73,6 +73,24 @@ pub(crate) fn draw_map_screen(f: &mut Frame, app: &App, region_idx: usize) {
     if let Some(ws) = weather_span {
         header_spans.push(ws);
     }
+    // How the country reads for danger (#637 slice 5): the player weighs the
+    // wild before they walk into it — settled and quiet, or deep wild you go
+    // armed into. Off live world state, no roll.
+    if let Some(ref sim) = app.sim {
+        use crate::sim::frontier::DangerTier;
+        let tier = crate::sim::frontier::region_danger(sim, region_idx);
+        let (color, bold) = match tier {
+            DangerTier::Settled => (theme.dark_ink(), false),
+            DangerTier::Wary => (theme.warm_brown(), false),
+            DangerTier::Perilous => (theme.archive_red(), false),
+            DangerTier::Deadly => (theme.archive_red(), true),
+        };
+        let mut style = Style::default().fg(color);
+        if bold {
+            style = style.add_modifier(Modifier::BOLD);
+        }
+        header_spans.push(Span::styled(format!(" · {} ", tier.label()), style));
+    }
     header_spans.push(Span::styled(
         format!(
             "{}  {} {}",

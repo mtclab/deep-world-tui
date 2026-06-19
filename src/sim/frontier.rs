@@ -103,6 +103,75 @@ pub fn march_description(region_type: &str) -> &'static str {
     }
 }
 
+/// How dangerous a region reads to a traveller (#637 slice 5 — the marches as
+/// survival): off the land's standing wildness (a march, and rich game, carry
+/// more) and what actually stands on its ground *now* — the size of any
+/// outlaw bands, the danger of the beasts, the uncanny weighing heavier. The
+/// player reads this before committing to the deep wild: a march is where you
+/// go to fight and maybe not come back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DangerTier {
+    /// Governed, quiet country — the towns' reach.
+    Settled,
+    /// Watch yourself: wild ground, or a settled region with something on it.
+    Wary,
+    /// Real danger stands here — bands, big game, the strange.
+    Perilous,
+    /// The deep wild at its worst. Go armed, or do not go.
+    Deadly,
+}
+
+impl DangerTier {
+    /// A word for the country, for the map header.
+    pub fn label(self) -> &'static str {
+        match self {
+            DangerTier::Settled => "settled",
+            DangerTier::Wary => "wary",
+            DangerTier::Perilous => "perilous",
+            DangerTier::Deadly => "deadly",
+        }
+    }
+}
+
+/// Read the danger of a region from its wildness and what stands on it now
+/// (#637 slice 5). Deterministic — a pure read of world state, no roll.
+pub fn region_danger(sim: &crate::sim::SimState, region_idx: usize) -> DangerTier {
+    let Some(region) = sim.world.regions.get(region_idx) else {
+        return DangerTier::Settled;
+    };
+    // The land's standing menace: the ungoverned dark of a march, leaned
+    // heavier where the game is rich (a richer wild holds more that bites).
+    let mut threat: u32 = 0;
+    if region.is_march {
+        threat += 6;
+    }
+    if region.game_richness >= 1.3 {
+        threat += 2;
+    }
+    // The outlaws on the ground — each soul a blade.
+    for band in sim
+        .frontier
+        .bands
+        .iter()
+        .filter(|b| b.region_idx == region_idx)
+    {
+        threat += band.size;
+    }
+    // The beasts standing here, the dangerous and the uncanny weighing more.
+    for beast in sim.beasts.iter().filter(|b| b.region_idx == region_idx) {
+        threat += 1 + beast.species.danger() as u32;
+        if beast.species.uncanny() {
+            threat += 2;
+        }
+    }
+    match threat {
+        0..=2 => DangerTier::Settled,
+        3..=7 => DangerTier::Wary,
+        8..=15 => DangerTier::Perilous,
+        _ => DangerTier::Deadly,
+    }
+}
+
 /// The Fall's tide at the scale of whole regions (#630 slice 4): the wild and
 /// the settled trade ground, slowly. A march where a hold has grown into a real
 /// town is **tamed** — the dark recedes, the region joins the settled province.
@@ -644,4 +713,67 @@ fn wildest_region(sim: &crate::sim::SimState) -> Option<usize> {
                 .then(b.game_richness.partial_cmp(&a.game_richness).unwrap())
         })
         .map(|(i, _)| i)
+}
+
+#[cfg(test)]
+mod danger_tests {
+    use super::*;
+    use crate::sim::beasts::WildBeast;
+    use crate::sim::SimState;
+
+    fn make_sim() -> SimState {
+        SimState::new(7, crate::charts::load_charts().unwrap())
+    }
+
+    #[test]
+    fn a_quiet_settled_region_reads_settled() {
+        let mut sim = make_sim();
+        // A region with a living town and nothing on its ground.
+        let ri = sim
+            .world
+            .regions
+            .iter()
+            .position(|r| !r.is_march && r.settlements.iter().any(|s| s.population > 0))
+            .expect("a settled region");
+        sim.world.regions[ri].is_march = false;
+        sim.frontier.bands.retain(|b| b.region_idx != ri);
+        sim.beasts.retain(|b| b.region_idx != ri);
+        sim.world.regions[ri].game_richness = 1.0;
+        assert_eq!(region_danger(&sim, ri), DangerTier::Settled);
+    }
+
+    #[test]
+    fn the_march_reads_wary_empty_and_climbs_with_what_stands_on_it() {
+        let mut sim = make_sim();
+        let ri = 0;
+        sim.world.regions[ri].is_march = true;
+        sim.world.regions[ri].game_richness = 1.0;
+        sim.frontier.bands.retain(|b| b.region_idx != ri);
+        sim.beasts.retain(|b| b.region_idx != ri);
+        // Empty march: wild ground, but nothing on it yet.
+        assert_eq!(region_danger(&sim, ri), DangerTier::Wary);
+
+        // A band rides in — the country turns perilous.
+        sim.frontier.bands.push(Band {
+            id: "band-danger-1".into(),
+            name: "the Grey".into(),
+            size: 5,
+            region_idx: ri,
+            formed_day: 0,
+        });
+        assert_eq!(region_danger(&sim, ri), DangerTier::Perilous);
+
+        // And with the dreads of the deep wild thick on it, deadly.
+        for n in 0..4 {
+            sim.beasts.push(WildBeast {
+                id: format!("beast-danger-{n}"),
+                species: crate::model::wildlife::WildSpecies::HollowStag,
+                region_idx: ri,
+                px: n,
+                py: 0,
+                hp: 4,
+            });
+        }
+        assert_eq!(region_danger(&sim, ri), DangerTier::Deadly);
+    }
 }

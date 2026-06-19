@@ -681,7 +681,13 @@ impl App {
         // The rest of the band fights back: the more still standing, the harder
         // they press. Energy is the wound here — run it out against a big band
         // and you go down through the existing collapse funnel. A tool eases it.
-        let press = (0.05 + 0.012 * remaining as f64) * if armed { 0.7 } else { 1.0 };
+        // Balanced (#637 slice 5) so the toll is tense, not a death sentence:
+        // clearing a band of N costs about 0.02·N + 0.005·N² energy — a band of
+        // 6 wears you (~0.3, ~0.2 armed), a band of 12 nearly puts you down
+        // (~0.96, ~0.67 armed) so the deep wild's big bands are to be feared and
+        // picked off, not waded into. The per-blow press is capped so no single
+        // exchange can swing you straight to the ground.
+        let press = ((0.02 + 0.010 * remaining as f64) * if armed { 0.7 } else { 1.0 }).min(0.15);
         self.vitals.energy = (self.vitals.energy - press).max(0.0);
         self.status_msg = Some(format!(
             "You cut down one of {name} — {remaining} still standing. They press back. (energy {:.0}%)",
@@ -738,11 +744,18 @@ impl App {
         if let Some(ref mut sim) = self.sim {
             sim.beasts[idx].hp = hp - blow;
         }
-        let press = match species.danger() {
+        // The strange of the deep wild cuts deeper than its danger rating reads
+        // (#637 slice 5): an uncanny thing presses harder than a like-rated
+        // beast, so a march thick with dreads is its own kind of survival.
+        let mut press = match species.danger() {
             0 => 0.02,
             1 => 0.06,
             _ => 0.13,
-        } * if armed { 0.8 } else { 1.0 };
+        };
+        if species.uncanny() {
+            press += 0.04;
+        }
+        let press = press * if armed { 0.8 } else { 1.0 };
         self.vitals.energy = (self.vitals.energy - press).max(0.0);
         self.status_msg = Some(format!(
             "You strike the {name} — it is still up and comes at you. (energy {:.0}%)",
