@@ -971,27 +971,20 @@ impl App {
         }
         match role {
             CaravanRole::Trader => {
-                // Deal on the road: the merchant-caravan meeting, opened by
-                // walking up to the trader rather than a random roll.
-                let terrain = self
-                    .player_pos
-                    .and_then(|pos| {
-                        let sim = self.sim.as_ref()?;
-                        sim.world
-                            .regions
-                            .get(pos.region_idx)?
-                            .terrain
-                            .get(pos.px, pos.py)
-                    })
-                    .unwrap_or(crate::model::Terrain::Grass);
-                self.encounter = Some(crate::model::Encounter {
-                    kind: crate::model::EncounterKind::MerchantCaravan,
-                    terrain,
-                    species: None,
-                });
-                self.encounter_band = None;
-                self.screen = Screen::Encounter;
-                self.trigger_flash();
+                // Deal on the road, in place (#649): the caravan trader spares
+                // you a little of what they carry for your news — the old
+                // merchant-caravan trade, now resolved on the grid with no
+                // cut-away to an encounter screen. A pair of herbs from the
+                // packs, as the road has always gone.
+                let herbs = 2u32;
+                if let Some(ref mut ps) = self.player_start {
+                    ps.inventory.add(crate::model::ItemType::Herb, herbs);
+                }
+                self.play_sound(crate::audio::SoundEvent::Trade);
+                self.advance_clock_hour();
+                self.status_msg = Some(format!(
+                    "You fall in with the caravan a while and trade news for goods (+{herbs} herb). (1h)"
+                ));
             }
             CaravanRole::Guard => {
                 self.status_msg =
