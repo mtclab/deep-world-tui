@@ -1081,7 +1081,7 @@ mod festival_tests {
             px: 5,
             py: 5,
         });
-        app.bump_caravan(CaravanRole::Trader);
+        app.bump_caravan(CaravanRole::Trader, false);
         assert!(
             matches!(app.screen, Screen::Encounter),
             "the trader stops to deal — the encounter opens"
@@ -1101,7 +1101,7 @@ mod festival_tests {
         let mut app = App::new(7, load_charts().unwrap());
         app.generate_player();
         app.accept_player();
-        app.bump_caravan(CaravanRole::Guard);
+        app.bump_caravan(CaravanRole::Guard, false);
         assert!(
             !matches!(app.screen, Screen::Encounter),
             "a guard is not a trade — no encounter opens"
@@ -1109,6 +1109,24 @@ mod festival_tests {
         assert!(
             app.status_msg.as_ref().is_some_and(|m| m.contains("guard")),
             "the guard waves you on"
+        );
+    }
+
+    #[test]
+    fn a_raided_caravan_reads_as_a_wreck_not_a_trade() {
+        // #641 slice 4: a wrecked caravan offers no deal and no guard's word.
+        use crate::sim::caravans::CaravanRole;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.bump_caravan(CaravanRole::Trader, true);
+        assert!(
+            !matches!(app.screen, Screen::Encounter),
+            "a raided caravan opens no trade"
+        );
+        assert!(
+            app.status_msg.as_ref().is_some_and(|m| m.contains("wreck")),
+            "the raided caravan reads as a wreck"
         );
     }
 

@@ -82,8 +82,60 @@ pub fn tick_frontier(sim: &mut crate::sim::SimState) {
     form_bands(sim);
     bands_act(sim);
     prey_on_caravans(sim);
+    waylay_travellers(sim);
     settle_holds(sim);
     march_tide(sim);
+}
+
+/// The bands fall on the travellers, not only the carts (#641): a migrant family
+/// crossing a band's country may be waylaid — shaken, their sense of safety
+/// frayed, arriving the warier for it. No blood (the souls are conserved on the
+/// road and counted), but the danger of the marches is felt by those who cross
+/// them. Deterministic per band, party, and day; one party per band a turn.
+fn waylay_travellers(sim: &mut crate::sim::SimState) {
+    if sim.migrant_parties.is_empty() {
+        return;
+    }
+    let tick = sim.world.tick;
+    let day = (tick / 24) as u32;
+    let seed = sim.world.seed;
+
+    let mut waylaid: Vec<usize> = Vec::new();
+    for band in sim.frontier.bands.iter() {
+        for (pi, party) in sim.migrant_parties.iter().enumerate() {
+            if waylaid.contains(&pi) {
+                continue;
+            }
+            if crate::sim::migration::migrant_party_tiles(sim, &party.id, band.region_idx, tick)
+                .is_empty()
+            {
+                continue;
+            }
+            let mut rng =
+                SeedRng::new(seed).fork_for(&format!("waylay-{}-{}-{day}", band.id, party.id));
+            if rng.gen_f64() < (0.10 + 0.015 * band.size as f64).min(0.5) {
+                waylaid.push(pi);
+                break;
+            }
+        }
+    }
+
+    let mut struck = false;
+    for pi in &waylaid {
+        if let Some(party) = sim.migrant_parties.get_mut(*pi) {
+            for person in party.people.iter_mut() {
+                person.needs.decay(crate::model::Need::Safety, 0.2);
+            }
+            struck = true;
+        }
+    }
+    if struck {
+        sim.log(
+            tick,
+            Voice::Rumor,
+            "Word on the road: travellers were set upon crossing the wild country — shaken, but they kept the road.".to_string(),
+        );
+    }
 }
 
 /// The bands fall on the roads, not just the towns (#641 slice 4): a band that
