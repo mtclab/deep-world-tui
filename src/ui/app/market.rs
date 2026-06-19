@@ -3,6 +3,10 @@ use crate::sim::hints;
 
 use super::*;
 
+/// One road-barter trade offer: the good laid down (and how many), and what the
+/// trader gives for it in kind (#649 slice 2b).
+pub(crate) type BarterOffer = (ItemType, u32, Vec<(ItemType, u32)>);
+
 impl App {
     pub fn enter_market(&mut self, region_idx: usize, settlement_idx: usize) {
         self.screen = Screen::Market {
@@ -174,10 +178,7 @@ impl App {
     /// The goods a road trader of `people` will take in barter that the player
     /// is actually carrying (#649 slice 2b), each with what it fetches — for the
     /// road-barter panel. The fixed rates are the same as their enclaves'.
-    pub(crate) fn road_barter_offers(
-        &self,
-        people: crate::model::PeopleKind,
-    ) -> Vec<(ItemType, u32, Vec<(ItemType, u32)>)> {
+    pub(crate) fn road_barter_offers(&self, people: crate::model::PeopleKind) -> Vec<BarterOffer> {
         let Some(ps) = self.player_start.as_ref() else {
             return Vec::new();
         };
