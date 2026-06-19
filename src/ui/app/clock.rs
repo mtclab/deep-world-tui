@@ -799,6 +799,40 @@ impl App {
             }),
             // Traders open the barter panel above and never reach this word.
             WayfarerKind::Trader(_) => return,
+            // Someone in need — helping is a small kindness, the gods take note,
+            // and the road remembers it in the journal.
+            WayfarerKind::LostChild => {
+                self.god_affinity.adjust(crate::model::GodName::Keuru, 0.03);
+                "You walk a lost child back toward the nearest hearth. Keuru marks the mercy."
+                    .into()
+            }
+            WayfarerKind::WinterSurvivor => {
+                // A little food may keep them; give it if you can spare it.
+                let gave = self
+                    .player_start
+                    .as_mut()
+                    .map(|ps| ps.inventory.remove(crate::model::ItemType::Food, 1))
+                    .unwrap_or(false);
+                if gave {
+                    self.god_affinity.adjust(crate::model::GodName::Keuru, 0.04);
+                    "You share what food you can with a soul caught in the cold. They may yet live."
+                        .into()
+                } else {
+                    "Someone is failing in the cold, and you have nothing to spare them. You walk on heavy.".into()
+                }
+            }
+            WayfarerKind::FuneralProcession => {
+                self.god_affinity.adjust(crate::model::GodName::Kukri, 0.03);
+                "You stand aside and bow your head as the dead pass. Kukri keeps the reckoning."
+                    .into()
+            }
+            WayfarerKind::EscapedLivestock => {
+                // A hand turning strayed beasts — a grateful farmer spares a little.
+                if let Some(ps) = self.player_start.as_mut() {
+                    ps.inventory.add(crate::model::ItemType::Food, 1);
+                }
+                "You head off the strayed beasts and turn them home. The herder presses a little food on you in thanks.".into()
+            }
         };
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;

@@ -1215,6 +1215,47 @@ mod festival_tests {
     }
 
     #[test]
+    fn helping_a_soul_in_need_is_a_kindness_on_the_grid() {
+        // #649 slice 4: the people-in-need moments resolve in place — a kindness,
+        // the gods' notice, a line in the journal; no encounter screen.
+        use crate::model::{GodName, ItemType};
+        use crate::sim::wayfarers::WayfarerKind;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+
+        // A lost child: a mercy Keuru marks.
+        let keuru_before = app.god_affinity.get(GodName::Keuru);
+        app.greet_wayfarer(WayfarerKind::LostChild);
+        assert!(
+            !matches!(app.screen, Screen::Encounter),
+            "no encounter screen opens"
+        );
+        assert!(
+            app.god_affinity.get(GodName::Keuru) > keuru_before,
+            "the mercy is marked"
+        );
+
+        // Strayed livestock: turning them home earns a little food.
+        let food_before = app
+            .player_start
+            .as_ref()
+            .unwrap()
+            .inventory
+            .get(ItemType::Food);
+        app.greet_wayfarer(WayfarerKind::EscapedLivestock);
+        assert!(
+            app.player_start
+                .as_ref()
+                .unwrap()
+                .inventory
+                .get(ItemType::Food)
+                > food_before,
+            "the grateful herder presses food on you"
+        );
+    }
+
+    #[test]
     fn greeting_a_wanderer_gives_a_word_no_screen() {
         // #649 slice 2: a wanderer on the road is greeted in place — a word on
         // the status line, no encounter screen. A bard's song lifts the body.

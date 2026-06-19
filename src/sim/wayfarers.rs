@@ -27,6 +27,14 @@ pub enum WayfarerKind {
     /// barter in kind — they take no coin. Named by their own people, never an
     /// umbrella term.
     Trader(PeopleKind),
+    /// A child lost from a nearby town — walk them back toward the hearth.
+    LostChild,
+    /// Someone caught out in the killing cold — a little food may keep them.
+    WinterSurvivor,
+    /// A town's funeral on the road — stand aside and pay your respects.
+    FuneralProcession,
+    /// A farmer's beasts broken loose — a hand turning them costs you nothing.
+    EscapedLivestock,
 }
 
 impl WayfarerKind {
@@ -39,6 +47,10 @@ impl WayfarerKind {
             WayfarerKind::Pilgrim => "a pilgrim",
             WayfarerKind::Hermit => "a hermit",
             WayfarerKind::Trader(_) => "a trader",
+            WayfarerKind::LostChild => "a lost child",
+            WayfarerKind::WinterSurvivor => "someone caught in the cold",
+            WayfarerKind::FuneralProcession => "a funeral procession",
+            WayfarerKind::EscapedLivestock => "strayed livestock",
         }
     }
 
@@ -103,6 +115,7 @@ pub fn tick_wayfarers(sim: &mut crate::sim::SimState) {
         return;
     }
     let day = (tick / 24) as u32;
+    let season = crate::model::Season::from_day(day);
 
     // The road moves them on after a few days.
     sim.wayfarers
@@ -128,15 +141,31 @@ pub fn tick_wayfarers(sim: &mut crate::sim::SimState) {
         let n = sim.wayfarers.len();
         let mut rng = SeedRng::new(seed).fork_for(&format!("wayfarer-{ri}-{day}-{n}"));
         // Most who walk the road are wandering folk; now and then the country's
-        // own people sends a trader down to barter.
-        let kind = match rng.next_u64() % 5 {
+        // own people sends a trader down to barter; rarer still, the road throws
+        // up someone in need — a lost child near a town, a soul caught in the
+        // winter cold, a passing funeral, a farmer's strayed beasts. The
+        // need-moments are gated to where they make sense (#649 slice 4).
+        let settled = settlements > 0;
+        let winter = season == crate::model::Season::Frost;
+        let kind = match rng.next_u64() % 8 {
             0 => WayfarerKind::Traveler,
             1 => WayfarerKind::Bard,
             2 => WayfarerKind::Pilgrim,
             3 => WayfarerKind::Hermit,
-            _ => trader_people
+            4 => trader_people
                 .map(WayfarerKind::Trader)
                 .unwrap_or(WayfarerKind::Traveler),
+            5 if settled => WayfarerKind::LostChild,
+            6 if winter => WayfarerKind::WinterSurvivor,
+            7 if settled => {
+                if rng.next_u64().is_multiple_of(2) {
+                    WayfarerKind::FuneralProcession
+                } else {
+                    WayfarerKind::EscapedLivestock
+                }
+            }
+            // Off the gate, just a traveller on the road.
+            _ => WayfarerKind::Traveler,
         };
         let Some((px, py)) = road_tile(sim, ri, &mut rng) else {
             continue;
