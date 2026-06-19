@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ratatui::style::{Color, Modifier, Style};
 
-use crate::model::{PeopleKind, Terrain};
+use crate::model::Terrain;
 use crate::ui::app::App;
 use crate::ui::theme::Theme;
 
@@ -123,6 +123,34 @@ pub(crate) struct MapNpc {
     pub color: Color,
 }
 
+/// How a townsperson reads on the street by their trade (#637): a roguelike
+/// tells a smith from a baker from a guard at a glance, by glyph and colour —
+/// not by a label in a menu. The glyph is the trade's initial-ish mark, the
+/// colour its character (iron-red smith, green healer, blue guard, ...). An
+/// unknown trade falls back to a plain townsperson dot.
+pub(crate) fn role_glyph(profession: &str) -> (char, Color) {
+    match profession {
+        "smith" => ('S', Color::Rgb(220, 120, 80)), // forge-iron
+        "blacksmith" => ('S', Color::Rgb(220, 120, 80)),
+        "baker" => ('b', Color::Rgb(210, 180, 120)), // bread-brown
+        "farmer" => ('f', Color::Rgb(150, 200, 100)),
+        "herder" => ('r', Color::Rgb(150, 200, 100)),
+        "fisher" => ('F', Color::Rgb(100, 180, 210)),
+        "hunter" => ('H', Color::Rgb(160, 140, 90)),
+        "miner" => ('M', Color::Rgb(150, 150, 160)),
+        "healer" | "herbalist" => ('h', Color::Rgb(120, 210, 130)), // herb-green
+        "trader" => ('$', Color::Rgb(230, 200, 90)),                // coin-gold
+        "weaver" => ('w', Color::Rgb(200, 150, 200)),
+        "carpenter" => ('c', Color::Rgb(190, 150, 100)),
+        "scribe" => ('s', Color::Rgb(180, 180, 220)),
+        "priest" => ('p', Color::Rgb(220, 220, 160)),
+        "guard" | "soldier" | "warden" => ('G', Color::Rgb(110, 150, 230)), // watch-blue
+        "elder" => ('E', Color::Rgb(210, 210, 210)),
+        "labourer" => ('l', Color::Rgb(170, 170, 170)),
+        _ => ('o', Color::Rgb(190, 180, 140)), // a plain townsperson
+    }
+}
+
 pub(crate) fn build_npc_map(
     app: &App,
     region_idx: usize,
@@ -172,15 +200,46 @@ pub(crate) fn build_npc_map(
                 && ny < vp.cam_y + vp.view_h
             {
                 if let Some(person) = settlement.people.get(pi) {
-                    let pk = PeopleKind::from_name(&person.people);
-                    npcs.entry((nx, ny)).or_insert(MapNpc {
-                        glyph: pk.glyph(),
-                        color: Color::Yellow,
-                    });
+                    // Drawn by trade, not ethnicity (#637): you read the street —
+                    // the smith at the forge, the baker by the ovens, the guard
+                    // at the gate — at a glance.
+                    let (glyph, color) = role_glyph(&person.profession);
+                    npcs.entry((nx, ny)).or_insert(MapNpc { glyph, color });
                 }
             }
         }
     }
 
     npcs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::role_glyph;
+
+    #[test]
+    fn trades_read_apart_on_the_street() {
+        // The whole point (#637): a smith, a baker, a guard, a healer must each
+        // read distinctly — different glyph AND different colour — so the street
+        // is legible at a glance, not by opening a menu.
+        let roles = [
+            "smith", "baker", "guard", "healer", "trader", "farmer", "scribe",
+        ];
+        let mut glyphs = std::collections::HashSet::new();
+        let mut colors = std::collections::HashSet::new();
+        for r in roles {
+            let (g, c) = role_glyph(r);
+            assert!(glyphs.insert(g), "trade {r} reuses a glyph");
+            // Colours may rhyme across kindred trades, but the headline ones differ.
+            colors.insert(format!("{c:?}"));
+        }
+        assert!(
+            colors.len() >= 5,
+            "the trades should mostly differ in colour too"
+        );
+        // blacksmith reads the same as smith (same trade, two names).
+        assert_eq!(role_glyph("smith"), role_glyph("blacksmith"));
+        // An unknown trade falls back to a plain townsperson, not a smith.
+        assert_ne!(role_glyph("mystery-trade"), role_glyph("smith"));
+    }
 }
