@@ -1215,6 +1215,39 @@ mod festival_tests {
     }
 
     #[test]
+    fn the_threshold_keeper_takes_a_toll_for_the_road_past() {
+        // #455/#649: the keeper asks bread or herb; paying opens the road
+        // (Sampsa's notice), and it resolves in place, no encounter screen.
+        use crate::model::{GodName, ItemType};
+        use crate::sim::wayfarers::WayfarerKind;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        let ps = app.player_start.as_mut().unwrap();
+        ps.inventory.add(ItemType::Food, 1);
+        let food_before = ps.inventory.get(ItemType::Food);
+        let sampsa_before = app.god_affinity.get(GodName::Sampsa);
+        app.greet_wayfarer(WayfarerKind::ThresholdKeeper);
+        assert!(
+            !matches!(app.screen, Screen::Encounter),
+            "the keeper opens no encounter screen"
+        );
+        assert_eq!(
+            app.player_start
+                .as_ref()
+                .unwrap()
+                .inventory
+                .get(ItemType::Food),
+            food_before - 1,
+            "the toll is paid in bread"
+        );
+        assert!(
+            app.god_affinity.get(GodName::Sampsa) > sampsa_before,
+            "the road-god marks the passage"
+        );
+    }
+
+    #[test]
     fn helping_a_soul_in_need_is_a_kindness_on_the_grid() {
         // #649 slice 4: the people-in-need moments resolve in place — a kindness,
         // the gods' notice, a line in the journal; no encounter screen.

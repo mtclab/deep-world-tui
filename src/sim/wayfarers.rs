@@ -35,6 +35,9 @@ pub enum WayfarerKind {
     FuneralProcession,
     /// A farmer's beasts broken loose — a hand turning them costs you nothing.
     EscapedLivestock,
+    /// A keeper at the edge of the wild marches who asks a price for the road
+    /// past — bread or herb, your choosing. A strange hermit, surely (#455).
+    ThresholdKeeper,
 }
 
 impl WayfarerKind {
@@ -51,6 +54,7 @@ impl WayfarerKind {
             WayfarerKind::WinterSurvivor => "someone caught in the cold",
             WayfarerKind::FuneralProcession => "a funeral procession",
             WayfarerKind::EscapedLivestock => "strayed livestock",
+            WayfarerKind::ThresholdKeeper => "a keeper at the threshold",
         }
     }
 
@@ -95,13 +99,14 @@ const WAYFARER_DAYS: u32 = 3;
 /// How many wanderers a region should hold: the settled, road-laced country
 /// carries travellers; the empty wild rarely does. At most one or two — the
 /// road is travelled, not thronged.
-fn target_wayfarers(has_road: bool, settlements: usize) -> usize {
-    if !has_road && settlements == 0 {
-        0
-    } else if settlements >= 2 {
+fn target_wayfarers(has_road: bool, settlements: usize, is_march: bool) -> usize {
+    if settlements >= 2 {
         2
-    } else {
+    } else if has_road || settlements > 0 || is_march {
+        // The marches carry no road and no town, but a keeper waits at the edge.
         1
+    } else {
+        0
     }
 }
 
@@ -124,16 +129,17 @@ pub fn tick_wayfarers(sim: &mut crate::sim::SimState) {
     let seed = sim.world.seed;
     let region_count = sim.world.regions.len();
     for ri in 0..region_count {
-        let (has_road, settlements, trader_people) = {
+        let (has_road, settlements, trader_people, is_march) = {
             let r = &sim.world.regions[ri];
             let has_road = r.terrain.tiles.iter().any(|t| matches!(t, Terrain::Road));
             (
                 has_road,
                 r.settlements.iter().filter(|s| s.population > 0).count(),
                 road_trader_people(&r.region_type),
+                r.is_march,
             )
         };
-        let target = target_wayfarers(has_road, settlements);
+        let target = target_wayfarers(has_road, settlements, is_march);
         let here = sim.wayfarers.iter().filter(|w| w.region_idx == ri).count();
         if here >= target {
             continue;
@@ -147,25 +153,36 @@ pub fn tick_wayfarers(sim: &mut crate::sim::SimState) {
         // need-moments are gated to where they make sense (#649 slice 4).
         let settled = settlements > 0;
         let winter = season == crate::model::Season::Frost;
-        let kind = match rng.next_u64() % 8 {
-            0 => WayfarerKind::Traveler,
-            1 => WayfarerKind::Bard,
-            2 => WayfarerKind::Pilgrim,
-            3 => WayfarerKind::Hermit,
-            4 => trader_people
-                .map(WayfarerKind::Trader)
-                .unwrap_or(WayfarerKind::Traveler),
-            5 if settled => WayfarerKind::LostChild,
-            6 if winter => WayfarerKind::WinterSurvivor,
-            7 if settled => {
-                if rng.next_u64().is_multiple_of(2) {
-                    WayfarerKind::FuneralProcession
-                } else {
-                    WayfarerKind::EscapedLivestock
-                }
+        // The ungoverned marches carry no wandering folk and no caravans — only,
+        // now and then, the keeper at the edge who asks a price for the road
+        // past (#455). Settled country gets the ordinary roll.
+        let kind = if is_march {
+            if rng.next_u64().is_multiple_of(3) {
+                WayfarerKind::ThresholdKeeper
+            } else {
+                WayfarerKind::Hermit // else the wild's edge holds only a hermit
             }
-            // Off the gate, just a traveller on the road.
-            _ => WayfarerKind::Traveler,
+        } else {
+            match rng.next_u64() % 8 {
+                0 => WayfarerKind::Traveler,
+                1 => WayfarerKind::Bard,
+                2 => WayfarerKind::Pilgrim,
+                3 => WayfarerKind::Hermit,
+                4 => trader_people
+                    .map(WayfarerKind::Trader)
+                    .unwrap_or(WayfarerKind::Traveler),
+                5 if settled => WayfarerKind::LostChild,
+                6 if winter => WayfarerKind::WinterSurvivor,
+                7 if settled => {
+                    if rng.next_u64().is_multiple_of(2) {
+                        WayfarerKind::FuneralProcession
+                    } else {
+                        WayfarerKind::EscapedLivestock
+                    }
+                }
+                // Off the gate, just a traveller on the road.
+                _ => WayfarerKind::Traveler,
+            }
         };
         let Some((px, py)) = road_tile(sim, ri, &mut rng) else {
             continue;

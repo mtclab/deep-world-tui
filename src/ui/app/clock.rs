@@ -921,6 +921,31 @@ impl App {
                 }
                 "You head off the strayed beasts and turn them home. The herder presses a little food on you in thanks.".into()
             }
+            // The keeper at the marches' edge asks her price for the road past
+            // (#455): bread or herb buys passage and her road-blessing; with
+            // nothing to give, you take the long cold way round and it wears you.
+            WayfarerKind::ThresholdKeeper => {
+                let paid = self
+                    .player_start
+                    .as_mut()
+                    .map(|ps| {
+                        ps.inventory.remove(crate::model::ItemType::Food, 1)
+                            || ps.inventory.remove(crate::model::ItemType::Herb, 1)
+                    })
+                    .unwrap_or(false);
+                if paid {
+                    self.god_affinity
+                        .adjust(crate::model::GodName::Sampsa, 0.04);
+                    if let Some(pos) = self.player_pos {
+                        self.reveal_around(pos.region_idx, pos.px, pos.py);
+                    }
+                    "You lay down your toll — bread, or herb — and the keeper lets the road past open. The way ahead lies clear. A strange hermit, surely.".into()
+                } else {
+                    self.vitals.energy = (self.vitals.energy - 0.2).max(0.0);
+                    self.vitals.hunger = (self.vitals.hunger - 0.1).max(0.0);
+                    "You have nothing to lay down, and take the long cold way round the keeper's ground. Hours and strength lost. A hermit, surely.".into()
+                }
+            }
         };
         if let Some(ref mut sim) = self.sim {
             let tick = sim.world.tick;
