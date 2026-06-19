@@ -4,6 +4,7 @@ use crate::model::{Need, World};
 use crate::rng::SeedRng;
 
 pub mod beasts;
+pub mod caravans;
 pub mod collapse_log;
 pub mod effects;
 pub mod founding;

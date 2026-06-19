@@ -181,6 +181,20 @@ pub(crate) fn beast_glyph(species: crate::model::wildlife::WildSpecies) -> (char
     (glyph, color)
 }
 
+/// How a caravan member reads on the road (#641): the lead drover and the rear
+/// guard mark the train's ends, the trader its coin-gold heart, the pack animal
+/// its burden — each its own glyph and colour, so a train on the road reads as
+/// people and beasts on the move, not one mark and not nothing.
+pub(crate) fn caravan_glyph(role: crate::sim::caravans::CaravanRole) -> (char, Color) {
+    use crate::sim::caravans::CaravanRole::*;
+    match role {
+        Drover => ('d', Color::Rgb(200, 170, 120)), // road-brown
+        Trader => ('$', Color::Rgb(230, 200, 90)),  // coin-gold, as the town trader
+        Pack => ('m', Color::Rgb(170, 150, 130)),   // a laden mule
+        Guard => ('G', Color::Rgb(110, 150, 230)),  // watch-blue, as a town guard
+    }
+}
+
 pub(crate) fn build_npc_map(
     app: &App,
     region_idx: usize,
@@ -286,6 +300,27 @@ pub(crate) fn build_npc_map(
             {
                 let (glyph, color) = beast_glyph(beast.species);
                 npcs.entry((bx, by)).or_insert(MapNpc { glyph, color });
+            }
+        }
+
+        // Caravans ride the road as a train of individuals (#641): a drover at
+        // the head, the trader, a pack animal, a guard — strung back up the
+        // road, their place interpolated along the route by the clock. The
+        // groups already move in the sim; this makes them seen.
+        let now = sim.world.tick;
+        for caravan in &sim.caravans {
+            for ((cx, cy), role) in
+                crate::sim::caravans::caravan_train_tiles(sim, &caravan.id, region_idx, now)
+            {
+                if cx >= vp.cam_x
+                    && cy >= vp.cam_y
+                    && cx < vp.cam_x + vp.view_w
+                    && cy < vp.cam_y + vp.view_h
+                    && !(cx == vp.px && cy == vp.py)
+                {
+                    let (glyph, color) = caravan_glyph(role);
+                    npcs.entry((cx, cy)).or_insert(MapNpc { glyph, color });
+                }
             }
         }
     }
