@@ -116,6 +116,11 @@ pub struct SimState {
     /// own tile, to be hunted or fled. Restocked from each region's wildness.
     #[serde(default)]
     pub beasts: Vec<crate::sim::beasts::WildBeast>,
+    /// People on the move between towns (#641 slice 3): a migration is no longer
+    /// an instant teleport in the roster — the migrant leaves their town, walks
+    /// the road as a party for a day or two (seen on the grid), then arrives.
+    #[serde(default)]
+    pub migrant_parties: Vec<crate::sim::migration::MigrantParty>,
 }
 
 impl SimState {
@@ -154,6 +159,7 @@ impl SimState {
             last_provisioned_town: None,
             frontier: crate::sim::frontier::Frontier::default(),
             beasts: Vec::new(),
+            migrant_parties: Vec::new(),
         };
         sim.init_npc_wants();
         sim
@@ -227,6 +233,7 @@ pub fn sim_tick(sim: &mut SimState) {
         }
     }
     migration::tick_migration(sim, current_tick);
+    migration::complete_migrant_arrivals(sim, current_tick);
     let hour = ((current_tick % 24) / 4) as u32;
     sim.world.tick_npc_wants(current_tick, 24);
     sim.world.recompute_all_schedules(hour);

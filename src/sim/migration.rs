@@ -1,8 +1,47 @@
 use crate::model::{PeopleKind, World};
 use crate::rng::SeedRng;
 use crate::sim::journal::Voice;
+use serde::{Deserialize, Serialize};
 
 const MIGRATION_INTERVAL: u64 = 30;
+/// How long a migrant party is on the road before it reaches its new town
+/// (#641 slice 3): a day and a half at the half-hour-walk scale — long enough
+/// to be seen crossing the country, short enough not to pile up.
+const MIGRANT_TRAVEL_TICKS: u64 = 36;
+
+/// A household on the move between towns (#641 slice 3): a migration is no
+/// longer an instant teleport in the roster. The migrant leaves their town and
+/// walks the road as a party — seen on the grid as individuals — until they
+/// reach their new home, when they join its people. The carried `people` are
+/// off every settlement roster for the journey (counted only here), so the
+/// world conserves its souls without doubling them.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MigrantParty {
+    pub id: String,
+    /// The souls on the road — removed from their old town, not yet in the new.
+    pub people: Vec<crate::model::Person>,
+    /// The town they are bound for, by id (robust to roster index shifts).
+    pub dest_settlement_id: String,
+    pub origin_region: usize,
+    pub origin_x: usize,
+    pub origin_y: usize,
+    pub dest_region: usize,
+    pub dest_x: usize,
+    pub dest_y: usize,
+    pub departure_tick: u64,
+    pub arrival_tick: u64,
+}
+
+impl MigrantParty {
+    /// How far along the road the party is at `tick`, 0.0..=1.0.
+    pub fn progress(&self, tick: u64) -> f64 {
+        if self.arrival_tick <= self.departure_tick {
+            return 1.0;
+        }
+        let span = (self.arrival_tick - self.departure_tick) as f64;
+        (tick.saturating_sub(self.departure_tick) as f64 / span).clamp(0.0, 1.0)
+    }
+}
 const JOB_SEEKING_STABILITY_THRESHOLD: f64 = 0.3;
 const MARRIAGE_BIAS_THRESHOLD: f64 = 0.4;
 const FLIGHT_REPUTATION_THRESHOLD: f64 = 0.15;
@@ -286,39 +325,56 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
             None => continue,
         };
 
-        let target_settlement_id = sim.world.regions[target_region_idx].settlements
-            [target_settlement_idx]
-            .id
-            .clone();
+        let target_settlement =
+            &sim.world.regions[target_region_idx].settlements[target_settlement_idx];
+        let target_settlement_id = target_settlement.id.clone();
         let target_region_id = sim.world.regions[target_region_idx].id.clone();
+        let (dest_x, dest_y) = (
+            target_settlement.map_x as usize,
+            target_settlement.map_y as usize,
+        );
+        let (origin_x, origin_y) = {
+            let s = &sim.world.regions[source_region_idx].settlements[source_settlement_idx];
+            (s.map_x as usize, s.map_y as usize)
+        };
 
-        // Update person's location
+        // Update person's location to their new town now — but they do not join
+        // its roster yet (#641 slice 3): they walk the road as a party and
+        // arrive in `complete_migrant_arrivals`. The roster move is no longer
+        // instant; the world sees them cross the country.
         let mut moved_person = person;
         moved_person.region = target_region_id;
-        moved_person.settlement = target_settlement_id;
+        moved_person.settlement = target_settlement_id.clone();
 
-        // Add to target settlement
-        sim.world.regions[target_region_idx].settlements[target_settlement_idx]
-            .people
-            .push(moved_person);
+        sim.migrant_parties.push(MigrantParty {
+            id: format!("migrant-{}-{}", cand.person_id, tick),
+            people: vec![moved_person],
+            dest_settlement_id: target_settlement_id,
+            origin_region: source_region_idx,
+            origin_x,
+            origin_y,
+            dest_region: target_region_idx,
+            dest_x,
+            dest_y,
+            departure_tick: tick,
+            arrival_tick: tick + MIGRANT_TRAVEL_TICKS,
+        });
 
         migrated_ids.insert(cand.person_id.clone());
 
         // Routine job-seeking moves are tallied for one summary line below; the
-        // rarer marriage and flight moves are journaled in their own words.
+        // rarer marriage and flight moves are journaled in their own words. Word
+        // travels when they set out, even as their feet are still on the road.
         if *routine {
             routine_count += 1;
         } else {
             sim.log_journal(tick, reason.clone());
         }
 
-        // Update population counts (derived from people.len())
+        // The source town empties now (they have left); the destination's count
+        // rises only when they actually arrive.
         sim.world.regions[source_region_idx].settlements[source_settlement_idx].population =
             sim.world.regions[source_region_idx].settlements[source_settlement_idx]
-                .people
-                .len() as u32;
-        sim.world.regions[target_region_idx].settlements[target_settlement_idx].population =
-            sim.world.regions[target_region_idx].settlements[target_settlement_idx]
                 .people
                 .len() as u32;
     }
@@ -367,6 +423,100 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
         };
         sim.log(tick, Voice::Rumor, line);
     }
+}
+
+/// Land the migrant parties whose road is run (#641 slice 3): each party that
+/// has reached its arrival tick joins its people to their new town, raising its
+/// count, and leaves the road. If the destination town has died while they
+/// walked, the party is dropped — the road did not deliver them. Called every
+/// tick so a party arrives the moment its journey is done.
+pub fn complete_migrant_arrivals(sim: &mut crate::sim::SimState, tick: u64) {
+    if sim.migrant_parties.is_empty() {
+        return;
+    }
+    let arrived: Vec<MigrantParty> = {
+        let mut still = Vec::new();
+        let mut done = Vec::new();
+        for party in sim.migrant_parties.drain(..) {
+            if party.arrival_tick <= tick {
+                done.push(party);
+            } else {
+                still.push(party);
+            }
+        }
+        sim.migrant_parties = still;
+        done
+    };
+    for party in arrived {
+        // Find the destination town by id (its roster index may have shifted).
+        let place = sim.world.regions.iter().position(|r| {
+            r.settlements
+                .iter()
+                .any(|s| s.id == party.dest_settlement_id)
+        });
+        let Some(ri) = place else {
+            continue; // the town is gone; the road kept them
+        };
+        let si = sim.world.regions[ri]
+            .settlements
+            .iter()
+            .position(|s| s.id == party.dest_settlement_id)
+            .unwrap();
+        let settlement = &mut sim.world.regions[ri].settlements[si];
+        for person in party.people {
+            settlement.people.push(person);
+        }
+        settlement.population = settlement.people.len() as u32;
+    }
+}
+
+/// Where a migrant party stands on `region_idx`'s grid at `tick`: each soul on
+/// the road its own tile, head first and trailing back, their place
+/// interpolated along the route (#641 slice 3). Empty if the party is not on
+/// this region's ground now, or its head falls off the map.
+pub fn migrant_party_tiles(
+    sim: &crate::sim::SimState,
+    party_id: &str,
+    region_idx: usize,
+    tick: u64,
+) -> Vec<(usize, usize)> {
+    let Some(party) = sim.migrant_parties.iter().find(|p| p.id == party_id) else {
+        return Vec::new();
+    };
+    let t = party.progress(tick);
+    let Some((hx, hy, (dx, dy))) = crate::sim::caravans::road_point_in_region(
+        sim,
+        region_idx,
+        (party.origin_region, party.origin_x, party.origin_y),
+        (party.dest_region, party.dest_x, party.dest_y),
+        t,
+    ) else {
+        return Vec::new();
+    };
+    let Some(region) = sim.world.regions.get(region_idx) else {
+        return Vec::new();
+    };
+    let (w, h) = (region.terrain.width, region.terrain.height);
+    if w == 0 || h == 0 {
+        return Vec::new();
+    }
+    let mut out: Vec<(usize, usize)> = Vec::new();
+    let mut taken: std::collections::HashSet<(usize, usize)> = std::collections::HashSet::new();
+    // The party walks as a small file: a soul per member on the road, trailing
+    // one tile back up the route from the head.
+    for i in 0..party.people.len().max(1) {
+        let mx = hx - dx * i as f64;
+        let my = hy - dy * i as f64;
+        let (tx, ty) = (mx.round(), my.round());
+        if tx < 0.0 || ty < 0.0 || tx >= w as f64 || ty >= h as f64 {
+            continue;
+        }
+        let tile = (tx as usize, ty as usize);
+        if taken.insert(tile) {
+            out.push(tile);
+        }
+    }
+    out
 }
 
 fn find_job_seeking_target(
@@ -541,6 +691,78 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_migrant_party_walks_the_road_then_joins_its_new_town() {
+        // #641 slice 3: a migration is not an instant teleport — the party is on
+        // the road for its travel time, seen on the grid, then arrives.
+        let mut sim = make_sim(7);
+        let (dest_id, ri, si, before) = {
+            let r = &sim.world.regions[0];
+            // A destination town with two settlements in the region for a tile.
+            (
+                r.settlements[1].id.clone(),
+                0usize,
+                1usize,
+                r.settlements[1].people.len(),
+            )
+        };
+        let (ox, oy, dx, dy) = {
+            let r = &sim.world.regions[0];
+            (
+                r.settlements[0].map_x as usize,
+                r.settlements[0].map_y as usize,
+                r.settlements[1].map_x as usize,
+                r.settlements[1].map_y as usize,
+            )
+        };
+        let mut traveller = crate::model::Person {
+            id: "traveller-1".into(),
+            ..Default::default()
+        };
+        traveller.settlement = dest_id.clone();
+        sim.migrant_parties.push(MigrantParty {
+            id: "party-1".into(),
+            people: vec![traveller],
+            dest_settlement_id: dest_id.clone(),
+            origin_region: 0,
+            origin_x: ox,
+            origin_y: oy,
+            dest_region: 0,
+            dest_x: dx,
+            dest_y: dy,
+            departure_tick: 0,
+            arrival_tick: 36,
+        });
+
+        // Mid-journey: still on the road, drawn on the grid, not yet in town.
+        complete_migrant_arrivals(&mut sim, 18);
+        assert_eq!(
+            sim.migrant_parties.len(),
+            1,
+            "still travelling at the midpoint"
+        );
+        assert!(
+            !migrant_party_tiles(&sim, "party-1", ri, 18).is_empty(),
+            "the party stands on the road, seen on the grid"
+        );
+        assert_eq!(
+            sim.world.regions[ri].settlements[si].people.len(),
+            before,
+            "they have not joined the town yet"
+        );
+
+        // The road run: they arrive and join their new town.
+        complete_migrant_arrivals(&mut sim, 36);
+        assert!(sim.migrant_parties.is_empty(), "the party has arrived");
+        assert!(
+            sim.world.regions[ri].settlements[si]
+                .people
+                .iter()
+                .any(|p| p.id == "traveller-1"),
+            "the migrant has joined their new town's people"
+        );
     }
 
     #[test]
@@ -721,17 +943,22 @@ mod tests {
         for boundary in 1..=16u64 {
             tick_migration(&mut sim, boundary * 30);
         }
-        let total_after: usize = sim
+        // Souls in towns PLUS souls on the road (#641 slice 3): a migrant party
+        // holds its people off every roster while it walks, so the count must
+        // include them or the road would look like it swallowed people.
+        let in_towns: usize = sim
             .world
             .regions
             .iter()
             .flat_map(|r| r.settlements.iter())
             .map(|s| s.people.len())
             .sum();
+        let on_the_road: usize = sim.migrant_parties.iter().map(|p| p.people.len()).sum();
+        let total_after = in_towns + on_the_road;
 
         assert_eq!(
             total_before, total_after,
-            "migration must preserve total population"
+            "migration must preserve total population (towns + the road)"
         );
     }
 

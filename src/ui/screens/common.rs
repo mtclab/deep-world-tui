@@ -323,6 +323,27 @@ pub(crate) fn build_npc_map(
                 }
             }
         }
+
+        // Migrant households walk the road as individuals too (#641 slice 3): a
+        // move between towns is no longer an instant teleport in the roster —
+        // you see the family crossing the country before they arrive.
+        for party in &sim.migrant_parties {
+            for (mx, my) in
+                crate::sim::migration::migrant_party_tiles(sim, &party.id, region_idx, now)
+            {
+                if mx >= vp.cam_x
+                    && my >= vp.cam_y
+                    && mx < vp.cam_x + vp.view_w
+                    && my < vp.cam_y + vp.view_h
+                    && !(mx == vp.px && my == vp.py)
+                {
+                    npcs.entry((mx, my)).or_insert(MapNpc {
+                        glyph: 'a', // a wayfarer on the road
+                        color: Color::Rgb(200, 190, 150),
+                    });
+                }
+            }
+        }
     }
 
     npcs
