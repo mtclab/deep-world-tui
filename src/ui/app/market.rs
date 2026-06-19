@@ -1128,9 +1128,11 @@ mod festival_tests {
     }
 
     #[test]
-    fn meeting_a_caravan_trader_opens_the_road_trade() {
-        // Bump-to-interact (#641 slice 2): walking into the trader of a caravan
-        // opens the merchant-caravan deal on the road, no village needed.
+    fn meeting_a_caravan_trader_deals_in_place_no_screen() {
+        // Bump-to-interact (#641 slice 2 / #649 slice 6): walking into a caravan
+        // trader deals on the road in place — a little of the packs for your
+        // news — with no cut-away to an encounter screen.
+        use crate::model::ItemType;
         use crate::sim::caravans::CaravanRole;
         let mut app = App::new(7, load_charts().unwrap());
         app.generate_player();
@@ -1140,17 +1142,25 @@ mod festival_tests {
             px: 5,
             py: 5,
         });
+        let herb_before = app
+            .player_start
+            .as_ref()
+            .unwrap()
+            .inventory
+            .get(ItemType::Herb);
         app.bump_caravan(CaravanRole::Trader, false);
         assert!(
-            matches!(app.screen, Screen::Encounter),
-            "the trader stops to deal — the encounter opens"
+            !matches!(app.screen, Screen::Encounter),
+            "the trade is in place — no encounter screen"
         );
         assert!(
-            matches!(
-                app.encounter.as_ref().map(|e| e.kind),
-                Some(crate::model::EncounterKind::MerchantCaravan)
-            ),
-            "it is the merchant-caravan trade"
+            app.player_start
+                .as_ref()
+                .unwrap()
+                .inventory
+                .get(ItemType::Herb)
+                > herb_before,
+            "the caravan trades a little of its goods"
         );
     }
 
