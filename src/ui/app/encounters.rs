@@ -162,6 +162,13 @@ impl App {
             pp,
             weather_mult,
         ) {
+            // The Wildlife menu is retired (#637): beasts stand on the grid now
+            // and are fought by walking into them, not by a popup. A rolled
+            // Wildlife encounter is dropped — the land's creatures are actors,
+            // not a battle screen.
+            if enc.kind == crate::model::EncounterKind::Wildlife {
+                return;
+            }
             self.encounter = Some(enc);
             // A Bandit met where an outlaw band holds or raids the country is
             // that band, not a lone cutpurse (#630 slice 5): tag it, so driving

@@ -689,6 +689,67 @@ impl App {
         ));
     }
 
+    /// One stand-up exchange with a wild beast on the grid (#637): the player
+    /// strikes, cutting the beast's toughness; a beast still standing strikes
+    /// back, the harder the more danger it carries (energy — the collapse
+    /// funnel, so a bear is a real risk). Down it and you take its hide and
+    /// meat. Bump again to strike again. Sets the status line.
+    pub(super) fn bump_attack_beast(&mut self, beast_id: &str) {
+        let armed = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.get(crate::model::ItemType::Tool) > 0)
+            .unwrap_or(false);
+        let blow = if armed { 3 } else { 2 };
+        let Some(idx) = self
+            .sim
+            .as_ref()
+            .and_then(|sim| sim.beasts.iter().position(|b| b.id == beast_id))
+        else {
+            return;
+        };
+        let (species, hp) = {
+            let b = &self.sim.as_ref().unwrap().beasts[idx];
+            (b.species, b.hp)
+        };
+        let name = species.name();
+        if blow >= hp {
+            // Down. Take what it gives — the hunt's yield, where it has one.
+            let (hide, meat) = species.hunt_yield();
+            if let Some(ref mut ps) = self.player_start {
+                if hide > 0 {
+                    ps.inventory.add(crate::model::ItemType::Hide, hide);
+                }
+                if meat > 0 {
+                    ps.inventory.add(crate::model::ItemType::Food, meat);
+                }
+            }
+            if let Some(ref mut sim) = self.sim {
+                sim.beasts.remove(idx);
+            }
+            self.status_msg = Some(if hide > 0 || meat > 0 {
+                format!("You bring down the {name} (+{hide} hide, +{meat} meat).")
+            } else {
+                format!("You bring down the {name}.")
+            });
+            return;
+        }
+        // It lives, and fights: the press wears you by its danger.
+        if let Some(ref mut sim) = self.sim {
+            sim.beasts[idx].hp = hp - blow;
+        }
+        let press = match species.danger() {
+            0 => 0.02,
+            1 => 0.06,
+            _ => 0.13,
+        } * if armed { 0.8 } else { 1.0 };
+        self.vitals.energy = (self.vitals.energy - press).max(0.0);
+        self.status_msg = Some(format!(
+            "You strike the {name} — it is still up and comes at you. (energy {:.0}%)",
+            self.vitals.energy * 100.0
+        ));
+    }
+
     /// Resolve a living-world relief task when the player has answered it
     /// (#613-epic): pays the task's reward into the player's standing in the town
     /// they stand in (having just relieved it), clears the task, records the

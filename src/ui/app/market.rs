@@ -921,6 +921,54 @@ mod festival_tests {
     }
 
     #[test]
+    fn felling_a_beast_takes_its_yield_and_leaves_the_ground_quiet() {
+        use crate::model::wildlife::WildSpecies;
+        use crate::model::{ItemType, PlayerPos};
+        use crate::sim::beasts::WildBeast;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        let region_idx = 0;
+        app.player_pos = Some(PlayerPos {
+            region_idx,
+            px: 5,
+            py: 5,
+        });
+        // A hare drops to one blow and gives a clean yield.
+        app.sim.as_mut().unwrap().beasts.push(WildBeast {
+            id: "beast-hare-1".into(),
+            species: WildSpecies::Hare,
+            region_idx,
+            px: 4,
+            py: 5,
+            hp: crate::sim::beasts::beast_hp(WildSpecies::Hare),
+        });
+        let food_before = app
+            .player_start
+            .as_ref()
+            .unwrap()
+            .inventory
+            .get(ItemType::Food);
+        app.bump_attack_beast("beast-hare-1");
+        assert!(
+            app.sim
+                .as_ref()
+                .unwrap()
+                .beasts
+                .iter()
+                .all(|b| b.id != "beast-hare-1"),
+            "the felled beast is gone from the ground"
+        );
+        let food_after = app
+            .player_start
+            .as_ref()
+            .unwrap()
+            .inventory
+            .get(ItemType::Food);
+        assert!(food_after > food_before, "a hunted hare yields meat");
+    }
+
+    #[test]
     fn walking_into_a_band_on_the_grid_engages_it() {
         use crate::model::PlayerPos;
         use crate::sim::frontier::{band_field_tile, Band};

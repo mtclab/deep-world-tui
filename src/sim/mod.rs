@@ -3,6 +3,7 @@ use crate::gen::world::generate_world;
 use crate::model::{Need, World};
 use crate::rng::SeedRng;
 
+pub mod beasts;
 pub mod collapse_log;
 pub mod effects;
 pub mod founding;
@@ -110,6 +111,10 @@ pub struct SimState {
     /// settled lands have shed to the open road. Seed of the bands to come.
     #[serde(default)]
     pub frontier: crate::sim::frontier::Frontier,
+    /// The land's wild beasts as actors on the grid (#637): each creature on its
+    /// own tile, to be hunted or fled. Restocked from each region's wildness.
+    #[serde(default)]
+    pub beasts: Vec<crate::sim::beasts::WildBeast>,
 }
 
 impl SimState {
@@ -147,6 +152,7 @@ impl SimState {
             province_ties: crate::model::province::ProvinceTies::default(),
             last_provisioned_town: None,
             frontier: crate::sim::frontier::Frontier::default(),
+            beasts: Vec::new(),
         };
         sim.init_npc_wants();
         sim
@@ -237,6 +243,7 @@ pub fn sim_tick(sim: &mut SimState) {
     tick_plague_spread(sim);
     tick_raids(sim);
     frontier::tick_frontier(sim);
+    beasts::tick_beasts(sim);
     lifecycle::tick_lifecycle(sim);
     // Each season-turn the world builds back a little: ghost towns reopen,
     // founding parties take rich empty land — slowly, the way the Fall's
