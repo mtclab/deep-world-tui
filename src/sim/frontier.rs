@@ -81,8 +81,68 @@ pub fn tick_frontier(sim: &mut crate::sim::SimState) {
     }
     form_bands(sim);
     bands_act(sim);
+    prey_on_caravans(sim);
     settle_holds(sim);
     march_tide(sim);
+}
+
+/// The bands fall on the roads, not just the towns (#641 slice 4): a band that
+/// holds country a caravan is crossing may ride it down — its goods carried
+/// off, the train left limping on as a wreck. Bands gather thickest in the
+/// marches (#623/#630), so the ungoverned edges are where a caravan is likeliest
+/// to be taken — the marches' danger falling on the travellers who cross them.
+/// Deterministic per band, caravan, and day; one caravan per band a turn.
+fn prey_on_caravans(sim: &mut crate::sim::SimState) {
+    let tick = sim.world.tick;
+    let day = (tick / 24) as u32;
+    let seed = sim.world.seed;
+
+    // Gather the raids first (immutable reads of bands + caravans + the grid),
+    // then apply them — a band cannot raid through a borrow of itself.
+    let mut raids: Vec<(usize, String, usize)> = Vec::new();
+    for (bi, band) in sim.frontier.bands.iter().enumerate() {
+        for (ci, c) in sim.caravans.iter().enumerate() {
+            if c.raided || !c.is_in_transit(tick) {
+                continue;
+            }
+            // The caravan must actually stand on the band's ground now.
+            if crate::sim::caravans::caravan_train_tiles(sim, &c.id, band.region_idx, tick)
+                .is_empty()
+            {
+                continue;
+            }
+            let mut rng =
+                SeedRng::new(seed).fork_for(&format!("caravan-prey-{}-{}-{day}", band.id, c.id));
+            // A band preys readily; the stronger the surer of the kill.
+            let chance = (0.15 + 0.02 * band.size as f64).min(0.6);
+            if rng.gen_f64() < chance {
+                raids.push((ci, band.name.clone(), bi));
+                break; // one caravan a turn — they melt back into the country
+            }
+        }
+    }
+
+    let mut logs: Vec<String> = Vec::new();
+    for (ci, band_name, bi) in raids {
+        if let Some(c) = sim.caravans.get_mut(ci) {
+            if c.raided {
+                continue; // already taken by another band this turn
+            }
+            c.raided = true;
+            c.goods.clear();
+            logs.push(format!(
+                "Word on the road: {band_name} fell on a caravan bound for {} — its goods carried off, the train left limping.",
+                c.destination
+            ));
+        }
+        // Spoils swell the band, as a town-raid does.
+        if let Some(b) = sim.frontier.bands.get_mut(bi) {
+            b.size = (b.size + 1).min(40);
+        }
+    }
+    for line in logs {
+        sim.log(tick, Voice::Rumor, line);
+    }
 }
 
 /// A hold this size has grown past an outlaw camp into a real town, and
@@ -723,6 +783,56 @@ mod danger_tests {
 
     fn make_sim() -> SimState {
         SimState::new(7, crate::charts::load_charts().unwrap())
+    }
+
+    #[test]
+    fn a_band_falls_on_a_caravan_crossing_its_country() {
+        // #641 slice 4: a band that holds country a caravan is crossing rides it
+        // down — its goods carried off, the train left limping.
+        use crate::model::economy::Caravan;
+        let mut sim = make_sim();
+        let ri = sim
+            .world
+            .regions
+            .iter()
+            .position(|r| r.settlements.len() >= 2)
+            .expect("a region with two towns");
+        let (o_name, d_name) = {
+            let r = &sim.world.regions[ri];
+            (r.settlements[0].name.clone(), r.settlements[1].name.clone())
+        };
+        // A strong band holds the country the caravan crosses.
+        sim.frontier.bands.push(Band {
+            id: "band-road-1".into(),
+            name: "the Toll of the Reach".into(),
+            size: 20,
+            region_idx: ri,
+            formed_day: 0,
+        });
+        sim.caravans.push(Caravan {
+            id: "carav-prey-1".into(),
+            origin: o_name,
+            destination: d_name,
+            goods: vec![(crate::model::ItemType::Iron, 5)],
+            departure_tick: 0,
+            arrival_tick: 100_000, // long road, so it stays in transit
+            travel_cost: 0,
+            raided: false,
+        });
+
+        // Over a handful of days the band takes it (a deterministic roll a day).
+        for d in 1..=30u64 {
+            sim.world.tick = d * 24;
+            prey_on_caravans(&mut sim);
+            if sim.caravans[0].raided {
+                break;
+            }
+        }
+        assert!(sim.caravans[0].raided, "the band rode the caravan down");
+        assert!(
+            sim.caravans[0].goods.is_empty(),
+            "its goods are carried off"
+        );
     }
 
     #[test]

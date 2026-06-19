@@ -31,10 +31,12 @@ const TRAIN: [CaravanRole; 4] = [
     CaravanRole::Guard,
 ];
 
-/// Where a settlement stands: (region_idx, map_x, map_y). `None` if no such id.
-fn settlement_place(sim: &crate::sim::SimState, id: &str) -> Option<(usize, usize, usize)> {
+/// Where a settlement stands: (region_idx, map_x, map_y). Caravans carry their
+/// origin and destination as town **names** (not ids — see `tick_caravans`), so
+/// this matches by name. `None` for an off-map canon city or an unknown name.
+fn settlement_place(sim: &crate::sim::SimState, name: &str) -> Option<(usize, usize, usize)> {
     for (ri, region) in sim.world.regions.iter().enumerate() {
-        if let Some(s) = region.settlements.iter().find(|s| s.id == id) {
+        if let Some(s) = region.settlements.iter().find(|s| s.name == name) {
             return Some((ri, s.map_x as usize, s.map_y as usize));
         }
     }
@@ -216,13 +218,13 @@ mod tests {
             .iter()
             .position(|r| r.settlements.len() >= 2)
             .expect("a region with two towns");
-        let (o_id, d_id, ox, oy, dx, dy) = {
+        let (o_name, d_name, ox, oy, dx, dy) = {
             let r = &sim.world.regions[ri];
             let o = &r.settlements[0];
             let d = &r.settlements[1];
             (
-                o.id.clone(),
-                d.id.clone(),
+                o.name.clone(),
+                d.name.clone(),
                 o.map_x as usize,
                 o.map_y as usize,
                 d.map_x as usize,
@@ -231,12 +233,13 @@ mod tests {
         };
         sim.caravans.push(Caravan {
             id: "carav-1".into(),
-            origin: o_id,
-            destination: d_id,
+            origin: o_name,
+            destination: d_name,
             goods: vec![],
             departure_tick: 0,
             arrival_tick: 100,
             travel_cost: 0,
+            raided: false,
         });
 
         // At the journey's start the train sits on the origin town.
@@ -271,18 +274,19 @@ mod tests {
         let other = (0..sim.world.regions.len())
             .find(|&i| i != ri)
             .expect("another region");
-        let (o_id, d_id) = {
+        let (o_name, d_name) = {
             let r = &sim.world.regions[ri];
-            (r.settlements[0].id.clone(), r.settlements[1].id.clone())
+            (r.settlements[0].name.clone(), r.settlements[1].name.clone())
         };
         sim.caravans.push(Caravan {
             id: "carav-2".into(),
-            origin: o_id,
-            destination: d_id,
+            origin: o_name,
+            destination: d_name,
             goods: vec![],
             departure_tick: 0,
             arrival_tick: 100,
             travel_cost: 0,
+            raided: false,
         });
         assert!(
             caravan_train_tiles(&sim, "carav-2", other, 50).is_empty(),

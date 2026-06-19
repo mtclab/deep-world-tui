@@ -318,7 +318,13 @@ pub(crate) fn build_npc_map(
                     && cy < vp.cam_y + vp.view_h
                     && !(cx == vp.px && cy == vp.py)
                 {
-                    let (glyph, color) = caravan_glyph(role);
+                    // A raided caravan limps on as a wreck (#641 slice 4): the
+                    // train reads as broken — a grey ruin where its goods were.
+                    let (glyph, color) = if caravan.raided {
+                        ('x', Color::Rgb(130, 120, 110))
+                    } else {
+                        caravan_glyph(role)
+                    };
                     npcs.entry((cx, cy)).or_insert(MapNpc { glyph, color });
                 }
             }
