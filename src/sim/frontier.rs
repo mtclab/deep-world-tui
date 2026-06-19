@@ -257,6 +257,76 @@ pub fn band_field_tile(
     None
 }
 
+/// How many of a band's members show as individual actors on the grid — a band
+/// is people, not a blob, so you see (and cut down) them one by one (#637).
+pub const BAND_MEMBERS_SHOWN: usize = 12;
+
+/// The tiles a band's members stand on (#637): individual outlaws clustered on
+/// the wild ground the band holds, the leader on the anchor tile and the rest
+/// ringed around it, as many as the band has strength for (capped). Each is its
+/// own actor you can walk into and fell. Deterministic; clear of settlements.
+pub fn band_member_tiles(
+    sim: &crate::sim::SimState,
+    band_id: &str,
+    region_idx: usize,
+) -> Vec<(usize, usize)> {
+    let Some((ax, ay)) = band_field_tile(sim, band_id, region_idx) else {
+        return Vec::new();
+    };
+    let Some(region) = sim.world.regions.get(region_idx) else {
+        return Vec::new();
+    };
+    let terr = &region.terrain;
+    let size = sim
+        .frontier
+        .bands
+        .iter()
+        .find(|b| b.id == band_id)
+        .map(|b| b.size as usize)
+        .unwrap_or(0);
+    let want = size.min(BAND_MEMBERS_SHOWN);
+    let walkable = |x: usize, y: usize| {
+        matches!(
+            terr.get(x, y),
+            Some(crate::model::Terrain::Grass | crate::model::Terrain::Forest)
+        )
+    };
+    // Spiral outward from the anchor by Chebyshev ring (the leader's tile first,
+    // then the ground around it ring by ring), taking wild tiles until the band
+    // is placed or we have searched far enough. Deterministic, clustered, and
+    // robust where the anchor sits near settled or watered ground.
+    let mut tiles = Vec::with_capacity(want);
+    if walkable(ax, ay) {
+        tiles.push((ax, ay));
+    }
+    let mut radius = 1i32;
+    while tiles.len() < want && radius <= 8 {
+        for dy in -radius..=radius {
+            for dx in -radius..=radius {
+                // Only the ring at exactly this radius (Chebyshev), in a fixed
+                // row-major order — deterministic.
+                if dx.abs().max(dy.abs()) != radius {
+                    continue;
+                }
+                if tiles.len() >= want {
+                    break;
+                }
+                let x = ax as i32 + dx;
+                let y = ay as i32 + dy;
+                if x < 0 || y < 0 {
+                    continue;
+                }
+                let (ux, uy) = (x as usize, y as usize);
+                if walkable(ux, uy) && !tiles.contains(&(ux, uy)) {
+                    tiles.push((ux, uy));
+                }
+            }
+        }
+        radius += 1;
+    }
+    tiles
+}
+
 /// A band the player would cross while travelling `region_idx` (#630 slice 5):
 /// one that holds the region, or one that raids into it from a neighbouring
 /// march. Returns its id. Deterministic — bands are scanned in order.
@@ -296,6 +366,28 @@ pub fn break_band(sim: &mut crate::sim::SimState, band_id: &str) -> Option<(Stri
     } else {
         sim.frontier.bands[idx].size = size - loss;
         Some((name, false))
+    }
+}
+
+/// One blow struck against a band in a stand-up fight (#637): cut `blow` from
+/// its strength, and scatter it if that breaks it. Returns the band's name,
+/// whether it scattered, and its remaining size. `None` if no such band stands.
+/// The fine-grained counterpart of `break_band` — a single exchange, not a rout.
+pub fn strike_band(
+    sim: &mut crate::sim::SimState,
+    band_id: &str,
+    blow: u32,
+) -> Option<(String, bool, u32)> {
+    let idx = sim.frontier.bands.iter().position(|b| b.id == band_id)?;
+    let name = sim.frontier.bands[idx].name.clone();
+    let size = sim.frontier.bands[idx].size;
+    if blow >= size {
+        sim.frontier.bands.remove(idx);
+        Some((name, true, 0))
+    } else {
+        let remaining = size - blow;
+        sim.frontier.bands[idx].size = remaining;
+        Some((name, false, remaining))
     }
 }
 
