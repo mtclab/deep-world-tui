@@ -448,6 +448,24 @@ impl App {
                 }
             }
         }
+        // A wild beast on the grid is fought the same way (#637): step into it
+        // to strike. No Wildlife menu — you fight the creature where it stands.
+        if let Some(pos) = self.player_pos {
+            let (nx, ny) = (pos.px as i32 + dx, pos.py as i32 + dy);
+            if nx >= 0 && ny >= 0 {
+                let (ux, uy) = (nx as usize, ny as usize);
+                let beast_id = self.sim.as_ref().and_then(|sim| {
+                    sim.beasts
+                        .iter()
+                        .find(|b| b.region_idx == pos.region_idx && b.px == ux && b.py == uy)
+                        .map(|b| b.id.clone())
+                });
+                if let Some(bid) = beast_id {
+                    self.bump_attack_beast(&bid);
+                    return;
+                }
+            }
+        }
         // A door is a way in, not a wall (#458): you step through it onto the
         // building's floor. Crossing the threshold from outside, the tavern
         // serves, the temple blesses, a home answers the knock — once, as you

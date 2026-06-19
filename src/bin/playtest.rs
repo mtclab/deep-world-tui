@@ -78,6 +78,35 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
             }
+            // Dev-only: stand a wild beast on the tile west of the player to
+            // play the bump-strike beast fight (#637).
+            "spawnbeast" => {
+                if let (Some(pos), Some(sim)) = (app.player_pos, app.sim.as_mut()) {
+                    let sp = parts.get(1).copied().unwrap_or("wolf");
+                    let species = match sp {
+                        "bear" => deep_world_tui::model::wildlife::WildSpecies::BrownBear,
+                        "hare" => deep_world_tui::model::wildlife::WildSpecies::Hare,
+                        _ => deep_world_tui::model::wildlife::WildSpecies::Wolf,
+                    };
+                    let hp = deep_world_tui::sim::beasts::beast_hp(species);
+                    if pos.px > 0 {
+                        sim.beasts.push(deep_world_tui::sim::beasts::WildBeast {
+                            id: "dev-beast".into(),
+                            species,
+                            region_idx: pos.region_idx,
+                            px: pos.px - 1,
+                            py: pos.py,
+                            hp,
+                        });
+                        println!(
+                            "  A {} (toughness {hp}) stands west of you at ({}, {}). 'move w' to fight.",
+                            species.name(),
+                            pos.px - 1,
+                            pos.py
+                        );
+                    }
+                }
+            }
             "status" | "st" => {}
             "move" | "m" => {
                 let (dx, dy) = match parts.get(1).copied().unwrap_or("") {

@@ -69,6 +69,14 @@ fn living_world_fingerprint(sim: &SimState) -> String {
     bands.sort();
     out.push_str("|bands:");
     out.push_str(&bands.join(","));
+    let mut beasts: Vec<String> = sim
+        .beasts
+        .iter()
+        .map(|b| format!("{}:{:?}@{},{}:{}", b.id, b.species, b.px, b.py, b.hp))
+        .collect();
+    beasts.sort();
+    out.push_str("|beasts:");
+    out.push_str(&beasts.join(","));
     out
 }
 

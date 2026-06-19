@@ -151,6 +151,36 @@ pub(crate) fn role_glyph(profession: &str) -> (char, Color) {
     }
 }
 
+/// How a wild beast reads on the grid (#637): a mark for its kind and a colour
+/// for its menace — the harmless brown, a real danger blood-touched, the uncanny
+/// an eerie pale. Glyph is the species' initial; the uncanny get a sign of their
+/// own.
+pub(crate) fn beast_glyph(species: crate::model::wildlife::WildSpecies) -> (char, Color) {
+    let danger = species.danger();
+    let color = if species.uncanny() {
+        Color::Rgb(190, 170, 210) // eerie pale
+    } else if danger >= 2 {
+        Color::Rgb(210, 90, 70) // a real danger
+    } else if danger == 1 {
+        Color::Rgb(190, 150, 110)
+    } else {
+        Color::Rgb(150, 170, 130) // harmless
+    };
+    // The uncanny read as a sign, not a beast; the rest take their name's first
+    // letter, upper for the dangerous, lower for the meek.
+    let glyph = if species.uncanny() {
+        '¥'
+    } else {
+        let first = species.name().chars().next().unwrap_or('?');
+        if danger >= 1 {
+            first.to_ascii_uppercase()
+        } else {
+            first.to_ascii_lowercase()
+        }
+    };
+    (glyph, color)
+}
+
 pub(crate) fn build_npc_map(
     app: &App,
     region_idx: usize,
@@ -238,6 +268,24 @@ pub(crate) fn build_npc_map(
                         },
                     );
                 }
+            }
+        }
+
+        // Wild beasts stand on the grid as individual creatures (#637): each on
+        // its own tile, by its kind, to be hunted or fled.
+        for beast in &sim.beasts {
+            if beast.region_idx != region_idx {
+                continue;
+            }
+            let (bx, by) = (beast.px, beast.py);
+            if bx >= vp.cam_x
+                && by >= vp.cam_y
+                && bx < vp.cam_x + vp.view_w
+                && by < vp.cam_y + vp.view_h
+                && !(bx == vp.px && by == vp.py)
+            {
+                let (glyph, color) = beast_glyph(beast.species);
+                npcs.entry((bx, by)).or_insert(MapNpc { glyph, color });
             }
         }
     }
