@@ -28,6 +28,12 @@ pub enum DiscoveryKind {
     PaintedRocks,
     AbandonedCamp,
     MoonPool,
+    /// A wayside shrine to the road-god — the diegetic home of what used to be
+    /// the GodShrine encounter (#649): a holy place you find and stand at.
+    WaysideShrine,
+    /// The ruin of an older world, climbed for the lie of the land — the
+    /// diegetic home of the old AncientRuin encounter (#649).
+    AncientRuin,
 }
 
 /// The tangible mark a discovery leaves on the discoverer.
@@ -68,6 +74,8 @@ impl DiscoveryKind {
             DiscoveryKind::PaintedRocks => "painted rocks",
             DiscoveryKind::AbandonedCamp => "abandoned camp",
             DiscoveryKind::MoonPool => "moon pool",
+            DiscoveryKind::WaysideShrine => "wayside shrine",
+            DiscoveryKind::AncientRuin => "ancient ruin",
         }
     }
 
@@ -115,6 +123,10 @@ impl DiscoveryKind {
                 thirst: 0.4,
                 energy: 0.2,
             },
+            // The road-god takes notice at a wayside shrine.
+            DiscoveryKind::WaysideShrine => DiscoveryEffect::God(GodName::Sampsa, 0.05),
+            // From the height of a ruin the country lies open.
+            DiscoveryKind::AncientRuin => DiscoveryEffect::Reveal,
         }
     }
 
@@ -192,6 +204,12 @@ impl DiscoveryKind {
             DiscoveryKind::MoonPool => {
                 "Still water that holds the sky too well. You look once and sit down without meaning to."
             }
+            DiscoveryKind::WaysideShrine => {
+                "A low shrine by the old road, its offering-stone worn smooth. Travellers have stopped here a long time."
+            }
+            DiscoveryKind::AncientRuin => {
+                "Tumbled walls of an older world. You climb the broken tower and the country lies open below."
+            }
         }
     }
 
@@ -221,6 +239,8 @@ impl DiscoveryKind {
             DiscoveryKind::PaintedRocks => '◍',
             DiscoveryKind::AbandonedCamp => '⌑',
             DiscoveryKind::MoonPool => '☾',
+            DiscoveryKind::WaysideShrine => '╥',
+            DiscoveryKind::AncientRuin => '╤',
         }
     }
 
@@ -250,6 +270,8 @@ impl DiscoveryKind {
             DiscoveryKind::PaintedRocks,
             DiscoveryKind::AbandonedCamp,
             DiscoveryKind::MoonPool,
+            DiscoveryKind::WaysideShrine,
+            DiscoveryKind::AncientRuin,
         ]
     }
 }

@@ -117,7 +117,7 @@ fn new_quest_kinds_generate() {
 
 #[test]
 fn discovery_and_recipe_counts() {
-    assert_eq!(DiscoveryKind::all().len(), 24);
+    assert_eq!(DiscoveryKind::all().len(), 26);
     assert_eq!(craft_recipes().len(), 18);
     // Every discovery has text, glyph, and a wired effect.
     for k in DiscoveryKind::all() {
