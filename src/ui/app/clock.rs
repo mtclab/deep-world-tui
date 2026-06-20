@@ -595,6 +595,23 @@ impl App {
         true
     }
 
+    /// The signal fire's worth in a fight (#663): a kept beacon of the player's
+    /// standing near them in the dark hours steadies the hand — the lit dark is
+    /// the safer dark. Returns the factor the combat press is scaled by: ×0.6 in
+    /// the light of one's own beacon at night, ×1.0 otherwise (by day, or away
+    /// from the fire). Was the beacon's `halve_night_encounters` worth before the
+    /// encounter system was retired (#649); brought onto the grid combat it now
+    /// feeds into.
+    pub(super) fn beacon_press_factor(&self) -> f64 {
+        if self.clock.time_of_day().is_dark()
+            && self.own_structure_near(crate::sim::structures::BuildKind::Beacon, 3)
+        {
+            0.6
+        } else {
+            1.0
+        }
+    }
+
     /// One stand-up exchange with a band on the grid (#637): the player strikes,
     /// cutting the band's strength; the band fights back, and the press of it
     /// wears the player down (energy — the same exhaustion that funnels to a
@@ -643,7 +660,8 @@ impl App {
         // (~0.96, ~0.67 armed) so the deep wild's big bands are to be feared and
         // picked off, not waded into. The per-blow press is capped so no single
         // exchange can swing you straight to the ground.
-        let press = ((0.02 + 0.010 * remaining as f64) * if armed { 0.7 } else { 1.0 }).min(0.15);
+        let press = ((0.02 + 0.010 * remaining as f64) * if armed { 0.7 } else { 1.0 }).min(0.15)
+            * self.beacon_press_factor();
         self.vitals.energy = (self.vitals.energy - press).max(0.0);
         self.status_msg = Some(format!(
             "You cut down one of {name} — {remaining} still standing. They press back. (energy {:.0}%)",
@@ -799,8 +817,36 @@ impl App {
         if species.uncanny() {
             press += 0.04;
         }
-        let press = press * if armed { 0.8 } else { 1.0 };
+        let press = press * if armed { 0.8 } else { 1.0 } * self.beacon_press_factor();
         self.vitals.energy = (self.vitals.energy - press).max(0.0);
+        // A wound is not only what it costs at the moment (#662): a beast that
+        // presses can leave a festering hurt — a venomous bite turns to venom,
+        // any other torn flesh to a dirty-ground infection. Fortune leans only
+        // whether it takes; the uncanny leave no ordinary wound. Brought onto
+        // grid combat from the retired encounter screen (#649). Deniable scar.
+        if species.danger() >= 1 && !species.uncanny() {
+            let venomous = species.venomous();
+            let (disease, base, scar): (crate::model::Disease, f64, &str) = if venomous {
+                (
+                    crate::model::Disease::Venom,
+                    0.45,
+                    "The bite burns cold, then hot. Venom — it is in me now.",
+                )
+            } else {
+                (
+                    crate::model::Disease::Infection,
+                    0.12,
+                    "The wound will not close clean. By morning it is hot and angry — it has \
+                     turned.",
+                )
+            };
+            let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+            let p = self.fortune.tilt_bad(base);
+            let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x00AF_F11C));
+            if crate::rng::unit_from_hash(h) < p {
+                self.afflict(disease, scar);
+            }
+        }
         self.status_msg = Some(format!(
             "You strike the {name} — it is still up and comes at you. (energy {:.0}%)",
             self.vitals.energy * 100.0
