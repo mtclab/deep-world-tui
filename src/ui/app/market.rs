@@ -1700,4 +1700,200 @@ mod festival_tests {
             "festival goods are cheaper: {feast} should be under {plain}"
         );
     }
+
+    // --- #662: wounds fester on the grid ---
+
+    /// Stand a beast of the given species beside the player and strike it once,
+    /// leaving it alive (high hp), then report whether the player took the given
+    /// disease. The fortune is set deliberately for the run.
+    fn struck_once_takes(
+        seed: u64,
+        species: crate::model::wildlife::WildSpecies,
+        disease: crate::model::Disease,
+        fortune: f64,
+    ) -> bool {
+        use crate::sim::beasts::WildBeast;
+        let mut app = App::new(seed, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.fortune = crate::model::Fortune::from_value(fortune);
+        app.player_pos = Some(crate::model::PlayerPos {
+            region_idx: 0,
+            px: 5,
+            py: 5,
+        });
+        app.sim.as_mut().unwrap().beasts.push(WildBeast {
+            id: "wound-1".into(),
+            species,
+            region_idx: 0,
+            px: 4,
+            py: 5,
+            hp: 99, // survives the blow, so the "it lives, and fights" branch runs
+        });
+        app.bump_attack_beast("wound-1");
+        app.player_start
+            .as_ref()
+            .unwrap()
+            .person
+            .illnesses
+            .iter()
+            .any(|d| d.disease == disease)
+    }
+
+    #[test]
+    fn a_venomous_beasts_strike_sometimes_envenoms() {
+        use crate::model::wildlife::WildSpecies;
+        use crate::model::Disease;
+        let envenomed = (0..120)
+            .filter(|&s| struck_once_takes(s, WildSpecies::Adder, Disease::Venom, 0.0))
+            .count();
+        assert!(
+            envenomed > 0,
+            "an adder's bite envenoms at least some of the time"
+        );
+        assert!(
+            envenomed < 200,
+            "but not every strike turns — fortune leans, it does not decree"
+        );
+    }
+
+    #[test]
+    fn a_wolfs_strike_sometimes_festers_to_infection() {
+        use crate::model::wildlife::WildSpecies;
+        use crate::model::Disease;
+        let festered = (0..120)
+            .filter(|&s| struck_once_takes(s, WildSpecies::Wolf, Disease::Infection, 0.0))
+            .count();
+        assert!(festered > 0, "a wolf's torn flesh sometimes festers");
+        assert!(festered < 200, "but not every wound turns");
+    }
+
+    #[test]
+    fn the_cursed_fester_more_than_the_blessed() {
+        use crate::model::wildlife::WildSpecies;
+        use crate::model::Disease;
+        let cursed = (0..120)
+            .filter(|&s| struck_once_takes(s, WildSpecies::Wolf, Disease::Infection, -1.0))
+            .count();
+        let blessed = (0..120)
+            .filter(|&s| struck_once_takes(s, WildSpecies::Wolf, Disease::Infection, 1.0))
+            .count();
+        assert!(
+            cursed > blessed,
+            "ill fortune turns more wounds than good: cursed {cursed} vs blessed {blessed}"
+        );
+    }
+
+    #[test]
+    fn a_harmless_beast_leaves_no_festering_wound() {
+        // A danger-0 creature (a hare) costs nothing but a little effort — no
+        // wound to turn, ever.
+        use crate::model::wildlife::WildSpecies;
+        use crate::model::Disease;
+        let any =
+            (0..120).any(|s| struck_once_takes(s, WildSpecies::Hare, Disease::Infection, -1.0));
+        assert!(!any, "a hare's nip never festers");
+    }
+
+    // --- #663: the signal fire steadies the night fight ---
+
+    /// Put a player-built beacon on the player's own tile.
+    fn put_beacon_at(app: &mut App, px: u32, py: u32) {
+        let tick = app.sim.as_ref().unwrap().world.tick;
+        app.sim.as_mut().unwrap().world.regions[0].structures.push(
+            crate::sim::structures::Structure {
+                kind: crate::sim::structures::BuildKind::Beacon,
+                region_idx: 0,
+                x: px,
+                y: py,
+                built_tick: 0,
+                last_maintenance_tick: tick,
+                name: None,
+                is_npc_built: false,
+                stash: Default::default(),
+            },
+        );
+    }
+
+    /// Energy spent breaking a fixed beast over one strike, given a clock hour
+    /// and whether the player's own beacon stands on their tile.
+    fn energy_spent_in_fight(hour: u32, with_beacon: bool) -> f64 {
+        use crate::sim::beasts::WildBeast;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.clock.hour = hour;
+        app.vitals.energy = 1.0;
+        app.player_pos = Some(crate::model::PlayerPos {
+            region_idx: 0,
+            px: 5,
+            py: 5,
+        });
+        if with_beacon {
+            put_beacon_at(&mut app, 5, 5);
+        }
+        app.sim.as_mut().unwrap().beasts.push(WildBeast {
+            id: "fight-1".into(),
+            species: crate::model::wildlife::WildSpecies::BrownBear,
+            region_idx: 0,
+            px: 4,
+            py: 5,
+            hp: 99,
+        });
+        app.bump_attack_beast("fight-1");
+        1.0 - app.vitals.energy
+    }
+
+    #[test]
+    fn a_night_fight_by_ones_own_beacon_costs_less() {
+        // Deep night (hour 1): the lit dark is the safer dark.
+        let lit = energy_spent_in_fight(1, true);
+        let dark = energy_spent_in_fight(1, false);
+        assert!(
+            lit < dark,
+            "a fight in one's own beacon-light costs less than the same fight in the dark: \
+             {lit} vs {dark}"
+        );
+    }
+
+    #[test]
+    fn the_beacon_does_nothing_by_day() {
+        // Noon (hour 12): the fire is no help when the sun is up.
+        let lit = energy_spent_in_fight(12, true);
+        let plain = energy_spent_in_fight(12, false);
+        assert!(
+            (lit - plain).abs() < 1e-9,
+            "by day the beacon gives no edge: {lit} vs {plain}"
+        );
+    }
+
+    #[test]
+    fn the_beacon_helps_only_near_its_own_light() {
+        // The factor itself: dark + own beacon near → 0.6; otherwise 1.0.
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.player_pos = Some(crate::model::PlayerPos {
+            region_idx: 0,
+            px: 5,
+            py: 5,
+        });
+        app.clock.hour = 1; // deep night
+        assert!(
+            (app.beacon_press_factor() - 1.0).abs() < 1e-9,
+            "no beacon, no edge"
+        );
+        // A beacon far off, out of range, still no edge.
+        put_beacon_at(&mut app, 40, 40);
+        assert!(
+            (app.beacon_press_factor() - 1.0).abs() < 1e-9,
+            "a far fire does not light your fight"
+        );
+        // One on your own ground, in the dark — the steadier hand.
+        put_beacon_at(&mut app, 5, 5);
+        assert!(
+            (app.beacon_press_factor() - 0.6).abs() < 1e-9,
+            "your own fire near you in the dark steadies the fight"
+        );
+    }
 }
