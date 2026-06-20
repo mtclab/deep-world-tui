@@ -24,9 +24,25 @@ fn a_large_province_keeps_a_march_at_its_edge() {
         );
         let total: usize = world.regions.iter().map(|r| r.settlements.len()).sum();
         assert!(total > 1, "the province still has its settlements");
-        // Exactly the edge region is wild; the interior is not.
+        // The frontier scales with the province (#669): at least one march, but
+        // never more than the settled core, and the marches are a contiguous
+        // block at the far (highest-index) edge — the interior stays settled.
+        let n = world.regions.len();
         let marches = world.regions.iter().filter(|r| r.is_march).count();
-        assert_eq!(marches, 1, "one march, at the edge");
+        assert!(marches >= 1, "a large province keeps a march");
+        assert!(
+            marches <= n - 2,
+            "the settled core stays the majority: {marches} of {n}"
+        );
+        let first_march = world.regions.iter().position(|r| r.is_march).unwrap();
+        assert!(
+            world.regions[first_march..].iter().all(|r| r.is_march),
+            "the marches are the far edge, one contiguous wild block"
+        );
+        assert!(
+            world.regions[..first_march].iter().all(|r| !r.is_march),
+            "the interior is settled, not wild"
+        );
     }
 }
 
@@ -115,4 +131,36 @@ fn a_march_reads_as_wilderness_not_a_settled_region() {
             return;
         }
     }
+}
+
+#[test]
+fn the_frontier_scales_with_the_province() {
+    let charts = load_charts().expect("charts");
+    // Across many seeds, larger provinces carry more march-sectors on average
+    // than small ones — the wild edge grows with the land (#669).
+    let mut small_marches = 0usize; // provinces of 4-6 sectors
+    let mut small_n = 0usize;
+    let mut big_marches = 0usize; // provinces of 10+ sectors
+    let mut big_n = 0usize;
+    for seed in 0..200u64 {
+        let w = generate_world(seed, &charts);
+        let n = w.regions.len();
+        let m = w.regions.iter().filter(|r| r.is_march).count();
+        if (4..=6).contains(&n) {
+            small_marches += m;
+            small_n += 1;
+        } else if n >= 10 {
+            big_marches += m;
+            big_n += 1;
+        }
+    }
+    if small_n == 0 || big_n == 0 {
+        return;
+    }
+    let small_avg = small_marches as f64 / small_n as f64;
+    let big_avg = big_marches as f64 / big_n as f64;
+    assert!(
+        big_avg > small_avg,
+        "a wider province keeps a wider frontier: big {big_avg:.2} vs small {small_avg:.2}"
+    );
 }
