@@ -190,7 +190,11 @@ Charts(
     },
 
     // ---- world structure (issue #24) ----
-    region_count: WeightedTable(entries: { "3": 5, "4": 10, "5": 20, "6": 25, "7": 20, "8": 10, "9": 5, "10": 5 }),
+    // A province runs wider than the early slices allowed (#667): the playable
+    // ground is now most often seven to nine sectors, and can reach twelve — a
+    // fuller province to roam, more settlements and frontier, still one province
+    // of Sorethel (SCALE.md).
+    region_count: WeightedTable(entries: { "4": 5, "5": 10, "6": 15, "7": 20, "8": 22, "9": 15, "10": 8, "11": 3, "12": 2 }),
     settlements_per_region: ConditionalTable(
         base: WeightedTable(entries: { "1": 5, "2": 15, "3": 25, "4": 25, "5": 15, "6": 10, "7": 5 }),
         modifiers: [

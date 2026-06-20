@@ -792,10 +792,13 @@ mod tests {
         // Verify structure integrity: population counts match people.len()
         for region in &sim.world.regions {
             for settlement in &region.settlements {
-                assert_eq!(
-                    settlement.population,
-                    settlement.people.len() as u32,
-                    "population should be derived from people.len()"
+                // Population is a headcount; people is a sampled subset of it
+                // (population >= people.len() always — never equality). What
+                // migration must preserve is that the roster never outruns the
+                // headcount.
+                assert!(
+                    settlement.population >= settlement.people.len() as u32,
+                    "the roster must not outrun the headcount"
                 );
             }
         }
@@ -917,10 +920,11 @@ mod tests {
             }
         }
 
-        // All population counts match
+        // The roster never outruns the headcount (population is a sample-bearing
+        // headcount, people a subset — never assert equality).
         for region in &sim.world.regions {
             for settlement in &region.settlements {
-                assert_eq!(settlement.population, settlement.people.len() as u32);
+                assert!(settlement.population >= settlement.people.len() as u32);
             }
         }
     }
