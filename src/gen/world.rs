@@ -12,14 +12,20 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
         .unwrap_or_else(|| "5".into());
     let n_regions: usize = n_regions_str.parse().unwrap_or(5).max(3);
 
+    // The frontier scales with the province (#669): a wider province keeps a
+    // wider ungoverned edge — roughly one march per five sectors, the far
+    // (highest-index) regions given to the wild, the settled core always the
+    // majority. A small province (3 regions) stays all settled — no room to
+    // spare a whole region to the wild.
+    let n_marches = if n_regions < 4 {
+        0
+    } else {
+        (n_regions / 5).max(1).min(n_regions - 2)
+    };
     let mut regions = Vec::with_capacity(n_regions);
     for ri in 0..n_regions {
         let region_rng = SeedRng::new(seed).fork_for(&format!("world:region:{}", ri));
-        // The last region is a march when the province is large enough to keep
-        // a settled core without it (#630): an ungoverned wilderness edge. A
-        // small province (3 regions) stays all settled — there is no room to
-        // spare a whole region to the wild.
-        let is_march = n_regions >= 4 && ri == n_regions - 1;
+        let is_march = ri >= n_regions - n_marches;
         let region = generate_region(region_rng, ri, charts, is_march);
         regions.push(region);
     }
