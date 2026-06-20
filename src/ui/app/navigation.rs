@@ -312,6 +312,135 @@ impl App {
         }
     }
 
+    /// The ground itself is a danger (#665): landing on rough off-path country
+    /// can turn an ankle, suck at a boot, chill the chest, or draw you dry. Rare,
+    /// fortune-leaned, season-aware, and always deniable — a slip on loose stone,
+    /// surely; the wet got into the lungs, of course. Deterministic (fortune +
+    /// tick + pos + seed). The made and kept way is safe: a laid trail, a road,
+    /// a settlement floor cost nothing extra. No screen — status line + journal.
+    pub(super) fn terrain_step_mishap(&mut self, region_idx: usize, px: usize, py: usize) {
+        let terrain = self
+            .sim
+            .as_ref()
+            .and_then(|sim| sim.world.regions.get(region_idx))
+            .and_then(|r| r.terrain.get(px, py))
+            .unwrap_or(Terrain::Grass);
+        // The made way is the safe way: roads, settlement ground, building
+        // floors, and any tile carrying a laid trail or footbridge.
+        if matches!(
+            terrain,
+            Terrain::Road
+                | Terrain::Settlement
+                | Terrain::Floor
+                | Terrain::Door
+                | Terrain::Hearth
+                | Terrain::House
+                | Terrain::Wall
+                | Terrain::Water
+        ) || self.path_structure_at(region_idx, px, py).is_some()
+        {
+            return;
+        }
+        let frost = self.clock.season() == crate::model::Season::Frost;
+        let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+        // One roll per step, salted by where you stand, so the same tile at the
+        // same moment always reads the same — deniable, never re-rollable.
+        let h = crate::rng::mix_u64(
+            self.seed
+                ^ crate::rng::mix_u64(
+                    tick ^ ((px as u64) << 20) ^ ((py as u64) << 4) ^ 0x6B16_A7A0,
+                ),
+        );
+        let roll = crate::rng::unit_from_hash(h);
+
+        // (disease-or-none, base chance, energy nick, scar line). A None disease
+        // means the land only wears or dries you — no lasting hurt.
+        use crate::model::Disease;
+        let (disease, base, energy_nick, thirst_nick, scar): (
+            Option<Disease>,
+            f64,
+            f64,
+            f64,
+            &str,
+        ) = match terrain {
+            Terrain::Mountain => (
+                Some(Disease::Sprain),
+                if frost { 0.07 } else { 0.04 },
+                0.0,
+                0.0,
+                "The scree went out from under me on the slope. A turned ankle — loose stone, \
+                 surely.",
+            ),
+            Terrain::Cave => (
+                Some(Disease::Sprain),
+                0.05,
+                0.0,
+                0.0,
+                "I came down wrong on a stone I never saw in the dark. The ankle will not thank \
+                 me for it.",
+            ),
+            Terrain::Coast => (
+                Some(Disease::Sprain),
+                0.025,
+                0.0,
+                0.0,
+                "The wet rock slid out from under my heel. A wrench — the sea-stone is never \
+                 kind.",
+            ),
+            Terrain::Swamp => (
+                Some(Disease::MarshFever),
+                0.03,
+                0.05,
+                0.0,
+                "The bog took me to the knee and the cold went up with the wet. By night a \
+                 shiver I do not like — the marsh, of course.",
+            ),
+            Terrain::Tundra => (
+                Some(Disease::WinterCough),
+                if frost { 0.06 } else { 0.02 },
+                0.0,
+                0.0,
+                "The wind off the open ground got down into the chest. A cough by dusk — the \
+                 cold, surely.",
+            ),
+            Terrain::Forest => (
+                Some(Disease::Infection),
+                0.02,
+                0.02,
+                0.0,
+                "The bramble laid a long scratch up the arm. It will close — unless it does not.",
+            ),
+            Terrain::Sand | Terrain::DeepDesert => (None, 0.0, 0.0, 0.10, ""),
+            // Frost ground anywhere else still bites the chest a little.
+            _ if frost => (
+                Some(Disease::WinterCough),
+                0.015,
+                0.0,
+                0.0,
+                "The frost found a way into the chest crossing the open. A cough takes me by \
+                 dusk — the season, surely.",
+            ),
+            _ => return,
+        };
+
+        // The dry country draws you down whether or not luck enters into it.
+        if thirst_nick > 0.0 {
+            self.vitals.thirst = (self.vitals.thirst - thirst_nick).max(0.0);
+            if roll < 0.15 {
+                self.status_msg =
+                    Some("The dry heat draws the water out of you with every step.".into());
+            }
+        }
+        if energy_nick > 0.0 {
+            self.vitals.energy = (self.vitals.energy - energy_nick).max(0.0);
+        }
+        let Some(disease) = disease else { return };
+        let p = self.fortune.tilt_bad(base);
+        if roll < p && self.afflict(disease, scar) {
+            self.status_msg = Some(scar.to_string());
+        }
+    }
+
     pub fn move_player(&mut self, dx: i32, dy: i32) {
         let weather = self.sim.as_ref().and_then(|sim| {
             let pos = self.player_pos?;
@@ -600,6 +729,7 @@ impl App {
                     self.advance_clock(whole);
                 }
                 self.log_travel(terrain);
+                self.terrain_step_mishap(region_idx, px, py);
                 self.reveal_around(region_idx, px, py);
                 // The random encounter roll is retired (#649 slice 1): nothing
                 // pops while walking. Meetings live on the grid now — people you
@@ -653,6 +783,7 @@ impl App {
                     self.advance_clock(whole);
                 }
                 self.log_travel(terrain);
+                self.terrain_step_mishap(region_idx, px, py);
                 self.reveal_around(region_idx, px, py);
                 // A waymarker within two tiles keeps the ground around it
                 // known — the cairn shows the path onward.
@@ -1420,6 +1551,179 @@ mod faith_offering_tests {
                 .unwrap_or("")
                 .contains("town of your god"),
             "the alignment is named in the offering's word"
+        );
+    }
+}
+
+#[cfg(test)]
+mod terrain_mishap_tests {
+    use super::*;
+    use crate::charts::load::load_charts;
+    use crate::model::{Disease, Fortune, PlayerPos, Terrain};
+
+    /// Stand the player on a single tile of the given terrain and run one step
+    /// mishap roll for the given seed/season/fortune. Returns whether the named
+    /// disease took.
+    fn mishap_takes(
+        seed: u64,
+        terrain: Terrain,
+        disease: Disease,
+        fortune: f64,
+        frost: bool,
+    ) -> bool {
+        let mut app = App::new(seed, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.fortune = Fortune::from_value(fortune);
+        // Frost is season 3 in the year; set the clock day into it if asked.
+        if frost {
+            // Walk the clock to the Frost season.
+            while app.clock.season() != crate::model::Season::Frost {
+                app.clock.day += 1;
+            }
+        }
+        let (px, py) = (5usize, 5usize);
+        app.sim.as_mut().unwrap().world.regions[0]
+            .terrain
+            .set(px, py, terrain);
+        app.player_pos = Some(PlayerPos {
+            region_idx: 0,
+            px,
+            py,
+        });
+        app.terrain_step_mishap(0, px, py);
+        app.player_start
+            .as_ref()
+            .unwrap()
+            .person
+            .illnesses
+            .iter()
+            .any(|d| d.disease == disease)
+    }
+
+    #[test]
+    fn an_offroad_mountain_march_sometimes_sprains() {
+        let sprained = (0..150)
+            .filter(|&s| mishap_takes(s, Terrain::Mountain, Disease::Sprain, 0.0, false))
+            .count();
+        assert!(sprained > 0, "loose stone turns an ankle now and then");
+        assert!(sprained < 150, "but most steps land clean");
+    }
+
+    #[test]
+    fn the_road_is_always_safe() {
+        let any = (0..150).any(|s| mishap_takes(s, Terrain::Road, Disease::Sprain, -1.0, true));
+        assert!(!any, "the made way costs nothing extra, even in deep frost");
+    }
+
+    #[test]
+    fn a_laid_trail_is_safe_even_off_road() {
+        // A trail laid on rough ground carries you clean across.
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.fortune = Fortune::from_value(-1.0);
+        let (px, py) = (5usize, 5usize);
+        app.sim.as_mut().unwrap().world.regions[0]
+            .terrain
+            .set(px, py, Terrain::Mountain);
+        let tick = app.sim.as_ref().unwrap().world.tick;
+        app.sim.as_mut().unwrap().world.regions[0].structures.push(
+            crate::sim::structures::Structure {
+                kind: crate::sim::structures::BuildKind::Trail,
+                region_idx: 0,
+                x: px as u32,
+                y: py as u32,
+                built_tick: 0,
+                last_maintenance_tick: tick,
+                name: None,
+                is_npc_built: false,
+                stash: Default::default(),
+            },
+        );
+        app.player_pos = Some(PlayerPos {
+            region_idx: 0,
+            px,
+            py,
+        });
+        // Many ticks, all on the trail tile — never a sprain.
+        let mut took = false;
+        for t in 0..200u64 {
+            app.sim.as_mut().unwrap().world.tick = t;
+            app.terrain_step_mishap(0, px, py);
+            if app
+                .player_start
+                .as_ref()
+                .unwrap()
+                .person
+                .illnesses
+                .iter()
+                .any(|d| d.disease == Disease::Sprain)
+            {
+                took = true;
+                break;
+            }
+        }
+        assert!(!took, "a laid trail is sure footing even on the mountain");
+    }
+
+    #[test]
+    fn frost_raises_the_mountain_slip() {
+        let warm = (0..200)
+            .filter(|&s| mishap_takes(s, Terrain::Mountain, Disease::Sprain, 0.0, false))
+            .count();
+        let frost = (0..200)
+            .filter(|&s| mishap_takes(s, Terrain::Mountain, Disease::Sprain, 0.0, true))
+            .count();
+        assert!(
+            frost > warm,
+            "ice on the stone turns more ankles: frost {frost} vs warm {warm}"
+        );
+    }
+
+    #[test]
+    fn the_cursed_stumble_more_than_the_blessed() {
+        let cursed = (0..200)
+            .filter(|&s| mishap_takes(s, Terrain::Mountain, Disease::Sprain, -1.0, false))
+            .count();
+        let blessed = (0..200)
+            .filter(|&s| mishap_takes(s, Terrain::Mountain, Disease::Sprain, 1.0, false))
+            .count();
+        assert!(
+            cursed > blessed,
+            "ill fortune slips more: cursed {cursed} vs blessed {blessed}"
+        );
+    }
+
+    #[test]
+    fn the_desert_draws_you_dry_not_sick() {
+        // Sand costs water, never a disease.
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        let (px, py) = (5usize, 5usize);
+        app.sim.as_mut().unwrap().world.regions[0]
+            .terrain
+            .set(px, py, Terrain::DeepDesert);
+        app.player_pos = Some(PlayerPos {
+            region_idx: 0,
+            px,
+            py,
+        });
+        app.vitals.thirst = 1.0;
+        app.terrain_step_mishap(0, px, py);
+        assert!(
+            app.vitals.thirst < 1.0,
+            "the dry country draws the water out of you"
+        );
+        assert!(
+            app.player_start
+                .as_ref()
+                .unwrap()
+                .person
+                .illnesses
+                .is_empty(),
+            "the desert dries you, it does not infect you"
         );
     }
 }
