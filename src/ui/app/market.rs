@@ -57,6 +57,31 @@ impl App {
         self.current_settlement().and_then(|s| s.enclave_people())
     }
 
+    /// The full market shelf at the player's current settlement (#678 s2b):
+    /// the core tradeable items, then any data-defined registry goods the town
+    /// actually stocks (qty > 0), in a stable order. Render and input share this
+    /// so a key always selects the same row; the screen windows it (six at a
+    /// time) so the list can be any length without overflowing the keybindings.
+    pub fn market_items(&self) -> Vec<ItemType> {
+        let mut items = ItemType::tradeable_items();
+        if let Some(s) = self.current_settlement() {
+            let mut goods: Vec<ItemType> = s
+                .goods_stock
+                .iter()
+                .filter(|(it, q)| matches!(it, ItemType::Good(_)) && **q > 0.0)
+                .map(|(it, _)| *it)
+                .collect();
+            // Stable order (HashMap iteration is not) so the windowed keys are
+            // deterministic from one frame to the next.
+            goods.sort_by_key(|it| it.name());
+            items.extend(goods);
+        }
+        items
+    }
+
+    /// How many shelf rows the market shows at once (the keybinding window).
+    pub const MARKET_WINDOW: usize = 6;
+
     pub fn buy_item(&mut self, item: ItemType) {
         if !item.tradeable() {
             self.status_msg = Some("Cannot buy that".into());
@@ -1895,5 +1920,84 @@ mod festival_tests {
             (app.beacon_press_factor() - 0.6).abs() < 1e-9,
             "your own fire near you in the dark steadies the fight"
         );
+    }
+
+    #[test]
+    fn market_items_includes_stocked_registry_goods() {
+        use crate::model::good_id;
+        let mut app = app_in_first_settlement();
+        let amber = ItemType::Good(good_id("amber").unwrap());
+        app.sim.as_mut().unwrap().world.regions[0].settlements[0]
+            .goods_stock
+            .insert(amber, 3.0);
+        let items = app.market_items();
+        assert!(items.contains(&ItemType::Food), "core items still listed");
+        assert!(
+            items.contains(&amber),
+            "a stocked registry good appears on the shelf"
+        );
+        // A good with zero stock does not clutter the shelf.
+        let silk = ItemType::Good(good_id("silk").unwrap());
+        assert!(
+            !app.market_items().contains(&silk),
+            "unstocked goods stay off"
+        );
+    }
+
+    #[test]
+    fn windowed_market_input_buys_the_scrolled_row() {
+        use crate::model::good_id;
+        use crossterm::event::{KeyCode, KeyEvent};
+        let mut app = app_in_first_settlement();
+        let amber = ItemType::Good(good_id("amber").unwrap());
+        app.sim.as_mut().unwrap().world.regions[0].settlements[0]
+            .goods_stock
+            .insert(amber, 10.0);
+        // Plenty of coin.
+        app.player_start
+            .as_mut()
+            .unwrap()
+            .inventory
+            .add(ItemType::Coin, 9999);
+        let items = app.market_items();
+        let win = App::MARKET_WINDOW;
+        let max_scroll = items.len().saturating_sub(win);
+        // Scroll to amber's row; scroll clamps to max_scroll, so amber's
+        // visible position is idx - off — press that buy key, not always '1'.
+        let idx = items.iter().position(|&it| it == amber).unwrap();
+        let scroll = idx as u16;
+        let off = (scroll as usize).min(max_scroll);
+        let win_pos = idx - off;
+        assert!(win_pos < win, "amber falls within the visible window");
+        let key = (b'1' + win_pos as u8) as char;
+        let before = app.player_inventory().get(amber);
+        crate::ui::input::market::handle_market_input(
+            &mut app,
+            KeyEvent::from(KeyCode::Char(key)),
+            scroll,
+        );
+        assert!(
+            app.player_inventory().get(amber) > before,
+            "buy key '{key}' at scroll {scroll} buys the windowed row (amber)"
+        );
+    }
+
+    #[test]
+    fn market_renders_without_panic_over_the_full_shelf() {
+        use crate::model::good_id;
+        use ratatui::{backend::TestBackend, Terminal};
+        let mut app = app_in_first_settlement();
+        // Stock several registry goods so the shelf far exceeds the 6 keys —
+        // the old fixed-key render panicked here.
+        for slug in ["amber", "silk", "salt", "copper", "wine", "bread", "marble"] {
+            app.sim.as_mut().unwrap().world.regions[0].settlements[0]
+                .goods_stock
+                .insert(ItemType::Good(good_id(slug).unwrap()), 5.0);
+        }
+        let mut term = Terminal::new(TestBackend::new(80, 40)).unwrap();
+        for scroll in [0u16, 6, 20, 999] {
+            term.draw(|f| crate::ui::screens::market::draw_market_screen(f, &app, scroll))
+                .unwrap();
+        }
     }
 }
