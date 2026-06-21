@@ -578,7 +578,87 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
             output_count: 2,
             people: None,
         },
+        // Registry-good craft chains (#678 slice 3c): the player can work the
+        // long tail by hand, not only buy or forage it. Multi-step where the
+        // world's chains are — grain to flour to bread, ore to bronze, fleece
+        // to thread to linen.
+        CraftRecipe {
+            name: "Flour".into(),
+            inputs: vec![(rg("grain"), 3)],
+            output: rg("flour"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Bread".into(),
+            inputs: vec![(rg("flour"), 2)],
+            output: rg("bread"),
+            output_count: 3,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Bronze".into(),
+            inputs: vec![(rg("copper"), 2), (rg("tin"), 1)],
+            output: rg("bronze"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Thread".into(),
+            inputs: vec![(rg("wool"), 2)],
+            output: rg("thread"),
+            output_count: 3,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Linen".into(),
+            inputs: vec![(rg("thread"), 3)],
+            output: rg("linen"),
+            output_count: 1,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Rope".into(),
+            inputs: vec![(rg("hemp"), 3)],
+            output: rg("rope"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Candle".into(),
+            inputs: vec![(rg("tallow"), 2)],
+            output: rg("candle"),
+            output_count: 3,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Soap".into(),
+            inputs: vec![(rg("tallow"), 1), (rg("lime"), 1)],
+            output: rg("soap"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Mead".into(),
+            inputs: vec![(rg("honey"), 2)],
+            output: rg("mead"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Vinegar".into(),
+            inputs: vec![(rg("wine"), 1)],
+            output: rg("vinegar"),
+            output_count: 2,
+            people: None,
+        },
     ]
+}
+
+/// A registry trade good as an `ItemType`, by slug — for recipe tables. Every
+/// slug here is authored in `data/goods.ron`, so the lookup cannot miss.
+fn rg(slug: &str) -> ItemType {
+    ItemType::Good(crate::model::good_id(slug).expect("recipe names a known good"))
 }
 
 pub fn npc_combat_action(trust: f64, aggression: f64, seed: u64) -> CombatAction {
