@@ -2,6 +2,14 @@ use crate::model::{FestivalKind, PlayerPos, Settlement, Terrain};
 
 use super::*;
 
+/// House-plot scale (#676): one map tile is roughly a ~40 m plot, so an open
+/// tile is a minute or two's walk — not the old half-hour. At ~3 km/h effective
+/// overland pace that is about this many hours per open tile; rough ground costs
+/// proportionally more (terrain `travel_hours`), a laid trail less. Crossing a
+/// whole province then takes the real hours it should, and the per-hour body
+/// drain (hunger/thirst/energy) lands over those hours rather than per step.
+const HOURS_PER_OPEN_TILE: f64 = 0.0125;
+
 enum MoveResult {
     EdgeTransition {
         region_idx: usize,
@@ -712,16 +720,17 @@ impl App {
                 } else {
                     terrain.travel_hours()
                 };
-                // Finer tiles walk in half-hours: two open tiles to the
-                // hour. The fraction is owed to the clock and paid when it
-                // accumulates to whole hours.
+                // House-plot scale (#676): an open tile is a minute or two, not
+                // half an hour. The fraction is owed to the clock and paid when
+                // it accumulates to whole hours, so the per-hour body drain lands
+                // over a real journey's hours. Hostile country still drags.
                 let cost = (tile_hours as f64
-                    * 0.5
+                    * HOURS_PER_OPEN_TILE
                     * weather_mult
                     * companion_travel
                     * self.road_watch_mult()
-                    + bias_mod as f64 * 0.5)
-                    .max(0.25);
+                    + bias_mod as f64 * HOURS_PER_OPEN_TILE * 4.0)
+                    .max(HOURS_PER_OPEN_TILE * 0.5);
                 self.travel_debt += cost;
                 let whole = self.travel_debt.floor() as u32;
                 if whole > 0 {
@@ -766,16 +775,17 @@ impl App {
                 } else {
                     terrain.travel_hours()
                 };
-                // Finer tiles walk in half-hours: two open tiles to the
-                // hour. The fraction is owed to the clock and paid when it
-                // accumulates to whole hours.
+                // House-plot scale (#676): an open tile is a minute or two, not
+                // half an hour. The fraction is owed to the clock and paid when
+                // it accumulates to whole hours, so the per-hour body drain lands
+                // over a real journey's hours. Hostile country still drags.
                 let cost = (tile_hours as f64
-                    * 0.5
+                    * HOURS_PER_OPEN_TILE
                     * weather_mult
                     * companion_travel
                     * self.road_watch_mult()
-                    + bias_mod as f64 * 0.5)
-                    .max(0.25);
+                    + bias_mod as f64 * HOURS_PER_OPEN_TILE * 4.0)
+                    .max(HOURS_PER_OPEN_TILE * 0.5);
                 self.travel_debt += cost;
                 let whole = self.travel_debt.floor() as u32;
                 if whole > 0 {

@@ -21,16 +21,28 @@ truth: deep-world-history `population_scale_and_settlement_hierarchy.md`
     road. No hinterland, no town. Cut the road and the town starves.
   - *rain-shadow*: the dryness gradient is the population gradient.
 
-## 2. The map is a slice, not the continent
+## 2. One tile is a house-plot — uniform, everywhere (#676)
 
-One tile is roughly a house-plot. A region sector is therefore a *local*
-landscape — a stretch of valley, forest, or coast — and the playable map
-(a handful of sectors) is **one province** of Sorethel. The millions, the
-Sampa Crossing of 80,000, the Basin Leagues — these exist in the same world
-and reach the player as rumor, trade goods, caravans, chronicle entries,
-and canon place-names. The player province plausibly holds: many steadings
-and hamlets, villages along its waters, a town or few where rivers meet
-roads, and — on rich water with a real hinterland — at most one city.
+One map tile is roughly a **~40 m house-plot**: the same on the open road as
+inside a town, where a cottage is a few tiles with a yard and a town is real
+walled buildings on real streets. The scale is **uniform** — there is no
+separate "overland" tile that secretly stands for a day's march. A region
+sector (160×100 tiles) is therefore a **local landscape** of about **6.4 × 4
+km** — a stretch of valley, forest, or coast.
+
+Because the tile is a house-plot, **walking is walking**: an open tile is a
+minute or two (~`HOURS_PER_OPEN_TILE`, navigation.rs), so an open sector
+crosses in a couple of hours and a whole province (a handful of sectors) is a
+**half-day to a few days' walk** — the distance is real, not a per-tile time
+tax. The per-hour body drain (hunger, thirst, energy) therefore lands over a
+journey's true hours, and provisions matter over real distance.
+
+The playable map (a handful of sectors) is **one province** of Sorethel. The
+millions, the Sampa Crossing of 80,000, the Basin Leagues — these exist in the
+same world and reach the player as rumor, trade goods, caravans, chronicle
+entries, and canon place-names. The province plausibly holds: many steadings
+and hamlets, villages along its waters, a town or few where rivers meet roads,
+and — on rich water with a real hinterland — at most one city.
 
 ## 3. No authored sizes: carrying capacity
 
@@ -52,9 +64,9 @@ the canon gradient because it is computed from the same physics.
 district roofs ≈ population / 7 (one roof = one household). Footprints are
 sized from roofs, not tiers: a 200-soul hamlet is a handful of roofs; a
 5,000-soul town is ~700 roofs and rightly dominates its valley; a Tier-II
-city spans more than one sector. Sectors grow (and movement gains
-sub-hour steps: several tiles per hour on open land) so walking across a
-real town takes in-game hours — as it should.
+city spans more than one sector. With the house-plot scale (#676) walking a
+real town takes the in-game hours it should — tens to hundreds of tiles end
+to end — without distorting the clock.
 
 ## 5. Staging (versioned growth)
 
