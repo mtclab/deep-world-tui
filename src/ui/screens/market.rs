@@ -38,7 +38,17 @@ pub(crate) fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
 
     let inv = app.player_inventory();
     let coins = inv.get(crate::model::ItemType::Coin);
-    let items = crate::model::ItemType::tradeable_items();
+    // The full shelf can exceed the six keybindings, so show a window of it at
+    // `scroll` (#678 s2b): the 1-6 / a-f keys act on exactly these rows, the
+    // same window the input handler reads. Up/Down scroll the shelf.
+    let all_items = app.market_items();
+    let win = App::MARKET_WINDOW;
+    let max_scroll = all_items.len().saturating_sub(win);
+    let off = (scroll as usize).min(max_scroll);
+    let items: Vec<crate::model::ItemType> =
+        all_items[off..(off + win).min(all_items.len())].to_vec();
+    let more_below = off + win < all_items.len();
+    let more_above = off > 0;
     let buy_keys = ['1', '2', '3', '4', '5', '6'];
     let sell_keys = ['a', 'b', 'c', 'd', 'e', 'f'];
     let enclave = app.current_settlement().and_then(|s| s.enclave_people());
@@ -111,6 +121,18 @@ pub(crate) fn draw_market_screen(f: &mut Frame, app: &App, scroll: u16) {
             format!(" You have {} coins", coins),
             Style::default().fg(theme.warm_brown()),
         )));
+        if more_above || more_below {
+            let hint = match (more_above, more_below) {
+                (true, true) => " ↕ more wares above and below — Up/Down to scroll",
+                (false, true) => " ↓ more wares below — Down to scroll",
+                (true, false) => " ↑ more wares above — Up to scroll",
+                _ => "",
+            };
+            lines.push(Line::from(Span::styled(
+                hint.to_string(),
+                Style::default().fg(theme.dark_brown()),
+            )));
+        }
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             " Buy",
