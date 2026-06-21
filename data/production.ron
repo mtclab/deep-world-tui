@@ -1,0 +1,74 @@
+// Data-driven production for registry trade goods (#678 slice 3).
+//
+// Vec<ProductionRule>: which trades make which good, in what measure. The
+// living economy reads this each day; adding a good's producers is pure data.
+//   good:         registry slug (must exist in data/goods.ron)
+//   by:           [(profession, weight)] — head-count × weight contributions
+//   coastal_base: flat amount added only in coastal settlements (default 0)
+//   coastal_only: rule yields nothing inland (default false)
+//   richness:     yield scales with the region's wildness (default false)
+//
+// Professions are the `profession` roster (charts.ron), e.g. fisher, miner,
+// baker, weaver, dyer, herbalist, forager, herder, farmer, butcher, chandler,
+// scribe, perfumer, mason, rope-maker, brewer, beast-handler.
+[
+    // ── Salt & sea ────────────────────────────────────────────────────────
+    (good: "salt",        by: [("miner", 0.4)], coastal_base: 0.4),
+    (good: "salt-fish",   by: [("fisher", 0.5)]),
+    (good: "fish-sauce",  by: [("fisher", 0.2)], coastal_only: true),
+    (good: "canvas",      by: [("rope-maker", 0.2), ("weaver", 0.2)], coastal_only: true),
+
+    // ── Mine & quarry ───────────────────────────────────────────────────────
+    (good: "copper",      by: [("miner", 0.3)]),
+    (good: "tin",         by: [("miner", 0.15)]),
+    (good: "lead",        by: [("miner", 0.12)]),
+    (good: "marble",      by: [("mason", 0.3)]),
+    (good: "lime",        by: [("mason", 0.2)]),
+
+    // ── Field, mill & oven ──────────────────────────────────────────────────
+    (good: "grain",       by: [("farmer", 0.2)]),
+    (good: "flour",       by: [("baker", 0.3), ("miller", 0.5)]),
+    (good: "bread",       by: [("baker", 0.6)]),
+    (good: "honey",       by: [("farmer", 0.05), ("beekeeper", 0.6)]),
+    (good: "egg",         by: [("farmer", 0.15)]),
+
+    // ── Herd & dairy ────────────────────────────────────────────────────────
+    (good: "wool",        by: [("herder", 0.3)]),
+    (good: "cheese",      by: [("herder", 0.15)]),
+    (good: "butter",      by: [("herder", 0.1), ("farmer", 0.05)]),
+    (good: "tallow",      by: [("butcher", 0.3)]),
+    (good: "smoked-meat", by: [("butcher", 0.3)]),
+    (good: "sinew",       by: [("butcher", 0.1)], richness: true),
+
+    // ── Loom & vat ──────────────────────────────────────────────────────────
+    (good: "linen",       by: [("weaver", 0.3), ("dyer", 0.2)]),
+    (good: "felt",        by: [("weaver", 0.2)]),
+    (good: "rope",        by: [("rope-maker", 0.5)]),
+    (good: "dye-woad",    by: [("dyer", 0.4)]),
+    (good: "dye-madder",  by: [("dyer", 0.3)]),
+
+    // ── Drink ───────────────────────────────────────────────────────────────
+    (good: "wine",        by: [("brewer", 0.3), ("vintner", 0.6)]),
+    (good: "mead",        by: [("brewer", 0.2), ("beekeeper", 0.3)]),
+
+    // ── Light, fat & sundries (the chandler's bench) ──────────────────────────
+    (good: "candle",      by: [("chandler", 0.5)]),
+    (good: "soap",        by: [("chandler", 0.3)]),
+    (good: "lamp-oil",    by: [("chandler", 0.3)]),
+    (good: "beeswax",     by: [("beekeeper", 0.3), ("chandler", 0.1)]),
+
+    // ── Letters & temple ──────────────────────────────────────────────────────
+    (good: "parchment",   by: [("scribe", 0.3), ("archivist", 0.3)]),
+    (good: "ink",         by: [("scribe", 0.2)]),
+    (good: "incense",     by: [("perfumer", 0.5), ("priest", 0.1)]),
+
+    // ── Forage & physic ───────────────────────────────────────────────────────
+    (good: "willow-bark", by: [("herbalist", 0.3), ("forager", 0.3)]),
+    (good: "dried-fruit", by: [("forager", 0.2)]),
+    (good: "dried-thyme", by: [("forager", 0.15), ("herbalist", 0.1)]),
+
+    // ── Wood & wild ───────────────────────────────────────────────────────────
+    (good: "antler",      by: [("forager", 0.1), ("beast-handler", 0.1)], richness: true),
+    (good: "fur",         by: [("beast-handler", 0.2)], richness: true),
+    (good: "feather",     by: [("fisher", 0.05), ("forager", 0.05)]),
+]

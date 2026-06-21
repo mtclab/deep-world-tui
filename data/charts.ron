@@ -89,6 +89,8 @@ Charts(
             "caravan-master": 2, "archivist": 1, "astronomer": 1, "engineer": 2,
             "teacher": 2, "ferryman": 2, "well-digger": 2, "undertaker": 2,
             "chandler": 3, "perfumer": 1, "painter": 2, "engraver": 1,
+            // Food/drink crafts behind the deeper shelf (#678 s3).
+            "miller": 5, "beekeeper": 3, "vintner": 2,
         }),
         modifiers: [
             (when: People("sepat"),       mult: { "smith": 6.0, "miner": 4.0, "carpenter": 2.0, "farmer": 0.4 }),
