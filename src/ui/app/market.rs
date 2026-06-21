@@ -2183,12 +2183,95 @@ mod festival_tests {
             snow_fur < snow_bare,
             "fur warms against snow: {snow_fur} < {snow_bare}"
         );
-        // Heatwave: fur does nothing (the bake is borne in full).
+        // Heatwave: fur is no help — worse, it bakes you (overdressed, #690).
         let heat_bare = spend(Weather::Heatwave, false);
         let heat_fur = spend(Weather::Heatwave, true);
         assert!(
-            (heat_fur - heat_bare).abs() < 1e-9,
-            "fur does not help in a heatwave: {heat_fur} vs {heat_bare}"
+            heat_fur > heat_bare,
+            "heavy gear worsens a heatwave, not helps: {heat_fur} > {heat_bare}"
+        );
+    }
+
+    #[test]
+    fn heat_factor_shade_cools_and_heavy_gear_bakes() {
+        use crate::model::{good_id, ItemType, PlayerPos, Terrain};
+        let mk = || {
+            let mut a = App::new(7, load_charts().unwrap());
+            a.generate_player();
+            a.accept_player();
+            // Open ground, not a settlement: full sun.
+            a.player_pos = Some(PlayerPos {
+                region_idx: 0,
+                px: 5,
+                py: 5,
+            });
+            a.sim.as_mut().unwrap().world.regions[0]
+                .terrain
+                .set(5, 5, Terrain::Grass);
+            a
+        };
+        // Bare, in the open: full heat.
+        let open = mk();
+        assert!((open.heat_factor() - 1.0).abs() < 1e-9);
+
+        // In shade (a building floor): cooler.
+        let mut shaded = mk();
+        shaded.sim.as_mut().unwrap().world.regions[0]
+            .terrain
+            .set(5, 5, Terrain::Floor);
+        assert!(
+            shaded.heat_factor() < 1.0,
+            "shade cools: {}",
+            shaded.heat_factor()
+        );
+
+        // Overdressed (a coat) in the open: worse.
+        let mut coated = mk();
+        coated
+            .player_start
+            .as_mut()
+            .unwrap()
+            .inventory
+            .add(ItemType::Coat, 1);
+        assert!(
+            coated.heat_factor() > 1.0,
+            "heavy gear bakes: {}",
+            coated.heat_factor()
+        );
+        let _ = good_id("fur"); // fur path also counts as heavy
+    }
+
+    #[test]
+    fn hot_weather_pulls_extra_thirst() {
+        use crate::model::{PlayerPos, Terrain, Weather};
+        let spend_thirst = |weather: Weather| -> f64 {
+            let mut a = App::new(7, load_charts().unwrap());
+            a.generate_player();
+            a.accept_player();
+            a.player_pos = Some(PlayerPos {
+                region_idx: 0,
+                px: 5,
+                py: 5,
+            });
+            a.sim.as_mut().unwrap().world.regions[0]
+                .terrain
+                .set(5, 5, Terrain::Grass);
+            a.sim.as_mut().unwrap().world.regions[0].weather = weather;
+            a.vitals.thirst = 1.0;
+            // No water in pack, so the drain shows on the meter.
+            a.player_start
+                .as_mut()
+                .unwrap()
+                .inventory
+                .remove(crate::model::ItemType::Water, 999);
+            a.advance_clock(6);
+            1.0 - a.vitals.thirst
+        };
+        let clear = spend_thirst(Weather::Clear);
+        let heat = spend_thirst(Weather::Heatwave);
+        assert!(
+            heat > clear,
+            "a heatwave draws more thirst than clear sky: {heat} > {clear}"
         );
     }
 }

@@ -108,6 +108,50 @@ impl App {
         best
     }
 
+    /// Whether the player stands in shade (#690): inside a building (floor,
+    /// hearth, doorway) or among a settlement's walls and awnings. The sun's
+    /// bake is softened there.
+    pub(super) fn in_shade(&self) -> bool {
+        if self.player_on_settlement().is_some() {
+            return true;
+        }
+        let terrain = self.player_pos.and_then(|p| {
+            self.sim
+                .as_ref()
+                .and_then(|s| s.world.regions.get(p.region_idx))
+                .and_then(|r| r.terrain.get(p.px, p.py))
+        });
+        matches!(
+            terrain,
+            Some(Terrain::Floor | Terrain::Hearth | Terrain::Door | Terrain::House | Terrain::Wall)
+        )
+    }
+
+    /// How the heat bears on the player in hot weather (#690): the factor the
+    /// harsh (heat) drain is scaled by — lower is cooler. Shade (indoors or in a
+    /// town) cuts the sun; being still dressed in heavy winter gear (a coat or
+    /// fur) in the bake makes it worse. The mirror of `warmth_factor`: in the
+    /// cold you want layers, in the heat you want shade and to shed them.
+    pub(super) fn heat_factor(&self) -> f64 {
+        let mut f = 1.0;
+        if self.in_shade() {
+            f *= 0.6; // out of the sun
+        }
+        let heavy = self
+            .player_start
+            .as_ref()
+            .map(|ps| {
+                let owned = |it: ItemType| ps.inventory.has(it) && !ps.inventory.is_broken(it);
+                let fur = crate::model::good_id("fur").map(ItemType::Good);
+                owned(ItemType::Coat) || fur.is_some_and(owned)
+            })
+            .unwrap_or(false);
+        if heavy {
+            f *= 1.2; // overdressed for the weather
+        }
+        f
+    }
+
     pub fn advance_clock(&mut self, hours: u32) {
         let day_before = self.clock.day;
         let season = self.clock.season();
@@ -136,6 +180,9 @@ impl App {
         // Graded cold-gear (#689): the warmest worn piece sets the harsh-weather
         // factor; the piece that earns it is the one that wears down.
         let (coat_factor, warm_piece) = self.warmth_factor();
+        // Heat tells the other way (#690): in hot weather shade cools and heavy
+        // winter gear bakes you. Computed up front (immutable read).
+        let heat_f = self.heat_factor();
         // A declared hard winter bites deeper than an ordinary Frost (#417).
         let event_weather = self
             .current_world_event()
@@ -143,6 +190,7 @@ impl App {
             .unwrap_or(1.0);
         let mut weather_harsh = false;
         let mut cold_harsh = false;
+        let mut hot_now = false;
         let weather_mult = self
             .player_pos
             .map(|pos| {
@@ -150,12 +198,16 @@ impl App {
                 let raw = weather.need_decay_modifier();
                 let harsh_excess = (raw - 1.0).max(0.0);
                 weather_harsh = harsh_excess > 0.0;
-                // Warm clothing answers cold and wet, not heat (#689): a fur
-                // cloak does nothing against a heatwave (worse, in truth). Only a
-                // cold/wet harshness is softened by the warmth factor; the bake
-                // of a heatwave is borne in full.
+                // Warm clothing answers cold and wet, not heat (#689). In heat
+                // (#690) the factor is instead shade-and-dress: the heat_factor
+                // (shade cools, heavy gear bakes). Cold/wet uses the warmth.
                 cold_harsh = weather_harsh && !weather.is_hot();
-                let warmth = if weather.is_hot() { 1.0 } else { coat_factor };
+                hot_now = weather.is_hot();
+                let warmth = if weather.is_hot() {
+                    heat_f
+                } else {
+                    coat_factor
+                };
                 // Kukri's vow: the patient cold cannot wear the sworn (#457).
                 1.0 + harsh_excess
                     * warmth
@@ -183,6 +235,12 @@ impl App {
                 season,
                 illness_mult * weather_mult,
             );
+            // The dry heat draws you down (#690): hot weather pulls extra thirst
+            // beyond the ordinary, eased by shade and worsened by heavy gear (the
+            // heat_factor), so a heatwave or the deep desert is a water problem.
+            if hot_now {
+                self.vitals.thirst = (self.vitals.thirst - 0.03 * hours as f64 * heat_f).max(0.0);
+            }
             // Cold-gear earns its keep by wearing out: cold/wet harsh weather
             // frays the piece keeping you warm (#689) — heat does not, since the
             // gear isn't doing the work then.
