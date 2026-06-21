@@ -176,6 +176,10 @@ fn main() -> anyhow::Result<()> {
                 app.forage_herbs();
                 print_msg(&app);
             }
+            "drink" => {
+                app.drink_water();
+                print_msg(&app);
+            }
             "journey" => {
                 recorded.push(PlayerChoice::JourneyToCity);
                 app.journey_to_city();

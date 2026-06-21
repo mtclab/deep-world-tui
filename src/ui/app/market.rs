@@ -2274,4 +2274,47 @@ mod festival_tests {
             "a heatwave draws more thirst than clear sky: {heat} > {clear}"
         );
     }
+
+    #[test]
+    fn drinking_water_by_source() {
+        use crate::model::{PlayerPos, Terrain};
+        let mk = |here: Terrain, neighbor: Option<Terrain>| {
+            let mut a = App::new(7, load_charts().unwrap());
+            a.generate_player();
+            a.accept_player();
+            a.player_pos = Some(PlayerPos {
+                region_idx: 0,
+                px: 5,
+                py: 5,
+            });
+            let reg = &mut a.sim.as_mut().unwrap().world.regions[0];
+            reg.terrain.set(5, 5, here);
+            if let Some(t) = neighbor {
+                reg.terrain.set(6, 5, t);
+            }
+            a.vitals.thirst = 0.3;
+            a
+        };
+        // Fresh water (a lake/river tile) slakes you clean.
+        let mut fresh = mk(Terrain::Water, None);
+        fresh.drink_water();
+        assert!(fresh.vitals.thirst > 0.3, "fresh water slakes");
+
+        // The sea is salt — no slaking (it sharpens the craving).
+        let mut sea = mk(Terrain::Grass, Some(Terrain::Coast));
+        sea.drink_water();
+        assert!(sea.vitals.thirst <= 0.3, "salt sea does not slake");
+        assert!(sea.status_msg.as_deref().unwrap_or("").contains("salt"));
+
+        // The mire slakes but is not clean.
+        let mut mire = mk(Terrain::Grass, Some(Terrain::Swamp));
+        mire.drink_water();
+        assert!(mire.vitals.thirst > 0.3, "mire water slakes (riskily)");
+
+        // Dry ground: nothing to drink.
+        let mut dry = mk(Terrain::Grass, Some(Terrain::Grass));
+        dry.drink_water();
+        assert_eq!(dry.vitals.thirst, 0.3, "no water, no change");
+        assert!(dry.status_msg.as_deref().unwrap_or("").contains("No water"));
+    }
 }
