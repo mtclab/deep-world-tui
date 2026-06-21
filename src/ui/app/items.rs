@@ -926,4 +926,32 @@ mod tests {
         );
         assert!(wild_finds < 120, "but not every single forage");
     }
+
+    #[test]
+    fn a_player_can_craft_a_registry_good_chain() {
+        // #678 s3c: grain -> flour by hand. The player works the long tail.
+        use crate::charts::load::load_charts;
+        use crate::model::{craft_recipes, good_id, ItemType};
+        use crate::ui::app::App;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        let grain = ItemType::Good(good_id("grain").unwrap());
+        let flour = ItemType::Good(good_id("flour").unwrap());
+        app.player_start.as_mut().unwrap().inventory.add(grain, 6);
+        // craft_recipe indexes the people-filtered list (recipes gated to other
+        // peoples are dropped), so find Flour's position in that same view.
+        let pp = app.inter_people_bias.player_people;
+        let idx = craft_recipes()
+            .into_iter()
+            .filter(|r| r.people.is_none() || r.people == Some(pp))
+            .position(|r| r.name == "Flour")
+            .expect("a Flour recipe exists");
+        app.craft_recipe(idx);
+        assert!(
+            app.player_inventory().get(flour) > 0,
+            "grain crafts into flour"
+        );
+        assert!(app.player_inventory().get(grain) < 6, "the grain was spent");
+    }
 }
