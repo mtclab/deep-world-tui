@@ -112,6 +112,25 @@ impl App {
         }
     }
 
+    /// Wild registry goods a forager may turn up by terrain (#678 s3b): the
+    /// land's own bounty beyond plain herbs — berries and antler in the wood,
+    /// amber and shore-salt on the coast. Slugs in data/goods.ron.
+    fn wild_forage_goods(terrain: Terrain) -> &'static [&'static str] {
+        match terrain {
+            Terrain::Forest => &[
+                "dried-fruit",
+                "willow-bark",
+                "dried-thyme",
+                "antler",
+                "honey",
+            ],
+            Terrain::Swamp => &["willow-bark", "peat", "dried-fruit"],
+            Terrain::Coast => &["amber", "salt", "feather"],
+            Terrain::Grass | Terrain::Farmland => &["dried-thyme", "honey"],
+            _ => &[],
+        }
+    }
+
     /// Forage for medicine: range the ground for healing herbs, biome- and
     /// season-true. The deep wood and the mire give freely, the open country
     /// less, the cold and the sand almost nothing; Frost thins it everywhere,
@@ -188,12 +207,33 @@ impl App {
         if let Some(ref mut ps) = self.player_start {
             ps.inventory.add(ItemType::Herb, count);
         }
+        // The land's own bounty (#678 s3b): now and then a forager turns up a
+        // wild registry good — berries, antler, shore-amber. Fortune-leaned,
+        // deterministic, terrain-appropriate.
+        let mut wild_note = String::new();
+        let wild = Self::wild_forage_goods(terrain);
+        if !wild.is_empty() {
+            let roll = crate::rng::unit_from_hash(crate::rng::mix_u64(
+                self.seed ^ crate::rng::mix_u64(tick ^ 0x21D_F00D),
+            ));
+            if roll < self.fortune.tilt_good(0.18) {
+                let pick =
+                    crate::rng::mix_u64(self.seed ^ tick ^ 0x5AFE_60D5) as usize % wild.len();
+                if let Some(gid) = crate::model::good_id(wild[pick]) {
+                    let item = ItemType::Good(gid);
+                    if let Some(ref mut ps) = self.player_start {
+                        ps.inventory.add(item, 1);
+                    }
+                    wild_note = format!(" You also gather {}.", item.name());
+                }
+            }
+        }
         self.play_sound(crate::audio::SoundEvent::UiClick);
         self.status_msg = Some(if potent {
-            format!("You forage {count} herbs.{note}")
+            format!("You forage {count} herbs.{note}{wild_note}")
         } else {
             format!(
-                "You forage {count} herb{}.",
+                "You forage {count} herb{}.{wild_note}",
                 if count == 1 { "" } else { "s" }
             )
         });
@@ -831,5 +871,59 @@ mod tests {
                 "botch chance {p} out of (0,1) at fortune {v}"
             );
         }
+    }
+
+    #[test]
+    fn foraging_the_wild_sometimes_yields_a_registry_good() {
+        // #678 s3b: a forager on forageable ground now and then turns up a wild
+        // registry good (berries, antler, amber on the coast). Over many seeds
+        // at least some forages yield one, and only terrain-appropriate ones.
+        use crate::charts::load::load_charts;
+        use crate::model::{ItemType, PlayerPos, Terrain};
+        use crate::ui::app::App;
+        let mut wild_finds = 0;
+        for seed in 0..120u64 {
+            let mut app = App::new(seed, load_charts().unwrap());
+            app.generate_player();
+            app.accept_player();
+            app.player_pos = Some(PlayerPos {
+                region_idx: 0,
+                px: 5,
+                py: 5,
+            });
+            app.sim.as_mut().unwrap().world.regions[0]
+                .terrain
+                .set(5, 5, Terrain::Forest);
+            app.clock.hour = 10; // daylight
+            let before: u32 = app
+                .player_start
+                .as_ref()
+                .unwrap()
+                .inventory
+                .items
+                .iter()
+                .filter(|(it, _)| matches!(it, ItemType::Good(_)))
+                .map(|(_, q)| *q)
+                .sum();
+            app.forage_herbs();
+            let after: u32 = app
+                .player_start
+                .as_ref()
+                .unwrap()
+                .inventory
+                .items
+                .iter()
+                .filter(|(it, _)| matches!(it, ItemType::Good(_)))
+                .map(|(_, q)| *q)
+                .sum();
+            if after > before {
+                wild_finds += 1;
+            }
+        }
+        assert!(
+            wild_finds > 0,
+            "the wild yields registry goods to a forager"
+        );
+        assert!(wild_finds < 120, "but not every single forage");
     }
 }

@@ -85,4 +85,44 @@
     (slug: "bone-meal",   name: "Bone Meal",     price: 2,  tags: ["farming"]),
     (slug: "antler",      name: "Antler",        price: 6,  tags: ["craft", "trade"]),
     (slug: "fur",         name: "Fur Pelt",      price: 12, tags: ["luxury", "trade", "cold"]),
+
+    // ── Expansion toward the long tail (#678 s3b) ─────────────────────────
+    // More spices & condiments
+    (slug: "ginger",      name: "Ginger",        price: 14, tags: ["spice", "trade"]),
+    (slug: "clove",       name: "Cloves",        price: 28, tags: ["spice", "luxury"]),
+    (slug: "mustard",     name: "Mustard Seed",  price: 5,  tags: ["spice"]),
+    (slug: "vinegar",     name: "Vinegar",       price: 4,  tags: ["food", "preservative"]),
+    (slug: "olive-oil",   name: "Olive Oil",     price: 12, tags: ["food", "trade"]),
+    // More foods
+    (slug: "apple",       name: "Apples",        price: 2,  tags: ["food", "perishable"]),
+    (slug: "onion",       name: "Onions",        price: 1,  tags: ["food", "staple"]),
+    (slug: "turnip",      name: "Turnips",       price: 1,  tags: ["food", "staple"]),
+    (slug: "oats",        name: "Oats",          price: 2,  tags: ["food", "staple", "bulk"]),
+    (slug: "nuts",        name: "Hazelnuts",     price: 3,  tags: ["food", "forage"]),
+    (slug: "dried-mushroom", name: "Dried Mushrooms", price: 4, tags: ["food", "forage", "preserved"]),
+    // Gems & fine wares
+    (slug: "pearl",       name: "Pearl",         price: 50, tags: ["gem", "luxury", "coastal"]),
+    (slug: "garnet",      name: "Garnet",        price: 24, tags: ["gem", "luxury"]),
+    (slug: "jade",        name: "Jade",          price: 55, tags: ["gem", "luxury", "trade"]),
+    (slug: "ivory",       name: "Ivory",         price: 40, tags: ["luxury", "trade"]),
+    (slug: "glass-bead",  name: "Glass Beads",   price: 8,  tags: ["craft", "trade"]),
+    // Textiles & cordage
+    (slug: "thread",      name: "Spun Thread",   price: 3,  tags: ["textile", "fibre"]),
+    (slug: "hemp",        name: "Hemp",          price: 3,  tags: ["fibre", "bulk"]),
+    (slug: "fishing-net", name: "Fishing Net",   price: 7,  tags: ["craft", "coastal", "tool"]),
+    (slug: "sailcloth",   name: "Sailcloth",     price: 10, tags: ["textile", "coastal"]),
+    // Crafted hardware
+    (slug: "whetstone",   name: "Whetstone",     price: 3,  tags: ["craft", "tool"]),
+    (slug: "hinge",       name: "Iron Hinge",    price: 4,  tags: ["craft", "metal"]),
+    (slug: "lock",        name: "Lock and Key",  price: 9,  tags: ["craft", "metal"]),
+    (slug: "cartwheel",   name: "Cart Wheel",    price: 12, tags: ["craft", "wood"]),
+    (slug: "plough",      name: "Iron Plough",   price: 16, tags: ["craft", "metal", "farming"]),
+    (slug: "bell",        name: "Bronze Bell",   price: 20, tags: ["craft", "metal"]),
+    (slug: "comb",        name: "Bone Comb",     price: 2,  tags: ["craft"]),
+    (slug: "horn",        name: "Horn",          price: 3,  tags: ["craft", "trade"]),
+    // Medicines
+    (slug: "yarrow",      name: "Yarrow",        price: 4,  tags: ["medicine", "herb", "forage"]),
+    (slug: "comfrey",     name: "Comfrey",       price: 4,  tags: ["medicine", "herb"]),
+    (slug: "mint",        name: "Mint",          price: 3,  tags: ["medicine", "herb"]),
+    (slug: "chamomile",   name: "Chamomile",     price: 4,  tags: ["medicine", "herb"]),
 ]
