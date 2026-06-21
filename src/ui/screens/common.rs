@@ -142,6 +142,8 @@ pub(crate) fn role_glyph(profession: &str) -> (char, Color) {
         "trader" => ('$', Color::Rgb(230, 200, 90)),                // coin-gold
         "weaver" => ('w', Color::Rgb(200, 150, 200)),
         "carpenter" => ('c', Color::Rgb(190, 150, 100)),
+        "potter" => ('P', Color::Rgb(180, 120, 80)), // fired-clay
+        "brewer" => ('A', Color::Rgb(200, 150, 70)), // ale-amber
         "scribe" => ('s', Color::Rgb(180, 180, 220)),
         "priest" => ('p', Color::Rgb(220, 220, 160)),
         "guard" | "soldier" | "warden" => ('G', Color::Rgb(110, 150, 230)), // watch-blue

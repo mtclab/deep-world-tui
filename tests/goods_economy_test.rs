@@ -86,7 +86,7 @@ fn a_good_is_capped_not_unbounded() {
 fn a_working_town_holds_a_broad_goods_shelf() {
     // #671: the living economy reads the whole working town, not four trades.
     // After a fortnight a province should hold a goods shelf wider than the old
-    // {Iron, Tool, Cloth, Wood} — foresters, hunters, herders, tanners,
+    // {Iron, Tool, Cloth, Wood} — foresters, herders, beast-handlers,
     // herbalists, and healers all stocking their wares.
     use std::collections::BTreeSet;
     let charts = load_charts().expect("charts");
@@ -119,5 +119,36 @@ fn a_working_town_holds_a_broad_goods_shelf() {
     assert!(
         beyond_the_old_four.iter().any(|g| shelf.contains(*g)),
         "the new trades stock new goods, got: {shelf:?}"
+    );
+}
+
+#[test]
+fn the_settled_crafts_stock_the_deeper_shelf() {
+    // #671 slice 2: potters, brewers, and charcoal-burning foresters stock the
+    // new goods (Pottery, Ale, Charcoal) autonomously — somewhere across a few
+    // seeds a working province holds at least one of them.
+    use std::collections::BTreeSet;
+    let charts = load_charts().expect("charts");
+    let deeper = ["Pottery", "Ale", "Charcoal"];
+    let found = (0..6u64).any(|seed| {
+        let mut sim = SimState::new(seed, charts.clone());
+        for _ in 0..(24 * 14) {
+            sim.step();
+        }
+        let mut shelf: BTreeSet<String> = BTreeSet::new();
+        for region in &sim.world.regions {
+            for s in &region.settlements {
+                for (item, qty) in &s.goods_stock {
+                    if *qty > 0.0 {
+                        shelf.insert(format!("{item:?}"));
+                    }
+                }
+            }
+        }
+        deeper.iter().any(|g| shelf.contains(*g))
+    });
+    assert!(
+        found,
+        "the deeper shelf (Pottery/Ale/Charcoal) is stocked by the settled crafts"
     );
 }

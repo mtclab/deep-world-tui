@@ -94,6 +94,8 @@ pub fn profession_flavor(profession: &str) -> &'static str {
         "bard" => "I carry the songs. Memory set to melody.",
         "priest" => "I tend the sacred. The gods listen.",
         "carpenter" => "Wood and saw. I shape shelter from the forest.",
+        "potter" => "Clay and fire. I throw what the larder keeps its stores in.",
+        "brewer" => "Grain and patience. I mash what warms the long table.",
         _ => "I do what must be done.",
     }
 }
