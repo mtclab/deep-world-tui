@@ -81,3 +81,43 @@ fn a_good_is_capped_not_unbounded() {
         }
     }
 }
+
+#[test]
+fn a_working_town_holds_a_broad_goods_shelf() {
+    // #671: the living economy reads the whole working town, not four trades.
+    // After a fortnight a province should hold a goods shelf wider than the old
+    // {Iron, Tool, Cloth, Wood} — foresters, hunters, herders, tanners,
+    // herbalists, and healers all stocking their wares.
+    use std::collections::BTreeSet;
+    let charts = load_charts().expect("charts");
+    let mut sim = SimState::new(7, charts);
+    for _ in 0..(24 * 14) {
+        sim.step();
+    }
+    let mut shelf: BTreeSet<String> = BTreeSet::new();
+    for region in &sim.world.regions {
+        for s in &region.settlements {
+            for (item, qty) in &s.goods_stock {
+                if *qty > 0.0 {
+                    shelf.insert(format!("{item:?}"));
+                }
+            }
+        }
+    }
+    // The old economy could make at most four kinds; the working town makes
+    // more. Bar set below the full roster so it is not seed-brittle.
+    assert!(
+        shelf.len() >= 6,
+        "a working province holds a broad goods shelf, got {}: {:?}",
+        shelf.len(),
+        shelf
+    );
+    // And at least one good from beyond the old four turns up.
+    let beyond_the_old_four = [
+        "Hide", "Leather", "Herb", "Branches", "Stone", "Salve", "Bandage", "Nails",
+    ];
+    assert!(
+        beyond_the_old_four.iter().any(|g| shelf.contains(*g)),
+        "the new trades stock new goods, got: {shelf:?}"
+    );
+}
