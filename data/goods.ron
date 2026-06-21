@@ -1,0 +1,88 @@
+// Trade-goods registry (#678) — the long tail of the economy, in data.
+//
+// Format: Vec<GoodDef> where GoodDef = (slug, name, price, tags).
+//   - slug:  stable id a save stores; never reuse a slug for a different good.
+//   - price: base coin value before market lean.
+//   - tags:  grouping/colour/future-production hints (free-form).
+//
+// The ~25 core ItemType variants (Food, Tool, Iron, ...) are NOT here — they
+// carry code behaviour. Everything here is bought/carried/priced/sold through
+// the generic Good(GoodId) path. Grow this file freely; thousands are fine.
+[
+    // ── Spices & seasonings ───────────────────────────────────────────────
+    (slug: "salt",        name: "Salt",          price: 4,  tags: ["preservative", "staple", "trade"]),
+    (slug: "saffron",     name: "Saffron",       price: 40, tags: ["spice", "luxury"]),
+    (slug: "pepper",      name: "Black Pepper",  price: 18, tags: ["spice", "trade"]),
+    (slug: "cumin",       name: "Cumin",         price: 9,  tags: ["spice"]),
+    (slug: "dried-thyme", name: "Dried Thyme",   price: 5,  tags: ["spice", "herb"]),
+    (slug: "honey",       name: "Honey",         price: 8,  tags: ["food", "sweetener"]),
+    (slug: "fish-sauce",  name: "Fish Sauce",    price: 6,  tags: ["food", "coastal"]),
+
+    // ── Foodstuffs (beyond the abstract Food) ─────────────────────────────
+    (slug: "grain",       name: "Grain",         price: 2,  tags: ["food", "staple", "bulk"]),
+    (slug: "flour",       name: "Flour",         price: 3,  tags: ["food", "milled"]),
+    (slug: "bread",       name: "Bread",         price: 3,  tags: ["food", "perishable"]),
+    (slug: "cheese",      name: "Cheese",        price: 6,  tags: ["food", "dairy"]),
+    (slug: "salt-fish",   name: "Salt Fish",     price: 5,  tags: ["food", "preserved", "coastal"]),
+    (slug: "smoked-meat", name: "Smoked Meat",   price: 7,  tags: ["food", "preserved"]),
+    (slug: "dried-fruit", name: "Dried Fruit",   price: 6,  tags: ["food", "preserved"]),
+    (slug: "wine",        name: "Wine",          price: 10, tags: ["drink", "luxury"]),
+    (slug: "mead",        name: "Mead",          price: 6,  tags: ["drink"]),
+    (slug: "tea-leaf",    name: "Tea Leaf",      price: 12, tags: ["drink", "trade"]),
+
+    // ── Textiles & fibres ─────────────────────────────────────────────────
+    (slug: "wool",        name: "Raw Wool",      price: 4,  tags: ["fibre", "textile"]),
+    (slug: "linen",       name: "Linen Cloth",   price: 7,  tags: ["textile"]),
+    (slug: "felt",        name: "Felt",          price: 5,  tags: ["textile"]),
+    (slug: "silk",        name: "Silk",          price: 45, tags: ["textile", "luxury", "trade"]),
+    (slug: "rope",        name: "Rope",          price: 3,  tags: ["fibre", "tool"]),
+    (slug: "canvas",      name: "Canvas",        price: 6,  tags: ["textile", "coastal"]),
+    (slug: "dye-woad",    name: "Woad Dye",      price: 9,  tags: ["dye"]),
+    (slug: "dye-madder",  name: "Madder Dye",    price: 9,  tags: ["dye"]),
+
+    // ── Metals, stone & raw materials ─────────────────────────────────────
+    (slug: "copper",      name: "Copper",        price: 9,  tags: ["metal", "trade"]),
+    (slug: "tin",         name: "Tin",           price: 11, tags: ["metal", "trade"]),
+    (slug: "bronze",      name: "Bronze",        price: 14, tags: ["metal"]),
+    (slug: "silver",      name: "Silver",        price: 30, tags: ["metal", "luxury"]),
+    (slug: "gold",        name: "Gold",          price: 80, tags: ["metal", "luxury"]),
+    (slug: "lead",        name: "Lead",          price: 5,  tags: ["metal"]),
+    (slug: "amber",       name: "Amber",         price: 22, tags: ["gem", "luxury", "trade"]),
+    (slug: "marble",      name: "Marble",        price: 16, tags: ["stone", "building"]),
+    (slug: "lime",        name: "Quicklime",     price: 3,  tags: ["building"]),
+    (slug: "pitch",       name: "Pitch",         price: 4,  tags: ["building", "coastal"]),
+    (slug: "peat",        name: "Peat",          price: 1,  tags: ["fuel", "bulk"]),
+
+    // ── Crafted wares ─────────────────────────────────────────────────────
+    (slug: "candle",      name: "Tallow Candle", price: 2,  tags: ["craft", "light"]),
+    (slug: "lamp-oil",    name: "Lamp Oil",      price: 5,  tags: ["light", "fuel"]),
+    (slug: "soap",        name: "Soap",          price: 4,  tags: ["craft"]),
+    (slug: "barrel",      name: "Barrel",        price: 6,  tags: ["craft", "container"]),
+    (slug: "basket",      name: "Basket",        price: 2,  tags: ["craft", "container"]),
+    (slug: "parchment",   name: "Parchment",     price: 8,  tags: ["craft", "scribe"]),
+    (slug: "ink",         name: "Ink",           price: 6,  tags: ["craft", "scribe"]),
+    (slug: "needle",      name: "Bone Needle",   price: 2,  tags: ["craft", "tool"]),
+    (slug: "fishhook",    name: "Fish Hook",     price: 2,  tags: ["craft", "tool", "coastal"]),
+    (slug: "horseshoe",   name: "Horseshoe",     price: 4,  tags: ["craft", "metal"]),
+    (slug: "knife",       name: "Knife",         price: 5,  tags: ["craft", "tool"]),
+    (slug: "cookpot",     name: "Cook Pot",      price: 7,  tags: ["craft", "metal"]),
+    (slug: "mirror",      name: "Polished Mirror", price: 26, tags: ["craft", "luxury"]),
+    (slug: "lantern",     name: "Horn Lantern",  price: 9,  tags: ["craft", "light"]),
+
+    // ── Medicines & sundries ──────────────────────────────────────────────
+    (slug: "willow-bark", name: "Willow Bark",   price: 4,  tags: ["medicine", "herb"]),
+    (slug: "poultice",    name: "Poultice",      price: 5,  tags: ["medicine"]),
+    (slug: "incense",     name: "Incense",       price: 12, tags: ["luxury", "temple"]),
+    (slug: "beeswax",     name: "Beeswax",       price: 5,  tags: ["craft"]),
+    (slug: "tallow",      name: "Tallow",        price: 2,  tags: ["fat", "fuel"]),
+    (slug: "charcloth",   name: "Char Cloth",    price: 1,  tags: ["fire"]),
+
+    // ── Livestock & animal goods ──────────────────────────────────────────
+    (slug: "egg",         name: "Eggs",          price: 1,  tags: ["food", "perishable"]),
+    (slug: "butter",      name: "Butter",        price: 4,  tags: ["food", "dairy"]),
+    (slug: "feather",     name: "Down Feathers", price: 3,  tags: ["craft"]),
+    (slug: "sinew",       name: "Sinew",         price: 2,  tags: ["craft", "fibre"]),
+    (slug: "bone-meal",   name: "Bone Meal",     price: 2,  tags: ["farming"]),
+    (slug: "antler",      name: "Antler",        price: 6,  tags: ["craft", "trade"]),
+    (slug: "fur",         name: "Fur Pelt",      price: 12, tags: ["luxury", "trade", "cold"]),
+]

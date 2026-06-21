@@ -127,6 +127,11 @@ pub enum ItemType {
     /// Ale, brewed from grain and bittered with herb. The tavern's comfort and
     /// a keeping-store of a good harvest.
     Ale,
+    /// A data-defined trade good (#678): the long tail of the economy — salt,
+    /// amber, silk, lamp-oil, the thousand wares a civilization moves that need
+    /// no special code behaviour. Bought, carried, priced, and sold through this
+    /// one variant; defined in `data/goods.ron`. Serialises as a stable slug.
+    Good(crate::model::goods::GoodId),
 }
 
 impl ItemType {
@@ -157,6 +162,7 @@ impl ItemType {
             ItemType::Pottery => "Pottery",
             ItemType::Charcoal => "Charcoal",
             ItemType::Ale => "Ale",
+            ItemType::Good(g) => g.name(),
         }
     }
 
@@ -187,6 +193,7 @@ impl ItemType {
             ItemType::Pottery => 7,
             ItemType::Charcoal => 3,
             ItemType::Ale => 4,
+            ItemType::Good(g) => g.price(),
         }
     }
 
@@ -2885,5 +2892,42 @@ mod tests {
             (split.openness() - 1.0).abs() < 0.2,
             "a near-tie is middling"
         );
+    }
+}
+
+#[cfg(test)]
+mod good_item_tests {
+    use super::*;
+    use crate::model::goods::good_id;
+
+    #[test]
+    fn a_good_item_has_name_and_price_from_the_registry() {
+        let salt = ItemType::Good(good_id("salt").unwrap());
+        assert_eq!(salt.name(), "Salt");
+        assert_eq!(salt.base_price(), 4);
+        let silk = ItemType::Good(good_id("silk").unwrap());
+        assert!(
+            silk.base_price() > salt.base_price(),
+            "silk dearer than salt"
+        );
+    }
+
+    #[test]
+    fn inventory_with_goods_round_trips_and_old_saves_still_load() {
+        let mut inv = Inventory::default();
+        inv.add(ItemType::Food, 3); // core item
+        inv.add(ItemType::Good(good_id("amber").unwrap()), 2);
+        inv.add(ItemType::Good(good_id("salt").unwrap()), 5);
+        let ron = ron::ser::to_string(&inv).unwrap();
+        // Goods serialise as slugs, core items as bare idents.
+        assert!(ron.contains("Good(\"amber\")"), "good as slug key: {ron}");
+        assert!(ron.contains("Food:3"), "core item unchanged: {ron}");
+        let back: Inventory = ron::from_str(&ron).unwrap();
+        assert_eq!(inv, back);
+        // An old save (core variants only, no goods) still parses unchanged.
+        let old: Inventory =
+            ron::from_str("(items:{Food:9,Tool:1},coins:7,durability:{})").unwrap();
+        assert_eq!(old.get(ItemType::Food), 9);
+        assert_eq!(old.coins, 7);
     }
 }
