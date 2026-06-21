@@ -64,6 +64,7 @@ pub(crate) fn draw_help_screen(f: &mut Frame, app: &App) {
         Line::from("   (walk into NPC)  Talk (then t for voice lines)"),
         Line::from("   t                Tend your sickness (herb/salve/bandage)"),
         Line::from("   d                Darn/mend your most-worn gear (self if you have the craft, else a town craftsman)"),
+        Line::from("   e                Drink from nearby water (well/river slakes; sea is salt; mire risks fever)"),
         Line::from("   i                Inventory"),
         Line::from("   c                Craft"),
         Line::from("   m                Market (buy/sell)"),

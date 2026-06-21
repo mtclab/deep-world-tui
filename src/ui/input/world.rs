@@ -81,6 +81,11 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
             // have the craft, else it names the craftsman to seek in a town.
             app.mend_worst();
         }
+        KeyCode::Char('e') => {
+            // Drink from water within reach (#691): a well or river slakes clean;
+            // the sea is salt; the mire is risky.
+            app.drink_water();
+        }
         KeyCode::Char('b') => {
             app.start_build();
         }

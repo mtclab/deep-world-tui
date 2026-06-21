@@ -221,6 +221,73 @@ impl App {
     }
 
     /// Forage for medicine: range the ground for healing herbs, biome- and
+    /// Drink from water within reach (#691b): a well or a river/lake slakes you
+    /// clean and free; the deep desert's real danger is that there is none. The
+    /// sea is salt and will not slake (it worsens the thirst); mire water slakes
+    /// but is not clean — bad water risks a fever, fortune-leaned. Ties the new
+    /// heat/desert thirst pressure to the map: find fresh water, or carry it.
+    pub fn drink_water(&mut self) {
+        use crate::model::Terrain;
+        let pos = match self.player_pos {
+            Some(p) => p,
+            None => return,
+        };
+        // Scan the player's tile and its eight neighbours for a water source.
+        let mut fresh = self.own_structure_near(crate::sim::structures::BuildKind::Well, 1);
+        let mut salt = false;
+        let mut mire = false;
+        if let Some(region) = self
+            .sim
+            .as_ref()
+            .and_then(|s| s.world.regions.get(pos.region_idx))
+        {
+            for dy in -1i32..=1 {
+                for dx in -1i32..=1 {
+                    let (x, y) = (pos.px as i32 + dx, pos.py as i32 + dy);
+                    if x < 0 || y < 0 {
+                        continue;
+                    }
+                    match region.terrain.get(x as usize, y as usize) {
+                        Some(Terrain::Water) => fresh = true,
+                        Some(Terrain::Coast) => salt = true,
+                        Some(Terrain::Swamp) => mire = true,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        if fresh {
+            self.vitals.thirst = (self.vitals.thirst + 0.5).min(1.0);
+            self.status_msg = Some("You drink your fill of clear water. (thirst eased)".into());
+            self.play_sound(crate::audio::SoundEvent::UiClick);
+            return;
+        }
+        if mire {
+            self.vitals.thirst = (self.vitals.thirst + 0.4).min(1.0);
+            // Bad water: a fortune-leaned chance the mire gets into you.
+            let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+            let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0x0BAD_0EA0));
+            if crate::rng::unit_from_hash(h) < self.fortune.tilt_bad(0.22) {
+                self.afflict(
+                    crate::model::Disease::MarshFever,
+                    "I drank from the mire when there was nothing else. By night a shiver and a \
+                     griping — the water, of course.",
+                );
+            }
+            self.status_msg =
+                Some("You drink from the mire — it slakes you, but the water is not clean.".into());
+            return;
+        }
+        if salt {
+            // Seawater draws you drier, not wetter.
+            self.vitals.thirst = (self.vitals.thirst - 0.02).max(0.0);
+            self.status_msg =
+                Some("The sea is salt — it will not slake you, and the craving sharpens.".into());
+            return;
+        }
+        self.status_msg = Some("No water within reach to drink.".into());
+    }
+
     /// season-true. The deep wood and the mire give freely, the open country
     /// less, the cold and the sand almost nothing; Frost thins it everywhere,
     /// a storm thins it more. Luck leans the haul, and now and then turns up a
