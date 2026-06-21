@@ -533,6 +533,8 @@ fn tick_settlement_life(sim: &mut SimState) {
                 let herbalists = pc("herbalist");
                 let healers = pc("healer");
                 let masons = pc("labourer") * 0.5 + pc("fence-builder");
+                let potters = pc("potter");
+                let brewers = pc("brewer");
                 let cap = settlement.population as f64 * 0.5;
                 // The crafts make less in deep Frost, a touch more in high
                 // Green (#570): the year drives the goods economy, not only the
@@ -573,6 +575,12 @@ fn tick_settlement_life(sim: &mut SimState) {
                         (herbalists * 0.3 + healers * 0.2) * scale * prod,
                     ),
                     (ItemType::Bandage, healers * 0.3 * scale * prod),
+                    // The settled crafts of a deeper shelf (#671 slice 2): the
+                    // potter fires Pottery, the brewer mashes Ale, and the
+                    // foresters burn a little Charcoal off the wood they fell.
+                    (ItemType::Pottery, potters * 0.4 * scale * prod),
+                    (ItemType::Ale, brewers * 0.4 * scale * prod),
+                    (ItemType::Charcoal, foresters * 0.2 * scale * prod),
                 ];
                 for (item, amount) in made {
                     // Daily upkeep: the town spends a little of each good it

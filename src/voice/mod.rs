@@ -153,6 +153,7 @@ fn profession_flavor(profession: &str) -> &'static str {
         "scholar" => "page-worn",
         "carpenter" => "shave-pale",
         "potter" => "clay-stained",
+        "brewer" => "malt-scented",
         "hunter" => "trail-quiet",
         "baker" => "flour-dusted",
         "guard" => "armor-weary",

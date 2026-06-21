@@ -115,6 +115,18 @@ pub enum ItemType {
     /// A herb poultice: applied at rest, it speeds an infection or venom
     /// through its course faster than a plain bandage.
     Salve,
+    /// Riverbank and shore clay, dug raw. The potter's stock — fired into
+    /// pottery (#671).
+    Clay,
+    /// Fired earthenware: jars, crocks, bowls. The vessels a settled people
+    /// store and carry their stores in; trades well.
+    Pottery,
+    /// Charcoal, burnt down from wood in a slow mound. The hot, clean fuel a
+    /// forge wants and a cold hearth is glad of.
+    Charcoal,
+    /// Ale, brewed from grain and bittered with herb. The tavern's comfort and
+    /// a keeping-store of a good harvest.
+    Ale,
 }
 
 impl ItemType {
@@ -141,6 +153,10 @@ impl ItemType {
             ItemType::Leather => "Leather",
             ItemType::Coat => "Coat",
             ItemType::Salve => "Salve",
+            ItemType::Clay => "Clay",
+            ItemType::Pottery => "Pottery",
+            ItemType::Charcoal => "Charcoal",
+            ItemType::Ale => "Ale",
         }
     }
 
@@ -167,6 +183,10 @@ impl ItemType {
             ItemType::Leather => 9,
             ItemType::Coat => 18,
             ItemType::Salve => 6,
+            ItemType::Clay => 2,
+            ItemType::Pottery => 7,
+            ItemType::Charcoal => 3,
+            ItemType::Ale => 4,
         }
     }
 
@@ -196,6 +216,10 @@ impl ItemType {
             ItemType::Leather,
             ItemType::Coat,
             ItemType::Salve,
+            ItemType::Clay,
+            ItemType::Pottery,
+            ItemType::Charcoal,
+            ItemType::Ale,
         ]
     }
 
@@ -207,7 +231,10 @@ impl ItemType {
             Terrain::House | Terrain::Wall | Terrain::Floor | Terrain::Door | Terrain::Hearth => {
                 None
             }
-            Terrain::Coast | Terrain::Water => Some(ItemType::Water),
+            // Shore and riverbank clay is dug along the coast (#671); open
+            // water still gives only water to drink.
+            Terrain::Coast => Some(ItemType::Clay),
+            Terrain::Water => Some(ItemType::Water),
             Terrain::Mountain => Some(ItemType::Stone),
             Terrain::Swamp => Some(ItemType::Branches),
             Terrain::Sand | Terrain::DeepDesert => Some(ItemType::Tinder),
@@ -517,6 +544,32 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
             output: ItemType::Glass,
             output_count: 1,
             people: Some(PeopleKind::Merak),
+        },
+        // New chains for a deeper shelf (#671 slice 2): a settled people fires
+        // clay into pots, burns wood to charcoal, brews grain into ale.
+        CraftRecipe {
+            // Clay thrown and fired — the jars and crocks a larder needs.
+            name: "Pottery".into(),
+            inputs: vec![(ItemType::Clay, 3)],
+            output: ItemType::Pottery,
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            // Wood banked under turf and burnt slow — the forge's clean fuel.
+            name: "Charcoal".into(),
+            inputs: vec![(ItemType::Wood, 3)],
+            output: ItemType::Charcoal,
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            // Grain mashed and bittered with herb — the tavern's comfort.
+            name: "Ale".into(),
+            inputs: vec![(ItemType::Food, 2), (ItemType::Herb, 1)],
+            output: ItemType::Ale,
+            output_count: 2,
+            people: None,
         },
     ]
 }
@@ -1896,6 +1949,10 @@ mod tests {
 
         assert_eq!(ItemType::gather_from(Terrain::Water), Some(ItemType::Water));
 
+        // The coast gives clay now (#671 slice 2), not water; open water still
+        // gives water to drink.
+        assert_eq!(ItemType::gather_from(Terrain::Coast), Some(ItemType::Clay));
+
         assert_eq!(
             ItemType::gather_from(Terrain::Swamp),
             Some(ItemType::Branches)
@@ -1921,9 +1978,10 @@ mod tests {
 
         assert!(!items.contains(&ItemType::Coin));
 
-        // 20 = all item kinds minus Coin (Tool/Bandage/Trap added with #310,
-        // Hide with #413, Leather/Coat/Salve with #414).
-        assert_eq!(items.len(), 20);
+        // 24 = all item kinds minus Coin (Tool/Bandage/Trap added with #310,
+        // Hide with #413, Leather/Coat/Salve with #414, Clay/Pottery/Charcoal/
+        // Ale with #671).
+        assert_eq!(items.len(), 24);
     }
 
     #[test]
