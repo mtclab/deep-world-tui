@@ -2149,4 +2149,46 @@ mod festival_tests {
             "a broken coat does not warm"
         );
     }
+
+    #[test]
+    fn warmth_helps_in_cold_not_in_heat() {
+        use crate::model::{good_id, ItemType, PlayerPos, Weather};
+        // Energy spent over harsh-weather hours, optionally wearing fur, in a
+        // region of the given weather. Same seed both runs — only the fur differs.
+        let spend = |weather: Weather, fur: bool| -> f64 {
+            let mut a = App::new(7, load_charts().unwrap());
+            a.generate_player();
+            a.accept_player();
+            a.player_pos = Some(PlayerPos {
+                region_idx: 0,
+                px: 5,
+                py: 5,
+            });
+            a.sim.as_mut().unwrap().world.regions[0].weather = weather;
+            a.vitals.energy = 1.0;
+            if fur {
+                a.player_start
+                    .as_mut()
+                    .unwrap()
+                    .inventory
+                    .add(ItemType::Good(good_id("fur").unwrap()), 1);
+            }
+            a.advance_clock(6);
+            1.0 - a.vitals.energy
+        };
+        // Snow: fur softens the drain.
+        let snow_bare = spend(Weather::Snow, false);
+        let snow_fur = spend(Weather::Snow, true);
+        assert!(
+            snow_fur < snow_bare,
+            "fur warms against snow: {snow_fur} < {snow_bare}"
+        );
+        // Heatwave: fur does nothing (the bake is borne in full).
+        let heat_bare = spend(Weather::Heatwave, false);
+        let heat_fur = spend(Weather::Heatwave, true);
+        assert!(
+            (heat_fur - heat_bare).abs() < 1e-9,
+            "fur does not help in a heatwave: {heat_fur} vs {heat_bare}"
+        );
+    }
 }

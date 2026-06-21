@@ -142,15 +142,23 @@ impl App {
             .map(|e| e.weather_decay_modifier())
             .unwrap_or(1.0);
         let mut weather_harsh = false;
+        let mut cold_harsh = false;
         let weather_mult = self
             .player_pos
             .map(|pos| {
-                let raw = self.region_weather(pos.region_idx).need_decay_modifier();
+                let weather = self.region_weather(pos.region_idx);
+                let raw = weather.need_decay_modifier();
                 let harsh_excess = (raw - 1.0).max(0.0);
                 weather_harsh = harsh_excess > 0.0;
+                // Warm clothing answers cold and wet, not heat (#689): a fur
+                // cloak does nothing against a heatwave (worse, in truth). Only a
+                // cold/wet harshness is softened by the warmth factor; the bake
+                // of a heatwave is borne in full.
+                cold_harsh = weather_harsh && !weather.is_hot();
+                let warmth = if weather.is_hot() { 1.0 } else { coat_factor };
                 // Kukri's vow: the patient cold cannot wear the sworn (#457).
                 1.0 + harsh_excess
-                    * coat_factor
+                    * warmth
                     * event_weather
                     * self.fortune.bad_multiplier()
                     * self.vow_weather_mult()
@@ -175,9 +183,10 @@ impl App {
                 season,
                 illness_mult * weather_mult,
             );
-            // Cold-gear earns its keep by wearing out: harsh weather frays the
-            // piece that's keeping you warm (#689).
-            if weather_harsh {
+            // Cold-gear earns its keep by wearing out: cold/wet harsh weather
+            // frays the piece keeping you warm (#689) — heat does not, since the
+            // gear isn't doing the work then.
+            if cold_harsh {
                 if let Some(piece) = warm_piece {
                     ps.inventory.decay(piece, 0.02 * hours as f64);
                 }

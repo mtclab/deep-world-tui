@@ -364,6 +364,14 @@ impl Weather {
         }
     }
 
+    /// Whether this weather's harshness is heat, not cold/wet (#688/#689): a
+    /// heatwave or dry-lightning bakes rather than chills. Warm clothing does
+    /// not help against it (and a fur cloak would only make it worse) — so
+    /// cold-gear's warmth factor must not apply to these.
+    pub fn is_hot(self) -> bool {
+        matches!(self, Weather::Heatwave | Weather::DryLightning)
+    }
+
     pub fn need_decay_modifier(self) -> f64 {
         match self {
             Weather::Clear => 1.0,
