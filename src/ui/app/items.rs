@@ -97,6 +97,95 @@ pub(crate) fn craft_quality(
     }
 }
 
+/// What a worn thing is made of, for mending (#685 slice C). Each material has
+/// the trades that can work it (by hand, with the stuff and a tool) and the
+/// town craftsman you take it to otherwise. Mending is not only the smith's —
+/// a gambeson is the tailor's, a boot the tanner's, a cart-wheel the
+/// carpenter's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MendCraft {
+    Metal,
+    Stone,
+    Cloth,
+    Leather,
+    Wood,
+}
+
+impl MendCraft {
+    /// Which material a worn item is mended as, if it can be mended at all.
+    fn of(item: ItemType) -> Option<MendCraft> {
+        use ItemType::*;
+        match item {
+            Tool | Iron | Nails | Trap | Glass => Some(MendCraft::Metal),
+            Stone => Some(MendCraft::Stone),
+            // A coat (leather-and-cloth garment, the gambeson's kin), plain
+            // cloth, and woven goods are the tailor's and weaver's.
+            Cloth | Coat => Some(MendCraft::Cloth),
+            Leather | Hide => Some(MendCraft::Leather),
+            Wood | Branches | Thatch | Cordage => Some(MendCraft::Wood),
+            Good(g) => {
+                if g.has_tag("metal") {
+                    Some(MendCraft::Metal)
+                } else if g.has_tag("stone") || g.has_tag("building") {
+                    Some(MendCraft::Stone)
+                } else if g.has_tag("textile") || g.has_tag("fibre") {
+                    Some(MendCraft::Cloth)
+                } else if g.has_tag("wood") {
+                    Some(MendCraft::Wood)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// The professions that work this material (can mend it by their own hand).
+    fn professions(self) -> &'static [&'static str] {
+        match self {
+            MendCraft::Metal => &["smith", "blacksmith"],
+            MendCraft::Stone => &["mason"],
+            // The clothworkers: a weaver or dyer mends cloth, a tanner the
+            // leather panels of a gambeson.
+            MendCraft::Cloth => &["weaver", "dyer", "tanner", "tailor"],
+            MendCraft::Leather => &["tanner", "cobbler"],
+            MendCraft::Wood => &["carpenter", "rope-maker"],
+        }
+    }
+
+    /// A craft-sense (gift or learned) that lets you work this material.
+    fn sense(self) -> Option<crate::model::CraftSense> {
+        use crate::model::CraftSense::*;
+        match self {
+            MendCraft::Metal | MendCraft::Stone => Some(IronEar),
+            MendCraft::Wood => Some(RootEye),
+            MendCraft::Cloth | MendCraft::Leather => None,
+        }
+    }
+
+    /// The stuff a mend consumes — a patch of the same kind.
+    fn material(self) -> ItemType {
+        match self {
+            MendCraft::Metal => ItemType::Iron,
+            MendCraft::Stone => ItemType::Stone,
+            MendCraft::Cloth => ItemType::Cloth,
+            MendCraft::Leather => ItemType::Leather,
+            MendCraft::Wood => ItemType::Wood,
+        }
+    }
+
+    /// Who in a town mends this, when you cannot yourself.
+    fn town_craftsman(self) -> &'static str {
+        match self {
+            MendCraft::Metal => "smith",
+            MendCraft::Stone => "mason",
+            MendCraft::Cloth => "tailor",
+            MendCraft::Leather => "tanner",
+            MendCraft::Wood => "carpenter",
+        }
+    }
+}
+
 impl App {
     /// How rich the ground is in medicinal plants — the supply half of
     /// herbalism (#456). Real boreal physic comes from the deep wood and the
@@ -807,6 +896,171 @@ impl App {
         }
         self.status_msg = Some(format!("Took {} {} from the {}.", n, item.name(), label));
     }
+
+    /// Whether the player can mend this material by their own hand (#685 s3c):
+    /// they work the trade for a living, or carry the craft-sense for it (innate
+    /// gift or one learned through living). Everyone else must find a craftsman.
+    fn can_self_mend(&self, craft: MendCraft) -> bool {
+        let prof = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.person.profession.as_str())
+            .unwrap_or("");
+        if craft.professions().contains(&prof) {
+            return true;
+        }
+        match craft.sense() {
+            Some(s) => self.gift.sense() == Some(s) || self.learned_sense == Some(s),
+            None => false,
+        }
+    }
+
+    /// Mend the most-worn thing in the pack (the REPL/key convenience).
+    pub fn mend_worst(&mut self) {
+        let worst = self.player_start.as_ref().and_then(|ps| {
+            ps.inventory
+                .items
+                .keys()
+                .copied()
+                .filter(|it| MendCraft::of(*it).is_some() && ps.inventory.durability(*it) < 0.98)
+                .min_by(|a, b| {
+                    ps.inventory
+                        .durability(*a)
+                        .partial_cmp(&ps.inventory.durability(*b))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+        });
+        match worst {
+            Some(item) => self.mend_item(item),
+            None => self.status_msg = Some("Nothing in your pack wants mending.".into()),
+        }
+    }
+
+    /// Mend a worn thing (#685 s3c). If the player works its craft (or carries
+    /// the sense), they mend it themselves with a patch of the stuff and a tool,
+    /// in their own time — own work mends most of the wear but rarely back to
+    /// new. Otherwise a town craftsman does it for coin; in the wild, with no
+    /// skill, it cannot be done.
+    pub fn mend_item(&mut self, item: ItemType) {
+        let dur = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.durability(item))
+            .unwrap_or(1.0);
+        let have = self
+            .player_start
+            .as_ref()
+            .map(|ps| ps.inventory.get(item) > 0)
+            .unwrap_or(false);
+        if !have {
+            self.status_msg = Some(format!("You have no {} to mend.", item.name()));
+            return;
+        }
+        if dur >= 0.98 {
+            self.status_msg = Some(format!(
+                "The {} is sound; it needs no mending.",
+                item.name()
+            ));
+            return;
+        }
+        let Some(craft) = MendCraft::of(item) else {
+            self.status_msg = Some(format!("The {} cannot be mended.", item.name()));
+            return;
+        };
+
+        if self.can_self_mend(craft) {
+            let mat = craft.material();
+            let has_mat = self
+                .player_start
+                .as_ref()
+                .map(|ps| ps.inventory.get(mat) >= 1 || mat == item)
+                .unwrap_or(false);
+            let has_tool = self
+                .player_start
+                .as_ref()
+                .map(|ps| ps.inventory.get(ItemType::Tool) > 0)
+                .unwrap_or(false);
+            if !has_tool {
+                self.status_msg = Some(format!(
+                    "To mend the {} you need a tool in hand.",
+                    item.name()
+                ));
+                return;
+            }
+            if !has_mat {
+                self.status_msg = Some(format!(
+                    "To mend the {} you need a patch of {}.",
+                    item.name(),
+                    mat.name()
+                ));
+                return;
+            }
+            // Spend a patch of the stuff (unless the worn thing IS that stuff)
+            // and set it most of the way right — own work, not a new make.
+            if mat != item {
+                if let Some(ref mut ps) = self.player_start {
+                    ps.inventory.remove(mat, 1);
+                }
+            }
+            let mended = (dur + 0.5).min(1.0);
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.durability.insert(item, mended);
+            }
+            self.advance_clock(2);
+            self.vitals.energy = (self.vitals.energy - 0.05 * self.vow_work_energy_mult()).max(0.0);
+            self.status_msg = Some(format!(
+                "You mend the {} with your own hands ({:.0}%).",
+                item.name(),
+                mended * 100.0
+            ));
+            return;
+        }
+
+        // No skill of your own: a town craftsman, for coin.
+        let craftsman = craft.town_craftsman();
+        if self.current_settlement().is_none() {
+            self.status_msg = Some(format!(
+                "You cannot mend the {} yourself — find a {} in a town.",
+                item.name(),
+                craftsman
+            ));
+            return;
+        }
+        let (cost, coins) = self
+            .player_start
+            .as_ref()
+            .map(|ps| {
+                (
+                    ps.inventory.repair_cost(item),
+                    ps.inventory.get(ItemType::Coin),
+                )
+            })
+            .unwrap_or((0, 0));
+        if cost == 0 {
+            self.status_msg = Some(format!("The {} needs no mending.", item.name()));
+            return;
+        }
+        if coins < cost {
+            self.status_msg = Some(format!(
+                "The {} wants {} coins to mend your {}; you cannot spare it.",
+                craftsman,
+                cost,
+                item.name()
+            ));
+            return;
+        }
+        if let Some(ref mut ps) = self.player_start {
+            ps.inventory.remove(ItemType::Coin, cost);
+            ps.inventory.repair(item);
+        }
+        self.advance_clock(1);
+        self.status_msg = Some(format!(
+            "A {} mends your {} for {} coins.",
+            craftsman,
+            item.name(),
+            cost
+        ));
+    }
 }
 
 #[cfg(test)]
@@ -953,5 +1207,93 @@ mod tests {
             "grain crafts into flour"
         );
         assert!(app.player_inventory().get(grain) < 6, "the grain was spent");
+    }
+
+    #[test]
+    fn a_smith_mends_their_own_worn_tool() {
+        use crate::charts::load::load_charts;
+        use crate::model::ItemType;
+        use crate::ui::app::App;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.player_start.as_mut().unwrap().person.profession = "smith".into();
+        {
+            let inv = &mut app.player_start.as_mut().unwrap().inventory;
+            inv.add_with_quality(ItemType::Tool, 1, 0.3); // worn
+            inv.add(ItemType::Iron, 2); // a patch of metal
+        }
+        let iron_before = app.player_inventory().get(ItemType::Iron);
+        app.mend_item(ItemType::Tool);
+        assert!(
+            app.player_inventory().durability(ItemType::Tool) > 0.3,
+            "the smith mends the worn tool"
+        );
+        assert!(
+            app.player_inventory().get(ItemType::Iron) < iron_before,
+            "a patch of metal was spent"
+        );
+    }
+
+    #[test]
+    fn the_unskilled_pay_a_town_craftsman_to_mend() {
+        use crate::charts::load::load_charts;
+        use crate::model::ItemType;
+        use crate::ui::app::{App, Screen};
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.player_start.as_mut().unwrap().person.profession = "farmer".into();
+        app.screen = Screen::Location {
+            region_idx: 0,
+            settlement_idx: 0,
+            scroll: 0,
+        };
+        {
+            let inv = &mut app.player_start.as_mut().unwrap().inventory;
+            inv.add_with_quality(ItemType::Coat, 1, 0.4);
+            inv.add(ItemType::Coin, 500);
+        }
+        let coins_before = app.player_inventory().get(ItemType::Coin);
+        app.mend_item(ItemType::Coat);
+        assert!(
+            app.player_inventory().durability(ItemType::Coat) > 0.4,
+            "the town craftsman mends the coat"
+        );
+        assert!(
+            app.player_inventory().get(ItemType::Coin) < coins_before,
+            "and is paid for it"
+        );
+    }
+
+    #[test]
+    fn the_unskilled_in_the_wild_cannot_mend() {
+        use crate::charts::load::load_charts;
+        use crate::model::{ItemType, PlayerPos};
+        use crate::ui::app::{App, Screen};
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.player_start.as_mut().unwrap().person.profession = "farmer".into();
+        app.player_pos = Some(PlayerPos {
+            region_idx: 0,
+            px: 5,
+            py: 5,
+        });
+        app.screen = Screen::World { region_idx: 0 };
+        app.player_start
+            .as_mut()
+            .unwrap()
+            .inventory
+            .add_with_quality(ItemType::Tool, 1, 0.3);
+        app.mend_item(ItemType::Tool);
+        assert!(
+            (app.player_inventory().durability(ItemType::Tool) - 0.3).abs() < 1e-9,
+            "no skill, no town: the tool stays worn"
+        );
+        assert!(
+            app.status_msg.as_deref().unwrap_or("").contains("smith"),
+            "and you are told to seek a smith"
+        );
     }
 }
