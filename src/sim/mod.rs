@@ -532,9 +532,19 @@ fn tick_settlement_life(sim: &mut SimState) {
                 let handlers = pc("beast-handler");
                 let herbalists = pc("herbalist");
                 let healers = pc("healer");
-                let masons = pc("labourer") * 0.5 + pc("fence-builder");
                 let potters = pc("potter");
                 let brewers = pc("brewer");
+                // Real division of labour (#674): the stone-cutters, tanners,
+                // glass-workers, rope-makers, dyers, butchers, and foragers each
+                // stock their own ware — and the glass and cordage that no trade
+                // used to make now have hands behind them.
+                let masons = pc("mason") + pc("labourer") * 0.3 + pc("fence-builder");
+                let tanners = pc("tanner");
+                let butchers = pc("butcher");
+                let glassworkers = pc("glass-worker");
+                let ropemakers = pc("rope-maker");
+                let dyers = pc("dyer");
+                let foragers = pc("forager");
                 let cap = settlement.population as f64 * 0.5;
                 // The crafts make less in deep Frost, a touch more in high
                 // Green (#570): the year drives the goods economy, not only the
@@ -553,24 +563,41 @@ fn tick_settlement_life(sim: &mut SimState) {
                     (ItemType::Iron, (miners * 0.6 + smiths * 0.3) * scale * prod),
                     (ItemType::Tool, smiths * 0.4 * scale * prod),
                     (ItemType::Nails, smiths * 0.25 * scale * prod),
-                    // Wood and its by-products: foresters fell, carpenters work.
+                    // Glass at the kiln — a trade of its own now (#674), where
+                    // before no hand stocked it.
+                    (ItemType::Glass, glassworkers * 0.3 * scale * prod),
+                    // Wood and its by-products: foresters fell, carpenters work,
+                    // rope-makers lay cordage from the cut withies.
                     (
                         ItemType::Wood,
                         (carpenters * 0.6 + foresters * 0.5) * scale * prod,
                     ),
                     (ItemType::Branches, foresters * 0.4 * scale * prod),
-                    // Cloth from the looms.
-                    (ItemType::Cloth, weavers * 0.5 * scale * prod),
-                    // The hide chain: herders and beast-handlers bring skins and
-                    // tan their own leather.
+                    (ItemType::Cordage, ropemakers * 0.5 * scale * prod),
+                    // Cloth from the looms and the dye-vats.
+                    (
+                        ItemType::Cloth,
+                        (weavers * 0.5 + dyers * 0.3) * scale * prod,
+                    ),
+                    // The hide chain: herders, handlers, and butchers bring
+                    // skins; the tanners turn them to leather.
                     (
                         ItemType::Hide,
-                        (herders * 0.4 + handlers * 0.3) * scale * region_richness * prod,
+                        (herders * 0.4 + handlers * 0.3 + butchers * 0.3)
+                            * scale
+                            * region_richness
+                            * prod,
                     ),
-                    (ItemType::Leather, herders * 0.2 * scale * prod),
-                    // The healing trades: herbalists gather and brew, healers
-                    // dress wounds.
-                    (ItemType::Herb, herbalists * 0.5 * scale * prod),
+                    (
+                        ItemType::Leather,
+                        (tanners * 0.5 + herders * 0.15) * scale * prod,
+                    ),
+                    // The healing trades: herbalists and foragers gather and
+                    // brew, healers dress wounds.
+                    (
+                        ItemType::Herb,
+                        (herbalists * 0.5 + foragers * 0.4) * scale * prod,
+                    ),
                     (
                         ItemType::Salve,
                         (herbalists * 0.3 + healers * 0.2) * scale * prod,

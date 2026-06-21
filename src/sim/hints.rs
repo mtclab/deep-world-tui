@@ -96,6 +96,17 @@ pub fn profession_flavor(profession: &str) -> &'static str {
         "carpenter" => "Wood and saw. I shape shelter from the forest.",
         "potter" => "Clay and fire. I throw what the larder keeps its stores in.",
         "brewer" => "Grain and patience. I mash what warms the long table.",
+        "tanner" => "Hide and bark-liquor. I turn the skin to leather.",
+        "butcher" => "Knife and block. I render the beast to meat and hide.",
+        "dyer" => "Vat and mordant. I give the cloth its colour.",
+        "forager" => "I read the hedge and the wood. The land sets a table for the knowing.",
+        "glass-worker" => "Sand, ash, and a furnace's heart. I blow what holds light.",
+        "rope-maker" => "Fibre and a long walk. I lay the cordage the harbour lives by.",
+        "innkeeper" => "Bread, bed, and an ear. The road sleeps under my roof.",
+        "midwife" => "I meet them first of all. Steady hands at the hard hour.",
+        "teacher" => "Letters and patience. I hand on what would be lost.",
+        "undertaker" => "I see them off. Someone must keep the last rite.",
+        "chandler" => "Tallow and wick. I sell the light the dark hours need.",
         _ => "I do what must be done.",
     }
 }

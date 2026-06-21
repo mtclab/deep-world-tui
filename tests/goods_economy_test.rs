@@ -152,3 +152,33 @@ fn the_settled_crafts_stock_the_deeper_shelf() {
         "the deeper shelf (Pottery/Ale/Charcoal) is stocked by the settled crafts"
     );
 }
+
+#[test]
+fn the_wider_roster_fills_the_old_producer_gaps() {
+    // #674: Glass and Cordage had NO trade producing them in the living economy
+    // until the glass-worker and rope-maker joined the roster. Across a few
+    // seeds a working province now stocks at least one of them on its own.
+    use std::collections::BTreeSet;
+    let charts = load_charts().expect("charts");
+    let found = (0..8u64).any(|seed| {
+        let mut sim = SimState::new(seed, charts.clone());
+        for _ in 0..(24 * 14) {
+            sim.step();
+        }
+        let mut shelf: BTreeSet<String> = BTreeSet::new();
+        for region in &sim.world.regions {
+            for s in &region.settlements {
+                for (item, qty) in &s.goods_stock {
+                    if *qty > 0.0 {
+                        shelf.insert(format!("{item:?}"));
+                    }
+                }
+            }
+        }
+        shelf.contains("Glass") || shelf.contains("Cordage")
+    });
+    assert!(
+        found,
+        "the glass-workers and rope-makers stock Glass/Cordage the old roster never made"
+    );
+}
