@@ -77,6 +77,22 @@ pub(crate) fn draw_inventory_screen(f: &mut Frame, app: &App) {
             ItemType::Pottery => Color::Rgb(0xb2, 0x7a, 0x52),
             ItemType::Charcoal => Color::Rgb(0x3a, 0x3a, 0x3a),
             ItemType::Ale => Color::Rgb(0xc2, 0x8a, 0x3a),
+            // Data-defined trade goods (#678): colour by their broadest tag so
+            // the shelf still reads at a glance — luxuries gold, spices warm,
+            // metals steel, the rest a neutral trade-tan.
+            ItemType::Good(g) => {
+                if g.has_tag("luxury") || g.has_tag("gem") {
+                    Color::Rgb(0xd0, 0xb0, 0x55)
+                } else if g.has_tag("spice") || g.has_tag("dye") {
+                    Color::Rgb(0xc0, 0x80, 0x55)
+                } else if g.has_tag("metal") {
+                    Color::Rgb(0x9a, 0x9a, 0xa6)
+                } else if g.has_tag("food") || g.has_tag("drink") {
+                    Color::Rgb(0xb0, 0xc0, 0x80)
+                } else {
+                    Color::Rgb(0xb8, 0xa8, 0x88)
+                }
+            }
         };
         let dur = inv.durability(*item);
         let quality = crate::model::QualityTier::from_durability(dur);
