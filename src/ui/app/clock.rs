@@ -595,6 +595,72 @@ impl App {
         true
     }
 
+    /// What a felled outlaw actually had on them (#685): outlaws are poor, and
+    /// you find only what they carried — a few coins, perhaps the rags off their
+    /// back or a worn tool, now and then a trinket they stole. Nothing summoned
+    /// from nowhere; a big band yields more only because there are more bodies to
+    /// search, each as meagre as the last. Looted gear comes worn — low
+    /// durability, in want of mending — and ill-fitting (it was the dead's, not
+    /// yours). Deterministic from the seed and a per-body salt. Returns the note
+    /// for the status line (empty when there was nothing worth taking).
+    fn loot_fallen_outlaw(&mut self, salt: u64) -> String {
+        use crate::model::ItemType;
+        let h = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(salt ^ 0x0107_1007));
+        let r1 = crate::rng::unit_from_hash(h);
+        let r2 = crate::rng::unit_from_hash(crate::rng::mix_u64(h ^ 0xBEEF));
+        let r3 = crate::rng::unit_from_hash(crate::rng::mix_u64(h ^ 0x0005_1A52));
+        // The purse: most carry a coin or three; a lucky body a little more.
+        // An outlaw's purse is an outlaw's purse — not scaled to your wanting.
+        let coins: u32 = match (r1 * 100.0) as u32 {
+            0..=34 => 0,
+            35..=69 => 1 + (h % 2) as u32,
+            70..=89 => 2 + (h % 3) as u32,
+            90..=98 => 4 + (h % 4) as u32,
+            _ => 8 + (h % 5) as u32,
+        };
+        let mut taken: Vec<String> = Vec::new();
+        if coins > 0 {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add(ItemType::Coin, coins);
+            }
+            taken.push(format!("{coins} coin{}", if coins == 1 { "" } else { "s" }));
+        }
+        // The one thing on their back, if any — worn, and theirs not yours.
+        let worn = 0.15 + r3 * 0.30; // 0.15..0.45 durability: in want of mending
+        let item: Option<(ItemType, &str)> = if r2 < 0.30 {
+            Some((ItemType::Cloth, "a bundle of rags"))
+        } else if r2 < 0.45 {
+            Some((ItemType::Tool, "a worn tool"))
+        } else if r2 < 0.55 {
+            Some((ItemType::Leather, "a scrap of cracked leather"))
+        } else if r2 < 0.60 {
+            // A coat cut to the dead's frame hangs ill on you until refitted —
+            // carried as low condition.
+            Some((
+                ItemType::Coat,
+                "an ill-fitting coat, much in want of mending",
+            ))
+        } else if r2 < 0.64 {
+            // Rarer still: a trinket they stole, the one thing of worth.
+            let slugs = ["amber", "silver", "garnet", "copper"];
+            let pick = (h >> 8) as usize % slugs.len();
+            crate::model::good_id(slugs[pick]).map(|g| (ItemType::Good(g), "a stolen trinket"))
+        } else {
+            None
+        };
+        if let Some((it, desc)) = item {
+            if let Some(ref mut ps) = self.player_start {
+                ps.inventory.add_with_quality(it, 1, worn);
+            }
+            taken.push(desc.to_string());
+        }
+        if taken.is_empty() {
+            String::new()
+        } else {
+            format!(" You search the fallen: {}.", taken.join(", "))
+        }
+    }
+
     /// The signal fire's worth in a fight (#663): a kept beacon of the player's
     /// standing near them in the dark hours steadies the hand — the lit dark is
     /// the safer dark. Returns the factor the combat press is scaled by: ×0.6 in
@@ -634,6 +700,11 @@ impl App {
         else {
             return;
         };
+        // Each cut fells one outlaw; you find only what was on that body
+        // (#685). Salt by the band and the body's ordinal so each search is its
+        // own, deterministic, meagre find.
+        let loot_salt = crate::rng::fnv1a_hash(band_id) ^ remaining as u64;
+        let loot = self.loot_fallen_outlaw(loot_salt);
         if scattered {
             let claimed = self.award_band_bounty(band_id);
             if let Some(ref mut sim) = self.sim {
@@ -645,9 +716,9 @@ impl App {
                 );
             }
             self.status_msg = Some(if claimed {
-                format!("You cut down the last of {name} — the bounty on them is yours.")
+                format!("You cut down the last of {name} — the bounty on them is yours.{loot}")
             } else {
-                format!("You cut down the last of {name}. The country is the quieter for it.")
+                format!("You cut down the last of {name}. The country is the quieter for it.{loot}")
             });
             return;
         }
@@ -664,7 +735,7 @@ impl App {
             * self.beacon_press_factor();
         self.vitals.energy = (self.vitals.energy - press).max(0.0);
         self.status_msg = Some(format!(
-            "You cut down one of {name} — {remaining} still standing. They press back. (energy {:.0}%)",
+            "You cut down one of {name} — {remaining} still standing. They press back. (energy {:.0}%){loot}",
             self.vitals.energy * 100.0
         ));
     }
@@ -795,10 +866,43 @@ impl App {
             if let Some(ref mut sim) = self.sim {
                 sim.beasts.remove(idx);
             }
+            // The belly's truth (#685): a big predator may have taken a person
+            // before you took it — and only what a stomach cannot dissolve is
+            // left, ruined by the acid and the days. No remains in a hare; none
+            // in a beast that fed only on the wild; metal and stone alone
+            // survive when there are any. Deterministic, fortune-leaned, rare.
+            let mut belly = String::new();
+            if species.danger() >= 2 && !species.uncanny() {
+                let tick = self.sim.as_ref().map(|s| s.world.tick).unwrap_or(0);
+                let hh = crate::rng::mix_u64(self.seed ^ crate::rng::mix_u64(tick ^ 0xEA7E_6044));
+                // ~12% that this predator had lately taken a person.
+                if crate::rng::unit_from_hash(hh) < self.fortune.tilt_good(0.12) {
+                    use crate::model::ItemType;
+                    let coins = 1 + (hh % 6) as u32;
+                    let mut got: Vec<String> =
+                        vec![format!("{coins} coin{}", if coins == 1 { "" } else { "s" })];
+                    if let Some(ref mut ps) = self.player_start {
+                        ps.inventory.add(ItemType::Coin, coins);
+                    }
+                    // Sometimes a metal trinket, corroded near to ruin.
+                    if crate::rng::unit_from_hash(crate::rng::mix_u64(hh ^ 0xC0DE)) < 0.4 {
+                        if let Some(g) = crate::model::good_id("copper") {
+                            if let Some(ref mut ps) = self.player_start {
+                                ps.inventory.add_with_quality(ItemType::Good(g), 1, 0.1);
+                            }
+                            got.push("a corroded buckle".into());
+                        }
+                    }
+                    belly = format!(
+                        " In its belly, undissolved: {} — what the beast had eaten of someone, days gone.",
+                        got.join(", ")
+                    );
+                }
+            }
             self.status_msg = Some(if hide > 0 || meat > 0 {
-                format!("You bring down the {name} (+{hide} hide, +{meat} meat).")
+                format!("You bring down the {name} (+{hide} hide, +{meat} meat).{belly}")
             } else {
-                format!("You bring down the {name}.")
+                format!("You bring down the {name}.{belly}")
             });
             return;
         }

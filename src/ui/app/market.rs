@@ -2000,4 +2000,94 @@ mod festival_tests {
                 .unwrap();
         }
     }
+
+    #[test]
+    fn felled_outlaws_yield_only_meagre_worn_loot() {
+        use crate::sim::frontier::Band;
+        let mut app = App::new(7, load_charts().unwrap());
+        app.generate_player();
+        app.accept_player();
+        app.player_pos = Some(crate::model::PlayerPos {
+            region_idx: 0,
+            px: 1,
+            py: 1,
+        });
+        app.sim.as_mut().unwrap().frontier.bands.push(Band {
+            id: "band-loot-1".into(),
+            name: "the Ragged".into(),
+            size: 8,
+            region_idx: 0,
+            formed_day: 0,
+        });
+        app.generate_band_bounties();
+        let coins_before = app.player_inventory().get(ItemType::Coin);
+        for _ in 0..10 {
+            if app.sim.as_ref().unwrap().frontier.bands.is_empty() {
+                break;
+            }
+            app.bump_attack_band("band-loot-1");
+        }
+        let gained = app
+            .player_inventory()
+            .get(ItemType::Coin)
+            .saturating_sub(coins_before);
+        // Eight poor outlaws: a modest purse, not a hoard (bounty aside, the
+        // bodies themselves carry little). Generous ceiling, but bounded.
+        assert!(gained < 200, "outlaw bodies are poor, got {gained} coins");
+        // Any looted wearable is worn — durability below new.
+        for it in [
+            ItemType::Cloth,
+            ItemType::Tool,
+            ItemType::Leather,
+            ItemType::Coat,
+        ] {
+            if app.player_inventory().get(it) > 0 {
+                assert!(
+                    app.player_inventory().durability(it) < 1.0,
+                    "{it:?} looted off the dead comes worn, not new"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_predators_belly_sometimes_holds_remains_a_hares_never() {
+        use crate::model::wildlife::WildSpecies;
+        use crate::sim::beasts::WildBeast;
+        let fell = |seed: u64, species: WildSpecies| -> u32 {
+            let mut app = App::new(seed, load_charts().unwrap());
+            app.generate_player();
+            app.accept_player();
+            app.player_pos = Some(crate::model::PlayerPos {
+                region_idx: 0,
+                px: 5,
+                py: 5,
+            });
+            let before = app.player_inventory().get(ItemType::Coin);
+            app.sim.as_mut().unwrap().beasts.push(WildBeast {
+                id: "prey".into(),
+                species,
+                region_idx: 0,
+                px: 4,
+                py: 5,
+                hp: 1, // one blow fells it
+            });
+            app.bump_attack_beast("prey");
+            app.player_inventory()
+                .get(ItemType::Coin)
+                .saturating_sub(before)
+        };
+        let bear_finds = (0..120u64)
+            .filter(|&s| fell(s, WildSpecies::BrownBear) > 0)
+            .count();
+        let hare_finds = (0..120u64)
+            .filter(|&s| fell(s, WildSpecies::Hare) > 0)
+            .count();
+        assert!(
+            bear_finds > 0,
+            "a man-eating bear's belly sometimes holds coin"
+        );
+        assert!(bear_finds < 120, "but not every bear has taken a person");
+        assert_eq!(hare_finds, 0, "a hare never swallowed a purse");
+    }
 }
