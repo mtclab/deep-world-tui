@@ -78,6 +78,17 @@ Charts(
             // potter at the clay, the brewer at the mash. Kept rare so they
             // round out a town without thinning the farmers who feed it.
             "potter": 5, "brewer": 4,
+            // Real division of labour (#674), canon professions_and_trades_
+            // catalogue.md. Weights kept small so farmers stay the plurality.
+            // Producing crafts (wired into the living economy):
+            "tanner": 4, "mason": 6, "baker": 8, "butcher": 5, "glass-worker": 2,
+            "rope-maker": 3, "dyer": 3, "forager": 6,
+            // Service and learned trades (no goods, like priest/scribe — they
+            // are the town's life, not its stock):
+            "innkeeper": 5, "midwife": 3, "barber-surgeon": 3, "moneylender": 2,
+            "caravan-master": 2, "archivist": 1, "astronomer": 1, "engineer": 2,
+            "teacher": 2, "ferryman": 2, "well-digger": 2, "undertaker": 2,
+            "chandler": 3, "perfumer": 1, "painter": 2, "engraver": 1,
         }),
         modifiers: [
             (when: People("sepat"),       mult: { "smith": 6.0, "miner": 4.0, "carpenter": 2.0, "farmer": 0.4 }),

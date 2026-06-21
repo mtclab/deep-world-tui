@@ -144,6 +144,15 @@ pub(crate) fn role_glyph(profession: &str) -> (char, Color) {
         "carpenter" => ('c', Color::Rgb(190, 150, 100)),
         "potter" => ('P', Color::Rgb(180, 120, 80)), // fired-clay
         "brewer" => ('A', Color::Rgb(200, 150, 70)), // ale-amber
+        "mason" => ('m', Color::Rgb(170, 165, 160)), // cut-stone
+        "tanner" => ('t', Color::Rgb(150, 110, 70)), // tanned-hide
+        "butcher" => ('B', Color::Rgb(190, 90, 90)), // blood-red
+        "dyer" => ('d', Color::Rgb(150, 110, 190)),  // dye-purple
+        "forager" => ('g', Color::Rgb(140, 190, 110)), // leaf-green
+        "glass-worker" => ('y', Color::Rgb(140, 200, 205)), // sea-glass
+        "rope-maker" => ('k', Color::Rgb(180, 160, 120)), // hemp-tan
+        "innkeeper" => ('i', Color::Rgb(220, 170, 110)), // hearth-amber
+        "midwife" => ('n', Color::Rgb(220, 180, 200)), // birth-rose
         "scribe" => ('s', Color::Rgb(180, 180, 220)),
         "priest" => ('p', Color::Rgb(220, 220, 160)),
         "guard" | "soldier" | "warden" => ('G', Color::Rgb(110, 150, 230)), // watch-blue
