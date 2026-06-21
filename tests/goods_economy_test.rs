@@ -182,3 +182,28 @@ fn the_wider_roster_fills_the_old_producer_gaps() {
         "the glass-workers and rope-makers stock Glass/Cordage the old roster never made"
     );
 }
+
+#[test]
+fn registry_goods_flow_through_the_living_economy() {
+    // #678 slice 2: data-defined trade goods (ItemType::Good) are produced by
+    // trades and drift across the region — a working province holds some on its
+    // own, with no player.
+    let charts = load_charts().expect("charts");
+    let found = (0..6u64).any(|seed| {
+        let mut sim = SimState::new(seed, charts.clone());
+        for _ in 0..(24 * 14) {
+            sim.step();
+        }
+        sim.world.regions.iter().any(|r| {
+            r.settlements.iter().any(|s| {
+                s.goods_stock
+                    .iter()
+                    .any(|(it, q)| matches!(it, ItemType::Good(_)) && *q > 0.0)
+            })
+        })
+    });
+    assert!(
+        found,
+        "settlements stock registry trade goods (salt/bread/copper/...) on their own"
+    );
+}
