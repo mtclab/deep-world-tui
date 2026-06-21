@@ -76,6 +76,11 @@ pub fn handle_world_input(app: &mut App, key: KeyEvent, region_idx: usize) {
         KeyCode::Char('t') => {
             app.tend_illness();
         }
+        KeyCode::Char('d') => {
+            // Darn/mend the most-worn thing in the pack (#685): yourself if you
+            // have the craft, else it names the craftsman to seek in a town.
+            app.mend_worst();
+        }
         KeyCode::Char('b') => {
             app.start_build();
         }

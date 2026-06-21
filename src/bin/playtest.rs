@@ -160,6 +160,17 @@ fn main() -> anyhow::Result<()> {
                 app.tend_illness();
                 print_msg(&app);
             }
+            "mend" | "repair" => {
+                // `mend` mends the most-worn thing; `mend <item>` a named one.
+                match parts.get(1) {
+                    Some(name) => match App::item_from_name(name) {
+                        Some(item) => app.mend_item(item),
+                        None => println!("  Unknown item: {name}"),
+                    },
+                    None => app.mend_worst(),
+                }
+                print_msg(&app);
+            }
             "forage" => {
                 recorded.push(PlayerChoice::ForageHerbs);
                 app.forage_herbs();
