@@ -2090,4 +2090,105 @@ mod festival_tests {
         assert!(bear_finds < 120, "but not every bear has taken a person");
         assert_eq!(hare_finds, 0, "a hare never swallowed a purse");
     }
+
+    #[test]
+    fn cold_gear_is_graded_and_layered() {
+        use crate::model::{good_id, ItemType};
+        let mk = || {
+            let mut a = App::new(7, load_charts().unwrap());
+            a.generate_player();
+            a.accept_player();
+            a
+        };
+        let fur = ItemType::Good(good_id("fur").unwrap());
+        let wool = ItemType::Good(good_id("wool").unwrap());
+
+        // Bare against the weather: no shelter from the body-drain.
+        let bare = mk();
+        assert!((bare.warmth_factor().0 - 1.0).abs() < 1e-9);
+
+        // A coat halves it; fur does better than a coat.
+        let mut coated = mk();
+        coated
+            .player_start
+            .as_mut()
+            .unwrap()
+            .inventory
+            .add(ItemType::Coat, 1);
+        assert!((coated.warmth_factor().0 - 0.5).abs() < 1e-9);
+
+        let mut furred = mk();
+        furred.player_start.as_mut().unwrap().inventory.add(fur, 1);
+        assert!(
+            furred.warmth_factor().0 < coated.warmth_factor().0,
+            "fur warmer than coat"
+        );
+
+        // Layering an outer over an underlayer shaves a little more.
+        let mut layered = mk();
+        {
+            let inv = &mut layered.player_start.as_mut().unwrap().inventory;
+            inv.add(ItemType::Coat, 1);
+            inv.add(wool, 1);
+        }
+        assert!(
+            layered.warmth_factor().0 < 0.5,
+            "coat over wool is warmer than coat alone: {}",
+            layered.warmth_factor().0
+        );
+
+        // A broken coat warms no one.
+        let mut broken = mk();
+        {
+            let inv = &mut broken.player_start.as_mut().unwrap().inventory;
+            inv.add(ItemType::Coat, 1);
+            inv.durability.insert(ItemType::Coat, 0.0);
+        }
+        assert!(
+            (broken.warmth_factor().0 - 1.0).abs() < 1e-9,
+            "a broken coat does not warm"
+        );
+    }
+
+    #[test]
+    fn warmth_helps_in_cold_not_in_heat() {
+        use crate::model::{good_id, ItemType, PlayerPos, Weather};
+        // Energy spent over harsh-weather hours, optionally wearing fur, in a
+        // region of the given weather. Same seed both runs — only the fur differs.
+        let spend = |weather: Weather, fur: bool| -> f64 {
+            let mut a = App::new(7, load_charts().unwrap());
+            a.generate_player();
+            a.accept_player();
+            a.player_pos = Some(PlayerPos {
+                region_idx: 0,
+                px: 5,
+                py: 5,
+            });
+            a.sim.as_mut().unwrap().world.regions[0].weather = weather;
+            a.vitals.energy = 1.0;
+            if fur {
+                a.player_start
+                    .as_mut()
+                    .unwrap()
+                    .inventory
+                    .add(ItemType::Good(good_id("fur").unwrap()), 1);
+            }
+            a.advance_clock(6);
+            1.0 - a.vitals.energy
+        };
+        // Snow: fur softens the drain.
+        let snow_bare = spend(Weather::Snow, false);
+        let snow_fur = spend(Weather::Snow, true);
+        assert!(
+            snow_fur < snow_bare,
+            "fur warms against snow: {snow_fur} < {snow_bare}"
+        );
+        // Heatwave: fur does nothing (the bake is borne in full).
+        let heat_bare = spend(Weather::Heatwave, false);
+        let heat_fur = spend(Weather::Heatwave, true);
+        assert!(
+            (heat_fur - heat_bare).abs() < 1e-9,
+            "fur does not help in a heatwave: {heat_fur} vs {heat_bare}"
+        );
+    }
 }

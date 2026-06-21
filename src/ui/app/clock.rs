@@ -67,6 +67,47 @@ impl App {
 
     pub const MAX_REST_HOURS: u32 = MAX_REST_HOURS;
 
+    /// How well the player is dressed against harsh weather (#689): the factor
+    /// the harsh-weather body-drain is scaled by — lower is warmer. A worn coat
+    /// halves it (the old hunt-to-warmth loop); a fur cloak does better; humbler
+    /// wool or felt, less. The best worn piece sets the floor, and a fur or coat
+    /// layered over wool/felt does a little better still — so the cold-gear the
+    /// economy produces actually matters in Frost and on the tundra. Returns the
+    /// factor and the piece that earns it (to wear that piece down, not another).
+    pub(super) fn warmth_factor(&self) -> (f64, Option<ItemType>) {
+        let Some(ps) = self.player_start.as_ref() else {
+            return (1.0, None);
+        };
+        let owned = |it: ItemType| ps.inventory.has(it) && !ps.inventory.is_broken(it);
+        let good = |slug: &str| crate::model::good_id(slug).map(ItemType::Good);
+        // (piece, factor) warmest first; only registry goods that exist resolve.
+        let mut tiers: Vec<(ItemType, f64)> = vec![(ItemType::Coat, 0.5)];
+        if let Some(fur) = good("fur") {
+            tiers.push((fur, 0.4));
+        }
+        if let Some(felt) = good("felt") {
+            tiers.push((felt, 0.72));
+        }
+        if let Some(wool) = good("wool") {
+            tiers.push((wool, 0.8));
+        }
+        // The warmest single piece the player actually wears.
+        let mut best: (f64, Option<ItemType>) = (1.0, None);
+        for (it, f) in &tiers {
+            if owned(*it) && *f < best.0 {
+                best = (*f, Some(*it));
+            }
+        }
+        // Layering: a coat or fur over a humbler wool/felt undergarment shaves a
+        // little more off the bite.
+        let has_outer = owned(ItemType::Coat) || good("fur").is_some_and(owned);
+        let has_under = good("felt").is_some_and(owned) || good("wool").is_some_and(owned);
+        if has_outer && has_under {
+            best.0 *= 0.9;
+        }
+        best
+    }
+
     pub fn advance_clock(&mut self, hours: u32) {
         let day_before = self.clock.day;
         let season = self.clock.season();
@@ -92,27 +133,32 @@ impl App {
         // so a blessed soul bears the cold a little better and the cursed a
         // little worse; clear skies fall on everyone the same. A worn coat
         // halves the harsh-weather penalty (#414) — the hunt-to-warmth loop.
-        let has_coat = self
-            .player_start
-            .as_ref()
-            .map(|ps| ps.inventory.has(ItemType::Coat) && !ps.inventory.is_broken(ItemType::Coat))
-            .unwrap_or(false);
-        let coat_factor = if has_coat { 0.5 } else { 1.0 };
+        // Graded cold-gear (#689): the warmest worn piece sets the harsh-weather
+        // factor; the piece that earns it is the one that wears down.
+        let (coat_factor, warm_piece) = self.warmth_factor();
         // A declared hard winter bites deeper than an ordinary Frost (#417).
         let event_weather = self
             .current_world_event()
             .map(|e| e.weather_decay_modifier())
             .unwrap_or(1.0);
         let mut weather_harsh = false;
+        let mut cold_harsh = false;
         let weather_mult = self
             .player_pos
             .map(|pos| {
-                let raw = self.region_weather(pos.region_idx).need_decay_modifier();
+                let weather = self.region_weather(pos.region_idx);
+                let raw = weather.need_decay_modifier();
                 let harsh_excess = (raw - 1.0).max(0.0);
                 weather_harsh = harsh_excess > 0.0;
+                // Warm clothing answers cold and wet, not heat (#689): a fur
+                // cloak does nothing against a heatwave (worse, in truth). Only a
+                // cold/wet harshness is softened by the warmth factor; the bake
+                // of a heatwave is borne in full.
+                cold_harsh = weather_harsh && !weather.is_hot();
+                let warmth = if weather.is_hot() { 1.0 } else { coat_factor };
                 // Kukri's vow: the patient cold cannot wear the sworn (#457).
                 1.0 + harsh_excess
-                    * coat_factor
+                    * warmth
                     * event_weather
                     * self.fortune.bad_multiplier()
                     * self.vow_weather_mult()
@@ -137,9 +183,13 @@ impl App {
                 season,
                 illness_mult * weather_mult,
             );
-            // The coat earns its keep by wearing out: harsh weather frays it.
-            if has_coat && weather_harsh {
-                ps.inventory.decay(ItemType::Coat, 0.02 * hours as f64);
+            // Cold-gear earns its keep by wearing out: cold/wet harsh weather
+            // frays the piece keeping you warm (#689) — heat does not, since the
+            // gear isn't doing the work then.
+            if cold_harsh {
+                if let Some(piece) = warm_piece {
+                    ps.inventory.decay(piece, 0.02 * hours as f64);
+                }
             }
             for companion in &mut ps.companions {
                 companion.decay_needs(hours as u64);
