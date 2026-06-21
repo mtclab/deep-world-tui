@@ -545,6 +545,16 @@ fn tick_settlement_life(sim: &mut SimState) {
                 let ropemakers = pc("rope-maker");
                 let dyers = pc("dyer");
                 let foragers = pc("forager");
+                // Trades whose wares are data-defined registry goods (#678 s2).
+                let fishers_g = pc("fisher");
+                let bakers_g = pc("baker");
+                let farmers_g = pc("farmer");
+                let coast_g = if coastal { 1.0 } else { 0.0 };
+                // A registry good by slug — every slug used here is in
+                // data/goods.ron, so the lookup cannot miss.
+                let g = |slug: &str| {
+                    ItemType::Good(crate::model::good_id(slug).expect("known good slug"))
+                };
                 let cap = settlement.population as f64 * 0.5;
                 // The crafts make less in deep Frost, a touch more in high
                 // Green (#570): the year drives the goods economy, not only the
@@ -609,6 +619,33 @@ fn tick_settlement_life(sim: &mut SimState) {
                     (ItemType::Pottery, potters * 0.4 * scale * prod),
                     (ItemType::Ale, brewers * 0.4 * scale * prod),
                     (ItemType::Charcoal, foresters * 0.2 * scale * prod),
+                    // Data-defined trade goods now flow through the same economy
+                    // (#678 slice 2): each trade stocks its registry ware, so a
+                    // town's shelf carries salt, fish, bread, wine, copper,
+                    // marble, dyes — the long tail, produced system-first.
+                    (g("salt"), (coast_g + miners) * 0.4 * scale * prod),
+                    (g("salt-fish"), fishers_g * 0.5 * scale * prod),
+                    (
+                        g("fish-sauce"),
+                        coast_g * fishers_g.min(1.0) * 0.2 * scale * prod,
+                    ),
+                    (
+                        g("canvas"),
+                        coast_g * ropemakers.max(weavers) * 0.2 * scale * prod,
+                    ),
+                    (g("copper"), miners * 0.3 * scale * prod),
+                    (g("marble"), masons * 0.3 * scale * prod),
+                    (g("bread"), bakers_g * 0.6 * scale * prod),
+                    (g("flour"), bakers_g * 0.3 * scale * prod),
+                    (g("wine"), brewers * 0.3 * scale * prod),
+                    (g("linen"), (weavers * 0.3 + dyers * 0.2) * scale * prod),
+                    (g("dye-woad"), dyers * 0.4 * scale * prod),
+                    (
+                        g("willow-bark"),
+                        (herbalists * 0.3 + foragers * 0.3) * scale * prod,
+                    ),
+                    (g("honey"), farmers_g * 0.05 * scale * prod),
+                    (g("wool"), herders * 0.3 * scale * prod),
                 ];
                 for (item, amount) in made {
                     // Daily upkeep: the town spends a little of each good it
@@ -1059,12 +1096,16 @@ fn tick_settlement_life(sim: &mut SimState) {
             const DRIFT_RATE: f64 = 0.10;
             let total_pop: f64 = region.settlements.iter().map(|s| s.population as f64).sum();
             if total_pop > 0.0 {
-                for item in [
-                    ItemType::Iron,
-                    ItemType::Tool,
-                    ItemType::Cloth,
-                    ItemType::Wood,
-                ] {
+                // Every good a town holds drifts toward fair shares (#678 s2):
+                // the registry goods flow on the same Bronze Road as the core
+                // four. Each good is smoothed independently, so iteration order
+                // does not affect the result (determinism holds).
+                let mut items: std::collections::HashSet<ItemType> =
+                    std::collections::HashSet::new();
+                for s in region.settlements.iter() {
+                    items.extend(s.goods_stock.keys().copied());
+                }
+                for item in items {
                     let total: f64 = region.settlements.iter().map(|s| s.good(item)).sum();
                     if total <= 0.0 {
                         continue;
