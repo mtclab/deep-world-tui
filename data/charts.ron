@@ -75,7 +75,8 @@ Charts(
             "sailor": 6, "soldier": 5, "healer": 4, "herbalist": 2, "scribe": 3, "priest": 2,
             "hearth-keeper": 4, "path-finder": 3, "fence-builder": 3, "beast-handler": 2, "singer": 3,
             // The settled crafts that stock a town's deeper shelf (#671): the
-            // potter at the clay, the brewer at the mash.
+            // potter at the clay, the brewer at the mash. Kept rare so they
+            // round out a town without thinning the farmers who feed it.
             "potter": 5, "brewer": 4,
         }),
         modifiers: [

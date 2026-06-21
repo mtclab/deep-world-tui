@@ -540,9 +540,10 @@ fn tick_settlement_life(sim: &mut SimState) {
                 // Green (#570): the year drives the goods economy, not only the
                 // crops.
                 let prod = season.production_modifier();
-                // Herding and beast-handling draw hides from the living land —
-                // count that draw against the region's wildness like trapping.
-                richness_draw += herders * 0.0008 + handlers * 0.0015;
+                // Hides come off herded and handled stock — domestic animals,
+                // not the wild game the trappers thin (#671). So the hide trade
+                // adds no extra draw on the region's wildness; the food block's
+                // existing handler/trap draw already accounts for the wild take.
                 let made = [
                     // Stone, ore, and the forge: miners dig, smiths work.
                     (
