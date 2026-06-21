@@ -17,18 +17,21 @@ fn build_progress(sim: &SimState, ri: usize, si: usize) -> f64 {
 #[test]
 fn a_town_short_of_materials_builds_slower() {
     let charts = load_charts().expect("charts");
-    // A settlement with hands to build (labourer/forester) but no trade that
-    // makes Wood or Iron (no carpenter/miner/smith) — so the only materials it
-    // has are the ones we hand it; nothing refills them.
+    // A settlement with hands to build (labourer) but no trade that makes Wood
+    // or Iron — so the only materials it has are the ones we hand it; nothing
+    // refills them. Since the working economy (#671) has foresters fell Wood and
+    // carpenters/miners/smiths make Wood/Iron, the no-refill town must keep none
+    // of those — only labourers (who make Stone, not Wood/Iron).
     let (base, ri, si) = (0..120u64)
         .find_map(|seed| {
             let sim = SimState::new(seed, charts.clone());
             for (ri, region) in sim.world.regions.iter().enumerate() {
                 for (si, s) in region.settlements.iter().enumerate() {
-                    let hands = s.profession_count("labourer") + s.profession_count("forester");
+                    let hands = s.profession_count("labourer");
                     let makers = s.profession_count("carpenter")
                         + s.profession_count("miner")
-                        + s.profession_count("smith");
+                        + s.profession_count("smith")
+                        + s.profession_count("forester");
                     if s.population > 0 && hands > 0 && makers == 0 {
                         return Some((sim.clone(), ri, si));
                     }

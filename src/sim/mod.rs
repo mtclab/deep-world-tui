@@ -516,22 +516,63 @@ fn tick_settlement_life(sim: &mut SimState) {
             // crafters runs its stock down rather than holding it forever.
             {
                 use crate::model::ItemType;
-                let smiths = settlement.profession_count("smith") as f64;
-                let miners = settlement.profession_count("miner") as f64;
-                let weavers = settlement.profession_count("weaver") as f64;
-                let carpenters = settlement.profession_count("carpenter") as f64;
+                // The whole working town, not four trades (#671): every hand
+                // that makes a thing adds its thing to the stores. A civilization
+                // runs on its foresters and herders and herbalists as much as on
+                // its smiths — the goods a town holds should read like the trades
+                // it keeps. (Only trades the world actually generates are read:
+                // the `profession` roster, not the gift/craft-sense table.)
+                let pc = |p: &str| settlement.profession_count(p) as f64;
+                let smiths = pc("smith");
+                let miners = pc("miner");
+                let weavers = pc("weaver");
+                let carpenters = pc("carpenter");
+                let foresters = pc("forester");
+                let herders = pc("herder");
+                let handlers = pc("beast-handler");
+                let herbalists = pc("herbalist");
+                let healers = pc("healer");
+                let masons = pc("labourer") * 0.5 + pc("fence-builder");
                 let cap = settlement.population as f64 * 0.5;
-                // Iron from mine and forge; Tools from the smiths; Cloth from
-                // the weavers; Wood worked by the carpenters.
                 // The crafts make less in deep Frost, a touch more in high
                 // Green (#570): the year drives the goods economy, not only the
                 // crops.
                 let prod = season.production_modifier();
+                // Herding and beast-handling draw hides from the living land —
+                // count that draw against the region's wildness like trapping.
+                richness_draw += herders * 0.0008 + handlers * 0.0015;
                 let made = [
+                    // Stone, ore, and the forge: miners dig, smiths work.
+                    (
+                        ItemType::Stone,
+                        (miners * 0.4 + masons * 0.5) * scale * prod,
+                    ),
                     (ItemType::Iron, (miners * 0.6 + smiths * 0.3) * scale * prod),
                     (ItemType::Tool, smiths * 0.4 * scale * prod),
+                    (ItemType::Nails, smiths * 0.25 * scale * prod),
+                    // Wood and its by-products: foresters fell, carpenters work.
+                    (
+                        ItemType::Wood,
+                        (carpenters * 0.6 + foresters * 0.5) * scale * prod,
+                    ),
+                    (ItemType::Branches, foresters * 0.4 * scale * prod),
+                    // Cloth from the looms.
                     (ItemType::Cloth, weavers * 0.5 * scale * prod),
-                    (ItemType::Wood, carpenters * 0.6 * scale * prod),
+                    // The hide chain: herders and beast-handlers bring skins and
+                    // tan their own leather.
+                    (
+                        ItemType::Hide,
+                        (herders * 0.4 + handlers * 0.3) * scale * region_richness * prod,
+                    ),
+                    (ItemType::Leather, herders * 0.2 * scale * prod),
+                    // The healing trades: herbalists gather and brew, healers
+                    // dress wounds.
+                    (ItemType::Herb, herbalists * 0.5 * scale * prod),
+                    (
+                        ItemType::Salve,
+                        (herbalists * 0.3 + healers * 0.2) * scale * prod,
+                    ),
+                    (ItemType::Bandage, healers * 0.3 * scale * prod),
                 ];
                 for (item, amount) in made {
                     // Daily upkeep: the town spends a little of each good it
