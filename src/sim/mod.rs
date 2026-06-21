@@ -545,16 +545,6 @@ fn tick_settlement_life(sim: &mut SimState) {
                 let ropemakers = pc("rope-maker");
                 let dyers = pc("dyer");
                 let foragers = pc("forager");
-                // Trades whose wares are data-defined registry goods (#678 s2).
-                let fishers_g = pc("fisher");
-                let bakers_g = pc("baker");
-                let farmers_g = pc("farmer");
-                let coast_g = if coastal { 1.0 } else { 0.0 };
-                // A registry good by slug — every slug used here is in
-                // data/goods.ron, so the lookup cannot miss.
-                let g = |slug: &str| {
-                    ItemType::Good(crate::model::good_id(slug).expect("known good slug"))
-                };
                 let cap = settlement.population as f64 * 0.5;
                 // The crafts make less in deep Frost, a touch more in high
                 // Green (#570): the year drives the goods economy, not only the
@@ -619,35 +609,24 @@ fn tick_settlement_life(sim: &mut SimState) {
                     (ItemType::Pottery, potters * 0.4 * scale * prod),
                     (ItemType::Ale, brewers * 0.4 * scale * prod),
                     (ItemType::Charcoal, foresters * 0.2 * scale * prod),
-                    // Data-defined trade goods now flow through the same economy
-                    // (#678 slice 2): each trade stocks its registry ware, so a
-                    // town's shelf carries salt, fish, bread, wine, copper,
-                    // marble, dyes — the long tail, produced system-first.
-                    (g("salt"), (coast_g + miners) * 0.4 * scale * prod),
-                    (g("salt-fish"), fishers_g * 0.5 * scale * prod),
-                    (
-                        g("fish-sauce"),
-                        coast_g * fishers_g.min(1.0) * 0.2 * scale * prod,
-                    ),
-                    (
-                        g("canvas"),
-                        coast_g * ropemakers.max(weavers) * 0.2 * scale * prod,
-                    ),
-                    (g("copper"), miners * 0.3 * scale * prod),
-                    (g("marble"), masons * 0.3 * scale * prod),
-                    (g("bread"), bakers_g * 0.6 * scale * prod),
-                    (g("flour"), bakers_g * 0.3 * scale * prod),
-                    (g("wine"), brewers * 0.3 * scale * prod),
-                    (g("linen"), (weavers * 0.3 + dyers * 0.2) * scale * prod),
-                    (g("dye-woad"), dyers * 0.4 * scale * prod),
-                    (
-                        g("willow-bark"),
-                        (herbalists * 0.3 + foragers * 0.3) * scale * prod,
-                    ),
-                    (g("honey"), farmers_g * 0.05 * scale * prod),
-                    (g("wool"), herders * 0.3 * scale * prod),
                 ];
-                for (item, amount) in made {
+                // The long tail of data-defined trade goods is produced from
+                // data rules (#678 slice 3): each names the trades that make it,
+                // so the shelf grows by editing data/production.ron, not code.
+                // Computed here (an immutable read of profession counts) before
+                // the apply loop borrows the stock mutably.
+                let data_made: Vec<(ItemType, f64)> = crate::model::production_rules()
+                    .iter()
+                    .filter_map(|r| {
+                        crate::model::good_id(&r.good).map(|gid| {
+                            (
+                                ItemType::Good(gid),
+                                r.amount(coastal, region_richness, &pc) * scale * prod,
+                            )
+                        })
+                    })
+                    .collect();
+                for (item, amount) in made.into_iter().chain(data_made) {
                     // Daily upkeep: the town spends a little of each good it
                     // keeps (building, mending, wearing out); and never holds
                     // more than its current size can — a shrunken town sheds the
