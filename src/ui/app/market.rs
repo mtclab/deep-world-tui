@@ -2151,6 +2151,54 @@ mod festival_tests {
     }
 
     #[test]
+    fn shelter_warms_against_cold_and_shades_from_heat() {
+        use crate::sim::structures::{BuildKind, Structure};
+        // Pure shelter grading: open shelters warm a little, houses most; the
+        // things you cannot sleep under do not warm at all (#694).
+        assert!(
+            BuildKind::Tarp.shelter_warmth().unwrap() > BuildKind::Cabin.shelter_warmth().unwrap()
+        );
+        assert!(
+            BuildKind::Home.shelter_warmth().unwrap() < BuildKind::Laavu.shelter_warmth().unwrap()
+        );
+        assert!(BuildKind::Beacon.shelter_warmth().is_none());
+        assert!(BuildKind::Well.shelter_warmth().is_none());
+        assert!(BuildKind::Cabin.roofed() && !BuildKind::Trail.roofed());
+
+        let mk = || {
+            let mut a = App::new(11, load_charts().unwrap());
+            a.generate_player();
+            a.accept_player();
+            a
+        };
+        // In the open: no shelter found, no shade from a roof.
+        let open = mk();
+        assert!(open.shelter_here().is_none());
+
+        // Raise a cabin on the player's own tile: now sheltered and shaded.
+        let mut camped = mk();
+        let pos = camped.player_pos.unwrap();
+        let tick = camped.sim.as_ref().map_or(0, |s| s.world.tick);
+        if let Some(sim) = camped.sim.as_mut() {
+            if let Some(region) = sim.world.regions.get_mut(pos.region_idx) {
+                region.structures.push(Structure {
+                    kind: BuildKind::Cabin,
+                    region_idx: pos.region_idx,
+                    x: pos.px as u32,
+                    y: pos.py as u32,
+                    built_tick: tick,
+                    last_maintenance_tick: tick,
+                    name: None,
+                    is_npc_built: false,
+                    stash: crate::model::Inventory::default(),
+                });
+            }
+        }
+        assert_eq!(camped.shelter_here(), Some(BuildKind::Cabin));
+        assert!(camped.in_shade(), "a roofed cabin shades from the bake");
+    }
+
+    #[test]
     fn warmth_helps_in_cold_not_in_heat() {
         use crate::model::{good_id, ItemType, PlayerPos, Weather};
         // Energy spent over harsh-weather hours, optionally wearing fur, in a

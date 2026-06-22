@@ -108,11 +108,44 @@ impl App {
         best
     }
 
+    /// The complete shelter the player is standing in, if any (#694): a tarp,
+    /// tent, kota, cabin or house they (or anyone) raised on this tile. Used by
+    /// both the warmth and the shade reckoning — a roof answers the cold and the
+    /// sun alike. Only kinds you can shelter in count (`shelter_warmth`).
+    pub(super) fn shelter_here(&self) -> Option<crate::sim::structures::BuildKind> {
+        let p = self.player_pos?;
+        let s = self.sim.as_ref()?;
+        let (px, py) = (p.px as u32, p.py as u32);
+        let shelters = |st: &crate::sim::structures::Structure| st.kind.shelter_warmth().is_some();
+        // The global build-list and the player's region both carry structures;
+        // pick the warmest roof standing on this tile (lowest cold factor).
+        let region_iter = s
+            .world
+            .regions
+            .get(p.region_idx)
+            .into_iter()
+            .flat_map(|r| r.structures.iter());
+        s.structures
+            .iter()
+            .chain(region_iter)
+            .filter(|st| st.at_position(p.region_idx, px, py) && shelters(st))
+            .min_by(|a, b| {
+                let fa = a.kind.shelter_warmth().unwrap_or(1.0);
+                let fb = b.kind.shelter_warmth().unwrap_or(1.0);
+                fa.partial_cmp(&fb).unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|st| st.kind)
+    }
+
     /// Whether the player stands in shade (#690): inside a building (floor,
-    /// hearth, doorway) or among a settlement's walls and awnings. The sun's
-    /// bake is softened there.
+    /// hearth, doorway), among a settlement's walls and awnings, or under a
+    /// roofed shelter they raised in the wild (#694). The sun's bake is softened
+    /// there.
     pub(super) fn in_shade(&self) -> bool {
         if self.player_on_settlement().is_some() {
+            return true;
+        }
+        if self.shelter_here().is_some_and(|k| k.roofed()) {
             return true;
         }
         let terrain = self.player_pos.and_then(|p| {
@@ -203,10 +236,18 @@ impl App {
                 // (shade cools, heavy gear bakes). Cold/wet uses the warmth.
                 cold_harsh = weather_harsh && !weather.is_hot();
                 hot_now = weather.is_hot();
+                // In the cold, a roofed shelter raised on this tile cuts the
+                // bite after worn gear (#694) — humble tarps a little, a timbered
+                // house most. Heat already reads shelter through `in_shade`
+                // (folded into heat_f), so the shelter factor applies only here.
+                let shelter_cold = self
+                    .shelter_here()
+                    .and_then(|k| k.shelter_warmth())
+                    .unwrap_or(1.0);
                 let warmth = if weather.is_hot() {
                     heat_f
                 } else {
-                    coat_factor
+                    coat_factor * shelter_cold
                 };
                 // Kukri's vow: the patient cold cannot wear the sworn (#457).
                 1.0 + harsh_excess
