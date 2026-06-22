@@ -160,6 +160,38 @@ impl BuildKind {
         }
     }
 
+    /// How much a complete shelter of this kind cuts the cold's bite when the
+    /// player is in it (#694): the factor the cold-weather penalty is multiplied
+    /// by, after worn gear — lower is warmer. A roof and walls answer the frost
+    /// the way a coat does; humbler shelters less, a real house most. `None`
+    /// for the things you cannot shelter in (a trail, a well, a beacon, a
+    /// shrine, a waymarker, a footbridge, a palisade). The fire/hearth that
+    /// warms beyond a roof is a separate, fuel-fed thing (later slice).
+    pub fn shelter_warmth(self) -> Option<f64> {
+        match self {
+            // Open shelters: a wall against the wind, little more.
+            BuildKind::Tarp | BuildKind::LeanTo => Some(0.85),
+            // Closed tents and frames: a real roof and a banked space.
+            BuildKind::TarpTent | BuildKind::Laavu | BuildKind::Kota => Some(0.65),
+            // Timber walls and a fixed hearth-space: a winter is survivable here.
+            BuildKind::Cabin | BuildKind::Longhouse | BuildKind::Home => Some(0.4),
+            BuildKind::Shrine
+            | BuildKind::Trail
+            | BuildKind::Footbridge
+            | BuildKind::Well
+            | BuildKind::Waymarker
+            | BuildKind::Palisade
+            | BuildKind::Beacon => None,
+        }
+    }
+
+    /// Whether a complete shelter of this kind puts a roof between the player
+    /// and the sun (#694): the heat mirror of `shelter_warmth`. Anything you can
+    /// shelter in for warmth also shades you in the bake.
+    pub fn roofed(self) -> bool {
+        self.shelter_warmth().is_some()
+    }
+
     pub fn glyph(self) -> char {
         match self {
             BuildKind::Tarp => '.',
