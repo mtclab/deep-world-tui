@@ -128,10 +128,10 @@
     (good: "dung-cake",   by: [("herder", 0.1)], regions: ["steppe"]),
 
     // Warm-south / Mediterranean-like — the wine, oil & orchard band.
-    (good: "grape",       by: [("farmer", 0.18)], regions: ["delta", "river_valley"]),
-    (good: "must",        by: [("vintner", 0.4), ("farmer", 0.1)], regions: ["delta", "river_valley"]),
-    (good: "fig",         by: [("farmer", 0.12)], regions: ["delta", "river_valley"]),
-    (good: "almond",      by: [("forager", 0.12)], regions: ["delta", "river_valley"]),
+    (good: "grape",       by: [("farmer", 0.18)], regions: ["delta", "river_valley"], seasons: ["green"]),
+    (good: "must",        by: [("vintner", 0.4), ("farmer", 0.1)], regions: ["delta", "river_valley"], seasons: ["green"]),
+    (good: "fig",         by: [("farmer", 0.12)], regions: ["delta", "river_valley"], seasons: ["green"]),
+    (good: "almond",      by: [("forager", 0.12)], regions: ["delta", "river_valley"], seasons: ["green"]),
     (good: "olive",       by: [("farmer", 0.15)], regions: ["delta", "river_valley"]),
     (good: "terracotta",  by: [("potter", 0.3), ("mason", 0.1)], regions: ["delta", "river_valley"]),
     (good: "oak-plank",   by: [("carpenter", 0.2)], regions: ["delta", "river_valley", "forest"]),
@@ -146,10 +146,10 @@
     (good: "eel",         by: [("fisher", 0.15)], regions: ["river_valley", "delta", "swamp"]),
 
     // Furs by beast — the cold north's wild take (scales with wildness).
-    (good: "fox-pelt",    by: [("hunter", 0.2), ("beast-handler", 0.1)], richness: true, regions: ["forest", "tundra", "upland"]),
-    (good: "marten-pelt", by: [("hunter", 0.15)], richness: true, regions: ["forest", "tundra"]),
-    (good: "ermine-pelt", by: [("hunter", 0.1)], richness: true, regions: ["tundra", "upland"]),
-    (good: "bear-pelt",   by: [("hunter", 0.08)], richness: true, regions: ["forest", "upland"]),
+    (good: "fox-pelt",    by: [("hunter", 0.2), ("beast-handler", 0.1)], richness: true, regions: ["forest", "tundra", "upland"], seasons: ["frost"]),
+    (good: "marten-pelt", by: [("hunter", 0.15)], richness: true, regions: ["forest", "tundra"], seasons: ["frost"]),
+    (good: "ermine-pelt", by: [("hunter", 0.1)], richness: true, regions: ["tundra", "upland"], seasons: ["frost"]),
+    (good: "bear-pelt",   by: [("hunter", 0.08)], richness: true, regions: ["forest", "upland"], seasons: ["frost"]),
 
     // Woods, fuels & the north's tar.
     (good: "pine-plank",  by: [("carpenter", 0.3), ("forester", 0.2)], regions: ["forest", "upland"]),
@@ -157,5 +157,5 @@
     (good: "firewood",    by: [("forester", 0.4)]),
     (good: "shingle",     by: [("carpenter", 0.2)]),
     (good: "tar",         by: [("forester", 0.3)], regions: ["forest", "tundra", "upland"]),
-    (good: "mahla",       by: [("forager", 0.2)], regions: ["forest", "tundra"]),
+    (good: "mahla",       by: [("forager", 0.2)], regions: ["forest", "tundra"], seasons: ["thaw"]),
 ]
