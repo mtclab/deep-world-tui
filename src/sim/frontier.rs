@@ -870,6 +870,7 @@ mod danger_tests {
             arrival_tick: 100_000, // long road, so it stays in transit
             travel_cost: 0,
             raided: false,
+            unloaded: false,
         });
 
         // Over a handful of days the band takes it (a deterministic roll a day).

@@ -615,13 +615,20 @@ fn tick_settlement_life(sim: &mut SimState) {
                 // so the shelf grows by editing data/production.ron, not code.
                 // Computed here (an immutable read of profession counts) before
                 // the apply loop borrows the stock mutably.
+                let season_name = match season {
+                    crate::model::Season::Thaw => "thaw",
+                    crate::model::Season::Green => "green",
+                    crate::model::Season::Frost => "frost",
+                };
                 let data_made: Vec<(ItemType, f64)> = crate::model::production_rules()
                     .iter()
                     .filter_map(|r| {
                         crate::model::good_id(&r.good).map(|gid| {
                             (
                                 ItemType::Good(gid),
-                                r.amount(coastal, region_richness, &rtype, &pc) * scale * prod,
+                                r.amount(coastal, region_richness, &rtype, season_name, &pc)
+                                    * scale
+                                    * prod,
                             )
                         })
                     })
@@ -1135,6 +1142,32 @@ pub const CANON_CITIES: &[(&str, &str)] = &[
 
 /// A canon city's head-count (population_scale_and_settlement_hierarchy.md):
 /// fifteen thousand and up — an order of scale beyond any province town.
+/// What a caravan off the long roads carries — the named city's specialty
+/// (great_cities_of_the_ages.md): the exotic imports the province cannot make.
+/// `None` for a province-town origin (it keeps its varied generated cargo).
+fn canon_city_cargo(origin: &str) -> Option<Vec<(crate::model::ItemType, u32)>> {
+    use crate::model::{good_id, ItemType};
+    let g = |slug: &str, q: u32| good_id(slug).map(|id| (ItemType::Good(id), q));
+    let cargo: Vec<(ItemType, u32)> = match origin {
+        "Sampa Crossing" => [g("grain", 8)].into_iter().flatten().collect(),
+        "Vessenath" => [g("fur", 3), Some((ItemType::Iron, 5)), g("fish", 4)]
+            .into_iter()
+            .flatten()
+            .collect(),
+        "Halkess" => [g("grain", 7)].into_iter().flatten().collect(),
+        "Velkarath" => [Some((ItemType::Iron, 4)), g("rope", 4), g("salt", 3)]
+            .into_iter()
+            .flatten()
+            .collect(),
+        "Keuramark" => [Some((ItemType::Wood, 6)), g("amber", 2), g("tar", 3)]
+            .into_iter()
+            .flatten()
+            .collect(),
+        _ => return None,
+    };
+    (!cargo.is_empty()).then_some(cargo)
+}
+
 pub fn city_population(idx: usize) -> u32 {
     match idx {
         0 => 16_000, // Sampa Crossing — Basin crossroads
@@ -1257,6 +1290,33 @@ fn caravan_destination_weights(
 
 fn tick_caravans(sim: &mut SimState) {
     let tick = sim.world.tick;
+    // Imports land (#goods-phase2b): an arrived caravan unloads its cargo into
+    // the destination town's stock, once — goods physically move region→region.
+    // A raided cart carries nothing in. Off-map destinations (the named cities)
+    // aren't on the settlement list, so their share simply leaves the province.
+    let arrivals: Vec<(String, Vec<(crate::model::ItemType, u32)>)> = sim
+        .caravans
+        .iter_mut()
+        .filter(|c| tick >= c.arrival_tick && !c.unloaded && !c.raided)
+        .map(|c| {
+            c.unloaded = true;
+            (c.destination.clone(), c.goods.clone())
+        })
+        .collect();
+    if !arrivals.is_empty() {
+        for region in sim.world.regions.iter_mut() {
+            for s in region.settlements.iter_mut() {
+                let cap = s.population as f64 * 0.5;
+                for (dest, goods) in &arrivals {
+                    if &s.name == dest {
+                        for (item, qty) in goods {
+                            s.produce_good(*item, *qty as f64, cap);
+                        }
+                    }
+                }
+            }
+        }
+    }
     // Goods disperse ~2 days after arrival.
     sim.caravans.retain(|c| tick < c.arrival_tick + 48);
 
@@ -1380,12 +1440,18 @@ fn tick_caravans(sim: &mut SimState) {
     if plagued.contains(&dest) {
         return;
     }
-    let caravan = crate::model::economy::Caravan::generate(
+    let mut caravan = crate::model::economy::Caravan::generate(
         sim.world.seed.wrapping_add(tick),
         origin,
         dest,
         tick,
     );
+    // Off the long roads, a caravan carries its city's specialty, not random
+    // wares (#goods-phase2b): the exotic imports the province can't make —
+    // Keuramark amber, Sampa grain, Vessenath furs-and-steel.
+    if let Some(cargo) = canon_city_cargo(&caravan.origin) {
+        caravan.goods = cargo;
+    }
     // War on the contested edge (#579 slice 1): while the province's polity is
     // at tension with its rival, the roads are watched and raided — a share of
     // the carts never reach the market, so the goods they would have carried

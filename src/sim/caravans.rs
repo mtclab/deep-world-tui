@@ -240,6 +240,7 @@ mod tests {
             arrival_tick: 100,
             travel_cost: 0,
             raided: false,
+            unloaded: false,
         });
 
         // At the journey's start the train sits on the origin town.
@@ -287,6 +288,7 @@ mod tests {
             arrival_tick: 100,
             travel_cost: 0,
             raided: false,
+            unloaded: false,
         });
         assert!(
             caravan_train_tiles(&sim, "carav-2", other, 50).is_empty(),
