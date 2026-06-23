@@ -1455,6 +1455,11 @@ pub struct Caravan {
     /// train limping on as a wreck. Set when the frontier preys on it.
     #[serde(default)]
     pub raided: bool,
+    /// Set once its cargo has been unloaded into the destination's stock on
+    /// arrival (#goods-phase2b) — so a caravan deposits its goods exactly once,
+    /// physically moving wares region→region (the import).
+    #[serde(default)]
+    pub unloaded: bool,
 }
 
 impl Caravan {
@@ -1483,6 +1488,7 @@ impl Caravan {
             arrival_tick,
             travel_cost,
             raided: false,
+            unloaded: false,
         }
     }
 
