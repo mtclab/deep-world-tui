@@ -50,7 +50,13 @@ fn new_quest_kinds_generate() {
 #[test]
 fn discovery_and_recipe_counts() {
     assert_eq!(DiscoveryKind::all().len(), 26);
-    assert_eq!(craft_recipes().len(), 31);
+    // Lower bound, not exact: recipe chains grow (the goods/variety passes add
+    // more). Pinning the exact count just tips this test on every addition.
+    assert!(
+        craft_recipes().len() >= 44,
+        "core + variety recipe chains present (got {})",
+        craft_recipes().len()
+    );
     // Every discovery has text, glyph, and a wired effect.
     for k in DiscoveryKind::all() {
         assert!(!k.observe_text().is_empty());
