@@ -115,7 +115,7 @@ pub(crate) fn glyph_color(terrain: crate::model::Terrain, theme: &Theme) -> Colo
         Coast => theme.dark_brown(),
         Cave => theme.dark_ink(),
         Tundra => theme.dark_ink(),
-        DeepDesert => theme.warm_brown(),
+        Steppe => theme.warm_brown(),
     }
 }
 

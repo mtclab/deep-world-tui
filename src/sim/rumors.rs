@@ -8,7 +8,7 @@ use crate::sim::SimState;
 /// season — so the barter encounters (#443/#445/#447) can be sought out, not
 /// only stumbled into. Each people is named where its terrain dominates: the
 /// Mëräk on the coast, the Khör on the steppe, the Häl in the forest, the
-/// Tzäkhar in the uplands. (The She'ar have no desert region in the province
+/// Tzäkhar in the uplands. (The She'ar have no steppe region in the province
 /// map, so no rumor points at empty ground.) Deterministic per land + season;
 /// fires only about a third of seasons so the news is worth carrying.
 fn nonhuman_trade_rumor(

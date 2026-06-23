@@ -278,7 +278,7 @@ impl App {
             );
             // The dry heat draws you down (#690): hot weather pulls extra thirst
             // beyond the ordinary, eased by shade and worsened by heavy gear (the
-            // heat_factor), so a heatwave or the deep desert is a water problem.
+            // heat_factor), so a heatwave or the deep steppe is a water problem.
             if hot_now {
                 self.vitals.thirst = (self.vitals.thirst - 0.03 * hours as f64 * heat_f).max(0.0);
             }

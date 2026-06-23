@@ -174,7 +174,7 @@ impl Region {
                     | Terrain::Mountain
                     | Terrain::Swamp
                     | Terrain::Cave
-                    | Terrain::DeepDesert,
+                    | Terrain::Steppe,
                 ) = self.terrain.get(x, y)
                 {
                     hostile += 1;

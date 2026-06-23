@@ -35,7 +35,7 @@ fn terrain_label(t: Terrain) -> &'static str {
         Terrain::Tundra => "tundra",
         Terrain::Mountain => "high rock",
         Terrain::Sand => "sand",
-        Terrain::DeepDesert => "deep desert",
+        Terrain::Steppe => "dry steppe",
         Terrain::Cave => "dark",
         Terrain::Settlement => "streets",
         Terrain::House => "house",
@@ -196,7 +196,7 @@ impl App {
         match terrain {
             Terrain::Forest | Terrain::Swamp => 2,
             Terrain::Grass | Terrain::Farmland | Terrain::Coast => 1,
-            Terrain::Tundra | Terrain::Mountain | Terrain::Sand | Terrain::DeepDesert => 0,
+            Terrain::Tundra | Terrain::Mountain | Terrain::Sand | Terrain::Steppe => 0,
             _ => 0,
         }
     }
@@ -222,10 +222,10 @@ impl App {
 
     /// Forage for medicine: range the ground for healing herbs, biome- and
     /// Drink from water within reach (#691b): a well or a river/lake slakes you
-    /// clean and free; the deep desert's real danger is that there is none. The
+    /// clean and free; the deep steppe's real danger is that there is none. The
     /// sea is salt and will not slake (it worsens the thirst); mire water slakes
     /// but is not clean — bad water risks a fever, fortune-leaned. Ties the new
-    /// heat/desert thirst pressure to the map: find fresh water, or carry it.
+    /// heat/steppe thirst pressure to the map: find fresh water, or carry it.
     pub fn drink_water(&mut self) {
         use crate::model::Terrain;
         let pos = match self.player_pos {

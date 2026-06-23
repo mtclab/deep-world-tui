@@ -76,7 +76,6 @@ impl Theme {
             "delta" => Color::Rgb(0x3a, 0x7a, 0x7a),
             "mountain" => Color::Rgb(0x6a, 0x6a, 0x6a),
             "swamp" => Color::Rgb(0x4a, 0x5a, 0x3a),
-            "deep_desert" => Color::Rgb(0x8a, 0x7a, 0x5a),
             "tundra" => Color::Rgb(0x6a, 0x8a, 0x9a),
             "cave" => Color::Rgb(0x4a, 0x3a, 0x5a),
             _ => DARK_BROWN,

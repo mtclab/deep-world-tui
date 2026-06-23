@@ -244,7 +244,7 @@ impl ItemType {
             Terrain::Water => Some(ItemType::Water),
             Terrain::Mountain => Some(ItemType::Stone),
             Terrain::Swamp => Some(ItemType::Branches),
-            Terrain::Sand | Terrain::DeepDesert => Some(ItemType::Tinder),
+            Terrain::Sand | Terrain::Steppe => Some(ItemType::Tinder),
             Terrain::Cave => Some(ItemType::Stone),
             Terrain::Road => None,
         }
@@ -805,7 +805,7 @@ pub fn enclave_barter(
         // The Häl bring canopy physic and fruit down for cloth and tools.
         (PeopleKind::Hal, I::Tool) => (1, &[(I::Salve, 1), (I::Herb, 2), (I::Food, 1)]),
         (PeopleKind::Hal, I::Cloth) => (1, &[(I::Herb, 2), (I::Food, 2)]),
-        // The She'ar give desert game and succulent-physic for what wards the sun.
+        // The She'ar give steppe game and succulent-physic for what wards the sun.
         (PeopleKind::Shear, I::Cloth) => (1, &[(I::Food, 2), (I::Herb, 1)]),
         (PeopleKind::Shear, I::Tool) => (1, &[(I::Food, 2), (I::Herb, 2)]),
         _ => return None,
@@ -1797,7 +1797,7 @@ impl CropType {
             (CropType::Berry, Terrain::Forest | Terrain::Tundra) => 1.2,
             (CropType::Flatroot, Terrain::Sand | Terrain::Grass) => 1.1,
             (CropType::WinterRye, Terrain::Farmland | Terrain::Grass) => 1.05,
-            (CropType::DroughtMillet, Terrain::Sand | Terrain::DeepDesert) => 1.25,
+            (CropType::DroughtMillet, Terrain::Sand | Terrain::Steppe) => 1.25,
             (CropType::Flax, Terrain::Farmland | Terrain::Grass) => 1.1,
             (CropType::SnowPea, Terrain::Tundra) => 1.25,
             (_, Terrain::Farmland) => 1.0,
@@ -2712,9 +2712,9 @@ mod tests {
     fn disease_regional_probability() {
         let swamp_prob = Disease::Fever.contraction_probability(Terrain::Swamp);
 
-        let desert_prob = Disease::Fever.contraction_probability(Terrain::DeepDesert);
+        let steppe_prob = Disease::Fever.contraction_probability(Terrain::Steppe);
 
-        assert!(swamp_prob > desert_prob);
+        assert!(swamp_prob > steppe_prob);
     }
 
     #[test]
@@ -2768,9 +2768,9 @@ mod tests {
     fn farm_regional_suitability() {
         let grain_farmland = CropType::Grain.regional_suitability(Terrain::Farmland);
 
-        let grain_desert = CropType::Grain.regional_suitability(Terrain::DeepDesert);
+        let grain_steppe = CropType::Grain.regional_suitability(Terrain::Steppe);
 
-        assert!(grain_farmland > grain_desert);
+        assert!(grain_farmland > grain_steppe);
 
         let herb_forest = CropType::Herb.regional_suitability(Terrain::Forest);
 

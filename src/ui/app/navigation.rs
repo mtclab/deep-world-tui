@@ -418,7 +418,7 @@ impl App {
                 0.0,
                 "The bramble laid a long scratch up the arm. It will close — unless it does not.",
             ),
-            Terrain::Sand | Terrain::DeepDesert => (None, 0.0, 0.0, 0.10, ""),
+            Terrain::Sand | Terrain::Steppe => (None, 0.0, 0.0, 0.10, ""),
             // Frost ground anywhere else still bites the chest a little.
             _ if frost => (
                 Some(Disease::WinterCough),
@@ -1706,7 +1706,7 @@ mod terrain_mishap_tests {
     }
 
     #[test]
-    fn the_desert_draws_you_dry_not_sick() {
+    fn the_steppe_draws_you_dry_not_sick() {
         // Sand costs water, never a disease.
         let mut app = App::new(7, load_charts().unwrap());
         app.generate_player();
@@ -1714,7 +1714,7 @@ mod terrain_mishap_tests {
         let (px, py) = (5usize, 5usize);
         app.sim.as_mut().unwrap().world.regions[0]
             .terrain
-            .set(px, py, Terrain::DeepDesert);
+            .set(px, py, Terrain::Steppe);
         app.player_pos = Some(PlayerPos {
             region_idx: 0,
             px,
@@ -1733,7 +1733,7 @@ mod terrain_mishap_tests {
                 .person
                 .illnesses
                 .is_empty(),
-            "the desert dries you, it does not infect you"
+            "the steppe dries you, it does not infect you"
         );
     }
 }
