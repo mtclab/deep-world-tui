@@ -104,6 +104,61 @@ spoils from uncanny beasts (ghost-stag antler, mire-light essence) — **never c
 always paid for** in the body or the rite; they are the edges of the world, not a
 shop stock.
 
+## Regional & cultural breadth — Sorethel is a continent, not one culture
+
+The baseline above leans northern/Finnic because that is the province's likely
+climate, but Sorethel spans climate bands and peoples, and the market should taste
+of all of them. **Pull broadly from Old-World cultures** — northern, **steppe**,
+**warm-south / Mediterranean-like**, upland, coastal, deep — keyed to climate band,
+biome, and people. (Old-World only: **no New-World crops** — no potato, tomato,
+maize, chilli, tobacco, etc. No real-world place-names; use Sorethel regions/peoples.
+No deserts — arid = steppe.)
+
+| Band / people | Characteristic goods |
+|---|---|
+| **Boreal north** (Metsik/Khör-edge) | rye, oats, barley; fish, furs, **tar**, birch-bark, soapstone, dried/smoked meat, *sahti*, mead, berries |
+| **Temperate river-valley** (Ahjo/Väylä) | barley/wheat, bread, ale, flax/linen, cattle, cheese, timber, iron |
+| **Warm south & coast — Mediterranean-like** (southern peoples) | **wheat & emmer, olives & olive-oil, grapes → wine & vinegar, figs, almonds, honey, soft & hard cheeses, terracotta, marble, lime, fine linen, fish-sauce** |
+| **Steppe — cold (Khör) & dry (She'ar)** | **goat & sheep-milk cheese, fermented milk (kumis-like), dried curd (qurut-like), cured/dried meats, felt, leather, horn bows, härkä/horse gear, dung-fuel**, salt, hides |
+| **Canopy south** (Häl) | canopy-fibre, fruit, **potent salves & physic-herbs**, resins, honey |
+| **Mountain** (Sepät) | ore, iron/steel, copper, bronze, cut-stone, whetstone, tools, **oltzarin** |
+| **Sea & islands** (Mëräk/Saari) | fish (many kinds), salt, **pearls**, sponges, shell, seaweed, oil, boats |
+| **Deep** (Tzäkhar) | deep-metals, **syvävalo**, stone-ware, mushroom-foods, rock-bread |
+
+**The province makes its own + receives the exotic.** The playable slice produces
+its band's goods; the rest arrive as **imports via Väylä factors and caravans** —
+southern wine and olive-oil, steppe cheese, deep-metal reach a northern town as
+prized trade-goods. So the market is rich and cosmopolitan **without** the province
+changing biome — and scarcity/price of imports becomes a real economic signal.
+
+## Variety *within* every category (the "different grains" rule)
+
+A category is never one token. **Different grains, not "grain":**
+
+> **rye** (north staple → dark bread, *sahti*) · **barley** (bread, malt → ale,
+> porridge) · **oats** (porridge, fodder) · **wheat & emmer** (south → fine/white
+> bread) · **millet** (steppe → porridge) · **buckwheat** (groats) — each with its
+> own flour → bread/porridge/ale/fodder chain and its own region/price.
+
+Apply the same multiplicity everywhere:
+
+- **Bread:** rye loaf · barley flatbread · **crispbread (näkkileipä)** · hardtack ·
+  southern wheat loaf · steppe flatbread.
+- **Cheese / dairy:** fresh curd · hard cheese · **goat & sheep-milk cheese** ·
+  smoked cheese · butter · *qurut*-like dried curd · *viili*-like soured milk.
+- **Fish:** by species (pike, trout, perch, whitefish, herring, eel, seal) × state
+  (fresh / salt / smoked / dried) — and Mëräk shellfish, roe.
+- **Furs:** fox · marten · wolverine · ermine · bear · squirrel · beaver — graded.
+- **Wood:** pine · spruce · birch · aspen · oak (south) — each suited to a use
+  (tar from pine, containers from birch, planking from spruce, fine-work from oak).
+- **Stone:** granite · soapstone (cookware) · limestone (→ lime) · **marble** (south).
+- **Drink:** *sahti* · ale · mead · **wine & vinegar (south)** · kumis-like ·
+  berry-wine · mahla.
+- **Oil:** fish/seal-oil (north) vs **olive-oil (south)** — same role, regional source.
+
+This is what makes a market feel inhabited: a buyer who wants *barley* malt or
+*goat* cheese or *birch* tar, priced by region and season — not a generic slot.
+
 ## How it plugs into the sim
 
 - `ItemType` grows (or a `Good { kind, grade }` with a richer kind-set); the
