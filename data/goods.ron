@@ -125,4 +125,63 @@
     (slug: "comfrey",     name: "Comfrey",       price: 4,  tags: ["medicine", "herb"]),
     (slug: "mint",        name: "Mint",          price: 3,  tags: ["medicine", "herb"]),
     (slug: "chamomile",   name: "Chamomile",     price: 4,  tags: ["medicine", "herb"]),
+
+    // ── Variety pass: different grains & their breads ─────────────────────
+    // "grain" stays the bulk abstraction; these are the named cereals, each its
+    // own region/price, all milling to flour (see the Mill recipes).
+    (slug: "rye",         name: "Rye",           price: 2,  tags: ["food", "grain", "staple", "bulk", "north"]),
+    (slug: "barley",      name: "Barley",        price: 2,  tags: ["food", "grain", "staple", "bulk"]),
+    (slug: "wheat",       name: "Wheat",         price: 3,  tags: ["food", "grain", "staple", "south"]),
+    (slug: "emmer",       name: "Emmer",         price: 3,  tags: ["food", "grain", "south"]),
+    (slug: "millet",      name: "Millet",        price: 2,  tags: ["food", "grain", "steppe"]),
+    (slug: "buckwheat",   name: "Buckwheat",     price: 2,  tags: ["food", "grain"]),
+    (slug: "malt",        name: "Malt",          price: 3,  tags: ["food", "brewing"]),
+    (slug: "rye-bread",   name: "Rye Bread",     price: 3,  tags: ["food", "perishable", "north"]),
+    (slug: "wheat-bread", name: "Wheat Loaf",    price: 4,  tags: ["food", "perishable", "south"]),
+    (slug: "flatbread",   name: "Flatbread",     price: 2,  tags: ["food", "steppe"]),
+    (slug: "crispbread",  name: "Crispbread",    price: 3,  tags: ["food", "preserved", "north"]),
+
+    // ── Variety pass: dairy & the steppe larder (goat-milk cheese &c.) ────
+    (slug: "milk",        name: "Milk",          price: 2,  tags: ["food", "dairy", "perishable"]),
+    (slug: "goat-milk",   name: "Goat Milk",     price: 2,  tags: ["food", "dairy", "perishable", "steppe"]),
+    (slug: "curd",        name: "Fresh Curd",    price: 3,  tags: ["food", "dairy"]),
+    (slug: "goat-cheese", name: "Goat Cheese",   price: 6,  tags: ["food", "dairy", "steppe"]),
+    (slug: "ewe-cheese",  name: "Ewe Cheese",    price: 7,  tags: ["food", "dairy", "steppe", "south"]),
+    (slug: "dried-curd",  name: "Dried Curd",    price: 4,  tags: ["food", "dairy", "preserved", "steppe"]),
+    (slug: "kumis",       name: "Fermented Milk", price: 4, tags: ["drink", "steppe"]),
+    (slug: "cured-meat",  name: "Cured Meat",    price: 7,  tags: ["food", "preserved", "steppe"]),
+
+    // ── Variety pass: warm-south / Mediterranean-like produce ─────────────
+    (slug: "grape",       name: "Grapes",        price: 3,  tags: ["food", "perishable", "south"]),
+    (slug: "must",        name: "Grape Must",    price: 4,  tags: ["drink", "south"]),
+    (slug: "fig",         name: "Figs",          price: 4,  tags: ["food", "perishable", "south"]),
+    (slug: "almond",      name: "Almonds",       price: 5,  tags: ["food", "forage", "south"]),
+    (slug: "olive",       name: "Olives",        price: 5,  tags: ["food", "south"]),
+    (slug: "terracotta",  name: "Terracotta",    price: 5,  tags: ["building", "south", "craft"]),
+
+    // ── Variety pass: more fish (by kind) & furs (by beast) ───────────────
+    (slug: "fish",        name: "Fresh Fish",    price: 3,  tags: ["food", "perishable", "coastal"]),
+    (slug: "herring",     name: "Herring",       price: 3,  tags: ["food", "coastal"]),
+    (slug: "pike",        name: "Pike",          price: 4,  tags: ["food", "river"]),
+    (slug: "whitefish",   name: "Whitefish",     price: 4,  tags: ["food", "coastal"]),
+    (slug: "eel",         name: "Eel",           price: 5,  tags: ["food", "river"]),
+    (slug: "roe",         name: "Fish Roe",      price: 8,  tags: ["food", "luxury", "coastal"]),
+    (slug: "fish-oil",    name: "Fish Oil",      price: 4,  tags: ["fuel", "light", "coastal"]),
+    (slug: "fox-pelt",    name: "Fox Pelt",      price: 14, tags: ["fur", "luxury", "trade", "cold"]),
+    (slug: "marten-pelt", name: "Marten Pelt",   price: 18, tags: ["fur", "luxury", "trade", "cold"]),
+    (slug: "ermine-pelt", name: "Ermine Pelt",   price: 24, tags: ["fur", "luxury", "trade", "cold"]),
+    (slug: "bear-pelt",   name: "Bear Pelt",     price: 20, tags: ["fur", "trade", "cold"]),
+
+    // ── Variety pass: woods, timber & fuels (by tree/use) ─────────────────
+    (slug: "pine-plank",  name: "Pine Planks",   price: 3,  tags: ["wood", "building"]),
+    (slug: "oak-plank",   name: "Oak Planks",    price: 5,  tags: ["wood", "building", "south"]),
+    (slug: "birch-bark",  name: "Birch Bark",    price: 1,  tags: ["wood", "craft", "north"]),
+    (slug: "firewood",    name: "Firewood",      price: 1,  tags: ["fuel", "bulk"]),
+    (slug: "shingle",     name: "Wood Shingles", price: 3,  tags: ["wood", "building"]),
+    (slug: "tar",         name: "Wood Tar",      price: 5,  tags: ["building", "trade", "north"]),
+
+    // ── Variety pass: drinks & sundries ───────────────────────────────────
+    (slug: "sahti",       name: "Sahti",         price: 4,  tags: ["drink", "north"]),
+    (slug: "mahla",       name: "Birch Sap",     price: 2,  tags: ["drink", "north", "perishable"]),
+    (slug: "dung-cake",   name: "Dried Dung",    price: 1,  tags: ["fuel", "steppe", "bulk"]),
 ]

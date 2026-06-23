@@ -652,6 +652,101 @@ pub fn craft_recipes() -> Vec<CraftRecipe> {
             output_count: 2,
             people: None,
         },
+        // ── Variety pass (GOODS.md): the named grains all mill to flour, so a
+        // rye plain and a wheat south feed the same baker — different inputs,
+        // one product. Plus the dairy, brewing, must, fish and timber chains
+        // that give the new wares a source and a sink (not just a price).
+        CraftRecipe {
+            name: "Mill Rye".into(),
+            inputs: vec![(rg("rye"), 3)],
+            output: rg("flour"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Mill Wheat".into(),
+            inputs: vec![(rg("wheat"), 3)],
+            output: rg("flour"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Mill Barley".into(),
+            inputs: vec![(rg("barley"), 3)],
+            output: rg("flour"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Rye Bread".into(),
+            inputs: vec![(rg("flour"), 2)],
+            output: rg("rye-bread"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Crispbread".into(),
+            inputs: vec![(rg("flour"), 2)],
+            output: rg("crispbread"),
+            output_count: 3,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Malt".into(),
+            inputs: vec![(rg("barley"), 2)],
+            output: rg("malt"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Brew Sahti".into(),
+            inputs: vec![(rg("malt"), 2), (ItemType::Herb, 1)],
+            output: rg("sahti"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Press Curd".into(),
+            inputs: vec![(rg("milk"), 3)],
+            output: rg("curd"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Goat Cheese".into(),
+            inputs: vec![(rg("goat-milk"), 3)],
+            output: rg("goat-cheese"),
+            output_count: 1,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Press Must".into(),
+            inputs: vec![(rg("grape"), 3)],
+            output: rg("must"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Vintage".into(),
+            inputs: vec![(rg("must"), 2)],
+            output: rg("wine"),
+            output_count: 1,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Try Fish-Oil".into(),
+            inputs: vec![(rg("fish"), 3)],
+            output: rg("fish-oil"),
+            output_count: 2,
+            people: None,
+        },
+        CraftRecipe {
+            name: "Saw Planks".into(),
+            inputs: vec![(ItemType::Wood, 2)],
+            output: rg("pine-plank"),
+            output_count: 3,
+            people: None,
+        },
     ]
 }
 
