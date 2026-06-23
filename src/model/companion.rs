@@ -14,7 +14,7 @@ pub enum Animal {
     RockLizard,
     ForestOwl,
     TundraFox,
-    DesertCaravanDog,
+    SteppeCaravanDog,
     HighlandGoat,
     MarshCrane,
     /// Canon herd-beast of the Metsik border-clans and the Porokansa.
@@ -37,7 +37,7 @@ impl Animal {
             Animal::RockLizard => 'l',
             Animal::ForestOwl => 'W',
             Animal::TundraFox => 'F',
-            Animal::DesertCaravanDog => 'C',
+            Animal::SteppeCaravanDog => 'C',
             Animal::HighlandGoat => 'G',
             Animal::MarshCrane => 'M',
             Animal::Reindeer => 'R',
@@ -59,7 +59,7 @@ impl Animal {
             Animal::RockLizard => "rock_lizard",
             Animal::ForestOwl => "forest_owl",
             Animal::TundraFox => "tundra_fox",
-            Animal::DesertCaravanDog => "desert_caravan_dog",
+            Animal::SteppeCaravanDog => "steppe_caravan_dog",
             Animal::HighlandGoat => "highland_goat",
             Animal::MarshCrane => "marsh_crane",
             Animal::Reindeer => "reindeer",
@@ -81,7 +81,7 @@ impl Animal {
             Animal::RockLizard => "cold-blooded climber of crags and ruins",
             Animal::ForestOwl => "watchful spirit of the midnight canopy",
             Animal::TundraFox => "white-furred ghost of the northern wastes",
-            Animal::DesertCaravanDog => "hardy trail-runner bred for sand and heat",
+            Animal::SteppeCaravanDog => "hardy trail-runner bred for sand and heat",
             Animal::HighlandGoat => "sure-footed provider for the high places",
             Animal::MarshCrane => "tall wader that knows the safe passages",
             Animal::Reindeer => {
@@ -100,7 +100,7 @@ impl Animal {
     /// A guardian puts itself between you and a turning predator — it does not
     /// make flight safe, but it shortens the odds of being caught.
     pub fn guards(self) -> bool {
-        matches!(self, Animal::Dog | Animal::Hound | Animal::DesertCaravanDog)
+        matches!(self, Animal::Dog | Animal::Hound | Animal::SteppeCaravanDog)
     }
 
     pub fn travel_speed_multiplier(self) -> f64 {
@@ -150,7 +150,7 @@ impl Animal {
             Animal::RockLizard => 7,
             Animal::ForestOwl => 10,
             Animal::TundraFox => 14,
-            Animal::DesertCaravanDog => 9,
+            Animal::SteppeCaravanDog => 9,
             Animal::HighlandGoat => 8,
             Animal::MarshCrane => 5,
             Animal::Reindeer => 13,
@@ -168,7 +168,7 @@ impl Animal {
             Animal::RockLizard => 0,
             Animal::ForestOwl => 1,
             Animal::TundraFox => 1,
-            Animal::DesertCaravanDog => 1,
+            Animal::SteppeCaravanDog => 1,
             Animal::HighlandGoat => 1,
             Animal::MarshCrane => 0,
             Animal::Reindeer => 1,
@@ -186,7 +186,7 @@ impl Animal {
             Animal::RockLizard => 1,
             Animal::ForestOwl => 1,
             Animal::TundraFox => 1,
-            Animal::DesertCaravanDog => 1,
+            Animal::SteppeCaravanDog => 1,
             Animal::HighlandGoat => 1,
             Animal::MarshCrane => 0,
             Animal::Reindeer => 2,

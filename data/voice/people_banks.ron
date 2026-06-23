@@ -509,20 +509,20 @@
         greetings: [
             "\"The sand shifts. The She'ar endure. Welcome, if you endure also.\"",
             "\"Kukri's patience in the wasteland. You have walked far.\"",
-            "\"The desert teaches conservation. Take only what you need.\"",
+            "\"The steppe teaches conservation. Take only what you need.\"",
             "\"A rare visitor. The She'ar see few who choose to come.\"",
             "\"Heat and silence. That is what we offer. Also: truth.\"",
         ],
         farewells: [
             "\"May Kukri's silence keep you cool in hot places.\"",
             "\"The sand erases all tracks. Including yours. Walk carefully.\"",
-            "\"The desert does not remember those who hurry. Walk with purpose.\"",
+            "\"The steppe does not remember those who hurry. Walk with purpose.\"",
             "\"From sand to sand, farewell.\"",
             "\"The She'ar remain. Others pass. Such is the way of dry places.\"",
         ],
         neutral: [
             "\"The She'ar know: scarcity teaches what abundance cannot.\"",
-            "\"Desert wisdom: carry only what sustains. Doubt everything else.\"",
+            "\"Steppe wisdom: carry only what sustains. Doubt everything else.\"",
             "\"The sand hides much. We see what surface-dwellers miss.\"",
             "\"Kukri's solitude is not punishment. It is purification.\"",
             "\"A fire that burns too hot consumes itself. We burn low and long.\"",

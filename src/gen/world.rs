@@ -277,7 +277,7 @@ fn generate_terrain(
         "coast" => Terrain::Sand,
         "forest" => Terrain::Forest,
         "upland" => Terrain::Mountain,
-        "steppe" => Terrain::Grass,
+        "steppe" => Terrain::Steppe,
         "delta" => Terrain::Swamp,
         _ => Terrain::Grass,
     };

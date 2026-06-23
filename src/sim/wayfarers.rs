@@ -70,7 +70,7 @@ impl WayfarerKind {
 /// Which people, if any, sends a trader to the roads of a region of this kind
 /// (#649 slice 2b): the canon home-terrains — the Mëräk from the coasts and
 /// deltas, the Khör from the open and high country, the Häl from the deep woods.
-/// The deep-cave Tzäkhar and deep-desert She'ar keep to their own country and
+/// The deep-cave Tzäkhar and deep-steppe She'ar keep to their own country and
 /// are met in their enclaves, not on the province's roads.
 fn road_trader_people(region_type: &str) -> Option<PeopleKind> {
     match region_type {

@@ -13,7 +13,8 @@ pub enum Terrain {
     Coast,
     Cave,
     Tundra,
-    DeepDesert,
+    #[serde(alias = "DeepSteppe")]
+    Steppe,
     /// A roofed building inside a settlement: someone's house, the tavern,
     /// the temple. Solid to walk through; entered by stepping into the door
     /// (the walk-in interaction layer).
@@ -46,7 +47,7 @@ impl Terrain {
             Terrain::Coast => '≋',
             Terrain::Cave => '◉',
             Terrain::Tundra => '▒',
-            Terrain::DeepDesert => ':',
+            Terrain::Steppe => '"',
             Terrain::Wall => '▒',
             Terrain::Floor => '·',
             Terrain::Door => '+',
@@ -71,7 +72,7 @@ impl Terrain {
             Terrain::Road | Terrain::Settlement => 1,
             Terrain::Grass | Terrain::Farmland | Terrain::Sand | Terrain::Coast => 1,
             Terrain::Forest | Terrain::Swamp | Terrain::Cave | Terrain::Tundra => 2,
-            Terrain::DeepDesert => 2,
+            Terrain::Steppe => 2,
             Terrain::Water | Terrain::Mountain | Terrain::House => 1,
             Terrain::Wall | Terrain::Floor | Terrain::Door | Terrain::Hearth => 1,
         }
@@ -97,7 +98,7 @@ impl Terrain {
             (PeopleKind::Pohjavaki, Terrain::Cave) => 1,
             // The Shear walk the dry places — they were the one people with no
             // gather identity (their encounter edge on sand already existed).
-            (PeopleKind::Shear, Terrain::Sand | Terrain::DeepDesert) => 1,
+            (PeopleKind::Shear, Terrain::Sand | Terrain::Steppe) => 1,
             _ => 0,
         }
     }
@@ -112,7 +113,7 @@ impl Terrain {
             Terrain::Coast => Some(GodName::Masa),
             Terrain::Cave => Some(GodName::Kukri),
             Terrain::Tundra => Some(GodName::Kukri),
-            Terrain::Sand | Terrain::DeepDesert => None,
+            Terrain::Sand | Terrain::Steppe => None,
             // The hearth-keeper holds the home and all its rooms.
             Terrain::House | Terrain::Wall | Terrain::Floor | Terrain::Door | Terrain::Hearth => {
                 Some(GodName::Oltzed)
@@ -260,10 +261,7 @@ mod tests {
 
         assert!(Terrain::Tundra.passable(), "tundra must be passable");
 
-        assert!(
-            Terrain::DeepDesert.passable(),
-            "deep desert must be passable"
-        );
+        assert!(Terrain::Steppe.passable(), "deep steppe must be passable");
     }
 
     #[test]

@@ -250,7 +250,7 @@ impl Weather {
             Terrain::Mountain => (160, 180, 120, 120, 120, 80, 30, 60, 60, 30, 10),
             Terrain::Forest => (120, 240, 220, 80, 40, 80, 40, 10, 40, 20, 10),
             Terrain::Swamp => (80, 180, 220, 80, 30, 200, 30, 5, 30, 15, 10),
-            Terrain::DeepDesert | Terrain::Sand => (250, 150, 30, 30, 0, 30, 300, 0, 10, 80, 20),
+            Terrain::Steppe | Terrain::Sand => (250, 150, 30, 30, 0, 30, 300, 0, 10, 80, 20),
             Terrain::Tundra => (120, 160, 80, 80, 280, 40, 30, 120, 40, 10, 10),
             _ => (160, 200, 160, 80, 80, 80, 40, 20, 30, 20, 20),
         };
@@ -1102,19 +1102,19 @@ mod tests {
             fog_count
         );
 
-        // Desert should have more heatwave
+        // Steppe should have more heatwave
 
         let mut heat_count = 0;
 
         for tick in 0..100 {
-            if Weather::generate(42, tick, Terrain::DeepDesert) == Weather::Heatwave {
+            if Weather::generate(42, tick, Terrain::Steppe) == Weather::Heatwave {
                 heat_count += 1;
             }
         }
 
         assert!(
             heat_count > 20,
-            "desert should have significant heatwave: {}",
+            "steppe should have significant heatwave: {}",
             heat_count
         );
     }
@@ -1130,7 +1130,7 @@ mod tests {
             Terrain::Mountain,
             Terrain::Forest,
             Terrain::Swamp,
-            Terrain::DeepDesert,
+            Terrain::Steppe,
             Terrain::Sand,
             Terrain::Tundra,
             Terrain::Road,

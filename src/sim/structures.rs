@@ -85,7 +85,7 @@ impl BuildKind {
             // A well belongs to the dry lands.
             BuildKind::Well => matches!(
                 terrain,
-                T::Grass | T::Farmland | T::Sand | T::Tundra | T::DeepDesert
+                T::Grass | T::Farmland | T::Sand | T::Tundra | T::Steppe
             ),
             BuildKind::Waymarker => {
                 terrain.passable() && !matches!(terrain, T::Road | T::Settlement)

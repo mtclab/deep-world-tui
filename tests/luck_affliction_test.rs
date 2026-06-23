@@ -42,7 +42,7 @@ fn venom_is_never_taken_from_the_land() {
         Terrain::Grass,
         Terrain::Forest,
         Terrain::Sand,
-        Terrain::DeepDesert,
+        Terrain::Steppe,
         Terrain::Cave,
     ] {
         assert_eq!(Disease::Venom.contraction_probability(t), 0.0, "{t:?}");

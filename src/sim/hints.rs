@@ -67,7 +67,7 @@ pub fn people_flavor(people: PeopleKind) -> &'static str {
         PeopleKind::Pohjavaki => "Deep-bottom people, silence keepers",
         PeopleKind::Tzakhar => "Deep-cave people, voices in the stone",
         PeopleKind::Merak => "Sea-people, salt and storm",
-        PeopleKind::Shear => "Desert people, walkers of the waste",
+        PeopleKind::Shear => "Steppe people, walkers of the waste",
         PeopleKind::Hal => "Canopy people, dwelling among the branches",
         PeopleKind::Khor => "Tundra people, wind and frost",
     }

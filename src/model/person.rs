@@ -355,7 +355,7 @@ impl PeopleKind {
             PeopleKind::Pohjavaki => "Deep-bottom people — depth-silence keepers",
             PeopleKind::Tzakhar => "Deep-cave people",
             PeopleKind::Merak => "Sea-people",
-            PeopleKind::Shear => "Desert people",
+            PeopleKind::Shear => "Steppe people",
             PeopleKind::Hal => "Canopy people",
             PeopleKind::Khor => "Steppe people",
         }
@@ -421,7 +421,7 @@ impl PeopleKind {
             // (races/00_sapient_races_overview.md "Relationship with the Five
             // Gods"): Tzäkhar met Kukri underground; Mëräk met Keuru and Masa
             // at the tide-line (Masa as patron of their trade-facing life);
-            // She'ar hear Kukri in the desert's silence; Häl met Keuru in the
+            // She'ar hear Kukri in the steppe's silence; Häl met Keuru in the
             // canopy; Khör's primary divine relationship is Kukri,
             // Talven-Hiljaisuus, "Winter's-Silence".
             PeopleKind::Tzakhar => Some(GodName::Kukri),
@@ -498,7 +498,7 @@ impl PeopleKind {
         Some(match self {
             PeopleKind::Tzakhar => "The Tzäkhar do not measure a life in years but in the worth of what its hands have shaped. Their deep-forges have burned, they say, since before the Fall darkened the surface — and they kept the old iron-songs the upworld forgot.",
             PeopleKind::Merak => "The Mëräk reckon kinship by the tides they were born under, not by blood. They hold that the deep water remembers every drowned name, and on the turning of the year they speak those names to the sea so it does not forget.",
-            PeopleKind::Shear => "The She'ar keep the discipline of silence and of water: to waste a word or a drop is the same failing. Their elders are those who have crossed the deep desert alone and returned — the heat-silence is their teacher and their faith.",
+            PeopleKind::Shear => "The She'ar keep the discipline of silence and of water: to waste a word or a drop is the same failing. Their elders are those who have crossed the deep steppe alone and returned — the heat-silence is their teacher and their faith.",
             PeopleKind::Hal => "The Häl never set foot to the forest floor if they can help it; their canopy-towns are woven living, and a hall grows for a generation before it is dwelt in. Keuru's green is their god and their roof both, and they physic the hurt of any who come in peace.",
             PeopleKind::Khor => "The Khör carry their dead as cairn-stones, one stone per life, and their circles are libraries of the gone. A word-keeper can recite a lineage back two hundred winters. They endure the cold the upworld cannot, and ask only an even trade for the warmth they make.",
             _ => return None,
@@ -513,7 +513,7 @@ impl PeopleKind {
         Some(match self {
             PeopleKind::Tzakhar => "The Tzäkhar keep Kukri, whom they met underground in the long dark — the solitary god of old wisdom and the patient stone. They name him in the deep-forge's first light.",
             PeopleKind::Merak => "The Mëräk keep Masa of the even trade, met at the tide-line where land and sea bargain; it is Masa they thank for a fair measure and a kept word.",
-            PeopleKind::Shear => "The She'ar hear Kukri in the desert's silence — the god of solitude speaks loudest where there is least to drown him, and the heat-silence is their prayer.",
+            PeopleKind::Shear => "The She'ar hear Kukri in the steppe's silence — the god of solitude speaks loudest where there is least to drown him, and the heat-silence is their prayer.",
             PeopleKind::Hal => "The Häl keep Keuru, met in the canopy's green; the god of forests and hospitality is their roof and their welcome both, and they physic any who come in peace in his name.",
             PeopleKind::Khor => "The Khör keep Kukri under the name Talven-Hiljaisuus, Winter's-Silence — the god of endurance and the patient cold, who keeps the lineages the cairn-stones remember.",
             _ => return None,
@@ -790,7 +790,7 @@ impl PeopleKind {
             | PeopleKind::Pohjavaki => "Kukresh",
             PeopleKind::Tzakhar => "Deep-Isolate",
             PeopleKind::Merak => "Coastal-Isolate",
-            PeopleKind::Shear => "Desert-Isolate",
+            PeopleKind::Shear => "Steppe-Isolate",
             PeopleKind::Hal => "Canopy-Isolate",
             PeopleKind::Khor => "Steppe-Isolate",
         }

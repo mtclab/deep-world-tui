@@ -11,7 +11,7 @@ fn non_human_patron_gods_match_canon_first_encounters() {
     assert_eq!(
         PeopleKind::Shear.patron_god(),
         Some(GodName::Kukri),
-        "She'ar hear Kukri in the desert's silence"
+        "She'ar hear Kukri in the steppe's silence"
     );
     assert_eq!(PeopleKind::Hal.patron_god(), Some(GodName::Keuru));
     assert_eq!(

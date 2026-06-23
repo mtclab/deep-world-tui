@@ -60,10 +60,10 @@ fn the_mire_gives_physic_too() {
 
 #[test]
 fn the_sand_is_barren_for_an_herbalist() {
-    let mut a = app_on(Terrain::DeepDesert);
+    let mut a = app_on(Terrain::Steppe);
     let before = herb(&a);
     a.forage_herbs();
-    assert_eq!(herb(&a), before, "no physic grows in the deep desert");
+    assert_eq!(herb(&a), before, "no physic grows in the deep steppe");
     assert!(a.status_msg.clone().unwrap_or_default().contains("barren"));
 }
 

@@ -40,7 +40,7 @@ pub enum WildSpecies {
     CaveBat,
     GhostGoat,
     // Tranche 3 (#416): the waters, the high rock, the geothermal ground, the
-    // deep desert. Mundane majority; one new uncanny (the sand-spirit).
+    // deep steppe. Mundane majority; one new uncanny (the sand-spirit).
     Pike,
     BrookTrout,
     AlpineVole,
@@ -192,10 +192,10 @@ impl WildSpecies {
             HollowStag => &[T::Forest, T::Tundra],
             MireLight => &[T::Swamp],
             CaveBreather => &[T::Cave],
-            SandOx => &[T::Sand, T::DeepDesert],
-            KethVaal => &[T::Sand, T::DeepDesert],
-            GlassBeetle => &[T::Sand, T::DeepDesert],
-            HeatShimmer => &[T::DeepDesert],
+            SandOx => &[T::Sand, T::Steppe],
+            KethVaal => &[T::Sand, T::Steppe],
+            GlassBeetle => &[T::Sand, T::Steppe],
+            HeatShimmer => &[T::Steppe],
             SteppeBison => &[T::Grass, T::Tundra],
             SteppeLark => &[T::Grass, T::Tundra],
             CaveBat => &[T::Cave],
@@ -207,8 +207,8 @@ impl WildSpecies {
             ForgeLizard => &[T::Mountain, T::Cave],
             PillarCrab => &[T::Coast, T::Cave],
             SiltWhale => &[T::Coast],
-            SandSwimmer => &[T::Sand, T::DeepDesert],
-            SandSpirit => &[T::Sand, T::DeepDesert],
+            SandSwimmer => &[T::Sand, T::Steppe],
+            SandSpirit => &[T::Sand, T::Steppe],
             Otter => &[T::Swamp, T::Coast],
             PineMarten => &[T::Forest],
             // The death-river swan keeps to still water, mire or shore.
@@ -353,7 +353,7 @@ impl WildSpecies {
                  stone, surely. The dark does not say."
             }
             SandOx => {
-                "A sand-ox stands hock-deep in the lee of a dune, chewing what the desert \
+                "A sand-ox stands hock-deep in the lee of a dune, chewing what the steppe \
                  grudged it. It does not yield the shade."
             }
             KethVaal => {
@@ -639,11 +639,11 @@ mod tests {
 
     #[test]
     fn the_dry_lands_have_their_own_animals() {
-        // Before tranche 2, Sand rolled only the adder and DeepDesert nothing.
-        assert!(WildSpecies::roll(Terrain::DeepDesert, Season::Green, 7).is_some());
+        // Before tranche 2, Sand rolled only the adder and Steppe nothing.
+        assert!(WildSpecies::roll(Terrain::Steppe, Season::Green, 7).is_some());
         for seed in 0..200u64 {
-            if let Some(s) = WildSpecies::roll(Terrain::DeepDesert, Season::Frost, seed) {
-                assert!(s.habitats().contains(&Terrain::DeepDesert));
+            if let Some(s) = WildSpecies::roll(Terrain::Steppe, Season::Frost, seed) {
+                assert!(s.habitats().contains(&Terrain::Steppe));
             }
         }
     }
