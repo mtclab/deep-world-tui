@@ -1,5 +1,102 @@
 use serde::{Deserialize, Serialize};
 
+/// Name grammars embedded at build time (like charts.ron), so name
+/// generation works regardless of the process working directory — the
+/// disk path in `load_grammar` only resolves when run from the crate root.
+static EMBEDDED_GRAMMARS: &[(&str, &str)] = &[
+    ("names/ahjo.ron", include_str!("../../data/names/ahjo.ron")),
+    (
+        "names/arkit.ron",
+        include_str!("../../data/names/arkit.ron"),
+    ),
+    ("names/hal.ron", include_str!("../../data/names/hal.ron")),
+    (
+        "names/haramaki.ron",
+        include_str!("../../data/names/haramaki.ron"),
+    ),
+    (
+        "names/hiekkakavelijat.ron",
+        include_str!("../../data/names/hiekkakavelijat.ron"),
+    ),
+    (
+        "names/jamavaki.ron",
+        include_str!("../../data/names/jamavaki.ron"),
+    ),
+    ("names/khor.ron", include_str!("../../data/names/khor.ron")),
+    (
+        "names/kirjakansa.ron",
+        include_str!("../../data/names/kirjakansa.ron"),
+    ),
+    (
+        "names/koskimetsa.ron",
+        include_str!("../../data/names/koskimetsa.ron"),
+    ),
+    (
+        "names/laakso.ron",
+        include_str!("../../data/names/laakso.ron"),
+    ),
+    (
+        "names/merak.ron",
+        include_str!("../../data/names/merak.ron"),
+    ),
+    (
+        "names/metsareunat.ron",
+        include_str!("../../data/names/metsareunat.ron"),
+    ),
+    (
+        "names/metsik.ron",
+        include_str!("../../data/names/metsik.ron"),
+    ),
+    (
+        "names/muistikansa.ron",
+        include_str!("../../data/names/muistikansa.ron"),
+    ),
+    (
+        "names/pohjavaki.ron",
+        include_str!("../../data/names/pohjavaki.ron"),
+    ),
+    (
+        "names/porokansa.ron",
+        include_str!("../../data/names/porokansa.ron"),
+    ),
+    (
+        "names/rantavaki.ron",
+        include_str!("../../data/names/rantavaki.ron"),
+    ),
+    (
+        "names/saarivaki.ron",
+        include_str!("../../data/names/saarivaki.ron"),
+    ),
+    (
+        "names/sepat.ron",
+        include_str!("../../data/names/sepat.ron"),
+    ),
+    (
+        "names/shear.ron",
+        include_str!("../../data/names/shear.ron"),
+    ),
+    (
+        "names/takovaki.ron",
+        include_str!("../../data/names/takovaki.ron"),
+    ),
+    (
+        "names/taulukansa.ron",
+        include_str!("../../data/names/taulukansa.ron"),
+    ),
+    (
+        "names/tzakhar.ron",
+        include_str!("../../data/names/tzakhar.ron"),
+    ),
+    (
+        "names/varhaiset.ron",
+        include_str!("../../data/names/varhaiset.ron"),
+    ),
+    (
+        "names/vayla.ron",
+        include_str!("../../data/names/vayla.ron"),
+    ),
+];
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NamePattern {
     Root,
@@ -76,7 +173,18 @@ pub fn load_grammar(people: &str, charts: &crate::charts::Charts) -> anyhow::Res
     } else {
         format!("data/{}", rel_path)
     };
-    NameGrammar::load(&path)
+    // Prefer the on-disk file (data stays editable without a rebuild), but fall
+    // back to the embedded copy when the cwd isn't the crate root — e.g. the
+    // Godot GDExtension binding runs from elsewhere, where the disk read failed
+    // and every name silently became "Unnamed" / "Settlement {idx}".
+    if let Ok(g) = NameGrammar::load(&path) {
+        return Ok(g);
+    }
+    let embedded = EMBEDDED_GRAMMARS
+        .iter()
+        .find(|(p, _)| *p == rel_path)
+        .ok_or_else(|| anyhow::anyhow!("no grammar on disk or embedded for '{}'", rel_path))?;
+    Ok(ron::from_str::<NameGrammar>(embedded.1)?)
 }
 
 pub fn generate_name(
@@ -118,6 +226,29 @@ pub fn generate_place_stem(
 mod tests {
     use super::*;
     use crate::rng::SeedRng;
+
+    #[test]
+    fn every_grammar_is_embedded() {
+        // Guards the cwd-independent path: each people's grammar must have an
+        // embedded copy, or names silently fall back to "Unnamed" off-cwd.
+        let charts = crate::charts::load_charts().unwrap();
+        for (people, rel_path) in &charts.name_grammars {
+            assert!(
+                EMBEDDED_GRAMMARS.iter().any(|(p, _)| p == rel_path),
+                "people '{}' grammar '{}' is not embedded",
+                people,
+                rel_path
+            );
+        }
+    }
+
+    #[test]
+    fn embedded_grammars_parse() {
+        for (path, content) in EMBEDDED_GRAMMARS {
+            ron::from_str::<NameGrammar>(content)
+                .unwrap_or_else(|e| panic!("embedded grammar {} failed to parse: {}", path, e));
+        }
+    }
 
     #[test]
     fn load_all_six_grammar_files() {
