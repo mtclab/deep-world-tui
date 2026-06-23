@@ -125,7 +125,11 @@ mod tests {
         };
         let two_fishers = |p: &str| if p == "fisher" { 2.0 } else { 0.0 };
         assert!((rule.amount(true, 1.0, "coast", &two_fishers) - 1.0).abs() < 1e-9);
-        assert_eq!(rule.amount(false, 1.0, "forest", &two_fishers), 0.0, "inland: none");
+        assert_eq!(
+            rule.amount(false, 1.0, "forest", &two_fishers),
+            0.0,
+            "inland: none"
+        );
     }
 
     #[test]
@@ -140,6 +144,10 @@ mod tests {
         };
         let herders = |p: &str| if p == "herder" { 2.0 } else { 0.0 };
         assert!((rule.amount(false, 1.0, "steppe", &herders) - 1.0).abs() < 1e-9);
-        assert_eq!(rule.amount(false, 1.0, "forest", &herders), 0.0, "off-biome: none");
+        assert_eq!(
+            rule.amount(false, 1.0, "forest", &herders),
+            0.0,
+            "off-biome: none"
+        );
     }
 }
