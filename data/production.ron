@@ -98,4 +98,64 @@
     (good: "comfrey",     by: [("herbalist", 0.2)]),
     (good: "mint",        by: [("herbalist", 0.15), ("forager", 0.1)]),
     (good: "chamomile",   by: [("herbalist", 0.15)]),
+
+    // ── Variety pass (goods phase-2): biome-gated production ──────────────
+    // Different grains by band: rye north, wheat/emmer warm-south, millet
+    // steppe; barley/buckwheat anywhere. Other bands' grain reaches a town as
+    // an import, not a local field.
+    (good: "rye",         by: [("farmer", 0.18)], regions: ["forest", "tundra", "upland"]),
+    (good: "barley",      by: [("farmer", 0.16)]),
+    (good: "wheat",       by: [("farmer", 0.2)],  regions: ["delta", "river_valley"]),
+    (good: "emmer",       by: [("farmer", 0.12)], regions: ["delta", "river_valley"]),
+    (good: "millet",      by: [("farmer", 0.15)], regions: ["steppe"]),
+    (good: "buckwheat",   by: [("farmer", 0.1)]),
+    (good: "malt",        by: [("brewer", 0.3)]),
+    (good: "sahti",       by: [("brewer", 0.3)], regions: ["forest", "tundra", "upland"]),
+    (good: "rye-bread",   by: [("baker", 0.4)], regions: ["forest", "tundra", "upland"]),
+    (good: "wheat-bread", by: [("baker", 0.4)], regions: ["delta", "river_valley"]),
+    (good: "flatbread",   by: [("baker", 0.4)], regions: ["steppe"]),
+    (good: "crispbread",  by: [("baker", 0.3)], regions: ["forest", "tundra", "upland"]),
+
+    // Dairy & the steppe larder (goat-milk cheese, fermented milk, dried curd).
+    (good: "milk",        by: [("herder", 0.2), ("farmer", 0.05)]),
+    (good: "goat-milk",   by: [("herder", 0.2)], regions: ["steppe", "upland"]),
+    (good: "curd",        by: [("herder", 0.12)]),
+    (good: "goat-cheese", by: [("herder", 0.15)], regions: ["steppe", "upland"]),
+    (good: "ewe-cheese",  by: [("herder", 0.12)], regions: ["delta", "river_valley", "upland"]),
+    (good: "dried-curd",  by: [("herder", 0.12)], regions: ["steppe"]),
+    (good: "kumis",       by: [("herder", 0.15)], regions: ["steppe"]),
+    (good: "cured-meat",  by: [("butcher", 0.25)], regions: ["steppe"]),
+    (good: "dung-cake",   by: [("herder", 0.1)], regions: ["steppe"]),
+
+    // Warm-south / Mediterranean-like — the wine, oil & orchard band.
+    (good: "grape",       by: [("farmer", 0.18)], regions: ["delta", "river_valley"]),
+    (good: "must",        by: [("vintner", 0.4), ("farmer", 0.1)], regions: ["delta", "river_valley"]),
+    (good: "fig",         by: [("farmer", 0.12)], regions: ["delta", "river_valley"]),
+    (good: "almond",      by: [("forager", 0.12)], regions: ["delta", "river_valley"]),
+    (good: "olive",       by: [("farmer", 0.15)], regions: ["delta", "river_valley"]),
+    (good: "terracotta",  by: [("potter", 0.3), ("mason", 0.1)], regions: ["delta", "river_valley"]),
+    (good: "oak-plank",   by: [("carpenter", 0.2)], regions: ["delta", "river_valley", "forest"]),
+
+    // Fish by kind (coast & river).
+    (good: "fish",        by: [("fisher", 0.4)], coastal_only: true),
+    (good: "herring",     by: [("fisher", 0.3)], coastal_only: true),
+    (good: "whitefish",   by: [("fisher", 0.25)], coastal_only: true),
+    (good: "roe",         by: [("fisher", 0.1)], coastal_only: true),
+    (good: "fish-oil",    by: [("fisher", 0.15)], coastal_only: true),
+    (good: "pike",        by: [("fisher", 0.2)], regions: ["river_valley", "delta", "swamp"]),
+    (good: "eel",         by: [("fisher", 0.15)], regions: ["river_valley", "delta", "swamp"]),
+
+    // Furs by beast — the cold north's wild take (scales with wildness).
+    (good: "fox-pelt",    by: [("hunter", 0.2), ("beast-handler", 0.1)], richness: true, regions: ["forest", "tundra", "upland"]),
+    (good: "marten-pelt", by: [("hunter", 0.15)], richness: true, regions: ["forest", "tundra"]),
+    (good: "ermine-pelt", by: [("hunter", 0.1)], richness: true, regions: ["tundra", "upland"]),
+    (good: "bear-pelt",   by: [("hunter", 0.08)], richness: true, regions: ["forest", "upland"]),
+
+    // Woods, fuels & the north's tar.
+    (good: "pine-plank",  by: [("carpenter", 0.3), ("forester", 0.2)], regions: ["forest", "upland"]),
+    (good: "birch-bark",  by: [("forester", 0.3), ("forager", 0.2)], regions: ["forest", "tundra"]),
+    (good: "firewood",    by: [("forester", 0.4)]),
+    (good: "shingle",     by: [("carpenter", 0.2)]),
+    (good: "tar",         by: [("forester", 0.3)], regions: ["forest", "tundra", "upland"]),
+    (good: "mahla",       by: [("forager", 0.2)], regions: ["forest", "tundra"]),
 ]
