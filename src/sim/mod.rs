@@ -621,7 +621,7 @@ fn tick_settlement_life(sim: &mut SimState) {
                         crate::model::good_id(&r.good).map(|gid| {
                             (
                                 ItemType::Good(gid),
-                                r.amount(coastal, region_richness, &pc) * scale * prod,
+                                r.amount(coastal, region_richness, &rtype, &pc) * scale * prod,
                             )
                         })
                     })

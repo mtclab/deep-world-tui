@@ -39,14 +39,29 @@ pub struct ProductionRule {
     /// If set, the yield scales with the region's wildness (hunted/gathered).
     #[serde(default)]
     pub richness: bool,
+    /// If non-empty, the rule yields ONLY in these region_types — the biome
+    /// gate. E.g. ["steppe"] for goat-cheese, ["delta","river_valley"] for
+    /// wine, ["forest","tundra","upland"] for tar. Empty = any region. The
+    /// wider world's other bands reach a town as imports, not local make.
+    #[serde(default)]
+    pub regions: Vec<String>,
 }
 
 impl ProductionRule {
     /// The raw amount this rule makes for a settlement, before the caller's
     /// population/season scaling. `count` returns a settlement's head-count of a
     /// profession.
-    pub fn amount(&self, coastal: bool, region_richness: f64, count: &impl Fn(&str) -> f64) -> f64 {
+    pub fn amount(
+        &self,
+        coastal: bool,
+        region_richness: f64,
+        region_type: &str,
+        count: &impl Fn(&str) -> f64,
+    ) -> f64 {
         if self.coastal_only && !coastal {
+            return 0.0;
+        }
+        if !self.regions.is_empty() && !self.regions.iter().any(|r| r == region_type) {
             return 0.0;
         }
         let mut a: f64 = self.by.iter().map(|(p, w)| w * count(p)).sum();
@@ -106,9 +121,25 @@ mod tests {
             coastal_base: 0.0,
             coastal_only: true,
             richness: false,
+            regions: vec![],
         };
         let two_fishers = |p: &str| if p == "fisher" { 2.0 } else { 0.0 };
-        assert!((rule.amount(true, 1.0, &two_fishers) - 1.0).abs() < 1e-9);
-        assert_eq!(rule.amount(false, 1.0, &two_fishers), 0.0, "inland: none");
+        assert!((rule.amount(true, 1.0, "coast", &two_fishers) - 1.0).abs() < 1e-9);
+        assert_eq!(rule.amount(false, 1.0, "forest", &two_fishers), 0.0, "inland: none");
+    }
+
+    #[test]
+    fn region_gate_limits_to_listed_biomes() {
+        let rule = ProductionRule {
+            good: "goat-cheese".into(),
+            by: vec![("herder".into(), 0.5)],
+            coastal_base: 0.0,
+            coastal_only: false,
+            richness: false,
+            regions: vec!["steppe".into()],
+        };
+        let herders = |p: &str| if p == "herder" { 2.0 } else { 0.0 };
+        assert!((rule.amount(false, 1.0, "steppe", &herders) - 1.0).abs() < 1e-9);
+        assert_eq!(rule.amount(false, 1.0, "forest", &herders), 0.0, "off-biome: none");
     }
 }
