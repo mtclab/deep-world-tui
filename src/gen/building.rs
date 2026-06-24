@@ -10,15 +10,21 @@ use crate::model::{Terrain, TerrainMap};
 /// (walls included), so the walkable interior is (w-2) x (h-2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuildingStyle {
+    /// A lean-to / tarp — the barest shelter, the poorest and the passing-through.
+    LeanTo,
+    /// A tent — a cloth dwelling, nomads and the poor.
+    Tent,
     /// A one-room hut.
     Hut,
+    /// A stable — beasts below, the hand who tends them above.
+    Stable,
     /// A modest cottage.
     Cottage,
     /// A long, narrow longhouse.
     Longhouse,
     /// A broad hall (tavern, temple, mead-hall).
     Hall,
-    /// A large manor / works.
+    /// A large manor / works — the seat of the well-off.
     Manor,
 }
 
@@ -28,8 +34,13 @@ impl BuildingStyle {
         // Outer footprint incl. walls. Interiors are (w-2)x(h-2) walkable Floor
         // — sized so every building is a real room you walk into (Fallout 1/2 /
         // Gothic: enter through the door, stay on the one map), not a 1-cell hut.
+        // The lesser shelters (lean-to, tent) are small by nature — a bedroll,
+        // not a hall — but still a walkable space with a way in.
         match self {
+            BuildingStyle::LeanTo => (3, 3),
+            BuildingStyle::Tent => (3, 4),
             BuildingStyle::Hut => (5, 5),
+            BuildingStyle::Stable => (6, 5),
             BuildingStyle::Cottage => (6, 6),
             BuildingStyle::Longhouse => (5, 8),
             BuildingStyle::Hall => (9, 9),
@@ -39,12 +50,20 @@ impl BuildingStyle {
 
     pub fn name(self) -> &'static str {
         match self {
+            BuildingStyle::LeanTo => "lean-to",
+            BuildingStyle::Tent => "tent",
             BuildingStyle::Hut => "hut",
+            BuildingStyle::Stable => "stable",
             BuildingStyle::Cottage => "cottage",
             BuildingStyle::Longhouse => "longhouse",
             BuildingStyle::Hall => "hall",
             BuildingStyle::Manor => "manor",
         }
+    }
+
+    /// Whether this style is a lesser shelter (no hearth, the poor's lodging).
+    pub fn is_shelter(self) -> bool {
+        matches!(self, BuildingStyle::LeanTo | BuildingStyle::Tent)
     }
 }
 
@@ -383,6 +402,31 @@ pub fn district_buildings(
                 continue;
             }
             if let Some(style) = pick_style(h, avail_w, avail_h, character) {
+                // A settlement is not one station of life. The common dwellings
+                // (hut/cottage) become the poor's lesser shelter for a share of
+                // plots — a tent or a bare lean-to — and the odd holding keeps a
+                // stable. The grand styles (longhouse/hall/manor) are left as the
+                // seats of those who can raise them. Deterministic per plot.
+                let chosen = if matches!(style, BuildingStyle::Hut | BuildingStyle::Cottage) {
+                    let lot = crate::rng::unit_from_hash(h.rotate_left(11));
+                    if lot < 0.12 {
+                        BuildingStyle::LeanTo
+                    } else if lot < 0.30 {
+                        BuildingStyle::Tent
+                    } else if lot > 0.90 {
+                        let (sw, sh) = BuildingStyle::Stable.size();
+                        if sw <= avail_w && sh <= avail_h {
+                            BuildingStyle::Stable
+                        } else {
+                            style
+                        }
+                    } else {
+                        style
+                    }
+                } else {
+                    style
+                };
+                let style = chosen;
                 let (bw, bh) = style.size();
                 let (bx, by) = (ax + px + 1, ay + py + 1);
                 let side = match h % 4 {
@@ -405,16 +449,29 @@ pub fn district_buildings(
         py += stride;
     }
     // The tiniest holdings (a steading) still get one dwelling with a door —
-    // as big as the patch allows (up to a 5x5 room), never below 3x3.
-    if out.is_empty() && aw >= 3 && ah >= 3 {
-        let (bw, bh) = (5usize.min(aw).max(3), 5usize.min(ah).max(3));
+    // inset one tile from the anchor (like every plot building) so the anchor
+    // stays walkable street (the homestead ground), not a wall, and sized as
+    // big as the patch allows (up to a 5x5 room), never below 3x3.
+    if out.is_empty() && aw >= 4 && ah >= 4 {
+        let (bw, bh) = ((aw - 1).clamp(3, 5), (ah - 1).clamp(3, 5));
+        let (bx, by) = (ax + 1, ay + 1);
+        out.push(PlacedBuilding {
+            style: BuildingStyle::Hut,
+            x: bx,
+            y: by,
+            w: bw,
+            h: bh,
+            door: building_door(bx, by, bw, bh, Side::South),
+        });
+    } else if out.is_empty() && aw >= 3 && ah >= 3 {
+        // A patch too small to inset: a bare 3x3 shelter on the spot.
         out.push(PlacedBuilding {
             style: BuildingStyle::Hut,
             x: ax,
             y: ay,
-            w: bw,
-            h: bh,
-            door: building_door(ax, ay, bw, bh, Side::South),
+            w: 3,
+            h: 3,
+            door: building_door(ax, ay, 3, 3, Side::South),
         });
     }
     out
@@ -648,6 +705,11 @@ mod tests {
         let mut t = blank(30, 24);
         let placed = lay_district(&mut t, 1, 1, 28, 22, 4242, BuildCharacter::Plain);
         for b in &placed {
+            // The lesser shelters (tent, lean-to) are too small for a hearth —
+            // a bedroll, not a fire. Every proper room keeps its hearth.
+            if b.w <= 3 || b.h <= 3 {
+                continue;
+            }
             let (hx, hy) = (b.x + b.w / 2, b.y + b.h / 2);
             assert_eq!(
                 t.get(hx, hy),
