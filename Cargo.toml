@@ -56,6 +56,10 @@ path = "src/main.rs"
 name = "playtest"
 path = "src/bin/playtest.rs"
 
+[[bin]]
+name = "agent_bench"
+path = "src/bin/agent_bench.rs"
+
 [lib]
 name = "deep_world_tui"
 path = "src/lib.rs"
