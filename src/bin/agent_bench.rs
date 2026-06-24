@@ -114,7 +114,5 @@ fn main() {
     println!("Read: 'live tick' = cost to tick the player's active region each game-hour.");
     println!("      'day-step'  = cost to advance ONE inactive region by a day (coarse cadence).");
     println!("Budget: turn-based, ~100ms/turn is invisible. Pick the coarsest cadence that stays believable.");
-    println!(
-        "Note: Needs uses HashMap<Need,f64> for 5 enum keys — slice 1 should make it [f64;5]."
-    );
+    println!("Note: Needs is [f64;5] as of slice 1a — ~10x faster than the old HashMap<Need,f64>.");
 }

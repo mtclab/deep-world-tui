@@ -155,13 +155,14 @@ pub fn settlement_has_healer(settlement: &crate::model::Settlement) -> bool {
 mod tests {
     use super::*;
     use crate::model::{Need, Needs};
-    use std::collections::HashMap;
 
     fn test_needs(food: f64, safety: f64) -> Needs {
-        let mut v = HashMap::new();
-        v.insert(Need::Food, food);
-        v.insert(Need::Safety, safety);
-        Needs { values: v }
+        // Only food and safety matter to illness; the rest stay at 0.0 as the
+        // old map-with-absent-keys did (get returned 0.0 for the unset needs).
+        let mut n = Needs { values: [0.0; 5] };
+        n.set(Need::Food, food);
+        n.set(Need::Safety, safety);
+        n
     }
 
     #[test]

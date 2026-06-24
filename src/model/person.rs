@@ -955,36 +955,89 @@ impl fmt::Display for Need {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+impl Need {
+    /// Every need, in storage order — the index into `Needs::values`.
+    pub const ALL: [Need; 5] = [
+        Need::Food,
+        Need::Money,
+        Need::Care,
+        Need::Presence,
+        Need::Safety,
+    ];
+
+    /// This need's slot in the `[f64; 5]` array.
+    #[inline]
+    pub fn idx(self) -> usize {
+        match self {
+            Need::Food => 0,
+            Need::Money => 1,
+            Need::Care => 2,
+            Need::Presence => 3,
+            Need::Safety => 4,
+        }
+    }
+}
+
+/// A person's five drives, stored as a flat `[f64; 5]` (slice 1a of the
+/// entity-first epic, deep-world-godot#50). Was a `HashMap<Need, f64>` — five
+/// hash ops per agent per tick, the dominant per-agent cost at province scale
+/// (see `docs/AGENT_SCALING.md`). The array is indexed by `Need::idx()`; the
+/// `get`/`set`/`satisfy`/`decay` API is unchanged for callers. Serde still reads
+/// and writes the old `{Food: .., Money: ..}` map shape, so existing saves load.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Needs {
-    pub values: HashMap<Need, f64>,
+    pub values: [f64; 5],
 }
 
 impl Default for Needs {
     fn default() -> Self {
-        let mut values = HashMap::new();
-        values.insert(Need::Food, 0.8);
-        values.insert(Need::Money, 0.8);
-        values.insert(Need::Care, 0.8);
-        values.insert(Need::Presence, 0.8);
-        values.insert(Need::Safety, 0.8);
-        Needs { values }
+        Needs { values: [0.8; 5] }
     }
 }
 
 impl Needs {
     pub fn get(&self, need: Need) -> f64 {
-        self.values.get(&need).copied().unwrap_or(0.0)
+        self.values[need.idx()]
+    }
+
+    pub fn set(&mut self, need: Need, value: f64) {
+        self.values[need.idx()] = value.clamp(0.0, 1.0);
     }
 
     pub fn satisfy(&mut self, need: Need, amount: f64) {
         let current = self.get(need);
-        self.values.insert(need, (current + amount).clamp(0.0, 1.0));
+        self.set(need, current + amount);
     }
 
     pub fn decay(&mut self, need: Need, rate: f64) {
         let current = self.get(need);
-        self.values.insert(need, (current - rate).clamp(0.0, 1.0));
+        self.set(need, current - rate);
+    }
+}
+
+// Wire format unchanged: serialize/deserialize as the legacy `HashMap<Need, f64>`
+// so saves written before slice 1a still load byte-for-byte. A need missing from
+// an old map defaults to the baseline 0.8 (in practice every save wrote all five).
+impl Serialize for Needs {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let mut map: HashMap<Need, f64> = HashMap::with_capacity(5);
+        for need in Need::ALL {
+            map.insert(need, self.values[need.idx()]);
+        }
+        map.serialize(s)
+    }
+}
+
+impl<'de> Deserialize<'de> for Needs {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let map = HashMap::<Need, f64>::deserialize(d)?;
+        let mut values = [0.8_f64; 5];
+        for need in Need::ALL {
+            if let Some(v) = map.get(&need) {
+                values[need.idx()] = *v;
+            }
+        }
+        Ok(Needs { values })
     }
 }
 
@@ -1454,20 +1507,9 @@ mod tests {
 
             bias: "metsik".into(),
 
-            needs: {
-                let mut v = HashMap::new();
-
-                v.insert(Need::Food, 0.8);
-
-                v.insert(Need::Safety, 0.5);
-
-                v.insert(Need::Care, 0.6);
-
-                v.insert(Need::Money, 0.3);
-
-                v.insert(Need::Presence, 0.7);
-
-                Needs { values: v }
+            // Order: [Food, Money, Care, Presence, Safety] (Need::idx).
+            needs: Needs {
+                values: [0.8, 0.3, 0.6, 0.7, 0.5],
             },
 
             region: "river_valley".into(),

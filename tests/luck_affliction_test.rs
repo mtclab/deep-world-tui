@@ -7,8 +7,8 @@ use deep_world_tui::sim::illness::tick_illness_luck;
 
 fn worn_needs() -> Needs {
     let mut n = Needs::default();
-    n.values.insert(Need::Food, 0.5); // a little hungry — the land bites harder
-    n.values.insert(Need::Safety, 0.2); // no shelter
+    n.set(Need::Food, 0.5); // a little hungry — the land bites harder
+    n.set(Need::Safety, 0.2); // no shelter
     n
 }
 
