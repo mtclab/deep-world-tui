@@ -344,11 +344,11 @@ mod tests {
 
     #[test]
     fn townsfolk_gather_in_the_market_plaza_by_day() {
-        // A town with a plaza (footprint >= 16) gathers its souls in the square
-        // at midday, not scattered down every lane.
-        let mut s = test_settlement(5, 5, 24);
+        // A real town with a plaza (footprint >= 28) gathers its souls in the
+        // square at midday, not scattered down every lane.
+        let mut s = test_settlement(5, 5, 30);
         s.people = (0..8).map(|_| crate::model::Person::default()).collect();
-        let (px, py, pw, ph) = crate::gen::building::central_plaza(24, 24).expect("a plaza");
+        let (px, py, pw, ph) = crate::gen::building::central_plaza(30, 30).expect("a plaza");
         let (qx, qy) = (5 + px, 5 + py);
         let pos = npc_street_positions(&s, 1, 12); // day 1, noon
         assert!(!pos.is_empty(), "the townsfolk are out by day");

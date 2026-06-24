@@ -25,12 +25,15 @@ pub enum BuildingStyle {
 impl BuildingStyle {
     /// Outer footprint (w, h) in tiles, walls included.
     pub fn size(self) -> (usize, usize) {
+        // Outer footprint incl. walls. Interiors are (w-2)x(h-2) walkable Floor
+        // — sized so every building is a real room you walk into (Fallout 1/2 /
+        // Gothic: enter through the door, stay on the one map), not a 1-cell hut.
         match self {
-            BuildingStyle::Hut => (3, 3),
-            BuildingStyle::Cottage => (4, 4),
-            BuildingStyle::Longhouse => (4, 7),
-            BuildingStyle::Hall => (6, 6),
-            BuildingStyle::Manor => (7, 8),
+            BuildingStyle::Hut => (5, 5),
+            BuildingStyle::Cottage => (6, 6),
+            BuildingStyle::Longhouse => (5, 8),
+            BuildingStyle::Hall => (9, 9),
+            BuildingStyle::Manor => (11, 12),
         }
     }
 
@@ -152,14 +155,21 @@ fn pick_style(
     // A people's character leans the pick; the hash still varies it within the
     // lean so no two settlements are identical.
     match character {
-        // Grand: usually the largest that fits, sometimes the next.
+        // Grand: the largest *broad* building that fits — halls and manors, not
+        // the narrow longhouse (that is the Khör's Long character).
         BuildCharacter::Grand => {
+            let broad: Vec<BuildingStyle> = fits
+                .iter()
+                .copied()
+                .filter(|s| *s != BuildingStyle::Longhouse)
+                .collect();
+            let pool = if broad.is_empty() { &fits } else { &broad };
             let from_top = (h as usize) % 2; // 0 or 1 back from the largest
-            return fits.get(fits.len().saturating_sub(1 + from_top)).copied();
+            return pool.get(pool.len().saturating_sub(1 + from_top)).copied();
         }
-        // Modest: usually the smallest, sometimes the next.
+        // Modest: the smallest that fits — the canopy-floor Häl keep it humble.
         BuildCharacter::Modest => {
-            return fits.get(((h as usize) % 2).min(fits.len() - 1)).copied();
+            return fits.first().copied();
         }
         // Long: a longhouse when it fits, else the hash decides.
         BuildCharacter::Long => {
@@ -167,7 +177,12 @@ fn pick_style(
                 return Some(BuildingStyle::Longhouse);
             }
         }
-        BuildCharacter::Plain => {}
+        // Plain: lean to the larger half that fits, so a town reads as real
+        // buildings (halls, cottages) — varied within the lean by the hash.
+        BuildCharacter::Plain => {
+            let lo = fits.len() / 2;
+            return fits.get(lo + (h as usize) % (fits.len() - lo)).copied();
+        }
     }
     Some(fits[(h as usize) % fits.len()])
 }
@@ -188,7 +203,7 @@ fn building_door(x: usize, y: usize, w: usize, h: usize, side: Side) -> (usize, 
 /// The single source of truth: the building generator keeps structures out of
 /// it, and the day-time townsfolk gather in it (`npc_street_positions`).
 pub fn central_plaza(aw: usize, ah: usize) -> Option<(usize, usize, usize, usize)> {
-    if aw.min(ah) < 16 {
+    if aw.min(ah) < 28 {
         return None;
     }
     let pw = (aw / 3).clamp(4, aw.saturating_sub(2));
@@ -294,12 +309,19 @@ pub fn district_buildings(
     // building plus a one-tile street, so it scales with the district.
     let span = aw.min(ah);
     let small = span <= 12;
-    let stride = if span <= 10 {
-        4usize
-    } else if span <= 24 {
-        6
+    // Plot pitch = building + a one-tile street. Sized so a real room fits each
+    // plot: small holdings still get a 5x5 (3x3 floor) dwelling, towns get
+    // halls/manors. Bigger than the old 4-tile pitch, which only ever fit huts.
+    // Plot pitch = building + a one-tile street. 6 fits Huts (5x5) and Cottages
+    // (6x6) — real walkable rooms — through villages and ordinary towns without
+    // crowding the central plaza/streets; cities widen it so grand Halls (9x9)
+    // and Manors (11x12) can stand.
+    let stride = if span <= 24 {
+        6usize
+    } else if span <= 44 {
+        10
     } else {
-        9
+        13
     };
     // A real town reads around an open heart: reserve a central market plaza
     // (it stays walkable Settlement — `lay_district` paints the ground street;
@@ -308,8 +330,8 @@ pub fn district_buildings(
     // And a real town has a spine: a main street runs the length of the
     // district through the plaza, a clear thoroughfare the lanes branch off
     // (it stays walkable Settlement, like the plaza and the side streets).
-    let main_street = if span >= 16 {
-        let msw = if span >= 28 { 3 } else { 2 };
+    let main_street = if span >= 28 {
+        let msw = 3;
         Some((ax + aw / 2 - msw / 2, ay, msw, ah))
     } else {
         None
@@ -317,8 +339,8 @@ pub fn district_buildings(
     // A cross-street meets the main street at the plaza, so a real town reads
     // as a crossroads — a way in from either flank, the quarters set between
     // the four arms. (Walkable Settlement, like the spine.)
-    let cross_street = if span >= 16 {
-        let csh = if span >= 28 { 3 } else { 2 };
+    let cross_street = if span >= 28 {
+        let csh = 3;
         Some((ax, ay + ah / 2 - csh / 2, aw, csh))
     } else {
         None
@@ -346,8 +368,12 @@ pub fn district_buildings(
             // Building fills the plot bar a one-tile street; the +1 inset
             // already leaves a street on the north and west. Its far edge is
             // held a clear lane inside the wall border.
-            let avail_w = (stride - 1).min(aw.saturating_sub(border).saturating_sub(px + 1));
-            let avail_h = (stride - 1).min(ah.saturating_sub(border).saturating_sub(py + 1));
+            // Keep a one-tile lane inside the district's far edge too (use
+            // border.max(1)), so a building never lands its south/east wall on
+            // the footprint perimeter — an unwalled town must keep no wall there.
+            let far = border.max(1);
+            let avail_w = (stride - 1).min(aw.saturating_sub(far).saturating_sub(px + 1));
+            let avail_h = (stride - 1).min(ah.saturating_sub(far).saturating_sub(py + 1));
             let h = crate::rng::mix_u64(
                 seed ^ (px as u64).wrapping_shl(20) ^ (py as u64).wrapping_shl(40),
             );
@@ -378,9 +404,10 @@ pub fn district_buildings(
         }
         py += stride;
     }
-    // The tiniest holdings (a steading) still get one dwelling with a door.
+    // The tiniest holdings (a steading) still get one dwelling with a door —
+    // as big as the patch allows (up to a 5x5 room), never below 3x3.
     if out.is_empty() && aw >= 3 && ah >= 3 {
-        let (bw, bh) = (3usize.min(aw), 3usize.min(ah));
+        let (bw, bh) = (5usize.min(aw).max(3), 5usize.min(ah).max(3));
         out.push(PlacedBuilding {
             style: BuildingStyle::Hut,
             x: ax,
@@ -430,8 +457,12 @@ pub fn lay_district(
             }
         }
         terrain.set(b.door.0, b.door.1, Terrain::Door);
-        // A hearth at the heart of the room — every building has its fire.
-        terrain.set(b.x + b.w / 2, b.y + b.h / 2, Terrain::Hearth);
+        // A hearth at the heart of the room — but only where the room is big
+        // enough to spare the tile, so the interior keeps its walkable Floor
+        // (a 1-cell hut would otherwise be all hearth, no floor).
+        if b.w > 3 && b.h > 3 {
+            terrain.set(b.x + b.w / 2, b.y + b.h / 2, Terrain::Hearth);
+        }
     }
     buildings
 }
