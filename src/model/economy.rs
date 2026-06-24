@@ -1250,21 +1250,27 @@ impl Settlement {
     /// can hold — the full sprawl of the great towns lands with the sector
     /// rescale.
     pub fn footprint_for_population(population: u32) -> u32 {
+        // One roof per ~7 souls (a household). The district must hold them all
+        // as real walkable rooms, so it is sized to the plot pitch the building
+        // generator uses (~6 tiles a plot: a room plus its street), plus a
+        // one-plot margin for the lane/skirt. A bigger town widens the pitch,
+        // so a square-root of the roofs gives the side in plots.
         let roofs = (population.max(7) / 7).max(1) as f64;
-        // ~4 tiles of edge per plot-row: a building plus its street margin.
-        let edge = 4.0 * roofs.sqrt().ceil();
-        let q = ((edge / 4.0).ceil() * 4.0) as u32;
-        q.max(4)
+        let side = roofs.sqrt().ceil(); // plots per side
+        let edge = 6.0 * side + 4.0; // stride-6 plots + margin
+        (edge as u32).max(8)
     }
 
     /// Footprint edge in tiles for a size tier (legacy callers; the real
-    /// sizing is by population).
+    /// sizing is by population). Sized for stride-6 rooms (a hamlet still holds
+    /// a handful of dwellings, a town a proper district).
     pub fn footprint_for_size(size: &str) -> u32 {
         match size {
-            "city" | "town" => 16,
-            "village" => 8,
-            "hamlet" => 4,
-            _ => 2,
+            "city" => 36,
+            "town" => 24,
+            "village" => 16,
+            "hamlet" => 10,
+            _ => 6,
         }
     }
 
