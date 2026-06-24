@@ -408,6 +408,20 @@ impl App {
         }
     }
 
+    /// Spend a little time on a discrete action that is not travel — a word
+    /// with an NPC, a trade, a search. The world ticks on *every* action the
+    /// player takes, not only on movement: the cost is owed to the clock and
+    /// paid in whole hours (like travel), so the per-hour body/world sim still
+    /// lands over real elapsed time and short actions don't freeze the world.
+    pub fn spend_action(&mut self, hours: f64) {
+        self.travel_debt += hours.max(0.0);
+        let whole = self.travel_debt.floor() as u32;
+        if whole > 0 {
+            self.travel_debt -= whole as f64;
+            self.advance_clock(whole);
+        }
+    }
+
     pub fn check_memorial(&mut self) {
         if let Some(pos) = self.player_pos {
             if let Some(ref sim) = self.sim {
