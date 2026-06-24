@@ -21,6 +21,12 @@ clap = { version = "4", features = ["derive"] }
 indexmap = { version = "2", features = ["serde"] }
 toml = "0.8"
 dirs = "6"
+# Compact binary saves (entity-first epic, deep-world-godot#50): the world
+# snapshot grows with materialized residents, so the save is bincode-encoded and
+# gzip-compressed instead of verbose RON text. flate2 defaults to the pure-Rust
+# miniz_oxide backend, so it cross-compiles to musl/windows without a C toolchain.
+bincode = "1.3"
+flate2 = "1"
 gilrs = { version = "0.11.2", optional = true }
 
 [features]
