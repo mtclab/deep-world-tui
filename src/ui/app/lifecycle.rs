@@ -222,10 +222,8 @@ impl App {
 
         // A Needs proxy from the player's vitals (Food = hunger; Safety from shelter).
         let mut needs = crate::model::Needs::default();
-        needs
-            .values
-            .insert(crate::model::Need::Food, self.vitals.hunger);
-        needs.values.insert(
+        needs.set(crate::model::Need::Food, self.vitals.hunger);
+        needs.set(
             crate::model::Need::Safety,
             if on_settlement { 0.8 } else { 0.2 },
         );

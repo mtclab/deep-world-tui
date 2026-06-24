@@ -781,8 +781,7 @@ mod tests {
         let region = &mut sim.world.regions[0];
         region.settlements[0].people[0]
             .needs
-            .values
-            .insert(crate::model::Need::Safety, 0.1);
+            .set(crate::model::Need::Safety, 0.1);
 
         // Run enough ticks for migration checks
         for _ in 0..150 {

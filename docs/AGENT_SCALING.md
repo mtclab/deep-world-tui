@@ -23,9 +23,22 @@ Linear: **~0.45 ms per 1,000 agents** for the needs-ladder decision pass.
   can be **daily**, not forced to seasonal. Seasonal is a cheaper fallback if
   the real per-agent step (full slice-3 ladder + economy) lands heavier than
   this stand-in.
-- **The tax is `Needs: HashMap<Need,f64>`** — 5 hash ops/agent dominate the
-  432 B and the time. Slice 1 (SoA / `[f64;5]`) should cut this materially and
-  widen headroom before the ladder grows.
+- **The tax was `Needs: HashMap<Need,f64>`** — 5 hash ops/agent dominated the
+  432 B and the time.
+
+## Slice 1a update — Needs → `[f64; 5]`
+
+Replacing the HashMap with a flat array (API and save wire-format unchanged)
+cut the per-agent cost **~10×**:
+
+| agents | live tick (before → after) |
+|-------:|---------------------------:|
+| 100k | 45 ms → **4.5 ms** |
+| 250k | 110 ms → **11 ms** |
+
+~0.045 ms / 1,000 agents. The HashMap was the entire tax. Province-scale
+daily-cadence advance is now a few ms, not tens — wide headroom for the real
+slice-3 ladder + per-agent economy to grow into.
 
 ## Caveats
 

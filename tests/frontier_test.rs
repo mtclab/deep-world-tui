@@ -23,7 +23,7 @@ fn press_first_settlement(sim: &mut SimState) -> u32 {
     for p in s.people.iter_mut() {
         p.age_band = "youth".into();
         p.has_spouse = false;
-        p.needs.values.insert(Need::Safety, 0.05);
+        p.needs.set(Need::Safety, 0.05);
     }
     s.population
 }
