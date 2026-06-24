@@ -204,13 +204,45 @@ pub fn slot_filename(slot: usize) -> String {
 
 pub fn save_game(data: &SaveData, filename: &str) -> Result<(), String> {
     let path = sanitize_save_path(filename)?;
-    // Compact RON (no pretty-printing) — ~4x smaller than the indented form.
-    let ron_string =
-        ron::ser::to_string(data).map_err(|e| format!("Failed to serialize: {}", e))?;
+    let bytes = encode_save(data)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    fs::write(&path, ron_string).map_err(|e| format!("Failed to write file: {}", e))
+    fs::write(&path, bytes).map_err(|e| format!("Failed to write file: {}", e))
+}
+
+/// Encode a save as gzip-compressed bincode. The world snapshot is mostly
+/// repetitive `Person` records that compress hard, so this is both far smaller
+/// and far faster to read than the old pretty/compact RON text — which matters
+/// once every soul is a materialized resident (entity-first epic). Old saves are
+/// plain RON text; `decode_save` reads either by sniffing the gzip magic bytes.
+fn encode_save(data: &SaveData) -> Result<Vec<u8>, String> {
+    use flate2::{write::GzEncoder, Compression};
+    use std::io::Write;
+    let raw = bincode::serialize(data).map_err(|e| format!("Failed to serialize: {}", e))?;
+    let mut gz = GzEncoder::new(Vec::new(), Compression::default());
+    gz.write_all(&raw)
+        .map_err(|e| format!("Failed to compress: {}", e))?;
+    gz.finish()
+        .map_err(|e| format!("Failed to compress: {}", e))
+}
+
+/// Decode a save written by either format: new gzip-bincode (gzip magic
+/// `1f 8b`) or legacy RON text. Keeps every pre-epic save loadable.
+fn decode_save(bytes: &[u8]) -> Result<SaveData, String> {
+    if bytes.len() >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b {
+        use flate2::read::GzDecoder;
+        use std::io::Read;
+        let mut raw = Vec::new();
+        GzDecoder::new(bytes)
+            .read_to_end(&mut raw)
+            .map_err(|e| format!("Failed to decompress: {}", e))?;
+        bincode::deserialize(&raw).map_err(|e| format!("Failed to deserialize: {}", e))
+    } else {
+        let text =
+            std::str::from_utf8(bytes).map_err(|e| format!("Failed to read legacy save: {}", e))?;
+        ron::from_str(text).map_err(|e| format!("Failed to deserialize: {}", e))
+    }
 }
 
 pub fn save_lineage(data: &SaveData, seed: u64) -> Result<(), String> {
@@ -224,9 +256,8 @@ pub fn load_game(filename: &str) -> Result<SaveData, String> {
 
 pub fn load_game_file(filename: &str) -> Result<SaveData, String> {
     let path = sanitize_save_path(filename)?;
-    let contents = fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
-    let mut data: SaveData =
-        ron::from_str(&contents).map_err(|e| format!("Failed to deserialize: {}", e))?;
+    let bytes = fs::read(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+    let mut data = decode_save(&bytes)?;
     crate::save_migrations::migrate(&mut data)?;
     Ok(data)
 }
