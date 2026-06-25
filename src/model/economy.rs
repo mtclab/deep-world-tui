@@ -1196,6 +1196,15 @@ pub struct Settlement {
     /// population draws from it, and scarcity moves market prices.
     #[serde(default)]
     pub food_stock: f64,
+    /// The town's common purse (entity-first slice 4, deep-world-godot#50): the
+    /// market's takings and the wage-fund. Buying a meal pays into it; taking
+    /// work draws a wage out of it, so coin is **conserved** — the sum of every
+    /// resident's purse and this treasury holds steady under ordinary trade. A
+    /// town whose treasury runs dry can offer no work, and its broke go
+    /// desperate. Seeded at worldgen, scaled to population. Default 0 so older
+    /// saves load (topped up on load like the rosters).
+    #[serde(default)]
+    pub treasury: u32,
     /// Trade goods the settlement's own crafts have made and not yet spent or
     /// sold (#540 living economy): a goods analogue of `food_stock`. Produced by
     /// the trades in the daily sim, capped by what the place can hold. A good a
@@ -1389,38 +1398,52 @@ impl Settlement {
     /// a lean season the coinless poor go without while the moneyed buy through
     /// it, and the able-but-hungry take work. Deterministic (roster order, no
     /// RNG). Returns the ration of food actually drawn from the granary so the
-    /// caller can account consumption. `work` = whether the town can pay workers
-    /// (a starving town offers none, so desperation can set in).
-    pub fn feed_people_ladder(
-        &mut self,
-        ration: f64,
-        food_price: u32,
-        wage: u32,
-        work: bool,
-    ) -> f64 {
+    /// caller can account consumption.
+    ///
+    /// Slice 4: coin is **conserved**. Buying a meal pays the price into the
+    /// town treasury; taking work draws a wage out of it. Work is only on offer
+    /// while the treasury can pay it, so a town that runs out of coin offers no
+    /// work and its broke go hungry (and, later, desperate). The sum of every
+    /// purse plus the treasury is invariant across a call (barring the u32 floor
+    /// at 0).
+    pub fn feed_people_ladder(&mut self, ration: f64, food_price: u32, wage: u32) -> f64 {
         use crate::model::Need;
         let mut stock = self.food_stock;
+        let mut treasury = self.treasury;
         let mut eaten = 0.0;
         for p in self.people.iter_mut() {
-            if p.needs.get(Need::Food) >= 0.7 {
-                continue; // sated — does not eat into the stores this tick
-            }
-            if stock >= ration {
-                stock -= ration;
-                eaten += ration;
-                p.needs.satisfy(Need::Food, 0.10);
+            if stock > 0.0 {
+                // A stocked granary feeds everyone their daily ration — the town
+                // draws its stores down at the old aggregate rate (so famine
+                // still bites when the harvest fails) and no soul goes hungry
+                // while there is food to eat. The last hungry mouths split
+                // whatever ration is left, so the granary empties cleanly to 0.
+                let bite = ration.min(stock);
+                stock -= bite;
+                eaten += bite;
+                p.needs.satisfy(Need::Food, 0.10 * (bite / ration).min(1.0));
+            } else if p.needs.get(Need::Food) >= 0.7 {
+                // Granary empty, but this soul is not hungry yet — it needs
+                // nothing this tick and does not spend coin chasing food.
+                continue;
             } else if p.coins >= food_price {
+                // buy a meal from the market — coin moves to the town's takings
                 p.coins -= food_price;
+                treasury = treasury.saturating_add(food_price);
                 p.needs.satisfy(Need::Food, 0.10);
-            } else if work {
+            } else if treasury >= wage {
+                // take work — the town pays a wage out of its purse
+                treasury -= wage;
                 p.coins = p.coins.saturating_add(wage);
                 p.needs.satisfy(Need::Money, 0.10);
                 p.needs.decay(Need::Food, 0.05);
             } else {
+                // no food it can reach, no coin, no work to be had — go hungry
                 p.needs.decay(Need::Food, 0.05);
             }
         }
         self.food_stock = stock;
+        self.treasury = treasury;
         eaten
     }
 
@@ -2505,6 +2528,7 @@ mod tests {
             // the living-world fields survive a save, not just that they compile.
             faith: SettlementFaith::seeded(crate::model::GodName::Keuru),
             food_stock: 0.0,
+            treasury: 0,
             goods_stock: Default::default(),
             farms: Vec::new(),
             buildings: Vec::new(),
@@ -2569,6 +2593,7 @@ mod tests {
             politics: SettlementPolitics::new(),
             faith: Default::default(),
             food_stock: 0.0,
+            treasury: 0,
             goods_stock: Default::default(),
             farms: Vec::new(),
             buildings: Vec::new(),

@@ -1603,6 +1603,7 @@ mod tests {
 
                 faith: Default::default(),
                 food_stock: 0.0,
+                treasury: 0,
                 goods_stock: Default::default(),
                 farms: Vec::new(),
                 buildings: Vec::new(),
