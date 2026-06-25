@@ -35,20 +35,9 @@ gilrs = { version = "0.11.2", optional = true }
 
 [features]
 default = []
-llm = ["reqwest", "serde_json"]
 audio = ["hound"]
 audio-playback = ["audio", "rodio"]
 gamepad = ["dep:gilrs"]
-
-[dependencies.reqwest]
-version = "0.12"
-optional = true
-default-features = false
-features = ["json", "blocking", "rustls-tls"]
-
-[dependencies.serde_json]
-version = "1"
-optional = true
 
 [dependencies.hound]
 version = "3.5"

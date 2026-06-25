@@ -9,15 +9,6 @@ pub fn handle_settings_input(app: &mut App, key: KeyEvent) {
                 app.screen = prev;
             }
         }
-        KeyCode::Char('l') => {
-            app.llm_enabled = !app.llm_enabled;
-            app.status_msg = Some(if app.llm_enabled {
-                "LLM narrator enabled".into()
-            } else {
-                "LLM narrator disabled (using voice.rs templates)".into()
-            });
-            app.save_settings();
-        }
         KeyCode::Char('m') => {
             app.monochrome = !app.monochrome;
             app.status_msg = Some(if app.monochrome {
@@ -62,27 +53,6 @@ pub fn handle_settings_input(app: &mut App, key: KeyEvent) {
         KeyCode::Char('-') => {
             app.audio_volume = (app.audio_volume - 0.1).clamp(0.0, 1.0);
             app.status_msg = Some(format!("Volume: {:.0}%", app.audio_volume * 100.0));
-            app.save_settings();
-        }
-        KeyCode::Char('e') => {
-            let endpoints = [
-                "http://localhost:11434/v1",
-                "http://localhost:8080/v1",
-                "https://api.openai.com/v1",
-            ];
-            let idx = endpoints
-                .iter()
-                .position(|e| *e == app.llm_endpoint)
-                .unwrap_or(0);
-            app.llm_endpoint = endpoints[(idx + 1) % endpoints.len()].to_string();
-            app.status_msg = Some(format!("Endpoint: {}", app.llm_endpoint));
-            app.save_settings();
-        }
-        KeyCode::Char('o') => {
-            let models = ["llama3", "mistral", "gemma2", "phi3", "qwen2"];
-            let idx = models.iter().position(|m| *m == app.llm_model).unwrap_or(0);
-            app.llm_model = models[(idx + 1) % models.len()].to_string();
-            app.status_msg = Some(format!("Model: {}", app.llm_model));
             app.save_settings();
         }
         _ => {}

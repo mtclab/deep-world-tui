@@ -6,9 +6,6 @@ const SETTINGS_FILE: &str = "data/settings.ron";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
-    pub llm_enabled: bool,
-    pub llm_endpoint: String,
-    pub llm_model: String,
     pub monochrome: bool,
     pub high_contrast: bool,
     pub reduced_motion: bool,
@@ -20,9 +17,6 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         AppSettings {
-            llm_enabled: false,
-            llm_endpoint: "http://localhost:11434/v1".into(),
-            llm_model: "llama3".into(),
             monochrome: false,
             high_contrast: false,
             reduced_motion: false,
@@ -59,10 +53,7 @@ mod tests {
     #[test]
     fn default_settings() {
         let s = AppSettings::default();
-        assert!(!s.llm_enabled);
         assert!(!s.monochrome);
-        assert!(!s.llm_endpoint.is_empty());
-        assert!(!s.llm_model.is_empty());
         assert!(!s.audio_enabled);
         assert!(s.audio_volume > 0.0 && s.audio_volume <= 1.0);
     }
@@ -70,9 +61,6 @@ mod tests {
     #[test]
     fn roundtrip_serde() {
         let s = AppSettings {
-            llm_enabled: true,
-            llm_endpoint: "http://test:8080/v1".into(),
-            llm_model: "test-model".into(),
             monochrome: true,
             high_contrast: true,
             reduced_motion: true,
@@ -82,9 +70,6 @@ mod tests {
         };
         let data = ron::ser::to_string_pretty(&s, ron::ser::PrettyConfig::default()).unwrap();
         let s2: AppSettings = ron::from_str(&data).unwrap();
-        assert_eq!(s.llm_enabled, s2.llm_enabled);
-        assert_eq!(s.llm_endpoint, s2.llm_endpoint);
-        assert_eq!(s.llm_model, s2.llm_model);
         assert_eq!(s.monochrome, s2.monochrome);
         assert_eq!(s.high_contrast, s2.high_contrast);
         assert_eq!(s.reduced_motion, s2.reduced_motion);
