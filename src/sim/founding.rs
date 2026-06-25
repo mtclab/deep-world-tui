@@ -351,6 +351,7 @@ pub fn spawn_settlement(
         politics: crate::model::SettlementPolitics::new(),
         faith: Default::default(),
         food_stock: population as f64 * 2.0,
+        treasury: population.saturating_mul(2),
         goods_stock: std::collections::HashMap::new(),
         farms: Vec::new(),
         buildings: Vec::new(),

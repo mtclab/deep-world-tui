@@ -673,6 +673,7 @@ fn generate_settlement(
         faith: Default::default(),
         // Larders start two days full; the settlement-life tick takes it from here.
         food_stock: population as f64 * 2.0,
+        treasury: population.saturating_mul(2),
         goods_stock: std::collections::HashMap::new(),
         farms: Vec::new(),
         buildings: Vec::new(),
@@ -973,6 +974,13 @@ pub fn materialize_residents_capped(
                 // stale. No-op in the uncapped game (population is unchanged).
                 s.size = crate::model::economy::Settlement::size_for_population(s.population)
                     .to_string();
+                // Seed the town's common purse (entity-first slice 4): a working
+                // wage-fund scaled to its people. Guarded on 0 so worldgen seeds
+                // it and pre-slice-4 saves are topped up on load, without wiping
+                // a treasury that real trade has since moved.
+                if s.treasury == 0 {
+                    s.treasury = s.population.saturating_mul(2);
+                }
             });
     });
 }

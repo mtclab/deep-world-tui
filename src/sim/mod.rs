@@ -580,8 +580,7 @@ fn tick_settlement_life(sim: &mut SimState) {
             // → work → go hungry. A town with a stocked granary can pay workers;
             // a starving one cannot, so the coinless there go without.
             let ration = 0.15 * season.consumption_modifier();
-            let work_available = settlement.food_stock >= 1.0;
-            settlement.feed_people_ladder(ration, 1, 1, work_available);
+            settlement.feed_people_ladder(ration, 1, 1);
             let keepers = settlement.profession_count("hearth-keeper") as f64;
             let hearth = if settlement.has_building(BuildingType::Hearth) {
                 0.5
