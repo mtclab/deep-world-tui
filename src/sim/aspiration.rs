@@ -78,6 +78,16 @@ pub fn tick_settlement_aspirations(s: &mut Settlement, seed: u64, tick: u64) -> 
     }
     // The trades that have a living master here to learn from.
     let trades_present: HashSet<String> = s.people.iter().map(|p| p.profession.clone()).collect();
+    // Belief colours the person (belief-colours-choices #56-H): where a temple or
+    // shrine stands, the devout give of what they have — a coin of alms to the
+    // commons. Culture shaping the economy, soul by soul. Coins tithed this pass
+    // are added to the treasury after the loop (it is read elsewhere here).
+    use crate::model::economy::SettlementService;
+    let has_temple = s
+        .services
+        .iter()
+        .any(|sv| matches!(sv, SettlementService::Temple | SettlementService::Shrine));
+    let mut tithes: u32 = 0;
     // The unwed of marriageable years, in roster order — the pool courtship draws
     // a match from. First-come pairing keeps it deterministic.
     let mut eligible: Vec<usize> = (0..n).filter(|&i| is_marriageable(&s.people[i])).collect();
@@ -89,6 +99,15 @@ pub fn tick_settlement_aspirations(s: &mut Settlement, seed: u64, tick: u64) -> 
     for i in 0..n {
         if !settled_enough(&s.people[i]) {
             continue;
+        }
+        // A devout soul, settled and with a little to spare, gives a coin of alms
+        // where there is a temple to give it to (#56-H).
+        if has_temple
+            && s.people[i].coins >= 3
+            && s.people[i].personality.iter().any(|t| t == "devout")
+        {
+            s.people[i].coins -= 1;
+            tithes += 1;
         }
         // Assign an aspiration to a settled soul that has none, by its station.
         if s.people[i].aspiration.is_none() {
@@ -179,6 +198,8 @@ pub fn tick_settlement_aspirations(s: &mut Settlement, seed: u64, tick: u64) -> 
     }
     // A wed soul leaves the eligible pool (defensive — pairing already guarded).
     eligible.retain(|i| !claimed.contains(i));
+    // The day's alms swell the temple's common purse (#56-H).
+    s.treasury = s.treasury.saturating_add(tithes);
     events
 }
 
