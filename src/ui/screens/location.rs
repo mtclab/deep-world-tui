@@ -161,7 +161,11 @@ pub(crate) fn draw_location_screen(
         )));
         lines.push(Line::from(""));
 
-        for (pi, person) in s.people.iter().enumerate() {
+        // A town now holds every soul (entity-first epic); the panel shows a
+        // readable head of the roster, not all thousands. The interactive keys
+        // only ever reached the first nine anyway.
+        const LOCATION_ROSTER_SHOWN: usize = 12;
+        for (pi, person) in s.people.iter().take(LOCATION_ROSTER_SHOWN).enumerate() {
             let key = if pi < 9 {
                 format!("{}", pi + 1)
             } else {
@@ -197,6 +201,16 @@ pub(crate) fn draw_location_screen(
                     Style::default().fg(theme.need_color(val)),
                 )));
             }
+            lines.push(Line::from(""));
+        }
+        if s.people.len() > LOCATION_ROSTER_SHOWN {
+            lines.push(Line::from(Span::styled(
+                format!(
+                    "  … and {} more souls call this place home",
+                    s.people.len() - LOCATION_ROSTER_SHOWN
+                ),
+                Style::default().fg(theme.dark_brown()),
+            )));
             lines.push(Line::from(""));
         }
 

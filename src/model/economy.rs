@@ -1242,6 +1242,45 @@ pub struct Settlement {
 }
 
 impl Settlement {
+    /// Add `n` real residents, generated for this settlement (entity-first epic,
+    /// deep-world-godot#50): population growth is a growth of the roster now, not
+    /// a bare count bump (which a later `population = people.len()` would wipe).
+    /// Keeps an enclave an enclave — new souls share the people if the roster is
+    /// uniform (#454). Population follows the roster.
+    pub fn add_residents(
+        &mut self,
+        n: usize,
+        rng: &mut crate::rng::SeedRng,
+        charts: &crate::charts::Charts,
+    ) {
+        let enclave = match self.people.first().map(|p| p.people.clone()) {
+            Some(k) if self.people.iter().all(|p| p.people == k) => Some(k),
+            _ => None,
+        };
+        for _ in 0..n {
+            let mut p = crate::gen::person::generate_person_from(
+                rng.fork(),
+                &self.region,
+                &self.id,
+                charts,
+            );
+            if let Some(h) = &enclave {
+                p.people = h.clone();
+            }
+            self.people.push(p);
+        }
+        self.population = self.people.len() as u32;
+    }
+
+    /// Remove up to `n` residents (entity-first epic): a population loss — famine
+    /// flight, a plague's toll — takes real souls off the roster, not just the
+    /// count (which `population = people.len()` would otherwise restore).
+    pub fn remove_residents(&mut self, n: usize) {
+        let keep = self.people.len().saturating_sub(n);
+        self.people.truncate(keep);
+        self.population = self.people.len() as u32;
+    }
+
     /// District edge in tiles for a head-count: roofs follow households
     /// (one roof per ~7 souls), the edge follows the roofs — but a roof is a
     /// real walled building on a plot now (#458), not a single even/even cell,

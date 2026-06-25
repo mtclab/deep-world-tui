@@ -27,6 +27,10 @@ dirs = "6"
 # miniz_oxide backend, so it cross-compiles to musl/windows without a C toolchain.
 bincode = "1.3"
 flate2 = "1"
+# Parallel resident materialization (entity-first epic): generating one Person
+# per soul across a province (up to ~120k) is embarrassingly parallel per
+# settlement. rayon is pure Rust — cross-compiles to musl/windows cleanly.
+rayon = "1"
 gilrs = { version = "0.11.2", optional = true }
 
 [features]

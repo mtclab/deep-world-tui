@@ -109,21 +109,81 @@ fn find_adjacent_settlements(world: &World, region_idx: usize) -> Vec<Settlement
     adjacent
 }
 
-fn profession_demand(settlement: &crate::model::Settlement, profession: &str) -> f64 {
-    let profession_lower = profession.to_lowercase();
+/// Per-settlement profession tallies, keyed by (region_idx, settlement_idx),
+/// each a lowercase-profession -> head-count map. Built once per migration cycle
+/// (entity-first epic, deep-world-godot#50): scanning a target settlement's whole
+/// roster *per migrating person* was O(n^2) and, with every soul now real, took
+/// ~32s a cycle at province scale. Precomputed, the per-person lookup is O(1).
+type ProfCounts =
+    std::collections::HashMap<(usize, usize), std::collections::HashMap<String, usize>>;
+
+fn build_profession_counts(world: &World) -> ProfCounts {
+    let mut out: ProfCounts = std::collections::HashMap::new();
+    for (ri, region) in world.regions.iter().enumerate() {
+        for (si, s) in region.settlements.iter().enumerate() {
+            let mut counts: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
+            for p in &s.people {
+                *counts.entry(p.profession.to_lowercase()).or_default() += 1;
+            }
+            out.insert((ri, si), counts);
+        }
+    }
+    out
+}
+
+/// One eligible marriage partner (unmarried adult) per people-kind per
+/// settlement — keyed by (region_idx, settlement_idx), value a list of
+/// (kind, partner_id, partner_profession) in first-seen roster order (so it is
+/// deterministic). Marriage bias depends only on kind, so this is all the
+/// matcher needs, turning its per-person adjacent-roster scan into O(kinds).
+type EligiblePartners =
+    std::collections::HashMap<(usize, usize), Vec<(PeopleKind, String, String)>>;
+
+fn build_eligible_partners(world: &World) -> EligiblePartners {
+    let mut out: EligiblePartners = std::collections::HashMap::new();
+    for (ri, region) in world.regions.iter().enumerate() {
+        for (si, s) in region.settlements.iter().enumerate() {
+            let mut seen: std::collections::HashSet<PeopleKind> = std::collections::HashSet::new();
+            let mut v: Vec<(PeopleKind, String, String)> = Vec::new();
+            for p in &s.people {
+                if p.age_band == "adult" && !p.has_spouse {
+                    let k = PeopleKind::from_name(&p.people);
+                    if seen.insert(k) {
+                        v.push((k, p.id.clone(), p.profession.clone()));
+                    }
+                }
+            }
+            out.insert((ri, si), v);
+        }
+    }
+    out
+}
+
+/// Demand for a profession in a settlement, given its precomputed head-count for
+/// that trade (so this never scans the roster).
+fn profession_demand_from_count(
+    settlement: &crate::model::Settlement,
+    profession_lower: &str,
+    current_count: usize,
+) -> f64 {
     let has_matching_service = settlement.services.iter().any(|s| {
-        s.label().to_lowercase().contains(&profession_lower)
+        s.label().to_lowercase().contains(profession_lower)
             || profession_lower.contains(&s.label().to_lowercase())
     });
+    let demand_base = if has_matching_service { 3 } else { 1 };
+    (demand_base as f64) - (current_count as f64 * 0.5)
+}
 
+#[cfg(test)]
+fn profession_demand(settlement: &crate::model::Settlement, profession: &str) -> f64 {
+    let profession_lower = profession.to_lowercase();
     let current_count = settlement
         .people
         .iter()
         .filter(|p| p.profession.to_lowercase() == profession_lower)
         .count();
-
-    let demand_base = if has_matching_service { 3 } else { 1 };
-    (demand_base as f64) - (current_count as f64 * 0.5)
+    profession_demand_from_count(settlement, &profession_lower, current_count)
 }
 
 pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
@@ -143,11 +203,29 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
         return;
     }
 
+    // One roster scan for the whole cycle, so job-seeking is O(people), not
+    // O(people^2) (entity-first epic — every soul is now real).
+    let prof_counts = build_profession_counts(&sim.world);
+    // Likewise marriage: cross-settlement matching depends only on people-KIND
+    // bias, so one eligible partner per kind per settlement is enough. Scanning
+    // every adjacent roster per unmarried adult was the dominant O(n^2) cost
+    // (seconds a cycle at province scale). First-seen order keeps it deterministic.
+    let eligible_partners = build_eligible_partners(&sim.world);
+
     // Souls who leave the settled lands entirely — not for another town, but
     // for the open road (#623). Gathered here, removed and counted below.
     let mut leavers: Vec<(MigrationCandidate, String)> = Vec::new();
 
+    // Two-rate LOD (entity-first epic, deep-world-godot#50): only the player's
+    // region churns migration each cycle. Every per-person check here scans
+    // adjacent rosters, so running the whole province at once is O(n^2) at real
+    // populations (a hard hang). Distant regions defer their migration; they are
+    // caught up when the player travels there (option-3 design).
+    let active = sim.active_region;
     for (sri, sref) in settlement_refs.iter().enumerate() {
+        if sref.region_idx != active {
+            continue;
+        }
         let settlement = &sim.world.regions[sref.region_idx].settlements[sref.settlement_idx];
         let adjacent = find_adjacent_settlements(&sim.world, sref.region_idx);
 
@@ -159,6 +237,10 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
             let feud = crate::model::relation::feud_load(&settlement.people) >= 0.4;
             famine || feud
         };
+        // No one leaves a well-stocked home chasing "steady work" — job-seeking
+        // is a response to hardship, not abstract restlessness. A town with full
+        // larders holds its people (a fed settlement must not bleed out).
+        let well_fed = settlement.food_stock / settlement.population.max(1) as f64 > 2.0;
 
         for person in settlement.people.iter() {
             // The road takes the young and unattached first (#623): a youth or
@@ -192,8 +274,11 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
             let mut person_rng =
                 SeedRng::new(seed).fork_for(&format!("migration-{}-{}-{}", person.id, sri, tick));
 
-            // Job-seeking: low stability + matching profession demand
-            if person.needs.get(crate::model::Need::Safety) < JOB_SEEKING_STABILITY_THRESHOLD {
+            // Job-seeking: low stability + matching profession demand, but not
+            // out of a well-fed town (its people have no cause to chase work).
+            if !well_fed
+                && person.needs.get(crate::model::Need::Safety) < JOB_SEEKING_STABILITY_THRESHOLD
+            {
                 if let Some(target) = find_job_seeking_target(
                     &mut person_rng,
                     &sim.world,
@@ -202,6 +287,7 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
                     &person.people,
                     sref.region_idx,
                     sref.settlement_idx,
+                    &prof_counts,
                 ) {
                     let target_settlement =
                         &sim.world.regions[target.region_idx].settlements[target.settlement_idx];
@@ -229,13 +315,13 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
             // Marriage: unmarried adult with mutual bias in adjacent settlement
             if !person.has_spouse && person.age_band == "adult" {
                 if let Some((partner_target, reason)) = check_marriage_migration(
-                    &sim.world,
                     &adjacent,
                     person,
                     sref.region_idx,
                     sref.settlement_idx,
                     seed,
                     tick,
+                    &eligible_partners,
                 ) {
                     migrants.push((
                         MigrationCandidate {
@@ -301,6 +387,40 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
     let mut migrated_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut routine_count = 0u32;
 
+    // Pull every migrant out of its source settlement in ONE partition pass per
+    // settlement (O(people)) instead of an id-search + Vec::remove per migrant
+    // (O(migrants * people)) — quadratic, and a hard hang once every soul is a
+    // real resident (entity-first epic, deep-world-godot#50). The apply loop
+    // below then takes each person from this map by id, O(1).
+    let mut wanted: std::collections::HashMap<(usize, usize), std::collections::HashSet<String>> =
+        std::collections::HashMap::new();
+    {
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for (cand, _t, _r, _ro) in &migrants {
+            if seen.insert(cand.person_id.clone()) {
+                wanted
+                    .entry((cand.source_region_idx, cand.source_settlement_idx))
+                    .or_default()
+                    .insert(cand.person_id.clone());
+            }
+        }
+    }
+    let mut removed_people: std::collections::HashMap<String, crate::model::Person> =
+        std::collections::HashMap::new();
+    for ((ri, si), ids) in &wanted {
+        let s = &mut sim.world.regions[*ri].settlements[*si];
+        let mut kept = Vec::with_capacity(s.people.len());
+        for p in s.people.drain(..) {
+            if ids.contains(&p.id) {
+                removed_people.insert(p.id.clone(), p);
+            } else {
+                kept.push(p);
+            }
+        }
+        s.people = kept;
+        s.population = s.people.len() as u32;
+    }
+
     for (cand, target, reason, routine) in &migrants {
         if migrated_ids.contains(&cand.person_id) {
             continue;
@@ -311,17 +431,11 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
         let target_region_idx = target.region_idx;
         let target_settlement_idx = target.settlement_idx;
 
-        // Find and remove the person from source settlement
+        // The person was already pulled from their source settlement in the
+        // partition pass above; take them from the map by id, O(1).
         let person_id = cand.person_id.clone();
-        let person_pos = sim.world.regions[source_region_idx].settlements[source_settlement_idx]
-            .people
-            .iter()
-            .position(|p| p.id == person_id);
-
-        let person = match person_pos {
-            Some(idx) => sim.world.regions[source_region_idx].settlements[source_settlement_idx]
-                .people
-                .remove(idx),
+        let person = match removed_people.remove(&person_id) {
+            Some(p) => p,
             None => continue,
         };
 
@@ -398,16 +512,43 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
     // raw material of the bands to come. One named line carries the season's
     // leaving, so a village emptying of its young is felt, not droned.
     let mut left_names: Vec<String> = Vec::new();
+    // Road-leavers, removed in one partition pass per settlement (O(people)),
+    // not an id-search + Vec::remove per leaver (entity-first epic — O(n^2) once
+    // every soul is real and pressed towns shed many at once).
+    let mut leave_ids: std::collections::HashMap<
+        (usize, usize),
+        std::collections::HashSet<String>,
+    > = std::collections::HashMap::new();
+    let mut leaver_order: Vec<(String, String)> = Vec::new(); // (id, name) in order
     for (cand, name) in &leavers {
         if migrated_ids.contains(&cand.person_id) {
             continue;
         }
-        let s =
-            &mut sim.world.regions[cand.source_region_idx].settlements[cand.source_settlement_idx];
-        if let Some(idx) = s.people.iter().position(|p| p.id == cand.person_id) {
-            s.people.remove(idx);
-            s.population = s.population.saturating_sub(1).max(s.people.len() as u32);
-            migrated_ids.insert(cand.person_id.clone());
+        if migrated_ids.insert(cand.person_id.clone()) {
+            leave_ids
+                .entry((cand.source_region_idx, cand.source_settlement_idx))
+                .or_default()
+                .insert(cand.person_id.clone());
+            leaver_order.push((cand.person_id.clone(), name.clone()));
+        }
+    }
+    let mut actually_left: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for ((ri, si), ids) in &leave_ids {
+        let s = &mut sim.world.regions[*ri].settlements[*si];
+        let before = s.people.len();
+        s.people.retain(|p| {
+            let go = ids.contains(&p.id);
+            if go {
+                actually_left.insert(p.id.clone());
+            }
+            !go
+        });
+        if s.people.len() < before {
+            s.population = s.people.len() as u32;
+        }
+    }
+    for (id, name) in &leaver_order {
+        if actually_left.contains(id) {
             sim.frontier.take_the_road();
             left_names.push(name.clone());
         }
@@ -519,6 +660,7 @@ pub fn migrant_party_tiles(
     out
 }
 
+#[allow(clippy::too_many_arguments)]
 fn find_job_seeking_target(
     rng: &mut SeedRng,
     world: &World,
@@ -527,8 +669,10 @@ fn find_job_seeking_target(
     person_people: &str,
     source_region_idx: usize,
     source_settlement_idx: usize,
+    prof_counts: &ProfCounts,
 ) -> Option<SettlementRef> {
     let person_kind = PeopleKind::from_name(person_people);
+    let profession_lower = profession.to_lowercase();
 
     let mut best_target: Option<(SettlementRef, f64)> = None;
 
@@ -538,7 +682,18 @@ fn find_job_seeking_target(
         }
 
         let settlement = &world.regions[sref.region_idx].settlements[sref.settlement_idx];
-        let demand = profession_demand(settlement, profession);
+        // No one chases work into a starving town (#623): an emptied famine
+        // settlement has high "demand" precisely because it is dying, and pulling
+        // job-seekers in would refill a town the hunger is meant to clear.
+        if settlement.famine_days > 0 {
+            continue;
+        }
+        let count = prof_counts
+            .get(&(sref.region_idx, sref.settlement_idx))
+            .and_then(|m| m.get(&profession_lower))
+            .copied()
+            .unwrap_or(0);
+        let demand = profession_demand_from_count(settlement, &profession_lower, count);
         if demand <= 0.0 {
             continue;
         }
@@ -567,13 +722,13 @@ fn find_job_seeking_target(
 }
 
 fn check_marriage_migration(
-    world: &World,
     adjacent: &[SettlementRef],
     person: &crate::model::Person,
     source_region_idx: usize,
     source_settlement_idx: usize,
     seed: u64,
     tick: u64,
+    eligible: &EligiblePartners,
 ) -> Option<(SettlementRef, String)> {
     let person_kind = PeopleKind::from_name(&person.people);
 
@@ -582,22 +737,21 @@ fn check_marriage_migration(
             continue;
         }
 
-        let settlement = &world.regions[sref.region_idx].settlements[sref.settlement_idx];
+        // One eligible partner per people-kind, precomputed (was a full-roster
+        // scan per source person — the dominant O(n^2) at province scale).
+        let Some(partners) = eligible.get(&(sref.region_idx, sref.settlement_idx)) else {
+            continue;
+        };
 
-        for partner in &settlement.people {
-            if partner.age_band != "adult" || partner.has_spouse {
-                continue;
-            }
-
-            let partner_kind = PeopleKind::from_name(&partner.people);
-            let bias_to_partner = person_kind.bias_toward(partner_kind);
+        for (partner_kind, partner_id, partner_profession) in partners {
+            let bias_to_partner = person_kind.bias_toward(*partner_kind);
             let bias_from_partner = partner_kind.bias_toward(person_kind);
 
             if bias_to_partner > MARRIAGE_BIAS_THRESHOLD
                 && bias_from_partner > MARRIAGE_BIAS_THRESHOLD
             {
                 let mut partner_rng = SeedRng::new(seed)
-                    .fork_for(&format!("marriage-{}-{}-{}", person.id, partner.id, tick));
+                    .fork_for(&format!("marriage-{}-{}-{}", person.id, partner_id, tick));
                 let roll = partner_rng.gen_f64();
                 let chance =
                     (bias_to_partner.min(bias_from_partner) - MARRIAGE_BIAS_THRESHOLD) * 2.0;
@@ -607,7 +761,7 @@ fn check_marriage_migration(
                         person_kind.label(),
                         person.profession,
                         partner_kind.label(),
-                        partner.profession,
+                        partner_profession,
                     );
                     return Some((sref.clone(), reason));
                 }

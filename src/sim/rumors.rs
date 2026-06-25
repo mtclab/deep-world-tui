@@ -56,6 +56,11 @@ fn nonhuman_trade_rumor(
 /// Returns None when the world has nothing worth repeating.
 pub fn informed_rumor(sim: &SimState, day: u32, salt: u64) -> Option<String> {
     let mut candidates: Vec<String> = Vec::new();
+    // A gifted crafter is a rare highlight (#441), not a census line. With every
+    // soul now a real resident (entity-first epic), nearly every town holds one,
+    // and surfacing them all floods the rumor pool and crowds out everything else
+    // (the non-human trades, the wars). Carry at most one province-wide per call.
+    let mut gift_rumored = false;
 
     for region in &sim.world.regions {
         for s in &region.settlements {
@@ -86,9 +91,12 @@ pub fn informed_rumor(sim: &SimState, day: u32, salt: u64) -> Option<String> {
             }
             // A real gifted crafter in town, surfaced as word on the road
             // (#431/#441) — an actual person who carries the gift, not a reroll.
-            if let Some(p) = s.people.iter().find(|p| p.gift.has()) {
-                if let Some(sense) = p.gift.sense() {
-                    candidates.push(sense.npc_rumor(&p.name, &s.name));
+            if !gift_rumored {
+                if let Some(p) = s.people.iter().find(|p| p.gift.has()) {
+                    if let Some(sense) = p.gift.sense() {
+                        candidates.push(sense.npc_rumor(&p.name, &s.name));
+                        gift_rumored = true;
+                    }
                 }
             }
         }

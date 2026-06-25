@@ -37,6 +37,11 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
 
     seamless_terrain_edges(&mut regions);
 
+    // Entity-first (deep-world-godot#50): now that every settlement's final
+    // population is fixed (terrain pass included), give each one a real Person
+    // per soul. Parallel — the heaviest part of worldgen at province scale.
+    materialize_residents(&mut regions, seed, charts);
+
     // The land decides the master: the province answers to the polity its
     // most common region type belongs to (canon the_37_polities.md).
     let polity = dominant_polity(&regions);
@@ -883,14 +888,66 @@ pub(crate) fn settlement_services(size: &str, people: &str) -> Vec<SettlementSer
     svcs
 }
 
+// Entity-first epic (deep-world-godot#50): every soul is a real Person. The
+// roster is no longer a sample of the population — it IS the population. (Kept as
+// a function so the call site reads the same; `materialize_residents` reconciles
+// the count after the terrain pass overwrites `population` from land capacity.)
 fn population_per_settlement(population: u32) -> usize {
-    let sample_size = match population {
-        0..=30 => population as usize,
-        31..=80 => (population as f64 * 0.25).round() as usize,
-        81..=200 => (population as f64 * 0.10).round() as usize,
-        _ => (population as f64 * 0.05).round() as usize,
-    };
-    sample_size.max(1)
+    population.max(1) as usize
+}
+
+/// Force every settlement's roster to hold one real `Person` per soul, so
+/// `people.len() == population` everywhere (entity-first epic). Worldgen builds a
+/// first roster, then the terrain pass overwrites `population` from land
+/// capacity — leaving the two out of step; this reconciles them. Used both at
+/// the end of worldgen and on load, to top up saves written before
+/// materialization. Embarrassingly parallel: each settlement's residents come
+/// from its own seeded RNG stream, so the result is identical regardless of
+/// thread order.
+pub fn materialize_residents(regions: &mut [crate::model::Region], seed: u64, charts: &Charts) {
+    use rayon::prelude::*;
+    regions.par_iter_mut().enumerate().for_each(|(ri, region)| {
+        region
+            .settlements
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(si, s)| {
+                let target = s.population.max(1) as usize;
+                if s.people.len() > target {
+                    s.people.truncate(target);
+                } else if s.people.len() < target {
+                    let mut rng = SeedRng::new(seed).fork_for(&format!("materialize:{ri}:{si}"));
+                    // Keep an enclave an enclave: if the existing roster is
+                    // all one people, new residents share it (#454).
+                    let enclave = enclave_people_of(&s.people);
+                    let region_id = s.region.clone();
+                    let settlement_id = s.id.clone();
+                    while s.people.len() < target {
+                        let mut p = crate::gen::person::generate_person_from(
+                            rng.fork(),
+                            &region_id,
+                            &settlement_id,
+                            charts,
+                        );
+                        if let Some(home) = &enclave {
+                            p.people = home.clone();
+                        }
+                        s.people.push(p);
+                    }
+                }
+                s.population = s.people.len() as u32;
+            });
+    });
+}
+
+/// The single people of a roster if every member shares it, else None.
+fn enclave_people_of(people: &[crate::model::Person]) -> Option<String> {
+    let first = people.first()?.people.clone();
+    if people.iter().all(|p| p.people == first) {
+        Some(first)
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
