@@ -319,7 +319,11 @@ impl App {
             }
             self.status_msg = Some(format!("{} left — too long neglected.", name));
         }
+        // Two-rate LOD: tell the sim which region the player is in, so it ticks
+        // that one live each hour and catches the rest up once a day.
+        let active_region = self.player_pos.map(|p| p.region_idx).unwrap_or(0);
         if let Some(ref mut sim) = self.sim {
+            sim.active_region = active_region;
             for _ in 0..hours {
                 sim.step();
             }

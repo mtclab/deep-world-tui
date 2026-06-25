@@ -1,5 +1,4 @@
 use crate::charts::Charts;
-use crate::gen::world::generate_world;
 use crate::model::{Need, World};
 use crate::rng::SeedRng;
 
@@ -36,6 +35,13 @@ use relationships::RelationshipTracker;
 use reputation::ReputationStore;
 
 pub fn tick_needs_with_params(world: &mut World, dt: f64, params: &SimParams) {
+    tick_needs_lod(world, dt, params, None);
+}
+
+/// Needs decay, two-rate-LOD aware. `lod = Some((active_region, tick))` ticks the
+/// active region live and every other region only at the daily boundary (a day's
+/// decay in one pass); `lod = None` ticks every region live (tests, simple tick).
+pub fn tick_needs_lod(world: &mut World, dt: f64, params: &SimParams, lod: Option<(usize, u64)>) {
     let rates: [(Need, f64); 5] = [
         (Need::Food, params.food_decay_rate),
         (Need::Money, params.money_decay_rate),
@@ -43,11 +49,19 @@ pub fn tick_needs_with_params(world: &mut World, dt: f64, params: &SimParams) {
         (Need::Presence, params.presence_decay_rate),
         (Need::Safety, params.safety_decay_rate),
     ];
-    for region in &mut world.regions {
+    for (ri, region) in world.regions.iter_mut().enumerate() {
+        let mult = match lod {
+            None => dt,
+            Some((active, tick)) => match region_tick_mode(ri, active, tick) {
+                RegionTick::Live => dt,
+                RegionTick::DailyBatch => dt * 24.0,
+                RegionTick::Skip => continue,
+            },
+        };
         for settlement in &mut region.settlements {
             for person in &mut settlement.people {
                 for (need, rate) in &rates {
-                    person.needs.decay(*need, rate * dt);
+                    person.needs.decay(*need, rate * mult);
                 }
             }
         }
@@ -127,11 +141,28 @@ pub struct SimState {
     /// roadside encounters, now seen, not popped.
     #[serde(default)]
     pub wayfarers: Vec<crate::sim::wayfarers::Wayfarer>,
+    /// Two-rate LOD (entity-first epic, deep-world-godot#50): the region the
+    /// player is in. With every soul now a real agent, ticking the whole
+    /// province's per-person systems every game-hour is too costly; the active
+    /// region ticks live each hour, while the rest advance once a day in a
+    /// batched step (a day's worth in one pass). Set by the App before each
+    /// step; defaults to 0 (and old saves load fine).
+    #[serde(default)]
+    pub active_region: usize,
 }
 
 impl SimState {
     pub fn new(seed: u64, charts: Charts) -> Self {
-        let mut world = generate_world(seed, &charts);
+        Self::new_capped(seed, charts, None)
+    }
+
+    /// Build a sim whose settlements are capped to `max_pop` souls each — a test
+    /// affordance so soak/long-run tests step small rosters instead of a whole
+    /// 8.5k–121k province, while exercising the same entity-first paths
+    /// deterministically. `None` is the real game (every soul real). See
+    /// [`crate::gen::world::generate_world_capped`].
+    pub fn new_capped(seed: u64, charts: Charts, max_pop: Option<usize>) -> Self {
+        let mut world = crate::gen::world::generate_world_capped(seed, &charts, max_pop);
         structures::generate_world_structures(seed, &mut world);
         let mut discoveries = crate::model::DiscoveryStore::new();
         {
@@ -167,6 +198,7 @@ impl SimState {
             beasts: Vec::new(),
             migrant_parties: Vec::new(),
             wayfarers: Vec::new(),
+            active_region: 0,
         };
         sim.init_npc_wants();
         sim
@@ -174,17 +206,16 @@ impl SimState {
 
     fn init_npc_wants(&mut self) {
         let seed = self.world.seed;
-        let person_info: Vec<(String, String)> = self
-            .world
-            .regions
-            .iter()
-            .flat_map(|r| r.settlements.iter())
-            .flat_map(|s| s.people.iter())
-            .map(|p| (p.id.clone(), p.people.clone()))
-            .collect();
-        for (id, people) in person_info {
-            let wants = wants::generate_npc_wants(seed, &id, &people);
-            self.world.set_wants_for_person(&id, wants);
+        // Set each person's wants in place. This used to look every person up by
+        // id (a full-roster scan per person), which was O(n^2) — invisible at the
+        // old ~400-person sample, a hard hang once every soul is real (121k ->
+        // 1.5e10 ops). Entity-first epic, deep-world-godot#50.
+        for region in &mut self.world.regions {
+            for settlement in &mut region.settlements {
+                for person in &mut settlement.people {
+                    person.wants = wants::generate_npc_wants(seed, &person.id, &person.people);
+                }
+            }
         }
     }
 
@@ -198,6 +229,32 @@ impl SimState {
 
     pub fn log(&mut self, tick: u64, voice: Voice, text: String) {
         self.journal.log(tick, voice, text);
+    }
+}
+
+/// Two-rate LOD dispatch (entity-first epic): how a region advances this tick.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum RegionTick {
+    /// The player's region — full hourly resolution.
+    Live,
+    /// A distant region, caught up once a day with a day's worth in one pass.
+    DailyBatch,
+    /// A distant region on a non-daily hour — its hourly work is deferred.
+    Skip,
+}
+
+/// Decide a region's tick mode: the active region is always Live; every other
+/// region advances only at the daily boundary (a 24-hour batch), and is skipped
+/// the rest of the day. Per-hour rates are multiplied by 24 on the batch so the
+/// daily effect matches having ticked it live every hour.
+#[inline]
+pub fn region_tick_mode(region_idx: usize, active_region: usize, tick: u64) -> RegionTick {
+    if region_idx == active_region {
+        RegionTick::Live
+    } else if tick.is_multiple_of(24) {
+        RegionTick::DailyBatch
+    } else {
+        RegionTick::Skip
     }
 }
 
@@ -227,12 +284,18 @@ pub fn sim_tick(sim: &mut SimState) {
     for desc in descs {
         sim.log_journal(current_tick, desc);
     }
-    tick_needs_with_params(&mut sim.world, 1.0, &sim.params);
+    let lod = Some((sim.active_region, current_tick));
+    tick_needs_lod(&mut sim.world, 1.0, &sim.params, lod);
     needs_dependent::propagate_dependent_needs(&mut sim.world, &sim.obligations);
     reputation::spread_reputation(&mut sim.reputation, &sim.world, &sim.province_ties, 1.0);
     sim.relationships.tick_converge(1.0);
     tick_npc_illness(sim, current_tick);
-    for region in sim.world.regions.iter_mut() {
+    // Relation drift, two-rate LOD: the active region every hour; distant regions
+    // once a day. A bond's slow fade reads the same at a day's resolution.
+    for (ri, region) in sim.world.regions.iter_mut().enumerate() {
+        if region_tick_mode(ri, sim.active_region, current_tick) == RegionTick::Skip {
+            continue;
+        }
         for settlement in region.settlements.iter_mut() {
             for person in settlement.people.iter_mut() {
                 crate::model::relation::decay_relations(&mut person.relations);
@@ -282,6 +345,12 @@ pub fn sim_tick(sim: &mut SimState) {
             let cap = s.population as f64 * 0.5;
             for v in s.goods_stock.values_mut() {
                 *v = v.min(cap);
+            }
+            // Invariant: a settlement with no souls left has nothing open. A town
+            // can be emptied by any path (famine flight, deaths, the last migrant
+            // leaving); whichever did it, no services stand in a ghost town.
+            if s.people.is_empty() && !s.services.is_empty() {
+                s.services.clear();
             }
         }
     }
@@ -379,6 +448,9 @@ fn tick_settlement_life(sim: &mut SimState) {
     }
     let season = crate::model::Season::from_day((tick / 24) as u32);
     let seed = sim.world.seed;
+    // Cloned up front so a growing town can mint real new residents while the
+    // world (sim.world) is borrowed by the region loop below.
+    let life_charts = sim.charts.clone();
     let mut completed_msgs: Vec<String> = Vec::new();
 
     for region in sim.world.regions.iter_mut() {
@@ -488,7 +560,13 @@ fn tick_settlement_life(sim: &mut SimState) {
             } else {
                 0.0
             };
-            richness_draw += trap_food * 0.002 + handlers as f64 * 0.001;
+            // Hunting pressure scales with the game that is actually there — you
+            // cannot over-hunt an empty wood. Both terms fall with the land's
+            // richness, so a depleted region always breeds back faster than it is
+            // drawn down (entity-first epic: with every soul real, the handler
+            // count is the true population's, not a sample's, so an unscaled draw
+            // would strip the land bare and never recover).
+            richness_draw += (trap_food * 0.002 + handlers as f64 * 0.001) * region_richness;
             // The land yields at most what it can carry (a small margin over
             // its own mouths): everything beyond that must arrive by road or
             // water. This is the hinterland principle made arithmetic.
@@ -718,7 +796,13 @@ fn tick_settlement_life(sim: &mut SimState) {
                 + settlement.good(crate::model::ItemType::Cloth))
                 / settlement.population.max(1) as f64;
             if per_head_now >= 1.5 && settlement.population < cap && furnished >= 0.03 {
-                settlement.population += (settlement.population / 1000).max(1);
+                // Growth is real residents joining the roster (entity-first epic):
+                // a bare `population += n` would be wiped by a later
+                // `population = people.len()`.
+                let grow_n = (settlement.population / 1000).max(1) as usize;
+                let mut grow_rng = SeedRng::new(seed)
+                    .fork_for(&format!("settlement-growth-{}-{}", settlement.id, tick));
+                settlement.add_residents(grow_n, &mut grow_rng, &life_charts);
             }
             // The district grows with the households. The anchor shifts
             // up/left only as far as the map edge forces it, and growth only
@@ -782,11 +866,10 @@ fn tick_settlement_life(sim: &mut SimState) {
                     ));
                 }
                 if settlement.famine_days > 7 {
-                    let leaving = (settlement.population as f64 * 0.02).ceil() as u32;
-                    settlement.population = settlement.population.saturating_sub(leaving);
-                    if settlement.people.len() > 1 && settlement.famine_days % 3 == 0 {
-                        settlement.people.pop();
-                    }
+                    let leaving = (settlement.population as f64 * 0.02).ceil() as usize;
+                    // Real souls take to the road — leave at least one behind.
+                    let leaving = leaving.min(settlement.people.len().saturating_sub(1));
+                    settlement.remove_residents(leaving);
                 }
                 if settlement.famine_days > 21 && settlement.population <= 10 {
                     completed_msgs.push(format!(
@@ -1752,8 +1835,8 @@ fn tick_plague(sim: &mut SimState) {
                     person.needs.decay(Need::Safety, 0.04);
                     person.needs.decay(Need::Care, 0.03);
                 }
-                let toll = ((s.population as f64) * 0.004).ceil() as u32;
-                s.population = s.population.saturating_sub(toll);
+                let toll = ((s.population as f64) * 0.004).ceil() as usize;
+                s.remove_residents(toll);
                 // A smaller town holds less: keep the goods cap (population/2)
                 // in step with the toll so stores never sit above what the
                 // shrunken town can hold.
@@ -2169,11 +2252,16 @@ fn tick_build_sites(sim: &mut SimState) {
 fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {
     use crate::sim::illness;
 
+    // Two-rate LOD: sickness is checked live in the active region; distant
+    // regions are caught up once a day (this is the heaviest hourly per-person
+    // pass at province scale).
+    let active = sim.active_region;
     let person_info: Vec<(usize, usize)> = sim
         .world
         .regions
         .iter()
         .enumerate()
+        .filter(|(ri, _)| region_tick_mode(*ri, active, current_tick) != RegionTick::Skip)
         .flat_map(|(ri, region)| {
             region
                 .settlements
@@ -2271,7 +2359,19 @@ fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {
 mod tests {
     use super::*;
     use crate::charts;
-    use crate::gen::world::generate_world;
+    use crate::gen::world::generate_world_capped;
+
+    /// Soak cap for lib tests: build a small world (≤300 souls/settlement) so
+    /// tests step real entities through the same paths without paying the whole
+    /// 8.5k–121k province each time. Deterministic; magnitude-independent tests
+    /// only.
+    const TEST_POP_CAP: Option<usize> = Some(300);
+    fn generate_world(seed: u64, charts: &Charts) -> World {
+        generate_world_capped(seed, charts, TEST_POP_CAP)
+    }
+    fn test_sim(seed: u64, charts: Charts) -> SimState {
+        SimState::new_capped(seed, charts, TEST_POP_CAP)
+    }
 
     #[test]
     fn caravan_routes_follow_the_province_ties() {
@@ -2295,7 +2395,7 @@ mod tests {
     #[test]
     fn winter_relief_flows_from_a_full_partner_to_a_short_one() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         // Two real towns of the generated province.
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
@@ -2353,7 +2453,7 @@ mod tests {
             "a relief caravan rides the partner-road"
         );
         // Out of season, no relief moves at all.
-        let mut summer = SimState::new(42, charts::load_charts().unwrap());
+        let mut summer = test_sim(42, charts::load_charts().unwrap());
         summer.province_ties.nudge(&full, &short, 0.8);
         set_food(&mut summer, &full, 3.0);
         set_food(&mut summer, &short, 0.0);
@@ -2370,7 +2470,7 @@ mod tests {
     #[test]
     fn a_plagued_town_closes_its_roads() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         // Plague every town: with no healthy origin or destination, the
         // quarantine should keep every cart home.
         for region in sim.world.regions.iter_mut() {
@@ -2393,7 +2493,7 @@ mod tests {
     fn plague_rides_a_caravan_to_a_healthy_town() {
         use crate::model::economy::Caravan;
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
             for s in &region.settlements {
@@ -2455,7 +2555,7 @@ mod tests {
     #[test]
     fn a_plague_breaks_out_and_runs_its_course() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         // Weaken every town with famine so a plague is likely to catch.
         for region in sim.world.regions.iter_mut() {
             for s in region.settlements.iter_mut() {
@@ -2489,7 +2589,7 @@ mod tests {
     #[test]
     fn a_revival_sweeps_a_town_within_the_season() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut swept = false;
         for d in 1..=90u64 {
             sim.world.tick = d * 24;
@@ -2512,7 +2612,7 @@ mod tests {
         use crate::model::economy::SettlementFaith;
         use crate::model::GodName;
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
             for s in &region.settlements {
@@ -2562,7 +2662,7 @@ mod tests {
     #[test]
     fn an_alliance_feeds_a_starving_partner_year_round() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
             for s in &region.settlements {
@@ -2621,7 +2721,7 @@ mod tests {
     #[test]
     fn a_deep_rivalry_boils_over_into_a_raid() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
             for s in &region.settlements {
@@ -2685,7 +2785,7 @@ mod tests {
         // A save written before `obligations` existed omits the field entirely.
         // #[serde(default)] must let it load as an empty Vec rather than error.
         let charts = charts::load_charts().unwrap();
-        let sim = SimState::new(42, charts);
+        let sim = test_sim(42, charts);
         let s = ron::ser::to_string(&sim).unwrap();
         assert!(
             s.contains("obligations:[]"),
@@ -2730,7 +2830,7 @@ mod tests {
         // Saves predating these fields omit them; #[serde(default)] must fill in
         // the Default stores rather than failing to deserialize.
         let charts = charts::load_charts().unwrap();
-        let sim = SimState::new(42, charts);
+        let sim = test_sim(42, charts);
         let s = ron::ser::to_string(&sim).unwrap();
         let stripped = drop_ron_group(&drop_ron_group(&s, "reputation"), "relationships");
         let _back: SimState = ron::from_str(&stripped)
@@ -2878,7 +2978,7 @@ mod tests {
 
     fn make_sim(seed: u64) -> SimState {
         let charts = charts::load_charts().unwrap();
-        SimState::new(seed, charts)
+        SimState::new_capped(seed, charts, Some(300))
     }
 
     #[test]
@@ -2989,7 +3089,7 @@ mod determinism_tests {
 
     fn make_sim(seed: u64) -> SimState {
         let charts = charts::load_charts().unwrap();
-        SimState::new(seed, charts)
+        SimState::new_capped(seed, charts, Some(300))
     }
 
     #[test]

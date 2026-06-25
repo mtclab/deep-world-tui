@@ -5,6 +5,7 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,16 +19,25 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check --all
       - run: cargo clippy --all-targets -- -D warnings
 
   test:
     name: test
     runs-on: ubuntu-latest
+    # The full suite is the developer's LOCAL gate (run `cargo test --all
+    # --release` before pushing). To conserve private-repo Actions minutes it
+    # runs in CI only on master (i.e. at merge) and on manual dispatch, NOT on
+    # every PR update. Release: the materialized province-scale sim is 10-50x
+    # slower in debug.
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --all
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --all --release
 
   playtest-smoke:
     name: playtest smoke
@@ -35,6 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Build playtest binary
         run: cargo build --bin playtest
       - name: Drive a scripted session and assert save/load survives
@@ -53,6 +64,9 @@ jobs:
   build:
     name: build (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    # Cross-compile matrix only at merge / on demand, not every PR update
+    # (Actions-minute conservation; release.yml covers shipped artifacts).
+    if: github.event_name != 'pull_request'
     strategy:
       matrix:
         include:
@@ -67,6 +81,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
       - name: Install cross-compilers
         if: contains(matrix.target, 'musl') || contains(matrix.target, 'windows')
         run: |

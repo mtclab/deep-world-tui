@@ -21,7 +21,7 @@ fn long_sim_keeps_population_and_people_alive() {
     let mut total0 = 0usize;
     let mut total1 = 0usize;
     for seed in 40..46u64 {
-        let mut sim = SimState::new(seed, charts.clone());
+        let mut sim = SimState::new_capped(seed, charts.clone(), Some(300));
         total0 += pop_of(&sim);
         for _ in 0..2000 {
             sim.step();

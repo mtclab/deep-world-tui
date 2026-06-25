@@ -6,7 +6,7 @@ use deep_world_tui::sim::SimState;
 #[test]
 fn new_bonds_form_during_the_simulation() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(42, charts);
+    let mut sim = SimState::new_capped(42, charts, Some(300));
     let start_tick = sim.world.tick;
 
     // A long stretch of pure simulation — no player.
@@ -33,7 +33,7 @@ fn new_bonds_form_during_the_simulation() {
 #[test]
 fn the_web_stays_bounded() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(7, charts);
+    let mut sim = SimState::new_capped(7, charts, Some(300));
     for _ in 0..(24 * 150) {
         sim.step();
     }

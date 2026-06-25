@@ -8,9 +8,6 @@ use crate::sim::{SimState, Voice};
 /// One NPC life-year per 3 game days — the same clock the player ages on.
 pub const TICKS_PER_LIFE_YEAR: u64 = 72;
 
-/// Sample-roster cap per settlement (the roster represents a larger population).
-const MAX_SAMPLE_PEOPLE: usize = 40;
-
 /// Base chance a birth carries a complication before the mother's fortune leans
 /// it. The complication lingers as illness; luck rides this roll like the rest.
 const BASE_CHILDBIRTH_COMPLICATION_PROB: f64 = 0.05;
@@ -96,11 +93,28 @@ pub fn tick_lifecycle(sim: &mut SimState) {
 
     for region in sim.world.regions.iter_mut() {
         let region_id = region.id.clone();
+        // Snapshot the land so we can read its carrying capacity per settlement
+        // without fighting the settlement borrow below.
+        let rtype = region.region_type.clone();
+        let terr_tiles = region.terrain.tiles.clone();
+        let (terr_w, terr_h) = (region.terrain.width, region.terrain.height);
         for settlement in region.settlements.iter_mut() {
             let sample = settlement.people.len().max(1);
             let scale =
                 ((settlement.population.max(1) as f64 / sample as f64).round() as u32).max(1);
             let settlement_name = settlement.name.clone();
+            // What the land can feed (entity-first epic): every birth is now a
+            // real resident, so without a ceiling a young town grows without
+            // bound (births >> deaths) and the roster runs away. The land caps
+            // it — a settlement at capacity sees births balance deaths, no more.
+            let carrying = crate::gen::town::carrying_capacity(
+                &terr_tiles,
+                terr_w,
+                terr_h,
+                settlement.map_x as usize + 1,
+                settlement.map_y as usize + 1,
+                &rtype,
+            ) as usize;
 
             let mut deaths: Vec<usize> = Vec::new();
             let mut births: u32 = 0;
@@ -192,32 +206,38 @@ pub fn tick_lifecycle(sim: &mut SimState) {
                 ));
             }
 
-            // Births: a new child joins the roster (capped — the roster is a
-            // sample) and the population grows either way.
+            // Births: every birth is a real new resident (entity-first epic), at
+            // the natural rate, and only while the land can feed another mouth.
+            // No forced replacement — a population must be free to fall as well as
+            // rise (some years bury more than they bear); guaranteeing it never
+            // declines would make every town grow monotonically to its carrying
+            // cap, ballooning the province. The fed-town-holds property is a
+            // separate BALANCE pass (the deferred growth_decline test).
             for b in 0..births {
-                settlement.population += scale;
-                if settlement.people.len() < MAX_SAMPLE_PEOPLE {
-                    let rng =
-                        SeedRng::new(seed).fork_for(&format!("birth-{year}-{}-{b}", settlement.id));
-                    let mut child: Person = crate::gen::person::generate_person_from(
-                        rng,
-                        &region_id,
-                        &settlement.id,
-                        &charts,
-                    );
-                    child.age_band = "child".into();
-                    child.age_years = 1;
-                    child.has_spouse = false;
-                    child.children_count = 0;
-                    // A child of the settlement's people, not a random draw.
-                    if let Some(parent) = settlement.people.first() {
-                        child.people = parent.people.clone();
-                    }
-                    child.settlement = settlement.id.clone();
-                    events.push(format!("A child was born in {}.", settlement.name));
-                    settlement.people.push(child);
+                if settlement.people.len() >= carrying.max(1) {
+                    break;
                 }
+                let rng =
+                    SeedRng::new(seed).fork_for(&format!("birth-{year}-{}-{b}", settlement.id));
+                let mut child: Person = crate::gen::person::generate_person_from(
+                    rng,
+                    &region_id,
+                    &settlement.id,
+                    &charts,
+                );
+                child.age_band = "child".into();
+                child.age_years = 1;
+                child.has_spouse = false;
+                child.children_count = 0;
+                // A child of the settlement's people, not a random draw.
+                if let Some(parent) = settlement.people.first() {
+                    child.people = parent.people.clone();
+                }
+                child.settlement = settlement.id.clone();
+                events.push(format!("A child was born in {}.", settlement.name));
+                settlement.people.push(child);
             }
+            settlement.population = settlement.people.len() as u32;
         }
     }
 

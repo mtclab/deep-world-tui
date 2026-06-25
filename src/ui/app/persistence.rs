@@ -228,6 +228,14 @@ impl App {
         if let Some(ref mut sim) = self.sim {
             crate::gen::world::fixup_settlement_anchors(&mut sim.world);
         }
+        // Entity-first (deep-world-godot#50): saves written before materialization
+        // carry only a sampled roster (population >> people.len()). Top them up so
+        // every soul is a real Person, matching a freshly generated world. No-op
+        // for saves already materialized.
+        if let Some(ref mut sim) = self.sim {
+            let seed = sim.world.seed;
+            crate::gen::world::materialize_residents(&mut sim.world.regions, seed, &self.charts);
+        }
         self.player_start = data.player_start;
         self.clock = data.clock;
         self.vitals = data.vitals;

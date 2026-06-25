@@ -8,6 +8,7 @@ use deep_world_tui::ui::app::App;
 fn town_app(seed: u64) -> App {
     let charts = load_charts().expect("charts");
     let mut a = App::new(seed, charts);
+    a.sim_pop_cap = Some(300);
     a.generate_player();
     a.accept_player();
     a.running = true;

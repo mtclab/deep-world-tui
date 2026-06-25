@@ -16,7 +16,7 @@ fn run_years(sim: &mut SimState, years: u64) {
 #[test]
 fn people_age_through_bands() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(42, charts);
+    let mut sim = SimState::new_capped(42, charts, Some(300));
     {
         let p = &mut sim.world.regions[0].settlements[0].people[0];
         p.age_band = "youth".into();
@@ -38,7 +38,7 @@ fn people_age_through_bands() {
 #[test]
 fn the_old_die_and_the_world_changes() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(42, charts);
+    let mut sim = SimState::new_capped(42, charts, Some(300));
     // Make everyone in one settlement aged: mortality should bite within years.
     {
         let s = &mut sim.world.regions[0].settlements[0];
@@ -66,7 +66,7 @@ fn the_old_die_and_the_world_changes() {
 #[test]
 fn children_are_born_to_spouse_households() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(7, charts);
+    let mut sim = SimState::new_capped(7, charts, Some(300));
     {
         let s = &mut sim.world.regions[0].settlements[0];
         for p in s.people.iter_mut() {
@@ -88,8 +88,8 @@ fn children_are_born_to_spouse_households() {
 #[test]
 fn lifecycle_is_deterministic() {
     let charts = load_charts().expect("charts");
-    let mut a = SimState::new(99, charts.clone());
-    let mut b = SimState::new(99, charts);
+    let mut a = SimState::new_capped(99, charts.clone(), Some(300));
+    let mut b = SimState::new_capped(99, charts, Some(300));
     run_years(&mut a, 8);
     run_years(&mut b, 8);
     let sa = &a.world.regions[0].settlements[0];

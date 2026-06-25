@@ -34,7 +34,7 @@ fn settlements_make_goods_without_the_player() {
     let charts = load_charts().expect("charts");
     let (mut sim, ri, si, good) = (0..40u64)
         .find_map(|seed| {
-            let sim = SimState::new(seed, charts.clone());
+            let sim = SimState::new_capped(seed, charts.clone(), Some(300));
             find_producer(&sim).map(|(ri, si, good)| (sim, ri, si, good))
         })
         .expect("a settlement with a producing trade somewhere across seeds");
@@ -54,7 +54,7 @@ fn settlements_make_goods_without_the_player() {
 #[test]
 fn a_good_is_capped_not_unbounded() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(7, charts);
+    let mut sim = SimState::new_capped(7, charts, Some(300));
     // Pick the most populous settlement and run a long stretch; no good should
     // exceed the per-settlement cap (population * 0.5).
     for _ in 0..(24 * 120) {
@@ -90,7 +90,7 @@ fn a_working_town_holds_a_broad_goods_shelf() {
     // herbalists, and healers all stocking their wares.
     use std::collections::BTreeSet;
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(7, charts);
+    let mut sim = SimState::new_capped(7, charts, Some(300));
     for _ in 0..(24 * 14) {
         sim.step();
     }
@@ -131,7 +131,7 @@ fn the_settled_crafts_stock_the_deeper_shelf() {
     let charts = load_charts().expect("charts");
     let deeper = ["Pottery", "Ale", "Charcoal"];
     let found = (0..6u64).any(|seed| {
-        let mut sim = SimState::new(seed, charts.clone());
+        let mut sim = SimState::new_capped(seed, charts.clone(), Some(300));
         for _ in 0..(24 * 14) {
             sim.step();
         }
@@ -161,7 +161,7 @@ fn the_wider_roster_fills_the_old_producer_gaps() {
     use std::collections::BTreeSet;
     let charts = load_charts().expect("charts");
     let found = (0..8u64).any(|seed| {
-        let mut sim = SimState::new(seed, charts.clone());
+        let mut sim = SimState::new_capped(seed, charts.clone(), Some(300));
         for _ in 0..(24 * 14) {
             sim.step();
         }
@@ -190,7 +190,7 @@ fn registry_goods_flow_through_the_living_economy() {
     // own, with no player.
     let charts = load_charts().expect("charts");
     let found = (0..6u64).any(|seed| {
-        let mut sim = SimState::new(seed, charts.clone());
+        let mut sim = SimState::new_capped(seed, charts.clone(), Some(300));
         for _ in 0..(24 * 14) {
             sim.step();
         }

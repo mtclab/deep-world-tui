@@ -11,6 +11,7 @@ use deep_world_tui::ui::app::App;
 fn many_rests_through_collapse_do_not_overflow() {
     let charts = load_charts().expect("charts load");
     let mut app = App::new(9001, charts);
+    app.sim_pop_cap = Some(300);
     app.generate_player();
     app.accept_player();
     app.running = true;
