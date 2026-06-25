@@ -617,6 +617,7 @@ fn tick_settlement_life(sim: &mut SimState) {
                     region_under_threat,
                     migrate_target,
                     season_ration,
+                    tick,
                 );
                 let (departures, _eaten) = agency::step_agents(settlement, &ctx);
                 if !departures.is_empty() {
