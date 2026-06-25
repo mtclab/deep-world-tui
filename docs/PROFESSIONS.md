@@ -25,19 +25,26 @@ An NPC is unique along four axes; each is achievable:
 - **Name**: name-banks must out-size the population, or compose names
   (given + patronymic/lineage + by-name) — the Khör already recite lineages; given
   × patronymic × epithet is effectively unbounded.
-- **Simulation depth**: this is the real limit. A province is part of a 12–15M
-  continent; you cannot fully tick tens of thousands of brains every turn. The
-  answer is **level-of-detail**, which the data model already leans toward —
-  `Settlement { people: Vec<Person>, population: u32 }`: a *materialised* set of
-  full individuals plus an aggregate count. Foreground (the settlement you're in,
-  NPCs on screen, anyone you've met) = full individuals; background = statistics
-  that **promote into a unique individual the moment you interact** (and persist
-  once met). So every NPC the player *encounters* is unique and permanent; the
-  unmet remainder is a faithful population the world can afford.
+- **Simulation depth**: this is the real limit — and the **entity-first epic**
+  (deep-world-godot#50) settled it. The earlier plan here was *aggregate* level-of-
+  detail: `Settlement { people: Vec<Person>, population: u32 }`, a materialised
+  sample of full individuals plus a bulk count, with the background "promoted into
+  a unique individual the moment you interact." **That is no longer the model.**
+  Every inhabitant is now a **real, persistent `Person` from worldgen on**;
+  `population` is a *derived cache* of `people.len()`, never a stand-in for people.
+  What scales is **temporal** level-of-detail, not existence: the player's region
+  ticks live each hour, distant regions advance the same real agents on a coarse
+  daily batch (two-rate LOD). The province (8.5k–121k souls) is materialised and
+  ticked within budget after the slice-0/1 perf work and the O(n) fixes. NPCs
+  pursue needs as agents (the hunger ladder: eat → buy → work → steal → banditry),
+  and emergence — trade, famine, desperation, banditry — falls out of individuals
+  under scarcity, not aggregate passes. **There is no LLM in the game**: dialogue
+  and flavour are deterministic voice templates (`src/voice/`) only.
 
-**Verdict:** yes — unique in identity, name, and appearance for everyone the player
-can meet, with simulation depth managed by LOD. Uniqueness is bounded only by the
-part/name spaces, which we deliberately size larger than the playable population.
+**Verdict:** yes — unique in identity, name, and appearance, and now *real and
+needs-driven* for every soul, not only those the player meets. Simulation depth is
+managed by **temporal** LOD over real agents, never by replacing anyone with a
+statistic.
 
 ---
 

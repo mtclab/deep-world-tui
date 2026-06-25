@@ -13,11 +13,6 @@ pub(crate) fn draw_settings_screen(f: &mut Frame, app: &App) {
         high_contrast: app.high_contrast,
     };
     let area = f.area();
-    let llm_status = if app.llm_enabled {
-        "ON  (persona prompts from LLM)"
-    } else {
-        "OFF (using voice.rs templates)"
-    };
     let mono_status = if app.monochrome {
         "ON  (ink-only palette for accessibility)"
     } else {
@@ -30,18 +25,6 @@ pub(crate) fn draw_settings_screen(f: &mut Frame, app: &App) {
                 .fg(theme.archive_red())
                 .add_modifier(Modifier::BOLD),
         )),
-        Line::from(""),
-        Line::from(Span::styled(
-            " LLM Narrator",
-            Style::default()
-                .fg(theme.archive_red())
-                .add_modifier(Modifier::BOLD),
-        )),
-        Line::from(format!("   Status: {}", llm_status)),
-        Line::from(format!("   Endpoint: {}", app.llm_endpoint)),
-        Line::from(format!("   Model: {}", app.llm_model)),
-        Line::from("   [l] Toggle LLM narrator on/off"),
-        Line::from("   [e] Edit endpoint  [o] Edit model"),
         Line::from(""),
         Line::from(Span::styled(
             " Monochrome".to_string(),

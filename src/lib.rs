@@ -3,7 +3,6 @@ pub mod banks;
 pub mod charts;
 pub mod config;
 pub mod gen;
-pub mod llm;
 pub mod model;
 pub mod rng;
 pub mod save;

@@ -410,32 +410,14 @@ pub fn voice_line_situation_biased(
     }
 }
 
-#[cfg(feature = "llm")]
-pub fn voice_line_maybe_llm(
+/// An NPC's spoken line for a situation, leaned by the player's people
+/// (entity-first epic, deep-world-godot#50: the game has **no LLM** — dialogue
+/// and flavour are deterministic voice templates only). Was `voice_line_maybe_llm`
+/// with an optional Ollama call; that path is retired with slice 6.
+pub fn voice_line_biased(
     person: &Person,
     situation: Situation,
     player_people: PeopleKind,
-    llm_enabled: bool,
-    llm_endpoint: &str,
-    llm_model: &str,
-) -> String {
-    let template = voice_line_situation_biased(person, situation, player_people);
-    if !llm_enabled {
-        return template;
-    }
-    let context =
-        crate::llm::build_flavor_context(situation, "", "", &player_people.name().to_lowercase());
-    llm_voice_line(llm_endpoint, llm_model, &context).unwrap_or(template)
-}
-
-#[cfg(not(feature = "llm"))]
-pub fn voice_line_maybe_llm(
-    person: &Person,
-    situation: Situation,
-    player_people: PeopleKind,
-    _llm_enabled: bool,
-    _llm_endpoint: &str,
-    _llm_model: &str,
 ) -> String {
     voice_line_situation_biased(person, situation, player_people)
 }
@@ -456,38 +438,6 @@ pub fn weather_encounter_flavor(weather: Weather) -> &'static str {
         Weather::Clear => "The road stretched clear under wide skies. Good travelling weather.",
         Weather::Cloudy => "Grey clouds blanketed the sky. The light was flat, the air still.",
     }
-}
-
-#[cfg(feature = "llm")]
-use std::collections::HashMap;
-#[cfg(feature = "llm")]
-use std::sync::Mutex;
-
-#[cfg(feature = "llm")]
-static LLM_CACHE: Mutex<Option<HashMap<u64, String>>> = Mutex::new(None);
-
-#[cfg(feature = "llm")]
-pub fn llm_voice_line(endpoint: &str, model: &str, context: &str) -> Option<String> {
-    let hash = crate::rng::fnv1a_hash(context);
-    {
-        let cache = LLM_CACHE.lock().ok()?;
-        if let Some(ref map) = *cache {
-            if let Some(cached) = map.get(&hash) {
-                return Some(cached.clone());
-            }
-        }
-    }
-    let result = crate::llm::narrate_with_llm(endpoint, model, context)?;
-    {
-        let mut cache = LLM_CACHE.lock().ok()?;
-        if cache.is_none() {
-            *cache = Some(HashMap::new());
-        }
-        if let Some(ref mut map) = *cache {
-            map.insert(hash, result.clone());
-        }
-    }
-    Some(result)
 }
 
 #[cfg(test)]
@@ -791,37 +741,6 @@ mod tests {
         ] {
             let flavor = weather_encounter_flavor(w);
             assert!(!flavor.is_empty(), "flavor for {:?} must not be empty", w);
-        }
-    }
-
-    #[cfg(feature = "llm")]
-    #[test]
-    fn llm_voice_line_returns_none_on_bad_endpoint() {
-        let result = llm_voice_line("http://127.0.0.1:1", "test", "hello");
-        assert!(result.is_none());
-    }
-
-    #[cfg(feature = "llm")]
-    #[test]
-    fn llm_voice_line_cache_deterministic() {
-        let ctx = "deterministic-test-context-for-cache";
-        let h = crate::rng::fnv1a_hash(ctx);
-        {
-            let mut cache = LLM_CACHE.lock().unwrap();
-            if cache.is_none() {
-                *cache = Some(std::collections::HashMap::new());
-            }
-            if let Some(ref mut map) = *cache {
-                map.insert(h, "cached response".to_string());
-            }
-        }
-        let result = llm_voice_line("http://127.0.0.1:1", "test", ctx);
-        assert_eq!(result, Some("cached response".to_string()));
-        {
-            let mut cache = LLM_CACHE.lock().unwrap();
-            if let Some(ref mut map) = *cache {
-                map.remove(&h);
-            }
         }
     }
 }

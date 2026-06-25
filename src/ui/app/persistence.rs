@@ -7,9 +7,6 @@ use super::*;
 impl App {
     pub fn save_settings(&self) {
         let settings = crate::ui::AppSettings {
-            llm_enabled: self.llm_enabled,
-            llm_endpoint: self.llm_endpoint.clone(),
-            llm_model: self.llm_model.clone(),
             monochrome: self.monochrome,
             high_contrast: self.high_contrast,
             reduced_motion: self.reduced_motion,

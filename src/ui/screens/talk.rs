@@ -105,14 +105,8 @@ pub(crate) fn draw_talk_screen(
         }
 
         for (sit, label) in &situations {
-            let vline = crate::voice::voice_line_maybe_llm(
-                p,
-                *sit,
-                app.inter_people_bias.player_people,
-                app.llm_enabled,
-                &app.llm_endpoint,
-                &app.llm_model,
-            );
+            let vline =
+                crate::voice::voice_line_biased(p, *sit, app.inter_people_bias.player_people);
             lines.push(Line::from(Span::styled(
                 format!(" [{}]", label),
                 Style::default()
