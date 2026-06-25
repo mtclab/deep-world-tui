@@ -179,6 +179,12 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
 
     for i in 0..n {
         let stage = life_stage(&s.people[i].age_band);
+        // A real danger near the town gnaws at everyone's sense of safety, drawing
+        // it down until fear becomes the pressing need (localized-threat #56-G) —
+        // so a prowling predator empties a shelterless place over days.
+        if ctx.under_threat {
+            s.people[i].needs.decay(Need::Safety, 0.03);
+        }
         let need = match most_pressing(&s.people[i]) {
             Some(nd) => nd,
             None => continue, // content — just lives

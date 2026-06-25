@@ -458,8 +458,22 @@ fn tick_settlement_life(sim: &mut SimState) {
     // the open country (entity-first slice 5). Gathered while the world is
     // borrowed by the region loop, then fed into the frontier once it is free.
     let mut new_wanderers: u32 = 0;
+    // Where the dangerous beasts stand, by region (localized-threat #56-G): a
+    // settlement is in fear when a real predator (danger >= 1) prowls near it —
+    // not the whole region at once. Snapshot now, before the region loop borrows
+    // the world, so the per-settlement threat can be read cheaply below.
+    let mut beast_threats: std::collections::HashMap<usize, Vec<(u32, u32)>> =
+        std::collections::HashMap::new();
+    for b in &sim.beasts {
+        if b.species.danger() >= 1 {
+            beast_threats
+                .entry(b.region_idx)
+                .or_default()
+                .push((b.px as u32, b.py as u32));
+        }
+    }
 
-    for region in sim.world.regions.iter_mut() {
+    for (region_idx, region) in sim.world.regions.iter_mut().enumerate() {
         let terrain = region_work_terrain(&region.region_type);
         let weather = region.weather;
         let region_richness = region.game_richness;
@@ -494,6 +508,8 @@ fn tick_settlement_life(sim: &mut SimState) {
         // that must leave will flee to, if it does not turn outlaw.
         let region_under_threat = region.is_march
             || region.danger_level() == crate::model::economy::DangerLevel::Dangerous;
+        // The dangerous beasts prowling this region (localized-threat #56-G).
+        let region_beasts = beast_threats.get(&region_idx);
         // Imperfect knowledge (#55): folk act on what they have *heard*, not on
         // live truth. Word of where grain is to be had refreshes only every few
         // days (news travels slowly), so the believed best-fed town lags reality.
@@ -626,10 +642,21 @@ fn tick_settlement_life(sim: &mut SimState) {
             // to the road as a brigand, by its own disposition.
             {
                 let migrate_target = best_fed.filter(|&bf| bf != s_idx);
+                // This town is in fear if the region is wild OR a real predator
+                // prowls within sight of it (localized-threat #56-G): ~20 tiles of
+                // its anchor. Threat has a locus now, not the whole region at once.
+                const BEAST_NEAR: i64 = 20;
+                let beast_near = region_beasts.is_some_and(|bs| {
+                    let (sx, sy) = (settlement.map_x as i64, settlement.map_y as i64);
+                    bs.iter().any(|&(bx, by)| {
+                        (bx as i64 - sx).abs() <= BEAST_NEAR && (by as i64 - sy).abs() <= BEAST_NEAR
+                    })
+                });
+                let settlement_under_threat = region_under_threat || beast_near;
                 let ctx = agency::town_context(
                     settlement,
                     region_richness,
-                    region_under_threat,
+                    settlement_under_threat,
                     migrate_target,
                     season_ration,
                     tick,
