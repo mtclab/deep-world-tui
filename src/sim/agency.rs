@@ -54,6 +54,31 @@ pub struct TownContext {
     pub tick: u64,
 }
 
+/// A soul's life-stage (entity-first life-stage epic #52): the young and the old
+/// are dependents the able-bodied carry, and they act differently from a working
+/// adult. Derived from the canon age bands (`lifecycle::band_from_age`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Stage {
+    /// A child — cannot work, trade, steal, or leave on its own; the commons
+    /// feed it. An orphan in a failing town is a real crisis, not a tiny bandit.
+    Dependent,
+    /// Youth and adult — the providers who carry the economy.
+    Able,
+    /// Elder and aged — still fends for itself, but too frail for the open road:
+    /// it migrates to a kinder town or stays and suffers, never turns bandit, and
+    /// needs more tending.
+    Elder,
+}
+
+/// The life-stage of an age band.
+pub fn life_stage(age_band: &str) -> Stage {
+    match age_band {
+        "child" | "infant" => Stage::Dependent,
+        "elder" | "old" | "aged" => Stage::Elder,
+        _ => Stage::Able, // youth / adult / unknown
+    }
+}
+
 /// How a soul that left this settlement left it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Departure {
@@ -138,21 +163,50 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
     let mut gratitude: Vec<(usize, usize)> = Vec::new(); // (beggar, benefactor)
     let mut new_feuds: Vec<(usize, usize)> = Vec::new(); // (victim, thief)
 
-    let leave = |personality: &[String]| -> Departure {
-        match ctx.migrate_target {
-            Some(to) if !turns_to_crime(personality) => Departure::Migrate { to },
-            _ => Departure::Bandit,
+    // Where a soul goes when it must leave — gated by life-stage. A child never
+    // leaves on its own; an elder is too frail for the road, so it migrates to a
+    // kinder town if there is one, else stays; only the able-bodied turn bandit.
+    let leave = |stage: Stage, personality: &[String]| -> Option<Departure> {
+        match stage {
+            Stage::Dependent => None,
+            Stage::Elder => ctx.migrate_target.map(|to| Departure::Migrate { to }),
+            Stage::Able => Some(match ctx.migrate_target {
+                Some(to) if !turns_to_crime(personality) => Departure::Migrate { to },
+                _ => Departure::Bandit,
+            }),
         }
     };
 
     for i in 0..n {
+        let stage = life_stage(&s.people[i].age_band);
         let need = match most_pressing(&s.people[i]) {
             Some(nd) => nd,
             None => continue, // content — just lives
         };
         match need {
+            Need::Food if stage == Stage::Dependent => {
+                // A child cannot work, trade, steal, or leave — the commons keep
+                // it. It eats from the granary like everyone; and when the granary
+                // fails, the town feeds its young from the common purse (treasury)
+                // before all else. Only when both are empty does a child go hungry
+                // — a town that cannot feed its children is a place in true crisis.
+                if stock > 0.0 {
+                    let bite = ctx.ration.min(stock);
+                    stock -= bite;
+                    eaten += bite;
+                    s.people[i]
+                        .needs
+                        .satisfy(Need::Food, 0.10 * (bite / ctx.ration).min(1.0));
+                } else if treasury >= ctx.food_price {
+                    treasury -= ctx.food_price;
+                    s.people[i].needs.satisfy(Need::Food, 0.10);
+                } else {
+                    s.people[i].needs.decay(Need::Food, 0.05);
+                }
+            }
             Need::Food => {
-                // The Food column: eat now, else get the means, else leave.
+                // The Food column (able-bodied & elders): eat now, else get the
+                // means, else leave.
                 // (Foraging is already in the granary — the town's farms and
                 // gathering fill `food_stock` before this; a free per-agent
                 // forage would double-count it and break the hinterland limit
@@ -180,7 +234,8 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                     purses[i] = purses[i].saturating_add(1);
                     s.people[i].needs.decay(Need::Food, 0.05);
                     gratitude.push((i, b));
-                } else if turns_to_crime(&s.people[i].personality)
+                } else if stage == Stage::Able
+                    && turns_to_crime(&s.people[i].personality)
                     && richest.is_some_and(|(r, c)| {
                         r != i
                             && c >= ctx.food_price
@@ -188,15 +243,17 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                     })
                 {
                     // steal from a well-off stranger — never from one's own kin —
-                    // and the robbed remember it
+                    // and the robbed remember it. (An elder is past such risks.)
                     let (r, _) = richest.unwrap();
                     let amt = ctx.food_price.max(3).min(purses[r]);
                     purses[r] -= amt;
                     purses[i] = purses[i].saturating_add(amt);
                     new_feuds.push((r, i));
                 } else if s.people[i].needs.get(Need::Food) < 0.1 {
-                    let d = leave(&s.people[i].personality);
-                    departures.push((i, d));
+                    match leave(stage, &s.people[i].personality) {
+                        Some(d) => departures.push((i, d)),
+                        None => s.people[i].needs.decay(Need::Food, 0.05),
+                    }
                 } else {
                     s.people[i].needs.decay(Need::Food, 0.05);
                 }
@@ -207,8 +264,10 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                 } else if ctx.has_shelter {
                     s.people[i].needs.satisfy(Need::Safety, 0.08);
                 } else if s.people[i].needs.get(Need::Safety) < 0.15 {
-                    let d = leave(&s.people[i].personality);
-                    departures.push((i, d));
+                    match leave(stage, &s.people[i].personality) {
+                        Some(d) => departures.push((i, d)),
+                        None => s.people[i].needs.decay(Need::Safety, 0.04),
+                    }
                 } else {
                     s.people[i].needs.decay(Need::Safety, 0.04);
                 }
@@ -226,7 +285,10 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                     }
                     s.people[i].needs.satisfy(Need::Care, 0.10);
                 } else {
-                    s.people[i].needs.decay(Need::Care, 0.03);
+                    // The frail need more tending: an elder's care wants faster
+                    // when there is no healer to be had (life-stage #52).
+                    let rate = if stage == Stage::Elder { 0.05 } else { 0.03 };
+                    s.people[i].needs.decay(Need::Care, rate);
                 }
             }
             Need::Presence => {
