@@ -35,6 +35,21 @@ impl RelationKind {
         matches!(self, RelationKind::Spouse)
     }
 
+    /// A warm tie — kin or chosen kin. These are the people a soul turns to for
+    /// help before a stranger (entity-first slice 9): you beg of family and
+    /// friends, and you do not rob them.
+    pub fn is_bond(self) -> bool {
+        matches!(
+            self,
+            RelationKind::SwornFriend
+                | RelationKind::Spouse
+                | RelationKind::Sibling
+                | RelationKind::Parent
+                | RelationKind::Child
+                | RelationKind::Apprentice
+        )
+    }
+
     fn conflicts_with(self, other: RelationKind) -> bool {
         matches!(
             (self, other),
