@@ -2,6 +2,7 @@ use crate::charts::Charts;
 use crate::model::{Need, World};
 use crate::rng::SeedRng;
 
+pub mod agency;
 pub mod beasts;
 pub mod caravans;
 pub mod collapse_log;
@@ -485,6 +486,29 @@ fn tick_settlement_life(sim: &mut SimState) {
             region.region_type.as_str(),
             "coast" | "delta" | "river_valley"
         );
+        // Agency context (entity-first slice 8): facts the per-agent needs
+        // selector reads, gathered once per region/day so the decision stays
+        // O(1) per soul. The land is dangerous in a march or under a real
+        // beast/raid threat (Safety). The best-fed *other* town is where a soul
+        // that must leave will flee to, if it does not turn outlaw.
+        let region_under_threat = region.is_march
+            || region.danger_level() == crate::model::economy::DangerLevel::Dangerous;
+        let best_fed: Option<usize> = region
+            .settlements
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.population > 0 && s.food_stock / s.population.max(1) as f64 >= 1.5)
+            .max_by(|(_, a), (_, b)| {
+                let da = a.food_stock / a.population.max(1) as f64;
+                let db = b.food_stock / b.population.max(1) as f64;
+                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(i, _)| i);
+        let season_ration = 0.15 * season.consumption_modifier();
+        // Leavers, gathered while a single settlement is borrowed, applied after
+        // the settlement loop (when the whole region roster is free again).
+        let mut region_bandits: u32 = 0;
+        let mut pending_migrants: Vec<(usize, crate::model::Person)> = Vec::new();
 
         for (s_idx, settlement) in region.settlements.iter_mut().enumerate() {
             let sample = settlement.people.len().max(1) as f64;
@@ -577,14 +601,48 @@ fn tick_settlement_life(sim: &mut SimState) {
             let land_yield_cap = cap as f64 * 0.18;
             settlement.food_stock += (harvested + gathered + trap_food).min(land_yield_cap);
 
-            // --- consumption (per-agent hunger ladder) + spoilage ---
-            // Winter draws harder on the stores (#570): a body eats more from the
-            // granary in Frost and a little less in the generous Green. Each soul
-            // now feeds itself along the ladder (entity-first slice 3): eat → buy
-            // → work → go hungry. A town with a stocked granary can pay workers;
-            // a starving one cannot, so the coinless there go without.
-            let ration = 0.15 * season.consumption_modifier();
-            settlement.feed_people_ladder(ration, 1, 1);
+            // --- the people act on their needs (entity-first slice 8) + spoilage ---
+            // Each soul scores its drives and acts on the most pressing one it can
+            // afford: the Food column (forage → eat → buy → work → beg → steal →
+            // leave) draws the granary down at the old rate, while Care, Safety,
+            // and Presence are met by the town's healer, shelter, and company.
+            // Winter draws harder on the stores (#570) via the season ration. A
+            // soul that exhausts every option leaves — lawfully to a fed town, or
+            // to the road as a brigand, by its own disposition.
+            {
+                let migrate_target = best_fed.filter(|&bf| bf != s_idx);
+                let ctx = agency::town_context(
+                    settlement,
+                    region_richness,
+                    region_under_threat,
+                    migrate_target,
+                    season_ration,
+                );
+                let (departures, _eaten) = agency::step_agents(settlement, &ctx);
+                if !departures.is_empty() {
+                    let mut leave_ids: std::collections::HashSet<String> =
+                        std::collections::HashSet::new();
+                    for (idx, dep) in departures {
+                        let p = &settlement.people[idx];
+                        leave_ids.insert(p.id.clone());
+                        match dep {
+                            agency::Departure::Bandit => region_bandits += 1,
+                            agency::Departure::Migrate { to } => {
+                                pending_migrants.push((to, p.clone()))
+                            }
+                        }
+                    }
+                    let n_left = leave_ids.len();
+                    settlement.people.retain(|p| !leave_ids.contains(&p.id));
+                    settlement.population = settlement.people.len() as u32;
+                    if region_bandits > 0 {
+                        completed_msgs.push(format!(
+                            "Word on the road: {n_left} left {} — some for a kinder town, some for the dark.",
+                            settlement.name
+                        ));
+                    }
+                }
+            }
             let keepers = settlement.profession_count("hearth-keeper") as f64;
             let hearth = if settlement.has_building(BuildingType::Hearth) {
                 0.5
@@ -1166,56 +1224,20 @@ fn tick_settlement_life(sim: &mut SimState) {
                     }
                 }
             }
-
-            // --- desperation: the bottom of the hunger ladder (slice 5) ---
-            // A soul gone chronically hungry with an empty purse has run out of
-            // lawful options. It steals coin from the wealthiest neighbour it can
-            // — buying it another day. But when the whole town is as destitute as
-            // it is (no one left to rob), it takes to the road: a real body fed
-            // into the frontier's bands, banditry born of provincial scarcity
-            // rather than a spawn roll (#623 frontier). Deterministic: roster
-            // order, fixed amounts, O(n) via a single richest-neighbour scan.
-            {
-                const STARVING: f64 = 0.1;
-                const STEAL: u32 = 3;
-                let desperate: Vec<usize> = settlement
-                    .people
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, p)| p.needs.get(Need::Food) < STARVING && p.coins == 0)
-                    .map(|(i, _)| i)
-                    .collect();
-                if !desperate.is_empty() {
-                    // The richest neighbour, by first-seen roster order (stable).
-                    let mut loot = settlement
-                        .people
-                        .iter()
-                        .enumerate()
-                        .max_by_key(|(_, p)| p.coins)
-                        .map(|(i, p)| (i, p.coins))
-                        .unwrap_or((usize::MAX, 0));
-                    let mut bandit_ids: std::collections::HashSet<String> =
-                        std::collections::HashSet::new();
-                    for di in desperate {
-                        if loot.0 != usize::MAX && loot.0 != di && loot.1 >= STEAL {
-                            settlement.people[loot.0].coins -= STEAL;
-                            settlement.people[di].coins += STEAL;
-                            loot.1 -= STEAL;
-                        } else {
-                            bandit_ids.insert(settlement.people[di].id.clone());
-                        }
-                    }
-                    if !bandit_ids.is_empty() {
-                        let n = bandit_ids.len() as u32;
-                        settlement.people.retain(|p| !bandit_ids.contains(&p.id));
-                        settlement.population = settlement.people.len() as u32;
-                        new_wanderers += n;
-                        completed_msgs.push(format!(
-                            "Hungry and with nothing left to lose, {} of {} took to the road.",
-                            n, settlement.name
-                        ));
-                    }
-                }
+        }
+        // The day's lawful migrants join the town they fled to (entity-first
+        // slice 8). Bandits become wanderers, fed to the frontier after the
+        // region loop. Done here, after the settlement loop, so the whole region
+        // roster is free to write into.
+        new_wanderers += region_bandits;
+        for (to, mut p) in pending_migrants {
+            if let Some(dest) = region.settlements.get_mut(to) {
+                p.region = dest.region.clone();
+                p.settlement = dest.id.clone();
+                // A fed town takes them in; their need eases on arrival.
+                p.needs.satisfy(crate::model::Need::Food, 0.2);
+                dest.people.push(p);
+                dest.population = dest.people.len() as u32;
             }
         }
         // --- trade drift: the Bronze Road smooths a good across the region

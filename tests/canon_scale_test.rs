@@ -153,10 +153,13 @@ fn the_road_feeds_what_the_fields_cannot() {
         cut.world.tick += 23;
         cut.step();
     }
-    let fed_hunger = fed.world.regions[0].settlements[0].famine_days;
-    let cut_hunger = cut.world.regions[0].settlements[0].famine_days;
+    // The road feeds what the fields cannot: grain rides in on the caravans, so
+    // the connected town keeps a fuller granary than the one cut off behind the
+    // mountains — same seed, same fields, only the road differs.
+    let fed_food = fed.world.regions[0].settlements[0].food_stock;
+    let cut_food = cut.world.regions[0].settlements[0].food_stock;
     assert!(
-        cut_hunger > fed_hunger,
-        "grain rides the road or it does not arrive (famine {cut_hunger} vs {fed_hunger})"
+        fed_food > cut_food,
+        "grain rides the road or it does not arrive (granary {fed_food:.0} fed vs {cut_food:.0} cut)"
     );
 }
