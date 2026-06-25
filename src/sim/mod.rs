@@ -452,6 +452,10 @@ fn tick_settlement_life(sim: &mut SimState) {
     // world (sim.world) is borrowed by the region loop below.
     let life_charts = sim.charts.clone();
     let mut completed_msgs: Vec<String> = Vec::new();
+    // Souls who fall off the bottom of the hunger ladder this day and leave for
+    // the open country (entity-first slice 5). Gathered while the world is
+    // borrowed by the region loop, then fed into the frontier once it is free.
+    let mut new_wanderers: u32 = 0;
 
     for region in sim.world.regions.iter_mut() {
         let terrain = region_work_terrain(&region.region_type);
@@ -1162,6 +1166,57 @@ fn tick_settlement_life(sim: &mut SimState) {
                     }
                 }
             }
+
+            // --- desperation: the bottom of the hunger ladder (slice 5) ---
+            // A soul gone chronically hungry with an empty purse has run out of
+            // lawful options. It steals coin from the wealthiest neighbour it can
+            // — buying it another day. But when the whole town is as destitute as
+            // it is (no one left to rob), it takes to the road: a real body fed
+            // into the frontier's bands, banditry born of provincial scarcity
+            // rather than a spawn roll (#623 frontier). Deterministic: roster
+            // order, fixed amounts, O(n) via a single richest-neighbour scan.
+            {
+                const STARVING: f64 = 0.1;
+                const STEAL: u32 = 3;
+                let desperate: Vec<usize> = settlement
+                    .people
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, p)| p.needs.get(Need::Food) < STARVING && p.coins == 0)
+                    .map(|(i, _)| i)
+                    .collect();
+                if !desperate.is_empty() {
+                    // The richest neighbour, by first-seen roster order (stable).
+                    let mut loot = settlement
+                        .people
+                        .iter()
+                        .enumerate()
+                        .max_by_key(|(_, p)| p.coins)
+                        .map(|(i, p)| (i, p.coins))
+                        .unwrap_or((usize::MAX, 0));
+                    let mut bandit_ids: std::collections::HashSet<String> =
+                        std::collections::HashSet::new();
+                    for di in desperate {
+                        if loot.0 != usize::MAX && loot.0 != di && loot.1 >= STEAL {
+                            settlement.people[loot.0].coins -= STEAL;
+                            settlement.people[di].coins += STEAL;
+                            loot.1 -= STEAL;
+                        } else {
+                            bandit_ids.insert(settlement.people[di].id.clone());
+                        }
+                    }
+                    if !bandit_ids.is_empty() {
+                        let n = bandit_ids.len() as u32;
+                        settlement.people.retain(|p| !bandit_ids.contains(&p.id));
+                        settlement.population = settlement.people.len() as u32;
+                        new_wanderers += n;
+                        completed_msgs.push(format!(
+                            "Hungry and with nothing left to lose, {} of {} took to the road.",
+                            n, settlement.name
+                        ));
+                    }
+                }
+            }
         }
         // --- trade drift: the Bronze Road smooths a good across the region
         // (#540 living economy). A good drifts from where it is plentiful toward
@@ -1208,6 +1263,11 @@ fn tick_settlement_life(sim: &mut SimState) {
             );
         }
         region.game_richness = (region.game_richness - richness_draw).max(0.0);
+    }
+    // The day's desperate take to the open country, swelling the frontier's pool
+    // of wanderers — the raw material its bands muster from (#623, slice 5).
+    for _ in 0..new_wanderers {
+        sim.frontier.take_the_road();
     }
     for msg in completed_msgs {
         let t = sim.world.tick;
