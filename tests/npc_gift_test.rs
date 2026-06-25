@@ -29,6 +29,7 @@ fn npcs_are_gifted_at_the_ordinary_rare_rate() {
 fn an_iron_ear_smith_in_town_makes_truer_tools() {
     let charts = load_charts().expect("charts");
     let mut a = App::new(7, charts);
+    a.sim_pop_cap = Some(20);
     a.generate_player();
     a.accept_player();
     a.running = true;

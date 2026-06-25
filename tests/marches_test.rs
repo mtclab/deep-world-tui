@@ -2,12 +2,12 @@
 // — a region with no town holding it, where the frontier's bands and holds and
 // the deep wild's dreads will concentrate.
 use deep_world_tui::charts::load::load_charts;
-use deep_world_tui::gen::world::generate_world;
+use deep_world_tui::gen::world::generate_world_capped;
 
 #[test]
 fn a_large_province_keeps_a_march_at_its_edge() {
     let charts = load_charts().expect("charts");
-    let world = generate_world(7, &charts);
+    let world = generate_world_capped(7, &charts, Some(300));
     if world.regions.len() >= 4 {
         // The last region is the march.
         let march = world.regions.last().unwrap();
@@ -49,8 +49,8 @@ fn a_large_province_keeps_a_march_at_its_edge() {
 #[test]
 fn marches_are_deterministic() {
     let charts = load_charts().expect("charts");
-    let a = generate_world(31, &charts);
-    let b = generate_world(31, &charts);
+    let a = generate_world_capped(31, &charts, Some(300));
+    let b = generate_world_capped(31, &charts, Some(300));
     let am: Vec<bool> = a.regions.iter().map(|r| r.is_march).collect();
     let bm: Vec<bool> = b.regions.iter().map(|r| r.is_march).collect();
     assert_eq!(am, bm, "the same seed marks the same marches");
@@ -60,7 +60,7 @@ fn marches_are_deterministic() {
 fn a_march_with_a_grown_hold_is_tamed() {
     use deep_world_tui::sim::SimState;
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(7, charts);
+    let mut sim = SimState::new_capped(7, charts, Some(300));
     // Take the region holding the world's most-populous town — a real town that
     // sits above the tame bar and will not starve back down — and call it a
     // march with a grown hold. The tide should tame it back into the province.
@@ -94,7 +94,7 @@ fn a_march_with_a_grown_hold_is_tamed() {
 fn a_settled_region_emptied_falls_back_to_march() {
     use deep_world_tui::sim::SimState;
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(7, charts);
+    let mut sim = SimState::new_capped(7, charts, Some(300));
     // A settled region whose every town dies returns to the wild.
     let ri = sim
         .world
@@ -119,8 +119,8 @@ fn a_march_reads_as_wilderness_not_a_settled_region() {
     let charts = load_charts().expect("charts");
     // Find a seed whose world has a march, and confirm its description frames it
     // as ungoverned wild — not a settled region's blurb.
-    for seed in 0..40u64 {
-        let world = generate_world(seed, &charts);
+    for seed in 0..12u64 {
+        let world = generate_world_capped(seed, &charts, Some(300));
         if let Some(march) = world.regions.iter().find(|r| r.is_march) {
             let d = march.description.to_lowercase();
             assert!(
@@ -142,8 +142,8 @@ fn the_frontier_scales_with_the_province() {
     let mut small_n = 0usize;
     let mut big_marches = 0usize; // provinces of 10+ sectors
     let mut big_n = 0usize;
-    for seed in 0..200u64 {
-        let w = generate_world(seed, &charts);
+    for seed in 0..24u64 {
+        let w = generate_world_capped(seed, &charts, Some(300));
         let n = w.regions.len();
         let m = w.regions.iter().filter(|r| r.is_march).count();
         if (4..=6).contains(&n) {

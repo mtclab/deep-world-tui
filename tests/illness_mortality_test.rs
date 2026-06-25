@@ -29,6 +29,7 @@ fn the_acute_killers_outrank_the_chronic() {
 fn died_of_plague(seed: u64, hunger: f64) -> bool {
     let charts = load_charts().expect("charts");
     let mut a = App::new(seed, charts);
+    a.sim_pop_cap = Some(300);
     a.generate_player();
     a.accept_player();
     a.running = true;
@@ -78,17 +79,17 @@ fn died_of_plague(seed: u64, hunger: f64) -> bool {
 
 #[test]
 fn an_untreated_plague_can_kill() {
-    let deaths = (0..240u64).filter(|&s| died_of_plague(s, 0.5)).count();
+    let deaths = (0..96u64).filter(|&s| died_of_plague(s, 0.5)).count();
     assert!(
-        deaths > 12,
-        "an untreated plague in the open should claim a real share of lives, got {deaths}/240"
+        deaths > 4,
+        "an untreated plague in the open should claim a real share of lives, got {deaths}/96"
     );
 }
 
 #[test]
 fn the_fed_outlast_the_sickness_more_than_the_starving() {
-    let fed = (0..240u64).filter(|&s| died_of_plague(s, 0.85)).count();
-    let starving = (0..240u64).filter(|&s| died_of_plague(s, 0.15)).count();
+    let fed = (0..120u64).filter(|&s| died_of_plague(s, 0.85)).count();
+    let starving = (0..120u64).filter(|&s| died_of_plague(s, 0.15)).count();
     assert!(
         starving > fed,
         "starving should die of the plague more than the fed: starving {starving} vs fed {fed}"

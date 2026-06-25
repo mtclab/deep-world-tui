@@ -1,5 +1,4 @@
 use crate::charts::Charts;
-use crate::gen::world::generate_world;
 use crate::model::{Need, World};
 use crate::rng::SeedRng;
 
@@ -154,7 +153,16 @@ pub struct SimState {
 
 impl SimState {
     pub fn new(seed: u64, charts: Charts) -> Self {
-        let mut world = generate_world(seed, &charts);
+        Self::new_capped(seed, charts, None)
+    }
+
+    /// Build a sim whose settlements are capped to `max_pop` souls each — a test
+    /// affordance so soak/long-run tests step small rosters instead of a whole
+    /// 8.5k–121k province, while exercising the same entity-first paths
+    /// deterministically. `None` is the real game (every soul real). See
+    /// [`crate::gen::world::generate_world_capped`].
+    pub fn new_capped(seed: u64, charts: Charts, max_pop: Option<usize>) -> Self {
+        let mut world = crate::gen::world::generate_world_capped(seed, &charts, max_pop);
         structures::generate_world_structures(seed, &mut world);
         let mut discoveries = crate::model::DiscoveryStore::new();
         {
@@ -2351,7 +2359,19 @@ fn tick_npc_illness(sim: &mut SimState, current_tick: u64) {
 mod tests {
     use super::*;
     use crate::charts;
-    use crate::gen::world::generate_world;
+    use crate::gen::world::generate_world_capped;
+
+    /// Soak cap for lib tests: build a small world (≤300 souls/settlement) so
+    /// tests step real entities through the same paths without paying the whole
+    /// 8.5k–121k province each time. Deterministic; magnitude-independent tests
+    /// only.
+    const TEST_POP_CAP: Option<usize> = Some(300);
+    fn generate_world(seed: u64, charts: &Charts) -> World {
+        generate_world_capped(seed, charts, TEST_POP_CAP)
+    }
+    fn test_sim(seed: u64, charts: Charts) -> SimState {
+        SimState::new_capped(seed, charts, TEST_POP_CAP)
+    }
 
     #[test]
     fn caravan_routes_follow_the_province_ties() {
@@ -2375,7 +2395,7 @@ mod tests {
     #[test]
     fn winter_relief_flows_from_a_full_partner_to_a_short_one() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         // Two real towns of the generated province.
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
@@ -2433,7 +2453,7 @@ mod tests {
             "a relief caravan rides the partner-road"
         );
         // Out of season, no relief moves at all.
-        let mut summer = SimState::new(42, charts::load_charts().unwrap());
+        let mut summer = test_sim(42, charts::load_charts().unwrap());
         summer.province_ties.nudge(&full, &short, 0.8);
         set_food(&mut summer, &full, 3.0);
         set_food(&mut summer, &short, 0.0);
@@ -2450,7 +2470,7 @@ mod tests {
     #[test]
     fn a_plagued_town_closes_its_roads() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         // Plague every town: with no healthy origin or destination, the
         // quarantine should keep every cart home.
         for region in sim.world.regions.iter_mut() {
@@ -2473,7 +2493,7 @@ mod tests {
     fn plague_rides_a_caravan_to_a_healthy_town() {
         use crate::model::economy::Caravan;
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
             for s in &region.settlements {
@@ -2535,7 +2555,7 @@ mod tests {
     #[test]
     fn a_plague_breaks_out_and_runs_its_course() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         // Weaken every town with famine so a plague is likely to catch.
         for region in sim.world.regions.iter_mut() {
             for s in region.settlements.iter_mut() {
@@ -2569,7 +2589,7 @@ mod tests {
     #[test]
     fn a_revival_sweeps_a_town_within_the_season() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut swept = false;
         for d in 1..=90u64 {
             sim.world.tick = d * 24;
@@ -2592,7 +2612,7 @@ mod tests {
         use crate::model::economy::SettlementFaith;
         use crate::model::GodName;
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
             for s in &region.settlements {
@@ -2642,7 +2662,7 @@ mod tests {
     #[test]
     fn an_alliance_feeds_a_starving_partner_year_round() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
             for s in &region.settlements {
@@ -2701,7 +2721,7 @@ mod tests {
     #[test]
     fn a_deep_rivalry_boils_over_into_a_raid() {
         let charts = charts::load_charts().unwrap();
-        let mut sim = SimState::new(42, charts);
+        let mut sim = test_sim(42, charts);
         let mut names = Vec::new();
         'outer: for region in &sim.world.regions {
             for s in &region.settlements {
@@ -2765,7 +2785,7 @@ mod tests {
         // A save written before `obligations` existed omits the field entirely.
         // #[serde(default)] must let it load as an empty Vec rather than error.
         let charts = charts::load_charts().unwrap();
-        let sim = SimState::new(42, charts);
+        let sim = test_sim(42, charts);
         let s = ron::ser::to_string(&sim).unwrap();
         assert!(
             s.contains("obligations:[]"),
@@ -2810,7 +2830,7 @@ mod tests {
         // Saves predating these fields omit them; #[serde(default)] must fill in
         // the Default stores rather than failing to deserialize.
         let charts = charts::load_charts().unwrap();
-        let sim = SimState::new(42, charts);
+        let sim = test_sim(42, charts);
         let s = ron::ser::to_string(&sim).unwrap();
         let stripped = drop_ron_group(&drop_ron_group(&s, "reputation"), "relationships");
         let _back: SimState = ron::from_str(&stripped)
@@ -2958,7 +2978,7 @@ mod tests {
 
     fn make_sim(seed: u64) -> SimState {
         let charts = charts::load_charts().unwrap();
-        SimState::new(seed, charts)
+        SimState::new_capped(seed, charts, Some(300))
     }
 
     #[test]
@@ -3069,7 +3089,7 @@ mod determinism_tests {
 
     fn make_sim(seed: u64) -> SimState {
         let charts = charts::load_charts().unwrap();
-        SimState::new(seed, charts)
+        SimState::new_capped(seed, charts, Some(300))
     }
 
     #[test]

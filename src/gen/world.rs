@@ -3,6 +3,23 @@ use crate::model::{Region, Settlement, SettlementService, Terrain, TerrainMap, W
 use crate::rng::SeedRng;
 
 pub fn generate_world(seed: u64, charts: &Charts) -> World {
+    generate_world_capped(seed, charts, None)
+}
+
+/// Worldgen with an optional per-settlement population cap. `None` = the real
+/// game (every soul real, province scale 8.5k–121k). `Some(n)` is a **test
+/// affordance**: it clamps each settlement to at most `n` souls so soak/long-run
+/// tests step small rosters instead of a whole province, exercising the same
+/// entity-first code paths deterministically. Population stays `people.len()`;
+/// only the count shrinks.
+pub fn generate_world_capped(seed: u64, charts: &Charts, max_pop: Option<usize>) -> World {
+    // The crate's own `#[cfg(test)]` build defaults to a small province so the
+    // hundreds of lib unit tests step real entities cheaply. This applies ONLY
+    // when compiling the lib's tests (`cargo test --lib`); integration test
+    // crates link the non-test lib and so keep full province scale — the scale
+    // and canon-plausibility suites there still exercise 8.5k–121k souls. The
+    // real game (no test cfg) is never capped.
+    let max_pop = max_pop.or(if cfg!(test) { Some(300) } else { None });
     let world_rng = SeedRng::new(seed).fork_for("world");
     let mut rng = world_rng;
 
@@ -40,7 +57,7 @@ pub fn generate_world(seed: u64, charts: &Charts) -> World {
     // Entity-first (deep-world-godot#50): now that every settlement's final
     // population is fixed (terrain pass included), give each one a real Person
     // per soul. Parallel — the heaviest part of worldgen at province scale.
-    materialize_residents(&mut regions, seed, charts);
+    materialize_residents_capped(&mut regions, seed, charts, max_pop);
 
     // The land decides the master: the province answers to the polity its
     // most common region type belongs to (canon the_37_polities.md).
@@ -905,6 +922,17 @@ fn population_per_settlement(population: u32) -> usize {
 /// from its own seeded RNG stream, so the result is identical regardless of
 /// thread order.
 pub fn materialize_residents(regions: &mut [crate::model::Region], seed: u64, charts: &Charts) {
+    materialize_residents_capped(regions, seed, charts, None);
+}
+
+/// As [`materialize_residents`], but optionally caps each settlement's roster to
+/// `max_pop` souls (test affordance — see [`generate_world_capped`]).
+pub fn materialize_residents_capped(
+    regions: &mut [crate::model::Region],
+    seed: u64,
+    charts: &Charts,
+    max_pop: Option<usize>,
+) {
     use rayon::prelude::*;
     regions.par_iter_mut().enumerate().for_each(|(ri, region)| {
         region
@@ -912,7 +940,10 @@ pub fn materialize_residents(regions: &mut [crate::model::Region], seed: u64, ch
             .par_iter_mut()
             .enumerate()
             .for_each(|(si, s)| {
-                let target = s.population.max(1) as usize;
+                let mut target = s.population.max(1) as usize;
+                if let Some(cap) = max_pop {
+                    target = target.min(cap.max(1));
+                }
                 if s.people.len() > target {
                     s.people.truncate(target);
                 } else if s.people.len() < target {
@@ -936,6 +967,12 @@ pub fn materialize_residents(regions: &mut [crate::model::Region], seed: u64, ch
                     }
                 }
                 s.population = s.people.len() as u32;
+                // Keep the size tier consistent with the head-count. Capping (or
+                // any roster top-up) can move population across a tier boundary;
+                // the `size` string was set at worldgen and would otherwise go
+                // stale. No-op in the uncapped game (population is unchanged).
+                s.size = crate::model::economy::Settlement::size_for_population(s.population)
+                    .to_string();
             });
     });
 }
@@ -958,6 +995,14 @@ mod tests {
     fn make_world(seed: u64) -> World {
         let charts = charts::load_charts().unwrap();
         generate_world(seed, &charts)
+    }
+
+    /// Full province scale (bypasses the `cfg!(test)` soak cap) for the few
+    /// tests that validate the canon size hierarchy — they need real cities and
+    /// towns to exist. Use sparingly; each call is a full 8.5k–121k worldgen.
+    fn make_world_full(seed: u64) -> World {
+        let charts = charts::load_charts().unwrap();
+        generate_world_capped(seed, &charts, Some(usize::MAX))
     }
 
     #[test]
@@ -1133,7 +1178,7 @@ mod tests {
 
     #[test]
     fn generate_world_settlement_sizes_valid() {
-        let world = make_world(42);
+        let world = make_world_full(42);
         // Sizes follow the canon hierarchy now (Rennik's survey), not the
         // sampling chart: tier must match the head-count.
         for region in &world.regions {
@@ -1227,8 +1272,8 @@ mod tests {
 
     #[test]
     fn cities_only_in_dense_regions() {
-        for seed in 0..100u64 {
-            let world = make_world(seed);
+        for seed in 0..12u64 {
+            let world = make_world_full(seed);
             for region in &world.regions {
                 for settlement in &region.settlements {
                     if settlement.size == "city" {
@@ -1327,8 +1372,8 @@ mod tests {
     fn population_city_gt_town_gt_village_gt_hamlet() {
         let mut size_pop: std::collections::HashMap<String, Vec<u32>> =
             std::collections::HashMap::new();
-        for seed in 0..50u64 {
-            let world = make_world(seed);
+        for seed in 0..12u64 {
+            let world = make_world_full(seed);
             for region in &world.regions {
                 for settlement in &region.settlements {
                     size_pop

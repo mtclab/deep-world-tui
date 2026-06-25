@@ -89,8 +89,8 @@ fn living_world_fingerprint(sim: &SimState) -> String {
 fn long_run_full_state_deterministic() {
     let charts = load_charts().expect("charts should load");
     let seed = 424242u64;
-    let mut a = SimState::new(seed, charts.clone());
-    let mut b = SimState::new(seed, charts.clone());
+    let mut a = SimState::new_capped(seed, charts.clone(), Some(400));
+    let mut b = SimState::new_capped(seed, charts.clone(), Some(400));
     for _ in 0..900 {
         a.step();
         b.step();
@@ -107,8 +107,8 @@ fn long_run_full_state_deterministic() {
 fn same_seed_produces_identical_world() {
     let charts = load_charts().expect("charts should load");
     let seed = 12345u64;
-    let mut a = SimState::new(seed, charts.clone());
-    let mut b = SimState::new(seed, charts.clone());
+    let mut a = SimState::new_capped(seed, charts.clone(), Some(400));
+    let mut b = SimState::new_capped(seed, charts.clone(), Some(400));
     for _ in 0..100 {
         a.step();
         b.step();
@@ -160,8 +160,8 @@ fn rng_fork_for_same_domain_same_sequence() {
 fn replay_100_ticks_deterministic() {
     let charts = load_charts().expect("charts should load");
     let seed = 77777u64;
-    let mut run1 = SimState::new(seed, charts.clone());
-    let mut run2 = SimState::new(seed, charts.clone());
+    let mut run1 = SimState::new_capped(seed, charts.clone(), Some(400));
+    let mut run2 = SimState::new_capped(seed, charts.clone(), Some(400));
     for _ in 0..100 {
         run1.step();
     }

@@ -7,6 +7,7 @@ use deep_world_tui::ui::app::App;
 fn actions_advance_the_world_clock() {
     let charts = load_charts().expect("charts");
     let mut a = App::new(42, charts);
+    a.sim_pop_cap = Some(300);
     a.generate_player();
     a.accept_player();
     a.running = true;
@@ -28,6 +29,7 @@ fn a_single_short_action_does_not_freeze_the_world() {
     // The fraction is owed even when it doesn't yet reach a whole hour.
     let charts = load_charts().expect("charts");
     let mut a = App::new(7, charts);
+    a.sim_pop_cap = Some(300);
     a.generate_player();
     a.accept_player();
     a.running = true;

@@ -96,6 +96,11 @@ pub enum Screen {
 
 pub struct App {
     pub sim: Option<SimState>,
+    /// Test affordance: cap each settlement to this many souls when the sim is
+    /// built (so soak tests step small rosters, not a whole 8.5k–121k province).
+    /// `None` in the real game — every soul real. See `SimState::new_capped`.
+    #[doc(hidden)]
+    pub sim_pop_cap: Option<usize>,
     pub player_start: Option<PlayerStart>,
     pub running: bool,
     pub tick_interval: u64,
@@ -228,6 +233,7 @@ impl App {
         let player_rng = SeedRng::new(seed);
         App {
             sim: None,
+            sim_pop_cap: None,
             player_start: None,
             running: true,
             tick_interval: 100,

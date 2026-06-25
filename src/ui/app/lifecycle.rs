@@ -33,7 +33,7 @@ impl App {
             ps.accepted = true;
             let pk = PeopleKind::from_name(&ps.person.people);
             self.inter_people_bias = InterPeopleBias::new(pk);
-            let sim = SimState::new(self.seed, self.charts.clone());
+            let sim = SimState::new_capped(self.seed, self.charts.clone(), self.sim_pop_cap);
             self.sim = Some(sim);
             if let Some(ref mut sim) = self.sim {
                 let quests = crate::sim::quest_gen::generate_initial_quests(

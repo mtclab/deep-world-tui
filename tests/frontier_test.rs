@@ -31,7 +31,7 @@ fn press_first_settlement(sim: &mut SimState) -> u32 {
 #[test]
 fn a_pressed_village_sheds_its_young_to_the_road() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(20240, charts);
+    let mut sim = SimState::new_capped(20240, charts, Some(300));
     let pop_before = press_first_settlement(&mut sim);
     assert!(pop_before > 0);
     // Several migration turns (interval 30) under standing pressure.
@@ -53,7 +53,7 @@ fn a_pressed_village_sheds_its_young_to_the_road() {
 #[test]
 fn gathered_wanderers_muster_into_a_band() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(5150, charts);
+    let mut sim = SimState::new_capped(5150, charts, Some(300));
     // Enough lost souls have gathered in the dark to make a band of them.
     sim.frontier.wanderers = 12;
     // Step a day so the frontier takes its turn (it acts on the day boundary).
@@ -77,8 +77,8 @@ fn gathered_wanderers_muster_into_a_band() {
 #[test]
 fn band_formation_is_deterministic() {
     let charts = load_charts().expect("charts");
-    let mut a = SimState::new(909, charts.clone());
-    let mut b = SimState::new(909, charts);
+    let mut a = SimState::new_capped(909, charts.clone(), Some(300));
+    let mut b = SimState::new_capped(909, charts, Some(300));
     a.frontier.wanderers = 20;
     b.frontier.wanderers = 20;
     for _ in 0..48 {
@@ -96,7 +96,7 @@ fn band_formation_is_deterministic() {
 #[test]
 fn a_band_preys_on_the_town_in_its_country() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(8400, charts);
+    let mut sim = SimState::new_capped(8400, charts, Some(300));
     let region_idx = region_with_a_town(&sim);
     sim.frontier.bands.push(Band {
         id: "band-test-1".into(),
@@ -123,7 +123,7 @@ fn a_band_preys_on_the_town_in_its_country() {
 #[test]
 fn a_band_in_empty_country_wears_down_and_scatters() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(8401, charts);
+    let mut sim = SimState::new_capped(8401, charts, Some(300));
     // No prey anywhere — empty every town, so the band cannot raid its own
     // country nor a neighbour's (#630 slice 2 lets a band strike the settled
     // edge, so true starvation needs the whole reach barren). A lone band then
@@ -157,7 +157,7 @@ fn a_band_in_a_march_raids_the_settled_edge() {
     let charts = load_charts().expect("charts");
     // A world with a march (needs >= 4 regions). Find the march and confirm a
     // neighbouring region holds a town to strike.
-    let mut sim = SimState::new(7, charts);
+    let mut sim = SimState::new_capped(7, charts, Some(300));
     let march = sim.world.regions.iter().position(|r| r.is_march);
     if let Some(march_idx) = march {
         let n = &sim.world.regions[march_idx].neighbors;
@@ -199,7 +199,7 @@ fn a_band_in_a_march_raids_the_settled_edge() {
 #[test]
 fn a_strong_old_band_settles_a_hold() {
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(8402, charts);
+    let mut sim = SimState::new_capped(8402, charts, Some(300));
     // A region with a town (so the band can prey, survive, and grow old) that
     // still has room for one more settlement.
     let region_idx = sim
@@ -232,8 +232,8 @@ fn a_strong_old_band_settles_a_hold() {
 #[test]
 fn the_road_taking_is_deterministic() {
     let charts = load_charts().expect("charts");
-    let mut a = SimState::new(771, charts.clone());
-    let mut b = SimState::new(771, charts);
+    let mut a = SimState::new_capped(771, charts.clone(), Some(300));
+    let mut b = SimState::new_capped(771, charts, Some(300));
     press_first_settlement(&mut a);
     press_first_settlement(&mut b);
     for t in [30u64, 60, 90] {
@@ -252,7 +252,7 @@ fn the_road_taking_is_deterministic() {
 fn a_band_stands_as_individual_members_on_the_grid() {
     use deep_world_tui::sim::frontier::{band_member_tiles, Band, BAND_MEMBERS_SHOWN};
     let charts = load_charts().expect("charts");
-    let mut sim = SimState::new(7, charts);
+    let mut sim = SimState::new_capped(7, charts, Some(300));
     let region_idx = region_with_a_town(&sim);
     sim.frontier.bands.push(Band {
         id: "band-members-1".into(),
