@@ -223,10 +223,20 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                     treasury = treasury.saturating_add(ctx.food_price);
                     s.people[i].needs.satisfy(Need::Food, 0.10);
                 } else if treasury >= ctx.wage {
-                    treasury -= ctx.wage;
-                    purses[i] = purses[i].saturating_add(ctx.wage);
+                    // Take work — and what the work earns is the worth of the
+                    // trade plied (per-agent economy #54, slice 1): a skilled
+                    // craft pays more than common labour, and a craftsperson's
+                    // hands actually put their good on the town's shelf.
+                    let profession = s.people[i].profession.clone();
+                    let wage =
+                        (ctx.wage * crate::model::economy::trade_wage(&profession)).min(treasury);
+                    treasury -= wage;
+                    purses[i] = purses[i].saturating_add(wage);
                     s.people[i].needs.satisfy(Need::Money, 0.10);
                     s.people[i].needs.decay(Need::Food, 0.05);
+                    if let Some(good) = crate::model::economy::trade_good(&profession) {
+                        s.produce_good(good, 0.1, f64::MAX);
+                    }
                 } else if let Some(b) = bonded_benefactor(&s.people[i], &idx_of, &purses, i) {
                     // beg of kin or a sworn friend — they share what they have,
                     // and the giving deepens the tie

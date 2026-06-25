@@ -251,6 +251,40 @@ impl ItemType {
     }
 }
 
+/// The trade good a profession plies its craft to make (per-agent economy #54,
+/// slice 1) — what a working smith, weaver, or miner actually puts on the shelf.
+/// `None` for trades that make no tradeable good of their own (labourers, guards,
+/// farmers — whose yield is food, handled by the granary).
+pub fn trade_good(profession: &str) -> Option<ItemType> {
+    Some(match profession {
+        "smith" => ItemType::Tool,
+        "weaver" => ItemType::Cloth,
+        "miner" => ItemType::Iron,
+        "carpenter" => ItemType::Wood,
+        "mason" => ItemType::Stone,
+        "potter" => ItemType::Pottery,
+        "brewer" => ItemType::Ale,
+        "tanner" => ItemType::Leather,
+        "herder" => ItemType::Hide,
+        "forester" => ItemType::Charcoal,
+        "healer" => ItemType::Bandage,
+        _ => return None,
+    })
+}
+
+/// What a day's labour at a trade is worth (per-agent economy #54, slice 1): a
+/// skilled craft or a specialist earns more than common labour. A multiplier on
+/// the base wage — so an agent's coin reflects the worth of what it actually does.
+pub fn trade_wage(profession: &str) -> u32 {
+    if trade_good(profession).is_some()
+        || matches!(profession, "scribe" | "trader" | "priest" | "fisher")
+    {
+        2
+    } else {
+        1
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct Inventory {
     pub items: indexmap::IndexMap<ItemType, u32>,
