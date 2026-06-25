@@ -3,6 +3,7 @@ use crate::model::{Need, World};
 use crate::rng::SeedRng;
 
 pub mod agency;
+pub mod aspiration;
 pub mod beasts;
 pub mod caravans;
 pub mod collapse_log;
@@ -643,6 +644,13 @@ fn tick_settlement_life(sim: &mut SimState) {
                         ));
                     }
                 }
+            }
+
+            // --- the people pursue their lives (purposeful-agents #53) ---
+            // A settled soul works toward a standing aspiration — to master a
+            // trade, to marry — resolving over many days into a real life event.
+            for ev in crate::sim::aspiration::tick_settlement_aspirations(settlement, seed, tick) {
+                completed_msgs.push(ev);
             }
             let keepers = settlement.profession_count("hearth-keeper") as f64;
             let hearth = if settlement.has_building(BuildingType::Hearth) {

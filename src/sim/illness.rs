@@ -253,6 +253,7 @@ mod tests {
             relations: vec![],
             wants: vec![],
             gift: Default::default(),
+            aspiration: None,
             age_years: 0,
         };
         assert_eq!(illness_productivity_modifier(&person), 1.0);

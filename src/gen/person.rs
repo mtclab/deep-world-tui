@@ -160,6 +160,7 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
         // Born with a gift or (almost always) without — rare for an NPC as for
         // anyone (#441).
         gift: crate::model::Gift::roll(sub_seed, 0),
+        aspiration: None,
     }
 }
 
@@ -261,6 +262,7 @@ pub fn generate_person_from(
         relations: vec![],
         wants: vec![],
         gift: crate::model::Gift::roll(sub_seed, 0),
+        aspiration: None,
     }
 }
 

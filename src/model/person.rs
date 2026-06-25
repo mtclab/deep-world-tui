@@ -1326,6 +1326,12 @@ pub struct Person {
     /// The rare innate craft-gift — almost always none, as for any life (#441).
     #[serde(default)]
     pub gift: crate::model::Gift,
+    /// A life's standing aspiration — what this soul is working toward when its
+    /// needs are met (purposeful-agents epic, deep-world-godot#53): to master a
+    /// trade, to marry. Pursued over many days, not a daily task. `None` = no
+    /// present ambition. Serde-default so older saves load.
+    #[serde(default)]
+    pub aspiration: Option<crate::sim::aspiration::Aspiration>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -1538,6 +1544,7 @@ mod tests {
 
             wants: vec![],
             gift: Default::default(),
+            aspiration: None,
             age_years: 0,
         };
 
