@@ -277,6 +277,8 @@ fn generate_region(mut rng: SeedRng, index: usize, charts: &Charts, is_march: bo
         weather,
         game_richness: 1.0,
         is_march,
+        known_fed: None,
+        known_fed_as_of: 0,
     }
 }
 
