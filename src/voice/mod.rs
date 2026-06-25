@@ -513,6 +513,7 @@ mod tests {
             children_count: 0,
             needs: Needs::default(),
             has_debt: false,
+            coins: 0,
             bias: "0.0".into(),
             schedule: NpcSchedule::default(),
             illnesses: Vec::new(),

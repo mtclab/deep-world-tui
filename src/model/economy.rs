@@ -1378,6 +1378,52 @@ impl Settlement {
         self.goods_stock.get(&item).copied().unwrap_or(0.0)
     }
 
+    /// Feed the residents one at a time along the hunger ladder (entity-first
+    /// slice 3, deep-world-godot#50). Each hungry soul, in stable roster order,
+    /// climbs the ladder: it eats a ration from the granary if the stores can
+    /// cover one; else buys a meal from outside with personal coin (caravan /
+    /// hinterland) if it can afford the price; else takes work to earn coin for
+    /// next time (and goes a little hungrier now) if the town has work to give;
+    /// else goes hungry (Food decays; sickness and decline follow elsewhere).
+    /// This replaces the old uniform per-head feed: now individuals diverge — in
+    /// a lean season the coinless poor go without while the moneyed buy through
+    /// it, and the able-but-hungry take work. Deterministic (roster order, no
+    /// RNG). Returns the ration of food actually drawn from the granary so the
+    /// caller can account consumption. `work` = whether the town can pay workers
+    /// (a starving town offers none, so desperation can set in).
+    pub fn feed_people_ladder(
+        &mut self,
+        ration: f64,
+        food_price: u32,
+        wage: u32,
+        work: bool,
+    ) -> f64 {
+        use crate::model::Need;
+        let mut stock = self.food_stock;
+        let mut eaten = 0.0;
+        for p in self.people.iter_mut() {
+            if p.needs.get(Need::Food) >= 0.7 {
+                continue; // sated — does not eat into the stores this tick
+            }
+            if stock >= ration {
+                stock -= ration;
+                eaten += ration;
+                p.needs.satisfy(Need::Food, 0.10);
+            } else if p.coins >= food_price {
+                p.coins -= food_price;
+                p.needs.satisfy(Need::Food, 0.10);
+            } else if work {
+                p.coins = p.coins.saturating_add(wage);
+                p.needs.satisfy(Need::Money, 0.10);
+                p.needs.decay(Need::Food, 0.05);
+            } else {
+                p.needs.decay(Need::Food, 0.05);
+            }
+        }
+        self.food_stock = stock;
+        eaten
+    }
+
     /// A town cut off from the goods economy (#540, #614): its tools and cloth
     /// per head have run below the thriving bar, so it stalls though its
     /// granaries may be full. The same `furnished` test the growth sim uses,
