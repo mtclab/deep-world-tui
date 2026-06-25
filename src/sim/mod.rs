@@ -989,10 +989,29 @@ fn tick_settlement_life(sim: &mut SimState) {
             // emerges (and its price-lever the player feels) instead of the
             // frozen 0.5/0.5/0.5.
             {
-                let makers = (settlement.profession_count("smith")
+                // Per-capita DENSITIES, not raw head-counts (#556 fix): once
+                // every soul is real (entity-first epic), a 9k town has hundreds
+                // of makers and the raw maker count swamps the rarer trader and
+                // keeper counts, so every council froze to Crafters. Shares make
+                // the pull scale-invariant — a town's *character*, not its size,
+                // decides its council. Rarer trades (traders, keepers) carry a
+                // heavier weight so they are not perpetually outnumbered.
+                let pop = settlement.population.max(1) as f64;
+                let maker_share = (settlement.profession_count("smith")
                     + settlement.profession_count("miner")
                     + settlement.profession_count("weaver")
-                    + settlement.profession_count("carpenter")) as f64;
+                    + settlement.profession_count("carpenter"))
+                    as f64
+                    / pop;
+                let merchant_share = (settlement.profession_count("trader")
+                    + settlement.profession_count("sailor"))
+                    as f64
+                    / pop;
+                let keeper_share = (settlement.profession_count("priest")
+                    + settlement.profession_count("scribe")
+                    + settlement.profession_count("healer"))
+                    as f64
+                    / pop;
                 let goods_total: f64 = [
                     crate::model::ItemType::Iron,
                     crate::model::ItemType::Tool,
@@ -1002,25 +1021,18 @@ fn tick_settlement_life(sim: &mut SimState) {
                 .iter()
                 .map(|it| settlement.good(*it))
                 .sum();
-                let prosperity =
-                    (settlement.food_stock / settlement.population.max(1) as f64).min(3.0);
-                let merchants = (settlement.profession_count("trader")
-                    + settlement.profession_count("sailor")) as f64;
-                let keepers = (settlement.profession_count("priest")
-                    + settlement.profession_count("scribe")
-                    + settlement.profession_count("healer")) as f64;
+                let goods_density = goods_total / pop;
+                // food per head — already scale-invariant.
+                let prosperity = (settlement.food_stock / pop).min(3.0);
                 // The season leans the council (#570): Frost turns it inward to
                 // the Elders, Green expansive to the Traders, Thaw to the hands
                 // that rebuild. Small, added to the town's own character.
                 let (lean_c, lean_t, lean_e) = season.council_lean();
                 // Base of 0.5 so no faction is ever wholly without a voice.
-                let crafter_pull = 0.5 + makers + goods_total * 0.05 + lean_c;
-                let trader_pull = 0.5 + merchants * 1.5 + prosperity + lean_t;
-                let elder_pull = 0.5
-                    + keepers * 1.5
-                    + (settlement.population as f64 / 300.0).min(3.0)
-                    + (1.0 - unrest)
-                    + lean_e;
+                let crafter_pull = 0.5 + maker_share * 6.0 + goods_density * 0.3 + lean_c;
+                let trader_pull = 0.5 + merchant_share * 18.0 + prosperity * 0.6 + lean_t;
+                // A stable, low-feud town keeps faith with its Elders.
+                let elder_pull = 0.5 + keeper_share * 18.0 + (1.0 - unrest) * 0.8 + lean_e;
                 settlement
                     .politics
                     .drift_toward(crafter_pull, trader_pull, elder_pull, 0.03);

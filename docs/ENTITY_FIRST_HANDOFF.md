@@ -202,14 +202,16 @@ so the 2-min foreground limit doesn't kill it. Bisect by test file.
 
 ## DEFERRED balance tests
 
-`tests/living_politics_test.rs::councils_diverge_from_the_frozen_default` is
-`#[ignore]`'d (2026-06-25). A **pre-existing** failure on this branch, exposed
-only once the soak cap let the full suite run: at materialized scale every
-council stays the frozen-default Crafters — the living-politics drift (#556)
-never moves the dominant faction. Verified failing at full scale, capped, AND on
-the branch before any soak-cap change (so not caused by the cap). A real politics
-balance pass is needed (make trade/elder standings actually win some councils at
-real population). Do NOT re-freeze the default to "pass" it.
+`tests/living_politics_test.rs::councils_diverge_from_the_frozen_default` —
+**FIXED 2026-06-25** (was briefly `#[ignore]`'d). Root cause: the council pulls
+(#556) used **raw profession head-counts**, fine for the old ~400 sample but at
+materialized scale a big town's hundreds of makers swamped the rarer trader/keeper
+counts, so every council froze to Crafters. Fix = scale-invariant **per-capita
+densities** (`maker_share`/`merchant_share`/`keeper_share`, goods per head), rarer
+trades weighted up, and the population-favoring elder term replaced by a stability
+term. All three factions now win by town character (probe: seed42 11C/5T, seed7
+6C/20T/1E, seed99 11C/13T/5E). Test is multi-seed (anti-brittle). Council block in
+`sim/mod.rs` ~line 985.
 
 `tests/npc_gift_test.rs::an_iron_ear_smith_in_town_makes_truer_tools` was also a
 pre-existing branch failure (price 8→8): at materialized scale one gifted smith
