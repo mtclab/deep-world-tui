@@ -52,6 +52,10 @@ pub struct TownContext {
     pub migrate_target: Option<usize>,
     /// The current tick — stamps any bond or feud the day's acts create.
     pub tick: u64,
+    /// How many guards keep the peace here (crime-and-justice #56-E): the more
+    /// the law, the likelier a thief is caught, made to give back, and — if it is
+    /// a repeat offender — driven out.
+    pub guards: u32,
 }
 
 /// A soul's life-stage (entity-first life-stage epic #52): the young and the old
@@ -243,9 +247,14 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                     if let Some(good) = crate::model::economy::trade_good(&profession) {
                         s.produce_good(good, 0.1, f64::MAX);
                     }
-                } else if let Some(b) = bonded_benefactor(&s.people[i], &idx_of, &purses, i) {
-                    // beg of kin or a sworn friend — they share what they have,
-                    // and the giving deepens the tie
+                } else if s.people[i].crimes < 2
+                    && bonded_benefactor(&s.people[i], &idx_of, &purses, i).is_some()
+                {
+                    // beg of kin or a sworn friend — they share what they have, and
+                    // the giving deepens the tie. A known thief (crimes >= 2) is
+                    // shunned: the neighbours who would help an honest soul turn it
+                    // away (#56-E).
+                    let b = bonded_benefactor(&s.people[i], &idx_of, &purses, i).unwrap();
                     purses[b] -= 1;
                     purses[i] = purses[i].saturating_add(1);
                     s.people[i].needs.decay(Need::Food, 0.05);
@@ -258,13 +267,34 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                             && !has_bond_with(&s.people[i], &s.people[r].id)
                     })
                 {
-                    // steal from a well-off stranger — never from one's own kin —
-                    // and the robbed remember it. (An elder is past such risks.)
+                    // steal from a well-off stranger — never from one's own kin.
+                    // Where there is law, the thief may be caught in the act
+                    // (#56-E): the more guards, the likelier — then nothing is
+                    // taken, the thief is marked, and a hardened repeat offender is
+                    // driven out to the road. The robbed resent the attempt either
+                    // way. (An elder is past such risks.)
                     let (r, _) = richest.unwrap();
                     let amt = ctx.food_price.max(3).min(purses[r]);
-                    purses[r] -= amt;
-                    purses[i] = purses[i].saturating_add(amt);
-                    new_feuds.push((r, i));
+                    let caught = ctx.guards > 0 && {
+                        let roll = crate::rng::fnv1a_hash(&format!(
+                            "theft:{}:{}",
+                            ctx.tick, s.people[i].id
+                        )) % 100;
+                        roll < (ctx.guards * 40).min(85) as u64
+                    };
+                    if caught {
+                        s.people[i].crimes = s.people[i].crimes.saturating_add(1);
+                        new_feuds.push((r, i));
+                        if s.people[i].crimes >= 3 {
+                            departures.push((i, Departure::Bandit)); // exiled
+                        } else {
+                            s.people[i].needs.decay(Need::Food, 0.05); // foiled, hungry
+                        }
+                    } else {
+                        purses[r] -= amt;
+                        purses[i] = purses[i].saturating_add(amt);
+                        new_feuds.push((r, i));
+                    }
                 } else if s.people[i].needs.get(Need::Food) < 0.1 {
                     match leave(stage, &s.people[i].personality) {
                         Some(d) => departures.push((i, d)),
@@ -412,6 +442,7 @@ pub fn town_context(
     let has_company = s.services.contains(&SettlementService::Tavern)
         || s.services.contains(&SettlementService::Temple);
     let has_shelter = s.has_building(BuildingType::Shelter);
+    let guards = s.profession_count("guard") as u32;
     TownContext {
         ration,
         food_price: 1,
@@ -423,5 +454,6 @@ pub fn town_context(
         under_threat,
         migrate_target,
         tick,
+        guards,
     }
 }

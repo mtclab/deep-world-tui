@@ -471,6 +471,7 @@ mod tests {
             wants: vec![],
             gift: Default::default(),
             aspiration: None,
+            crimes: 0,
             age_years: 0,
         }
     }

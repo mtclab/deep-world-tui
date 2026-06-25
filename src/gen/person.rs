@@ -161,6 +161,7 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
         // anyone (#441).
         gift: crate::model::Gift::roll(sub_seed, 0),
         aspiration: None,
+        crimes: 0,
     }
 }
 
@@ -263,6 +264,7 @@ pub fn generate_person_from(
         wants: vec![],
         gift: crate::model::Gift::roll(sub_seed, 0),
         aspiration: None,
+        crimes: 0,
     }
 }
 
