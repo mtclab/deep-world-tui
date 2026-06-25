@@ -18,16 +18,21 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check --all
       - run: cargo clippy --all-targets -- -D warnings
 
   test:
     name: test
     runs-on: ubuntu-latest
+    # Release: the entity-first sim materializes real province-scale populations;
+    # an unoptimized (debug) test run is 10-50x slower and burns Actions minutes.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --all
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --all --release
 
   playtest-smoke:
     name: playtest smoke
@@ -35,6 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Build playtest binary
         run: cargo build --bin playtest
       - name: Drive a scripted session and assert save/load survives
@@ -67,6 +73,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
       - name: Install cross-compilers
         if: contains(matrix.target, 'musl') || contains(matrix.target, 'windows')
         run: |
