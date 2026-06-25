@@ -150,6 +150,16 @@ pub struct Region {
     /// but because it lies past the towns' grasp.
     #[serde(default)]
     pub is_march: bool,
+    /// What the province *believes* about where grain is to be had (imperfect-
+    /// knowledge epic, deep-world-godot#55): the settlement index folk reckon is
+    /// best-fed, and the day that word formed. News travels slowly, so this lags
+    /// the truth — a soul fleeing famine makes for the town it has *heard* is
+    /// fed, which by the time it arrives may be as starved as the one it left.
+    /// `None` until the first word gets around. Serde-default so old saves load.
+    #[serde(default)]
+    pub known_fed: Option<usize>,
+    #[serde(default)]
+    pub known_fed_as_of: u64,
 }
 
 fn default_game_richness() -> f64 {

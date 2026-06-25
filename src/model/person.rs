@@ -1625,6 +1625,8 @@ mod tests {
             weather: crate::model::Weather::Clear,
             game_richness: 1.0,
             is_march: false,
+            known_fed: None,
+            known_fed_as_of: 0,
         };
 
         world.regions.push(region);

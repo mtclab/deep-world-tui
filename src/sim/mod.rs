@@ -494,17 +494,31 @@ fn tick_settlement_life(sim: &mut SimState) {
         // that must leave will flee to, if it does not turn outlaw.
         let region_under_threat = region.is_march
             || region.danger_level() == crate::model::economy::DangerLevel::Dangerous;
-        let best_fed: Option<usize> = region
-            .settlements
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.population > 0 && s.food_stock / s.population.max(1) as f64 >= 1.5)
-            .max_by(|(_, a), (_, b)| {
-                let da = a.food_stock / a.population.max(1) as f64;
-                let db = b.food_stock / b.population.max(1) as f64;
-                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .map(|(i, _)| i);
+        // Imperfect knowledge (#55): folk act on what they have *heard*, not on
+        // live truth. Word of where grain is to be had refreshes only every few
+        // days (news travels slowly), so the believed best-fed town lags reality.
+        // Between refreshes a town can starve while still reputed to be fed —
+        // and migrants will keep making for it.
+        const NEWS_INTERVAL: u64 = 5 * 24; // word gets around about every five days
+        if region.known_fed.is_none()
+            || tick.saturating_sub(region.known_fed_as_of) >= NEWS_INTERVAL
+        {
+            region.known_fed = region
+                .settlements
+                .iter()
+                .enumerate()
+                .filter(|(_, s)| {
+                    s.population > 0 && s.food_stock / s.population.max(1) as f64 >= 1.5
+                })
+                .max_by(|(_, a), (_, b)| {
+                    let da = a.food_stock / a.population.max(1) as f64;
+                    let db = b.food_stock / b.population.max(1) as f64;
+                    da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .map(|(i, _)| i);
+            region.known_fed_as_of = tick;
+        }
+        let best_fed: Option<usize> = region.known_fed;
         let season_ration = 0.15 * season.consumption_modifier();
         // Leavers, gathered while a single settlement is borrowed, applied after
         // the settlement loop (when the whole region roster is free again).
