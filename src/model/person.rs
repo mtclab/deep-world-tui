@@ -1332,6 +1332,11 @@ pub struct Person {
     /// present ambition. Serde-default so older saves load.
     #[serde(default)]
     pub aspiration: Option<crate::sim::aspiration::Aspiration>,
+    /// Times this soul has been caught thieving (crime-and-justice epic #56-E).
+    /// The law remembers: a repeat thief is exiled, and a known thief is shunned
+    /// by the neighbours who would otherwise give it charity. Serde-default 0.
+    #[serde(default)]
+    pub crimes: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -1545,6 +1550,7 @@ mod tests {
             wants: vec![],
             gift: Default::default(),
             aspiration: None,
+            crimes: 0,
             age_years: 0,
         };
 
