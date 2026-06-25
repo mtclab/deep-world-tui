@@ -19,6 +19,7 @@ fn solo_town(seed: u64) -> SimState {
     s.food_stock = 1000.0; // never hungry
     s.treasury = 1000;
     for p in s.people.iter_mut() {
+        p.age_band = "adult".into(); // working adults — full agency (life-stage #52)
         p.needs.set(Need::Food, 0.9);
         p.needs.set(Need::Care, 0.9);
         p.needs.set(Need::Presence, 0.9);
