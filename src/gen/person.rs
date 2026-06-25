@@ -2,6 +2,20 @@ use crate::charts::Charts;
 use crate::model::{Needs, NpcActivity, NpcSchedule, Person};
 use crate::rng::SeedRng;
 
+/// A life starts with a small purse sized to its station (entity-first slice 3).
+/// Seeded, so it is deterministic and save-stable. The well-off carry more coin
+/// into a lean season; the poor have almost none — the gap the hunger ladder
+/// turns into who eats and who must work or go without.
+pub fn starting_coins(social_class: &str, rng: &mut SeedRng) -> u32 {
+    let (base, spread) = match social_class.to_lowercase().as_str() {
+        "noble" | "wealthy" | "merchant" | "high" => (12u32, 12u32),
+        "comfortable" | "middle" | "artisan" | "freeholder" => (5, 8),
+        "poor" | "low" | "destitute" | "laborer" | "labourer" => (0, 3),
+        _ => (3, 6),
+    };
+    base + rng.gen_range(spread + 1)
+}
+
 pub fn generate_schedule(profession: &str) -> NpcSchedule {
     let blocks = match profession.to_lowercase().as_str() {
         "priest" | "acolyte" | "monk" => [
@@ -118,6 +132,7 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
         .unwrap_or_else(|_| "Unnamed".into());
 
     let schedule = generate_schedule(&profession);
+    let coins = starting_coins(&social_class, &mut person_rng);
 
     Person {
         id: format!("person-{:016x}", sub_seed),
@@ -136,6 +151,7 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
         has_spouse,
         children_count,
         has_debt,
+        coins,
         age_years: 0,
         schedule,
         illnesses: Vec::new(),
@@ -219,6 +235,7 @@ pub fn generate_person_from(
         .unwrap_or_else(|_| "Unnamed".into());
 
     let schedule = generate_schedule(&profession);
+    let coins = starting_coins(&social_class, &mut person_rng);
 
     Person {
         id: format!("person-{:016x}", sub_seed),
@@ -237,6 +254,7 @@ pub fn generate_person_from(
         has_spouse,
         children_count,
         has_debt,
+        coins,
         age_years: 0,
         schedule,
         illnesses: Vec::new(),

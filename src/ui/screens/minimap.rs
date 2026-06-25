@@ -142,6 +142,7 @@ mod minimap_tests {
             has_spouse: false,
             children_count: 0,
             has_debt: false,
+            coins: 0,
             schedule: Default::default(),
             illnesses: Vec::new(),
             relations: vec![],

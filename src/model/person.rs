@@ -1306,6 +1306,12 @@ pub struct Person {
     pub has_spouse: bool,
     pub children_count: u32,
     pub has_debt: bool,
+    /// Personal purse (entity-first slice 3, deep-world-godot#50). Coin an agent
+    /// holds to buy food when the granary runs short; earned by taking work. The
+    /// hunger ladder (eat → buy → work → go hungry) turns on this. Defaults to 0
+    /// so pre-slice-3 saves load unchanged.
+    #[serde(default)]
+    pub coins: u32,
     /// Age in life-years (0 = not yet derived from age_band; see lifecycle).
     #[serde(default)]
     pub age_years: u32,
@@ -1521,6 +1527,8 @@ mod tests {
             children_count: 2,
 
             has_debt: false,
+
+            coins: 7,
 
             schedule: NpcSchedule::default(),
 

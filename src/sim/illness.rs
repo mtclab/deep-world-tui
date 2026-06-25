@@ -247,6 +247,7 @@ mod tests {
             has_spouse: false,
             children_count: 0,
             has_debt: false,
+            coins: 0,
             schedule: crate::model::NpcSchedule::default(),
             illnesses: vec![],
             relations: vec![],

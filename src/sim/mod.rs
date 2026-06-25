@@ -573,11 +573,15 @@ fn tick_settlement_life(sim: &mut SimState) {
             let land_yield_cap = cap as f64 * 0.18;
             settlement.food_stock += (harvested + gathered + trap_food).min(land_yield_cap);
 
-            // --- consumption + spoilage ---
-            // Winter draws harder on the stores (#570): a town eats more from
-            // the granary in Frost and a little less in the generous Green.
-            let eaten = settlement.population as f64 * 0.15 * season.consumption_modifier();
-            settlement.food_stock = (settlement.food_stock - eaten).max(0.0);
+            // --- consumption (per-agent hunger ladder) + spoilage ---
+            // Winter draws harder on the stores (#570): a body eats more from the
+            // granary in Frost and a little less in the generous Green. Each soul
+            // now feeds itself along the ladder (entity-first slice 3): eat → buy
+            // → work → go hungry. A town with a stocked granary can pay workers;
+            // a starving one cannot, so the coinless there go without.
+            let ration = 0.15 * season.consumption_modifier();
+            let work_available = settlement.food_stock >= 1.0;
+            settlement.feed_people_ladder(ration, 1, 1, work_available);
             let keepers = settlement.profession_count("hearth-keeper") as f64;
             let hearth = if settlement.has_building(BuildingType::Hearth) {
                 0.5
@@ -724,15 +728,8 @@ fn tick_settlement_life(sim: &mut SimState) {
                 }
             }
 
-            // --- the stores feed (or fail) the people ---
-            let per_head = settlement.food_stock / settlement.population.max(1) as f64;
-            for person in settlement.people.iter_mut() {
-                if per_head >= 1.0 {
-                    person.needs.satisfy(Need::Food, 0.10);
-                } else if per_head < 0.4 {
-                    person.needs.decay(Need::Food, 0.05);
-                }
-            }
+            // (the people already fed themselves along the hunger ladder above,
+            // entity-first slice 3 — no separate uniform per-head feed)
 
             // --- growth, famine, and decline ---
             // Promotion/demotion by head-count; a new village raises a Temple.
