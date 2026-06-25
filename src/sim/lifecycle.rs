@@ -80,6 +80,35 @@ fn trade_successor(dead: &Person, people: &[Person]) -> Option<(usize, bool)> {
         .map(|idx| (idx, false))
 }
 
+/// Pass a dead soul's purse to the nearest of kin still in town (households-as-
+/// economic-units #56-F): a spouse first, then a child, sibling, or parent, so a
+/// family's wealth — and its chance to rise — outlives any one of them. With no
+/// kin to take it, the coin escheats to the common purse (treasury). Deterministic
+/// (first matching relation, roster order).
+pub fn bequeath(dead: &Person, heirs: &mut [Person], treasury: &mut u32) {
+    if dead.coins == 0 {
+        return;
+    }
+    use crate::model::relation::RelationKind;
+    let heir_id = dead
+        .relations
+        .iter()
+        .find(|r| r.kind == RelationKind::Spouse)
+        .or_else(|| {
+            dead.relations.iter().find(|r| {
+                matches!(
+                    r.kind,
+                    RelationKind::Child | RelationKind::Sibling | RelationKind::Parent
+                )
+            })
+        })
+        .map(|r| r.target_person_id.clone());
+    match heir_id.and_then(|id| heirs.iter_mut().find(|p| p.id == id)) {
+        Some(h) => h.coins = h.coins.saturating_add(dead.coins),
+        None => *treasury = treasury.saturating_add(dead.coins),
+    }
+}
+
 pub fn tick_lifecycle(sim: &mut SimState) {
     let tick = sim.world.tick;
     if tick == 0 || !tick.is_multiple_of(TICKS_PER_LIFE_YEAR) {
@@ -182,6 +211,9 @@ pub fn tick_lifecycle(sim: &mut SimState) {
                     .population
                     .saturating_sub(scale)
                     .max(settlement.people.len() as u32);
+                // Inheritance (households-as-economic-units #56-F): a life's purse
+                // does not vanish into the ground.
+                bequeath(&dead, &mut settlement.people, &mut settlement.treasury);
                 if is_skilled(&dead.profession) {
                     if let Some((idx, adopted)) = trade_successor(&dead, &settlement.people) {
                         let heir_name = settlement.people[idx].name.clone();
