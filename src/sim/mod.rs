@@ -479,6 +479,11 @@ pub fn pay_makers(s: &mut crate::model::economy::Settlement) {
         }
         let pay = w.min(left);
         s.people[i].coins = s.people[i].coins.saturating_add(pay);
+        // A maker keeps a little of what it crafts as its own ware (#54 slice 5),
+        // up to a modest hoard — wealth in goods, not only in coin.
+        if s.people[i].wares < 12 {
+            s.people[i].wares += 1;
+        }
         left -= pay;
     }
     s.treasury -= payable;

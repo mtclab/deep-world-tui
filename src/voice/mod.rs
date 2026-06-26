@@ -472,6 +472,7 @@ mod tests {
             gift: Default::default(),
             aspiration: None,
             crimes: 0,
+            wares: 0,
             age_years: 0,
         }
     }

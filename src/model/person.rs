@@ -1337,6 +1337,12 @@ pub struct Person {
     /// by the neighbours who would otherwise give it charity. Serde-default 0.
     #[serde(default)]
     pub crimes: u8,
+    /// Finished trade-goods this soul has made and not yet sold (per-agent economy
+    /// #54, slice 5): a producer owns what its hands craft — real, personal wealth
+    /// beyond its purse. It keeps a little of what it makes, sells a piece to eat
+    /// when the granary fails, and leaves the rest to its heirs. Serde-default 0.
+    #[serde(default)]
+    pub wares: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -1551,6 +1557,7 @@ mod tests {
             gift: Default::default(),
             aspiration: None,
             crimes: 0,
+            wares: 0,
             age_years: 0,
         };
 

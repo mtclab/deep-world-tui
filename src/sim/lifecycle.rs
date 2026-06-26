@@ -86,7 +86,7 @@ fn trade_successor(dead: &Person, people: &[Person]) -> Option<(usize, bool)> {
 /// kin to take it, the coin escheats to the common purse (treasury). Deterministic
 /// (first matching relation, roster order).
 pub fn bequeath(dead: &Person, heirs: &mut [Person], treasury: &mut u32) {
-    if dead.coins == 0 {
+    if dead.coins == 0 && dead.wares == 0 {
         return;
     }
     use crate::model::relation::RelationKind;
@@ -104,8 +104,18 @@ pub fn bequeath(dead: &Person, heirs: &mut [Person], treasury: &mut u32) {
         })
         .map(|r| r.target_person_id.clone());
     match heir_id.and_then(|id| heirs.iter_mut().find(|p| p.id == id)) {
-        Some(h) => h.coins = h.coins.saturating_add(dead.coins),
-        None => *treasury = treasury.saturating_add(dead.coins),
+        // Coin and the goods of the trade alike pass to the heir (#54 slice 5).
+        Some(h) => {
+            h.coins = h.coins.saturating_add(dead.coins);
+            h.wares = h.wares.saturating_add(dead.wares);
+        }
+        // With no kin, the purse escheats to the commons, and the town sells off
+        // the goods left behind (a coin a piece) into the same common purse.
+        None => {
+            *treasury = treasury
+                .saturating_add(dead.coins)
+                .saturating_add(dead.wares)
+        }
     }
 }
 
