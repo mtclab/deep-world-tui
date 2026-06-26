@@ -715,7 +715,11 @@ fn tick_settlement_life(sim: &mut SimState) {
                 // its smiths — the goods a town holds should read like the trades
                 // it keeps. (Only trades the world actually generates are read:
                 // the `profession` roster, not the gift/craft-sense table.)
-                let pc = |p: &str| settlement.profession_count(p) as f64;
+                // Per-agent economy (#54, slice 2): a trade's output is the sum of
+                // its producers' worth — a gifted craftsperson makes more — not a
+                // flat head-count, so the goods a town holds read from WHO keeps
+                // its trades. (No gift → exactly the head-count = parity.)
+                let pc = |p: &str| settlement.trade_power(p);
                 let smiths = pc("smith");
                 let miners = pc("miner");
                 let weavers = pc("weaver");

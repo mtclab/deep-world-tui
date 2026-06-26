@@ -272,6 +272,20 @@ pub fn trade_good(profession: &str) -> Option<ItemType> {
     })
 }
 
+/// The craft-sense (#441 gift) that masters a trade — so a gifted producer of the
+/// matching sense makes more of its good (per-agent economy #54, slice 2). `None`
+/// for a trade no sense governs (its gifted are no better than its journeymen).
+pub fn profession_craft_sense(profession: &str) -> Option<crate::model::gift::CraftSense> {
+    use crate::model::gift::CraftSense;
+    Some(match profession {
+        "smith" | "miner" | "mason" => CraftSense::IronEar,
+        "forester" | "herbalist" | "forager" | "farmer" | "herder" => CraftSense::RootEye,
+        "fisher" | "sailor" | "trader" => CraftSense::ScaleHand,
+        "healer" | "scribe" | "priest" => CraftSense::StillSense,
+        _ => return None,
+    })
+}
+
 /// What a day's labour at a trade is worth (per-agent economy #54, slice 1): a
 /// skilled craft or a specialist earns more than common labour. A multiplier on
 /// the base wage — so an agent's coin reflects the worth of what it actually does.
@@ -1413,6 +1427,28 @@ impl Settlement {
             .iter()
             .filter(|p| p.profession == profession)
             .count()
+    }
+
+    /// The effective working hands of a trade (per-agent economy #54, slice 2):
+    /// not a flat head-count, but the sum of each producer's worth — a craftsperson
+    /// whose innate craft-gift (#441) matches the trade is worth half again as
+    /// much. So a town's output reads from *who* keeps a trade, not only how many:
+    /// a hamlet with a master smith out-forges a bigger town of journeymen. For a
+    /// trade no gift masters, this is exactly the head-count. Deterministic; the
+    /// gift is rare, so the total barely moves — it only varies by who is present.
+    pub fn trade_power(&self, profession: &str) -> f64 {
+        let sense = profession_craft_sense(profession);
+        self.people
+            .iter()
+            .filter(|p| p.profession == profession)
+            .map(|p| {
+                if sense.is_some() && p.gift.sense() == sense {
+                    1.5
+                } else {
+                    1.0
+                }
+            })
+            .sum()
     }
 
     /// Current stock of a trade good the settlement holds (#540). `0.0` for a
