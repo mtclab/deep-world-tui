@@ -68,12 +68,17 @@ fn the_payout_is_bounded_by_the_purse() {
     for p in s.people.iter_mut() {
         p.profession = "smith".into(); // many makers, far more owed than held
     }
+    let before = s.treasury;
     pay_makers(s);
+    // The maker-pay is gentle on the purse (an eighth at most per day), so a
+    // famine-struck town keeps coin for the wages that feed its hungry — the
+    // balance fix that kept towns from starving their work-rung dry.
     assert!(
-        s.treasury >= 5,
-        "no more than half the purse is paid out at once"
+        s.treasury >= before * 7 / 8,
+        "no more than an eighth of the purse is paid out at once (was {before}, now {})",
+        s.treasury
     );
-    assert_eq!(s.treasury, 5, "exactly half of a 10-coin purse");
+    assert!(s.treasury < before, "but the makers were paid something");
 }
 
 #[test]
