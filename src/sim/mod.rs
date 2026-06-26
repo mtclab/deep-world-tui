@@ -489,6 +489,56 @@ pub fn pay_makers(s: &mut crate::model::economy::Settlement) {
     s.treasury -= payable;
 }
 
+/// Merchant arbitrage (per-agent economy #54, slice 6): a trader profits by
+/// carrying its town's goods SURPLUS to the wider world — the canon cities and
+/// the caravans. Only where a town holds more goods than it keeps for itself do
+/// its traders earn a commission for brokering the surplus; a gifted weigh-sense
+/// (ScaleHand, #439) trader, who never short-weights and sees the fair price,
+/// earns twice as much. Paid out of the common purse (the town's share of the
+/// sale), bounded by a quarter of it — MINTS NOTHING, conserved. So a goods-rich
+/// town makes its merchants wealthy, a poor one cannot. O(n), deterministic.
+pub fn pay_traders(s: &mut crate::model::economy::Settlement) {
+    use crate::model::gift::CraftSense;
+    let goods_total: f64 = s.goods_stock.values().sum();
+    let baseline = s.population as f64 * 0.3;
+    if goods_total <= baseline {
+        return; // no surplus to broker
+    }
+    let mut total_weight: u32 = 0;
+    let weights: Vec<(usize, u32)> = s
+        .people
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            if p.profession == "trader" || p.profession == "sailor" {
+                let w = if p.gift.sense() == Some(CraftSense::ScaleHand) {
+                    2
+                } else {
+                    1
+                };
+                total_weight += w;
+                Some((i, w))
+            } else {
+                None
+            }
+        })
+        .collect();
+    let payable = (s.treasury / 4).min(total_weight);
+    if payable == 0 {
+        return;
+    }
+    let mut left = payable;
+    for (i, w) in weights {
+        if left == 0 {
+            break;
+        }
+        let pay = w.min(left);
+        s.people[i].coins = s.people[i].coins.saturating_add(pay);
+        left -= pay;
+    }
+    s.treasury -= payable;
+}
+
 fn tick_settlement_life(sim: &mut SimState) {
     use crate::model::economy::{Building, BuildingType, Farm};
     use crate::model::Need;
@@ -895,6 +945,8 @@ fn tick_settlement_life(sim: &mut SimState) {
 
             // The common purse pays its makers (per-agent economy #54, slice 3).
             pay_makers(settlement);
+            // Merchant arbitrage: traders profit from brokering the surplus (#54 s6).
+            pay_traders(settlement);
 
             // (the people already fed themselves along the hunger ladder above,
             // entity-first slice 3 — no separate uniform per-head feed)
