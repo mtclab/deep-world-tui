@@ -468,7 +468,7 @@ pub fn pay_makers(s: &mut crate::model::economy::Settlement) {
             }
         })
         .collect();
-    let payable = (s.treasury / 2).min(total_weight);
+    let payable = (s.treasury / 8).min(total_weight);
     if payable == 0 {
         return;
     }
@@ -523,7 +523,7 @@ pub fn pay_traders(s: &mut crate::model::economy::Settlement) {
             }
         })
         .collect();
-    let payable = (s.treasury / 4).min(total_weight);
+    let payable = (s.treasury / 8).min(total_weight);
     if payable == 0 {
         return;
     }

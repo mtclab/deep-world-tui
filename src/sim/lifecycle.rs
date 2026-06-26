@@ -5,8 +5,18 @@ use crate::model::Person;
 use crate::rng::SeedRng;
 use crate::sim::{SimState, Voice};
 
-/// One NPC life-year per 3 game days — the same clock the player ages on.
-pub const TICKS_PER_LIFE_YEAR: u64 = 72;
+/// One NPC life-year per calendar year (90 days, `Season::YEAR_DAYS`).
+///
+/// The PLAYER ages on a compressed clock (3 game days per life-year, so a whole
+/// life fits a session). That conceit is the player's alone. Before the
+/// entity-first epic it was harmless to the world: `population` was a bulk number
+/// that never aged, and only a ~400-soul sample ran the lifecycle. Once
+/// materialization made EVERY inhabitant a real, aging soul, that same 3-day
+/// clock churned the whole province through ~30 generations a calendar year and
+/// emptied it (8.5k→<300 in a year). So the world's people now age at the
+/// world's own calendar pace — the province stays a living, stable society across
+/// the many short lives the player and their heirs live within it.
+pub const TICKS_PER_LIFE_YEAR: u64 = 90 * 24;
 
 /// Base chance a birth carries a complication before the mother's fortune leans
 /// it. The complication lingers as illness; luck rides this roll like the rest.
@@ -180,7 +190,7 @@ pub fn tick_lifecycle(sim: &mut SimState) {
                 } else if p.has_spouse
                     && p.sex == "f"
                     && matches!(band, "youth" | "adult")
-                    && roll > 1.0 - 0.10
+                    && roll > 1.0 - 0.22
                 {
                     births += 1;
                     // A hard birth: the existing childbirth-complication roll,

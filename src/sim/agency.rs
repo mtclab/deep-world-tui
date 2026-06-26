@@ -96,6 +96,15 @@ pub enum Departure {
 /// way out? Read from disposition (`personality`): the hard and bitter take what
 /// they can; the loyal and gentle would sooner move on or go without. Net of the
 /// two leanings; ties fall on the lawful side. Deterministic.
+/// Whether a soul at the end of its rope actually pulls up stakes TODAY. Even the
+/// truly desperate do not all flee at once: most endure another day (and may yet
+/// be fed, or die where they stand) rather than take the road. A low seeded daily
+/// chance, so a famine bleeds a town gradually instead of emptying it in a day —
+/// the difference between a hard season and a collapse. Deterministic.
+fn wants_to_leave(tick: u64, id: &str) -> bool {
+    crate::rng::fnv1a_hash(&format!("leave:{tick}:{id}")) % 100 < 12
+}
+
 fn turns_to_crime(personality: &[String]) -> bool {
     let mut score: i32 = 0;
     for t in personality {
@@ -310,7 +319,9 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                         purses[i] = purses[i].saturating_add(amt);
                         new_feuds.push((r, i));
                     }
-                } else if s.people[i].needs.get(Need::Food) < 0.1 {
+                } else if s.people[i].needs.get(Need::Food) < 0.1
+                    && wants_to_leave(ctx.tick, &s.people[i].id)
+                {
                     match leave(stage, &s.people[i].personality) {
                         Some(d) => departures.push((i, d)),
                         None => s.people[i].needs.decay(Need::Food, 0.05),
@@ -324,7 +335,9 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                     s.people[i].needs.satisfy(Need::Safety, 0.10);
                 } else if ctx.has_shelter {
                     s.people[i].needs.satisfy(Need::Safety, 0.08);
-                } else if s.people[i].needs.get(Need::Safety) < 0.15 {
+                } else if s.people[i].needs.get(Need::Safety) < 0.15
+                    && wants_to_leave(ctx.tick, &s.people[i].id)
+                {
                     match leave(stage, &s.people[i].personality) {
                         Some(d) => departures.push((i, d)),
                         None => s.people[i].needs.decay(Need::Safety, 0.04),
