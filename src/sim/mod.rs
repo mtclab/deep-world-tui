@@ -439,6 +439,51 @@ fn best_crop_for(terrain: crate::model::Terrain) -> crate::model::economy::CropT
 /// settlement's safety and spirits. The Farm/CropType and Building/BuildingType
 /// systems were fully modeled but never instantiated — settlements had no
 /// food economy and never built anything.
+/// The common purse pays its makers (per-agent economy #54, slice 3): the coin
+/// the town takes in (food sold at market, the devout's alms) flows out to the
+/// hands that craft its goods. Each producer earns from the treasury for plying
+/// its trade — a gifted maker of the matching craft-sense (#441) earning twice as
+/// much — bounded by half of what the purse holds (so wages stay funded). It MINTS
+/// NOTHING: coin only moves from the common purse to the makers, so the province's
+/// scarcity stands. Conserved, O(n), roster-order deterministic.
+pub fn pay_makers(s: &mut crate::model::economy::Settlement) {
+    use crate::model::economy::{profession_craft_sense, trade_good};
+    let mut total_weight: u32 = 0;
+    let weights: Vec<(usize, u32)> = s
+        .people
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            if trade_good(&p.profession).is_some() {
+                let sense = profession_craft_sense(&p.profession);
+                let w = if sense.is_some() && p.gift.sense() == sense {
+                    2
+                } else {
+                    1
+                };
+                total_weight += w;
+                Some((i, w))
+            } else {
+                None
+            }
+        })
+        .collect();
+    let payable = (s.treasury / 2).min(total_weight);
+    if payable == 0 {
+        return;
+    }
+    let mut left = payable;
+    for (i, w) in weights {
+        if left == 0 {
+            break;
+        }
+        let pay = w.min(left);
+        s.people[i].coins = s.people[i].coins.saturating_add(pay);
+        left -= pay;
+    }
+    s.treasury -= payable;
+}
+
 fn tick_settlement_life(sim: &mut SimState) {
     use crate::model::economy::{Building, BuildingType, Farm};
     use crate::model::Need;
@@ -842,6 +887,9 @@ fn tick_settlement_life(sim: &mut SimState) {
                     }
                 }
             }
+
+            // The common purse pays its makers (per-agent economy #54, slice 3).
+            pay_makers(settlement);
 
             // (the people already fed themselves along the hunger ladder above,
             // entity-first slice 3 — no separate uniform per-head feed)
