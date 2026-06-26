@@ -443,9 +443,21 @@ pub fn town_context(
         || s.services.contains(&SettlementService::Temple);
     let has_shelter = s.has_building(BuildingType::Shelter);
     let guards = s.profession_count("guard") as u32;
+    // Emergent price (per-agent economy #54, slice 4): a meal costs what scarcity
+    // makes it cost. Where the granary is full, food is cheap; as it empties, the
+    // price the market (import, a neighbour with surplus) asks climbs — so a
+    // famine bites the poor hardest, dearest exactly when they can least pay.
+    let per_capita = s.food_stock / s.population.max(1) as f64;
+    let food_price = if per_capita >= 1.0 {
+        1
+    } else if per_capita >= 0.4 {
+        2
+    } else {
+        3
+    };
     TownContext {
         ration,
-        food_price: 1,
+        food_price,
         wage: 1,
         region_richness,
         has_healer,
