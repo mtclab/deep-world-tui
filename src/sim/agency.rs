@@ -232,6 +232,21 @@ pub fn step_agents(s: &mut Settlement, ctx: &TownContext) -> (Vec<(usize, Depart
                     purses[i] -= ctx.food_price;
                     treasury = treasury.saturating_add(ctx.food_price);
                     s.people[i].needs.satisfy(Need::Food, 0.10);
+                } else if s.people[i].wares > 0 && treasury >= 1 {
+                    // Sell a piece of your own craft to the market for coin (#54
+                    // slice 5): a smith eats by selling a tool it made. The town's
+                    // purse pays; the finished good joins the town's shelf. So a
+                    // producer's coin comes from goods it actually made and sold —
+                    // its own wealth its first recourse, before charity or theft.
+                    let value = 2u32.min(treasury);
+                    s.people[i].wares -= 1;
+                    purses[i] = purses[i].saturating_add(value);
+                    treasury -= value;
+                    s.people[i].needs.decay(Need::Food, 0.05);
+                    let profession = s.people[i].profession.clone();
+                    if let Some(good) = crate::model::economy::trade_good(&profession) {
+                        s.produce_good(good, 1.0, f64::MAX);
+                    }
                 } else if treasury >= ctx.wage {
                     // Take work — and what the work earns is the worth of the
                     // trade plied (per-agent economy #54, slice 1): a skilled
