@@ -146,6 +146,27 @@ fn compute_neighbors(index: usize, total: usize, cols: usize) -> crate::model::R
 
 fn seamless_terrain_edges(regions: &mut [Region]) {
     let n = regions.len();
+    // A settlement is a place, not a texture — it must not sit on the literal
+    // seam between regions (a big district can now reach an edge). Clear any
+    // Settlement on the four border rows/cols to Road first, so both sides of a
+    // seam agree (the copy below also maps Settlement->Road).
+    for region in regions.iter_mut() {
+        let (w, h) = (region.terrain.width, region.terrain.height);
+        for x in 0..w {
+            for y in [0, h.saturating_sub(1)] {
+                if region.terrain.get(x, y) == Some(Terrain::Settlement) {
+                    region.terrain.set(x, y, Terrain::Road);
+                }
+            }
+        }
+        for y in 0..h {
+            for x in [0, w.saturating_sub(1)] {
+                if region.terrain.get(x, y) == Some(Terrain::Settlement) {
+                    region.terrain.set(x, y, Terrain::Road);
+                }
+            }
+        }
+    }
     for pass in 0..2 {
         for i in 0..n {
             if pass == 0 {
@@ -416,27 +437,15 @@ fn generate_terrain(
         // The land decides what this spot can carry (canon's hydraulic
         // principles), and the head-count follows: a delta crossroads seeds
         // a town of thousands, a dry upland shelf seeds a steading.
-        // A city candidate (the land could carry 15k+) gets a wider berth:
-        // the rare Tier-II city rightly dominates its sector.
-        let probe_cap =
-            crate::gen::town::carrying_capacity(&tiles, width, height, sx + 1, sy + 1, region_type);
-        let is_city = probe_cap >= 15_000;
-        let max_edge = if is_city { 72 } else { 48 };
-        // A great town gets a wider berth than its even share of the sector: the
-        // rare Tier-II city rightly sprawls past the spacing that holds ordinary
-        // towns in line (#454 sequence). The actual map room (and the running
-        // `next_free_x` cursor) still keeps districts from overlapping.
-        let room = settlement_berth(
-            max_edge,
-            spacing,
-            width.saturating_sub(sx + 2),
-            height.saturating_sub(sy + 2),
-            is_city,
-        );
+        let is_city =
+            crate::gen::town::carrying_capacity(&tiles, width, height, sx + 1, sy + 1, region_type)
+                >= 15_000;
+        // A real town needs a roof per ~7 souls — a town of a thousand is HUNDREDS
+        // of houses, so let the district claim the footprint its head-count wants,
+        // up to a generous per-tier ceiling (a wide city gets more). The room the
+        // region actually leaves still binds it below (see the footprint below).
+        let max_edge = if is_city { 140 } else { 110 };
         let frac = 35 + (rng.next_u64() % 36) as u32; // 35–70% of capacity
-                                                      // Capacity is sampled at the founding corner (anchor street cell) —
-                                                      // towns grow FROM their water outward, and the daily sim reads the
-                                                      // same fixed point, so gen-time and runtime ceilings always agree.
         let cap =
             crate::gen::town::carrying_capacity(&tiles, width, height, sx + 1, sy + 1, region_type);
         settlement.population = (cap.saturating_mul(frac) / 100).max(8);
@@ -444,11 +453,21 @@ fn generate_terrain(
             crate::model::economy::Settlement::size_for_population(settlement.population)
                 .to_string();
         settlement.food_stock = settlement.population as f64 * 2.0;
-        // District edge from the head-count, grown into the room available.
+        // District edge from the head-count: the footprint its population wants,
+        // held to the room the region leaves FROM THE FIXED ANCHOR — down to the
+        // bottom edge and across to the right, so it never overlaps the next town,
+        // runs off an edge, or spills into the sea. The anchor is NOT moved: the
+        // capacity was sampled at (sx+1, sy+1), and the daily sim and the canon
+        // scale tests read that same fixed corner, so a town always keeps the
+        // water it was founded on and its gen-time ceiling matches the runtime
+        // one. (A waterside town then sprawls only as far inland as the room
+        // allows — it does not wander off its coast to claim a wider district.)
         let mut n =
             (crate::model::economy::Settlement::footprint_for_population(settlement.population)
                 as usize)
-                .min(room)
+                .min(max_edge)
+                .min(width.saturating_sub(sx + 2))
+                .min(height.saturating_sub(sy + 2))
                 .max(2);
         n -= n % 2;
         settlement.district = n as u32;
@@ -831,24 +850,6 @@ pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
 /// ordinary town — to its even share of the sector. A great town (a Tier-II
 /// city) is exempt from the even-share cap so it can sprawl past its neighbours;
 /// `next_free_x` and the map bounds still keep districts from overlapping.
-fn settlement_berth(
-    max_edge: usize,
-    spacing: usize,
-    width_left: usize,
-    height_left: usize,
-    is_city: bool,
-) -> usize {
-    let even_cap = if is_city {
-        usize::MAX
-    } else {
-        spacing.saturating_sub(4)
-    };
-    max_edge
-        .min(even_cap)
-        .min(width_left)
-        .min(height_left)
-        .max(2)
-}
 
 /// The people of the Five whose home ground this region is, if any — so an
 /// enclave is seeded on terrain that is truly theirs (#454): the Mëräk on the
@@ -983,6 +984,21 @@ pub fn materialize_residents_capped(
                 if s.treasury == 0 {
                     s.treasury = s.population.saturating_mul(2);
                 }
+                // Building <-> household (living/organic world): house every soul
+                // in a REAL home. The town's homes are laid deterministically, so
+                // we group the roster into household-sized chunks and give each a
+                // roof — neighbours are real families, a home has known occupants,
+                // and a death later leaves one the poorer. Door tile = the home.
+                let homes = crate::gen::town::town_buildings(s);
+                if !homes.is_empty() && !s.people.is_empty() {
+                    let per = s.people.len().div_ceil(homes.len()).max(1);
+                    for (i, p) in s.people.iter_mut().enumerate() {
+                        let b = &homes[(i / per).min(homes.len() - 1)];
+                        // the home's door tile — souls sharing it are a household
+                        p.home_x = b.door.0 as u32;
+                        p.home_y = b.door.1 as u32;
+                    }
+                }
             });
     });
 }
@@ -1041,19 +1057,34 @@ mod tests {
     }
 
     #[test]
-    fn a_great_town_gets_a_wider_berth() {
-        // In a tight sector (small spacing), an ordinary town is held to its
-        // even share, but a city sprawls to its full tier edge.
-        let spacing = 30;
-        let town = settlement_berth(48, spacing, 100, 100, false);
-        let city = settlement_berth(72, spacing, 100, 100, true);
-        assert_eq!(town, spacing - 4, "a town keeps to its even share");
-        assert_eq!(city, 72, "a city ignores the even-share cap");
-        assert!(city > town, "the great town sprawls past its neighbours");
-        // The real map room still binds everyone — no running off the edge.
-        assert_eq!(settlement_berth(72, spacing, 20, 100, true), 20);
-        assert_eq!(settlement_berth(72, spacing, 100, 16, true), 16);
-        assert!(settlement_berth(2, 0, 0, 0, false) >= 2, "never below 2");
+    fn a_towns_footprint_scales_with_its_head_count() {
+        use crate::model::economy::Settlement;
+        // The footprint a town wants grows with its population (a roof per ~7
+        // souls): a thousand-soul town wants a real district, a hamlet a handful
+        // of plots. (It is then held to the room the region leaves — but no
+        // longer starved to a single hut by a late edge placement.)
+        let town = Settlement::footprint_for_population(1000) as usize;
+        let hamlet = Settlement::footprint_for_population(30) as usize;
+        assert!(
+            town >= 70,
+            "a 1000-soul town wants a big district, got {town}"
+        );
+        assert!(hamlet <= 20, "a 30-soul hamlet stays small, got {hamlet}");
+        assert!(town > hamlet * 3, "a town dwarfs a hamlet");
+        // and a real district lays many buildings, not one
+        let bld = crate::gen::building::district_buildings(
+            2,
+            2,
+            town.min(96),
+            town.min(96),
+            7,
+            crate::gen::building::BuildCharacter::Plain,
+        );
+        assert!(
+            bld.len() >= 15,
+            "a town district holds many buildings, got {}",
+            bld.len()
+        );
     }
 
     #[test]

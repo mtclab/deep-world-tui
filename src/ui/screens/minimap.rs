@@ -126,6 +126,8 @@ mod minimap_tests {
 
     fn test_person(id: &str, people: &str) -> Person {
         Person {
+            home_x: 0,
+            home_y: 0,
             id: id.into(),
             name: id.into(),
             people: people.into(),

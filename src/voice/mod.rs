@@ -448,6 +448,8 @@ mod tests {
 
     fn test_person() -> Person {
         Person {
+            home_x: 0,
+            home_y: 0,
             id: "test-1".into(),
             name: "Metsik".into(),
             people: "Sepät".into(),

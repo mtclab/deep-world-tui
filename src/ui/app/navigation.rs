@@ -259,6 +259,125 @@ impl App {
         self.screen = Screen::World { region_idx };
     }
 
+    /// Spawn the player as a member of a community — they wake at home. Picks a
+    /// random settlement anywhere on the map, then a tile inside it: a house
+    /// floor (their hearth-room) first, else its open street, else its centre.
+    /// Deterministic in `seed`. Falls back to open ground if there are no towns.
+    pub fn spawn_in_community(&mut self, seed: u64) {
+        let pick = self.sim.as_ref().and_then(|sim| {
+            let mut comms: Vec<(usize, usize)> = Vec::new();
+            for (ri, region) in sim.world.regions.iter().enumerate() {
+                for si in 0..region.settlements.len() {
+                    comms.push((ri, si));
+                }
+            }
+            if comms.is_empty() {
+                return None;
+            }
+            let (ri, si) = comms[(crate::rng::mix_u64(seed) as usize) % comms.len()];
+            let region = &sim.world.regions[ri];
+            let s = &region.settlements[si];
+            let (ax, ay, n) = (s.map_x as usize, s.map_y as usize, s.footprint() as usize);
+            // Wake and step out: stand on the street just OUTSIDE a home's door, so
+            // the town reads as roofed homes (not an interior the moment you spawn).
+            let mut doorstep: Option<(usize, usize)> = None;
+            let mut street: Option<(usize, usize)> = None;
+            for dy in 0..n {
+                for dx in 0..n {
+                    let (x, y) = (ax + dx, ay + dy);
+                    match region.terrain.get(x, y) {
+                        Some(Terrain::Door) if doorstep.is_none() => {
+                            // the passable, non-building tile just outside the door
+                            for (nx, ny) in [
+                                (x + 1, y),
+                                (x.wrapping_sub(1), y),
+                                (x, y + 1),
+                                (x, y.wrapping_sub(1)),
+                            ] {
+                                if let Some(t) = region.terrain.get(nx, ny) {
+                                    if t.passable()
+                                        && !matches!(
+                                            t,
+                                            Terrain::Floor | Terrain::Door | Terrain::Wall
+                                        )
+                                    {
+                                        doorstep = Some((nx, ny));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        Some(t)
+                            if street.is_none() && t.passable() && !matches!(t, Terrain::Floor) =>
+                        {
+                            street = Some((x, y))
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            let (px, py) = doorstep.or(street).unwrap_or((ax + n / 2, ay + n / 2));
+            Some((ri, px, py))
+        });
+        if let Some((ri, px, py)) = pick {
+            self.player_pos = Some(PlayerPos {
+                region_idx: ri,
+                px,
+                py,
+            });
+            self.reveal_around(ri, px, py);
+            self.screen = Screen::World { region_idx: ri };
+        } else {
+            self.spawn_random(seed);
+        }
+    }
+
+    /// Spawn the player on open ground somewhere random on the map — not a fixed
+    /// start. Picks a random region, then a random passable, non-building tile
+    /// (never water/wall/inside a house). Deterministic in `seed`. (Fallback for
+    /// `spawn_in_community` when a world has no settlements.)
+    pub fn spawn_random(&mut self, seed: u64) {
+        let pick = self.sim.as_ref().and_then(|sim| {
+            let n = sim.world.regions.len();
+            if n == 0 {
+                return None;
+            }
+            for k in 0..n.min(8) {
+                let ri = (crate::rng::mix_u64(seed ^ (k as u64).wrapping_mul(0x9E37)) as usize) % n;
+                let region = &sim.world.regions[ri];
+                let w = region.terrain.width.max(1);
+                let open: Vec<usize> = region
+                    .terrain
+                    .tiles
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, &t)| {
+                        t.passable()
+                            && !matches!(t, Terrain::Floor | Terrain::Door | Terrain::Settlement)
+                    })
+                    .map(|(i, _)| i)
+                    .collect();
+                if !open.is_empty() {
+                    let p = open
+                        [(crate::rng::mix_u64(seed ^ 0x5EED ^ ri as u64) as usize) % open.len()];
+                    return Some((ri, p % w, p / w));
+                }
+            }
+            None
+        });
+        if let Some((ri, px, py)) = pick {
+            self.player_pos = Some(PlayerPos {
+                region_idx: ri,
+                px,
+                py,
+            });
+            self.reveal_around(ri, px, py);
+            self.screen = Screen::World { region_idx: ri };
+        } else {
+            self.enter_map(0);
+        }
+    }
+
     fn find_settlement_pos(&self, region_idx: usize) -> (usize, usize) {
         if let Some(ref sim) = self.sim {
             if let Some(region) = sim.world.regions.get(region_idx) {

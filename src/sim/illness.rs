@@ -231,6 +231,8 @@ mod tests {
     #[test]
     fn productivity_modifier_no_illness() {
         let person = crate::model::Person {
+            home_x: 0,
+            home_y: 0,
             id: "p1".into(),
             name: "Test".into(),
             people: "metsik".into(),

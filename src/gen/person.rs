@@ -163,6 +163,8 @@ pub fn generate_person(rng: &mut SeedRng, charts: &Charts) -> Person {
         aspiration: None,
         crimes: 0,
         wares: 0,
+        home_x: 0,
+        home_y: 0,
     }
 }
 
@@ -267,6 +269,8 @@ pub fn generate_person_from(
         aspiration: None,
         crimes: 0,
         wares: 0,
+        home_x: 0,
+        home_y: 0,
     }
 }
 
