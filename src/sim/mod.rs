@@ -433,6 +433,24 @@ fn best_crop_for(terrain: crate::model::Terrain) -> crate::model::economy::CropT
         .unwrap_or(CropType::Grain)
 }
 
+/// The best frost-hardy food crop for this ground (#728): the insurance sowing
+/// that keeps a settlement's fields yielding through winter, so the cold does
+/// not strip its stores to nothing and drive its people out. Falls back to the
+/// plain best crop if the land somehow suits no hardy one (it always suits
+/// winter rye at least a little).
+fn best_frost_hardy_crop_for(terrain: crate::model::Terrain) -> crate::model::economy::CropType {
+    use crate::model::economy::CropType;
+    CropType::all()
+        .into_iter()
+        .filter(|c| c.is_food() && c.survives_frost())
+        .max_by(|a, b| {
+            a.regional_suitability(terrain)
+                .partial_cmp(&b.regional_suitability(terrain))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or_else(|| best_crop_for(terrain))
+}
+
 /// Settlement daily life: farmers plant and harvest, fishers and herders bring
 /// food in, the population eats from the common stores, hearth-keepers slow
 /// spoilage, builders raise buildings, and soldiers/singers steady the
@@ -643,19 +661,25 @@ fn tick_settlement_life(sim: &mut SimState) {
 
         for (s_idx, settlement) in region.settlements.iter_mut().enumerate() {
             let sample = settlement.people.len().max(1) as f64;
-            // What this ground can carry, by the canon's hydraulic
-            // principles — and how far its trade reach extends.
-            // The founding corner: the same fixed point worldgen sampled,
-            // however wide the district has grown since.
+            // What this ground can carry — the settlement's founding assay of the
+            // land (#728), fixed when it was raised. Read the stored value, not a
+            // fresh sample of terrain the town has since paved over (and, on
+            // growth, an anchor slid inland off its water): recomputing it live
+            // collapsed the food ceiling ~10x and starved the seeded population.
+            // A `0` (old save, or a ghost just re-peopled) is assayed once from
+            // the current land and cached, so it stays stable thereafter.
             let (cx, cy) = (settlement.map_x as usize + 1, settlement.map_y as usize + 1);
-            let cap = crate::gen::town::carrying_capacity(
-                &region_terrain_snapshot.tiles,
-                region_terrain_snapshot.width,
-                region_terrain_snapshot.height,
-                cx,
-                cy,
-                &rtype,
-            );
+            if settlement.land_capacity == 0 {
+                settlement.land_capacity = crate::gen::town::carrying_capacity(
+                    &region_terrain_snapshot.tiles,
+                    region_terrain_snapshot.width,
+                    region_terrain_snapshot.height,
+                    cx,
+                    cy,
+                    &rtype,
+                );
+            }
+            let cap = settlement.land_capacity;
             let trade = crate::gen::town::trade_factor(
                 &region_terrain_snapshot.tiles,
                 region_terrain_snapshot.width,
@@ -671,13 +695,38 @@ fn tick_settlement_life(sim: &mut SimState) {
                 .max(1.0);
 
             // --- farms: plant, grow, harvest ---
+            // A town keeps a handful of representative fields (for crop variety,
+            // growth timing, and the Frost-kill), but each field stands for the
+            // whole farmer workforce that tends it (#728): a village of 200
+            // farmers works far more ground than four lone plots. With every soul
+            // now real (entity-first), `farmers` is the true head-count, not a
+            // sample, so each field's yield scales by the hands spread across it
+            // — `farmer_labor` >= 1 always, and a real town's fields feed it in
+            // proportion to who works them. The land still binds the total below
+            // (`land_yield_cap`), so this can never out-produce the hinterland.
             let farmers = settlement.profession_count("farmer");
             let farm_cap = farmers.min(4);
+            let farmer_labor = if farm_cap > 0 {
+                farmers as f64 / farm_cap as f64
+            } else {
+                0.0
+            };
             let frost = season == crate::model::Season::Frost;
             while settlement.farms.len() < farm_cap && !frost && settlement.food_stock >= 1.0 {
                 // Seed comes out of the stores — nothing from nothing.
                 settlement.food_stock -= 1.0;
-                let crop = best_crop_for(terrain);
+                // Farmers hedge the year: at least one field in every few is sown
+                // to the frost-hardy winter crop (#728), so a town is not left
+                // with nothing standing when the cold kills the tender crops —
+                // "the winter-rye, which is why anyone plants it". The rest chase
+                // the best yield the land offers. A town wholly dependent on a
+                // single frost-killed crop starved every winter and shed its
+                // people in a stampede; the hardy share keeps the stores turning.
+                let crop = if settlement.farms.len() % 3 == 0 {
+                    best_frost_hardy_crop_for(terrain)
+                } else {
+                    best_crop_for(terrain)
+                };
                 let farm_seed = seed
                     .wrapping_add(tick)
                     .wrapping_add(settlement.farms.len() as u64 * 7919)
@@ -690,7 +739,7 @@ fn tick_settlement_life(sim: &mut SimState) {
             for farm in settlement.farms.iter_mut() {
                 farm.update_growth(tick, weather);
                 if farm.is_ready() {
-                    harvested += farm.harvest_yield() as f64 * scale;
+                    harvested += farm.harvest_yield() as f64 * farmer_labor;
                     // Replant the same field.
                     farm.planted_tick = tick;
                     farm.growth_progress = 0.0;
@@ -1024,7 +1073,12 @@ fn tick_settlement_life(sim: &mut SimState) {
             // The district grows with the households. The anchor shifts
             // up/left only as far as the map edge forces it, and growth only
             // claims ground no neighbor holds — a town is hemmed by its
-            // neighbors and the land, exactly as real towns are.
+            // neighbors and the land, exactly as real towns are. The land's
+            // carrying capacity is NOT recomputed from the shifted anchor
+            // (#728): it is the settlement's founding assay of the ground
+            // (`land_capacity`, read above), fixed when the town was raised —
+            // so a coastal town that sprawls inland keeps the water and trade
+            // reach it was founded on, and its food ceiling does not collapse.
             // Towns sprawl to 48 tiles; a city (15k+ on the canon
             // hierarchy) to 72 — the Tier-II city rightly dominates its
             // sector.

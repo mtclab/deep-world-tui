@@ -448,6 +448,10 @@ fn generate_terrain(
         let frac = 35 + (rng.next_u64() % 36) as u32; // 35–70% of capacity
         let cap =
             crate::gen::town::carrying_capacity(&tiles, width, height, sx + 1, sy + 1, region_type);
+        // The founding assay of the land (#728): recorded now, before this town
+        // paints its ground with roofs and before growth can slide its anchor
+        // off the water, so the daily sim and lifecycle read a stable ceiling.
+        settlement.land_capacity = cap;
         settlement.population = (cap.saturating_mul(frac) / 100).max(8);
         settlement.size =
             crate::model::economy::Settlement::size_for_population(settlement.population)
@@ -705,6 +709,7 @@ fn generate_settlement(
         map_y: 0,
         district: 0,
         remembered_deed: None,
+        land_capacity: 0,
     }
 }
 

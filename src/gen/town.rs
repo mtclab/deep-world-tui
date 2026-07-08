@@ -77,7 +77,17 @@ pub fn carrying_capacity(
     for ty in y.saturating_sub(14)..(y + 15).min(h) {
         for tx in x.saturating_sub(14)..(x + 15).min(w) {
             match tiles[ty * w + tx] {
-                Terrain::Settlement | Terrain::House => {}
+                // The town's own paint is excluded from the measure — not only
+                // the old street/house tiles but the living-world building fabric
+                // (walls, floors, doors, hearths, #458/#729): the ground was
+                // arable before the town stood on it, and a settlement must not
+                // erode its own food ceiling simply by raising its roofs.
+                Terrain::Settlement
+                | Terrain::House
+                | Terrain::Wall
+                | Terrain::Floor
+                | Terrain::Door
+                | Terrain::Hearth => {}
                 Terrain::Grass | Terrain::Farmland => {
                     arable += 1;
                     total += 1;
@@ -340,6 +350,7 @@ mod tests {
             map_y,
             district,
             remembered_deed: None,
+            land_capacity: 0,
         }
     }
 

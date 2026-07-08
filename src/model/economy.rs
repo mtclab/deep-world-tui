@@ -1290,6 +1290,15 @@ pub struct Settlement {
     /// the population (and so the wanted footprint) moves.
     #[serde(default)]
     pub district: u32,
+    /// The land's food carrying capacity, assayed once when the settlement was
+    /// founded — before it paved its ground with roofs and before growth could
+    /// slide its anchor off the water (#728). The daily sim and the lifecycle
+    /// read THIS fixed value rather than recomputing it from terrain the town
+    /// has since built over (which collapsed the ceiling ~10x and starved the
+    /// town). `0` on an old save or a freshly re-peopled ghost = "not yet
+    /// assayed": the reader computes it once from the current land and caches it.
+    #[serde(default)]
+    pub land_capacity: u32,
     /// A lasting deed the town remembers the player by (#565 the player's mark):
     /// the stranger who kept them fed through a lean year. Set when the player
     /// provisions a town in famine; surfaced in its talk and on the wind, so a
@@ -2613,6 +2622,7 @@ mod tests {
             map_y: 0,
             district: 0,
             remembered_deed: None,
+            land_capacity: 0,
         };
 
         roundtrip(&s);
@@ -2678,6 +2688,7 @@ mod tests {
             map_y: 0,
             district: 0,
             remembered_deed: None,
+            land_capacity: 0,
         };
         assert_eq!(s.enclave_people(), Some(crate::model::PeopleKind::Khor));
         assert_eq!(s.display_name(), "Vaskiluuri, a Khör enclave");

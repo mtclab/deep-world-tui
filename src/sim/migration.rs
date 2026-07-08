@@ -43,6 +43,10 @@ impl MigrantParty {
     }
 }
 const JOB_SEEKING_STABILITY_THRESHOLD: f64 = 0.3;
+/// Per-soul chance a job-seeker actually sets out in a given migration cycle
+/// (#728). Low, so a lean town bleeds a trickle over a season rather than
+/// stampeding a third of its people to the next town in a single pass.
+const JOB_SEEKING_CHANCE: f64 = 0.04;
 const MARRIAGE_BIAS_THRESHOLD: f64 = 0.4;
 const FLIGHT_REPUTATION_THRESHOLD: f64 = 0.15;
 const FLIGHT_CHANCE: f64 = 0.1;
@@ -276,8 +280,20 @@ pub fn tick_migration(sim: &mut crate::sim::SimState, tick: u64) {
 
             // Job-seeking: low stability + matching profession demand, but not
             // out of a well-fed town (its people have no cause to chase work).
+            // Gated by a per-soul chance (#728): a lean season moves a *few*
+            // hands to look for work over the ridge, a steady trickle — not the
+            // whole restless half of a town in a single day. Without this gate a
+            // town crossing below "well-fed" shed a third of its people in one
+            // pass (a stampede that turned a hard winter into a collapse); the
+            // roll makes out-migration the organic bleed it should be, so a fed
+            // town holds and even a pinched one empties over seasons, not a day.
             if !well_fed
                 && person.needs.get(crate::model::Need::Safety) < JOB_SEEKING_STABILITY_THRESHOLD
+                && {
+                    let mut jrng = SeedRng::new(seed)
+                        .fork_for(&format!("jobseek-{}-{}-{}", person.id, sri, tick));
+                    jrng.gen_f64() < JOB_SEEKING_CHANCE
+                }
             {
                 if let Some(target) = find_job_seeking_target(
                     &mut person_rng,
@@ -1148,6 +1164,7 @@ mod tests {
             map_y: 0,
             district: 0,
             remembered_deed: None,
+            land_capacity: 0,
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(
@@ -1190,6 +1207,7 @@ mod tests {
             map_y: 0,
             district: 0,
             remembered_deed: None,
+            land_capacity: 0,
         };
         let demand = profession_demand(&settlement, "smith");
         assert!(
