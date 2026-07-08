@@ -156,14 +156,21 @@ pub fn tick_lifecycle(sim: &mut SimState) {
             // real resident, so without a ceiling a young town grows without
             // bound (births >> deaths) and the roster runs away. The land caps
             // it — a settlement at capacity sees births balance deaths, no more.
-            let carrying = crate::gen::town::carrying_capacity(
-                &terr_tiles,
-                terr_w,
-                terr_h,
-                settlement.map_x as usize + 1,
-                settlement.map_y as usize + 1,
-                &rtype,
-            ) as usize;
+            // Read the settlement's founding assay (#728), not a fresh sample of
+            // terrain it has since built over (which collapsed the ceiling ~10x
+            // and, mistaking a fed town for one past capacity, culled its
+            // births into decline). A `0` is assayed once and cached.
+            if settlement.land_capacity == 0 {
+                settlement.land_capacity = crate::gen::town::carrying_capacity(
+                    &terr_tiles,
+                    terr_w,
+                    terr_h,
+                    settlement.map_x as usize + 1,
+                    settlement.map_y as usize + 1,
+                    &rtype,
+                );
+            }
+            let carrying = settlement.land_capacity as usize;
 
             let mut deaths: Vec<usize> = Vec::new();
             let mut births: u32 = 0;

@@ -67,16 +67,16 @@ fn famine_empties_a_settlement() {
     assert!(s.services.is_empty(), "nothing left open");
 }
 
-// DEFERRED (entity-first epic, deep-world-godot#50): with every soul now a real
-// resident, a fed town's population is governed by real births/deaths AND real
-// out-migration (marriage and flight to adjacent towns), not the old scaled
-// sample. Seed 42's settlement bleeds ~16% over 20 days to those flows even
-// well-fed and far below carrying capacity — a genuine demographic/migration
-// BALANCE question (how sticky should a prosperous town be? birth-vs-death rates
-// at real scale?), not a mechanical bug. Re-enable once that balance pass lands;
-// the mechanism is understood (see PR/issue). Ignored rather than weakened so the
-// property is not silently lost.
-#[ignore = "entity-first demographic/migration balance pass pending (deep-world-godot#50)"]
+// A well-fed town holds its people (#728). This was deferred under the
+// entity-first epic: with every soul real, a settlement bled to out-migration
+// even when fed, because the daily food economy could not actually feed the
+// seeded population (worldgen sized towns to the LAND's carrying capacity, but
+// the sim recomputed that capacity from terrain the town had since paved over —
+// and, on growth, from an anchor it had slid off the water — so the food ceiling
+// collapsed ~10x and the town starved and stampeded out). With the land ceiling
+// held stable, the farms scaled to their real workforce, a frost-hardy sowing,
+// and job-seeking made an organic trickle rather than a one-day stampede, a fed
+// town keeps its people. Re-enabled.
 #[test]
 fn fed_settlements_do_not_decline() {
     let charts = load_charts().expect("charts");

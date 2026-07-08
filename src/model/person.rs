@@ -1644,6 +1644,7 @@ mod tests {
                 map_y: 0,
                 district: 0,
                 remembered_deed: None,
+                land_capacity: 0,
             }],
             weather: crate::model::Weather::Clear,
             game_richness: 1.0,

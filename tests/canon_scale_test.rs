@@ -114,10 +114,11 @@ fn the_road_feeds_what_the_fields_cannot() {
     for sim in [&mut fed, &mut cut] {
         let r = &mut sim.world.regions[0];
         let s = &mut r.settlements[0];
-        // A town living past what its fields can feed: only a few days' stores
-        // for its real roster (entity-first — every soul is real, so its hunger
-        // is its head-count, not a stand-in number). Without the road bringing
-        // grain it runs the granary dry and starves.
+        // A town living past what its FIELDS can feed: its land carries only
+        // half its roster, so the rest must come by road. Same fields for both
+        // (identical land capacity, #728) — the granary difference is the road's
+        // doing alone. Without the road bringing grain it runs the stores dry.
+        s.land_capacity = (s.people.len() / 2).max(1) as u32;
         s.food_stock = s.people.len() as f64 * 1.5;
     }
     // Cut: strip every road and water tile near the cut town (no reach).
