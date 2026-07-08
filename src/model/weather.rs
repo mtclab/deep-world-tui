@@ -663,9 +663,25 @@ impl FestivalKind {
 
 impl GameClock {
     /// The current year in After-Fall reckoning (game years are compressed).
-    pub fn year_af(&self) -> u32 {
-        Season::PRESENT_YEAR_AF + self.day / Season::YEAR_DAYS
+    /// Counts from `start_year_af` (configurable per run) so a game can begin in
+    /// different years/ages; negative = Before-Fall (BP).
+    pub fn year_af(&self) -> i32 {
+        self.start_year_af + (self.day / Season::YEAR_DAYS) as i32
     }
+
+    /// "183 AF" / "5500 BP" — the current year with its reckoning, sign-aware.
+    pub fn year_label(&self) -> String {
+        let y = self.year_af();
+        if y >= 0 {
+            format!("{y} AF")
+        } else {
+            format!("{} BP", -y)
+        }
+    }
+}
+
+fn default_start_year_af() -> i32 {
+    Season::PRESENT_YEAR_AF as i32
 }
 
 impl fmt::Display for Season {
@@ -682,11 +698,19 @@ impl fmt::Display for Season {
 pub struct GameClock {
     pub day: u32,
     pub hour: u32,
+    /// AF year the run begins in (the offset year_af counts from). Serde-default
+    /// keeps old saves at the canonical present (183 AF). Negative = BP.
+    #[serde(default = "default_start_year_af")]
+    pub start_year_af: i32,
 }
 
 impl Default for GameClock {
     fn default() -> Self {
-        GameClock { day: 1, hour: 8 }
+        GameClock {
+            day: 1,
+            hour: 8,
+            start_year_af: default_start_year_af(),
+        }
     }
 }
 
@@ -695,7 +719,16 @@ impl GameClock {
         GameClock {
             day,
             hour: hour % 24,
+            start_year_af: default_start_year_af(),
         }
+    }
+
+    /// Set the year (and thus age) the run begins in. Present-age worldgen is
+    /// unchanged — this shifts the clock's reckoning only (the seam for future
+    /// era support; era-specific worldgen is a separate, larger piece of work).
+    pub fn with_start_year(mut self, start_year_af: i32) -> Self {
+        self.start_year_af = start_year_af;
+        self
     }
 
     pub fn time_of_day(self) -> TimeOfDay {
@@ -719,6 +752,42 @@ impl GameClock {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clock_defaults_to_present_year() {
+        let c = GameClock::default();
+        assert_eq!(c.start_year_af, Season::PRESENT_YEAR_AF as i32);
+        assert_eq!(c.year_af(), 183);
+        assert_eq!(c.year_label(), "183 AF");
+    }
+
+    #[test]
+    fn clock_start_year_offsets_the_reckoning() {
+        // a year is YEAR_DAYS days; the start year is the offset year_af counts from
+        let c = GameClock::new(1, 8).with_start_year(950);
+        assert_eq!(c.year_af(), 950);
+        let later = GameClock {
+            day: Season::YEAR_DAYS * 3 + 1,
+            ..c
+        };
+        assert_eq!(later.year_af(), 953);
+        assert_eq!(later.year_label(), "953 AF");
+    }
+
+    #[test]
+    fn clock_supports_before_fall_ages() {
+        let c = GameClock::new(1, 8).with_start_year(-5500);
+        assert_eq!(c.year_af(), -5500);
+        assert_eq!(c.year_label(), "5500 BP");
+    }
+
+    #[test]
+    fn old_saves_without_start_year_load_at_present() {
+        // a save written before the field existed (no start_year_af) must default
+        let ron = "(day:42,hour:8)";
+        let c: GameClock = ron::from_str(ron).unwrap();
+        assert_eq!(c.start_year_af, Season::PRESENT_YEAR_AF as i32);
+    }
 
     fn roundtrip<
         T: serde::Serialize + for<'de> serde::Deserialize<'de> + PartialEq + std::fmt::Debug,

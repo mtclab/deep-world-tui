@@ -64,7 +64,7 @@ pub(crate) fn draw_status_bar(f: &mut Frame, app: &App) {
                 Style::default().fg(theme.warm_brown()),
             ),
             Span::styled(
-                format!("| {} d{}, {} AF", season_name, day, app.clock.year_af()),
+                format!("| {} d{}, {}", season_name, day, app.clock.year_label()),
                 Style::default().fg(theme.dark_ink()),
             ),
         ]);
@@ -131,10 +131,10 @@ pub(crate) fn draw_status_bar(f: &mut Frame, app: &App) {
     } else {
         let line = Line::from(Span::styled(
             format!(
-                " {} d{}, {} AF | Press Enter to begin",
+                " {} d{}, {} | Press Enter to begin",
                 season_name,
                 day,
-                app.clock.year_af()
+                app.clock.year_label()
             ),
             Style::default().fg(theme.dark_ink()),
         ));

@@ -1343,6 +1343,14 @@ pub struct Person {
     /// when the granary fails, and leaves the rest to its heirs. Serde-default 0.
     #[serde(default)]
     pub wares: u32,
+    /// This soul's HOME — the tile (a door of the house it lives in) within its
+    /// settlement (building↔household, living-world). A household shares a home;
+    /// the map can name who lives where, and a death leaves a home the poorer.
+    /// (0,0) = unassigned (older saves / homeless). Serde-default 0.
+    #[serde(default)]
+    pub home_x: u32,
+    #[serde(default)]
+    pub home_y: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -1510,6 +1518,8 @@ mod tests {
 
     fn roundtrip_person() {
         let person = Person {
+            home_x: 0,
+            home_y: 0,
             id: "abc-123".into(),
 
             name: "Testi".into(),

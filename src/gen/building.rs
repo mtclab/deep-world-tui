@@ -76,10 +76,76 @@ pub enum Side {
     West,
 }
 
-/// Paint a real building at the top-left `(x, y)` of an outer `w x h` footprint:
-/// a `Wall` border around a `Floor` interior, with a single `Door` on the given
-/// side. Returns the door tile. Refuses (returns `None`) if it is smaller than
-/// 3x3 or would run off the map — the caller decides where it fits.
+/// The organic shape a building's footprint takes inside its `w x h` plot —
+/// real structures are not clean rectangles. Chosen deterministically per plot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Footprint {
+    /// A rectangle with the hard corners cut — the everyday irregular house.
+    Chamfered,
+    /// An elliptical longhouse / round dwelling (curved walls).
+    Oval,
+    /// An L: the main body plus a wing bitten out of one corner.
+    Ell,
+}
+
+/// True where the `w x h` plot belongs to the building's organic footprint.
+/// Convex (chamfered/oval) shapes keep the interior connected; the L stays
+/// connected because the bite is a single corner quadrant.
+fn footprint_mask(w: usize, h: usize, shape: Footprint, seed: u64) -> Vec<bool> {
+    let mut inside = vec![true; w * h];
+    let at = |dx: usize, dy: usize| dy * w + dx;
+    match shape {
+        Footprint::Chamfered => {
+            // cut the corners; bigger buildings get a 2-cell chamfer
+            let c = if w >= 7 && h >= 7 { 2 } else { 1 };
+            for dy in 0..h {
+                for dx in 0..w {
+                    let cx = dx.min(w - 1 - dx);
+                    let cy = dy.min(h - 1 - dy);
+                    if cx + cy < c {
+                        inside[at(dx, dy)] = false;
+                    }
+                }
+            }
+        }
+        Footprint::Oval => {
+            let (rx, ry) = ((w as f64 - 1.0) / 2.0, (h as f64 - 1.0) / 2.0);
+            let (cx, cy) = (rx, ry);
+            for dy in 0..h {
+                for dx in 0..w {
+                    let nx = (dx as f64 - cx) / rx.max(0.5);
+                    let ny = (dy as f64 - cy) / ry.max(0.5);
+                    if nx * nx + ny * ny > 1.05 {
+                        inside[at(dx, dy)] = false;
+                    }
+                }
+            }
+        }
+        Footprint::Ell => {
+            // bite a roughly-quarter rectangle out of one corner (seed picks which)
+            let bw = (w / 2).max(1);
+            let bh = (h / 2).max(1);
+            let right = seed & 1 == 0;
+            let bottom = seed & 2 == 0;
+            for dy in 0..h {
+                for dx in 0..w {
+                    let in_x = if right { dx >= w - bw } else { dx < bw };
+                    let in_y = if bottom { dy >= h - bh } else { dy < bh };
+                    if in_x && in_y {
+                        inside[at(dx, dy)] = false;
+                    }
+                }
+            }
+        }
+    }
+    inside
+}
+
+/// Paint a real building at the top-left `(x, y)` of an outer `w x h` plot: an
+/// organic footprint (chamfered / oval / L, deterministic per plot — never a
+/// clean box), drawn as a `Wall` ring around its `Floor` interior, with a single
+/// `Door`. Cells outside the footprint are left as-is (a natural yard). Returns
+/// the door tile. Refuses (`None`) below 3x3 or off the map.
 pub fn lay_building(
     terrain: &mut TerrainMap,
     x: usize,
@@ -91,22 +157,133 @@ pub fn lay_building(
     if w < 3 || h < 3 || x + w > terrain.width || y + h > terrain.height {
         return None;
     }
+    let seed = {
+        // deterministic per plot; no new caller args needed
+        let mut s = 0xcbf29ce484222325u64;
+        for v in [x, y, w, h] {
+            s = (s ^ v as u64).wrapping_mul(0x100000001b3);
+        }
+        s
+    };
+    let shape = match seed % 3 {
+        0 => Footprint::Chamfered,
+        1 => Footprint::Oval,
+        _ => Footprint::Ell,
+    };
+    let inside = footprint_mask(w, h, shape, seed);
+    let at = |dx: usize, dy: usize| dy * w + dx;
+    let is_in = |dx: i64, dy: i64| {
+        dx >= 0
+            && dy >= 0
+            && (dx as usize) < w
+            && (dy as usize) < h
+            && inside[at(dx as usize, dy as usize)]
+    };
+
+    let mut floor_count = 0usize;
     for dy in 0..h {
         for dx in 0..w {
-            let edge = dx == 0 || dy == 0 || dx == w - 1 || dy == h - 1;
-            let t = if edge { Terrain::Wall } else { Terrain::Floor };
+            if !inside[at(dx, dy)] {
+                continue; // outside the organic footprint -> left as yard
+            }
+            // a wall where the footprint meets the outside (or the plot edge)
+            let boundary = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+                .iter()
+                .any(|(ox, oy)| !is_in(dx as i64 + ox, dy as i64 + oy));
+            let t = if boundary {
+                Terrain::Wall
+            } else {
+                floor_count += 1;
+                Terrain::Floor
+            };
             terrain.set(x + dx, y + dy, t);
         }
     }
-    // The doorway: a single gap centred on the chosen wall.
-    let (ddx, ddy) = match door {
-        Side::North => (w / 2, 0),
-        Side::South => (w / 2, h - 1),
-        Side::West => (0, h / 2),
-        Side::East => (w - 1, h / 2),
+
+    // Tiny or thin shapes can carve away the whole interior — fall back to the
+    // plain rectangle so the building is always walkable.
+    if floor_count == 0 {
+        for dy in 0..h {
+            for dx in 0..w {
+                let edge = dx == 0 || dy == 0 || dx == w - 1 || dy == h - 1;
+                terrain.set(
+                    x + dx,
+                    y + dy,
+                    if edge { Terrain::Wall } else { Terrain::Floor },
+                );
+            }
+        }
+    }
+
+    // The doorway: the boundary wall on the chosen side that has interior floor
+    // just inside it (so you always walk straight into the room).
+    let door_tile = place_door(terrain, x, y, w, h, door);
+    Some(door_tile)
+}
+
+/// Set a `Door` on the chosen side: scan that edge from its midpoint outward for
+/// a `Wall` cell with a `Floor` immediately inside, and open it. Falls back to
+/// the side's centre.
+fn place_door(
+    terrain: &mut TerrainMap,
+    x: usize,
+    y: usize,
+    w: usize,
+    h: usize,
+    side: Side,
+) -> (usize, usize) {
+    let floor_inside = |tx: usize, ty: usize, ix: i64, iy: i64| -> bool {
+        let (nx, ny) = (tx as i64 + ix, ty as i64 + iy);
+        nx >= 0
+            && ny >= 0
+            && (nx as usize) < terrain.width
+            && (ny as usize) < terrain.height
+            && terrain.get(nx as usize, ny as usize) == Some(Terrain::Floor)
     };
-    terrain.set(x + ddx, y + ddy, Terrain::Door);
-    Some((x + ddx, y + ddy))
+    // candidate offsets along the side, nearest the centre first
+    let span = |n: usize| {
+        let mid = n / 2;
+        (0..n).map(move |k| {
+            if k % 2 == 0 {
+                mid + k / 2
+            } else {
+                mid.saturating_sub(k / 2 + 1)
+            }
+        })
+    };
+    let mut found: Option<(usize, usize)> = None;
+    match side {
+        Side::North | Side::South => {
+            let ty = if side == Side::North { y } else { y + h - 1 };
+            let iy = if side == Side::North { 1 } else { -1 };
+            for dx in span(w) {
+                let tx = x + dx;
+                if terrain.get(tx, ty) == Some(Terrain::Wall) && floor_inside(tx, ty, 0, iy) {
+                    found = Some((tx, ty));
+                    break;
+                }
+            }
+        }
+        Side::West | Side::East => {
+            let tx = if side == Side::West { x } else { x + w - 1 };
+            let ix = if side == Side::West { 1 } else { -1 };
+            for dy in span(h) {
+                let ty = y + dy;
+                if terrain.get(tx, ty) == Some(Terrain::Wall) && floor_inside(tx, ty, ix, 0) {
+                    found = Some((tx, ty));
+                    break;
+                }
+            }
+        }
+    }
+    let (ddx, ddy) = found.unwrap_or(match side {
+        Side::North => (x + w / 2, y),
+        Side::South => (x + w / 2, y + h - 1),
+        Side::West => (x, y + h / 2),
+        Side::East => (x + w - 1, y + h / 2),
+    });
+    terrain.set(ddx, ddy, Terrain::Door);
+    (ddx, ddy)
 }
 
 /// A building placed in a district: its footprint and its door tile.
@@ -335,13 +512,10 @@ pub fn district_buildings(
     // (6x6) — real walkable rooms — through villages and ordinary towns without
     // crowding the central plaza/streets; cities widen it so grand Halls (9x9)
     // and Manors (11x12) can stand.
-    let stride = if span <= 24 {
-        6usize
-    } else if span <= 44 {
-        10
-    } else {
-        13
-    };
+    // Buildings are packed at their REAL sizes (variable plots), not on a uniform
+    // grid — so a town is hundreds of small family homes with the odd hall or
+    // longhouse among them, dense and varied, not a checkerboard of identical
+    // huts (owner: living/organic world, households + ties).
     // A real town reads around an open heart: reserve a central market plaza
     // (it stays walkable Settlement — `lay_district` paints the ground street;
     // we simply keep buildings out of it). Hamlets are too small to spare one.
@@ -371,42 +545,49 @@ pub fn district_buildings(
     // buildings sit a clear lane inside the wall `lay_town` raises here; both
     // read the same `wall_border`, so painted and computed agree.
     let border = wall_border(aw, ah);
+    let far = border.max(1);
     let start = border.saturating_sub(1);
     let mut py = start;
-    while py + 4 <= ah.saturating_sub(border) {
+    // Row-by-row VARIABLE packing: place each building at its real size, then step
+    // past it (building + a one-tile street), so a row holds many small homes and
+    // the odd larger one tight together — real density, varied, never a grid.
+    while py + 4 <= ah.saturating_sub(far) {
         let mut px = start;
-        while px + 4 <= aw.saturating_sub(border) {
+        let mut row_h = 4usize; // how far down the next row starts
+        while px + 4 <= aw.saturating_sub(far) {
             let (lx, ly) = (ax + px, ay + py);
-            // Keep the plaza and the main/cross streets clear of buildings.
-            if reserved.iter().flatten().any(|&(qx, qy, qw, qh)| {
-                lx < qx + qw && lx + stride > qx && ly < qy + qh && ly + stride > qy
-            }) {
-                px += stride;
-                continue;
-            }
-            // Building fills the plot bar a one-tile street; the +1 inset
-            // already leaves a street on the north and west. Its far edge is
-            // held a clear lane inside the wall border.
-            // Keep a one-tile lane inside the district's far edge too (use
-            // border.max(1)), so a building never lands its south/east wall on
-            // the footprint perimeter — an unwalled town must keep no wall there.
-            let far = border.max(1);
-            let avail_w = (stride - 1).min(aw.saturating_sub(far).saturating_sub(px + 1));
-            let avail_h = (stride - 1).min(ah.saturating_sub(far).saturating_sub(py + 1));
             let h = crate::rng::mix_u64(
                 seed ^ (px as u64).wrapping_shl(20) ^ (py as u64).wrapping_shl(40),
             );
-            // In a real town, a scatter of plots stay open yards/gardens.
-            if !small && crate::rng::unit_from_hash(h.rotate_left(7)) < 0.18 {
-                px += stride;
+            // Plaza / main / cross streets stay clear: jump past the block.
+            let mut jumped = false;
+            for &(qx, qy, qw, qh) in reserved.iter().flatten() {
+                if lx >= qx && lx < qx + qw && ly >= qy && ly < qy + qh {
+                    px = (qx + qw).saturating_sub(ax).max(px + 1);
+                    jumped = true;
+                    break;
+                }
+            }
+            if jumped {
                 continue;
             }
+            // A scatter of plots stay open yards/gardens.
+            if !small && crate::rng::unit_from_hash(h.rotate_left(7)) < 0.15 {
+                px += 2;
+                continue;
+            }
+            // Room left for THIS plot: building + its one-tile inset, capped a lane
+            // inside the district's far edge.
+            let avail_w = aw.saturating_sub(far).saturating_sub(px + 1);
+            let avail_h = ah.saturating_sub(far).saturating_sub(py + 1);
+            if avail_w < 3 || avail_h < 3 {
+                break;
+            }
             if let Some(style) = pick_style(h, avail_w, avail_h, character) {
-                // A settlement is not one station of life. The common dwellings
-                // (hut/cottage) become the poor's lesser shelter for a share of
-                // plots — a tent or a bare lean-to — and the odd holding keeps a
-                // stable. The grand styles (longhouse/hall/manor) are left as the
-                // seats of those who can raise them. Deterministic per plot.
+                // The common dwellings (hut/cottage) become the poor's lesser
+                // shelter for a share of plots — a tent or a bare lean-to — and the
+                // odd holding keeps a stable. Grand styles stay the seats of those
+                // who can raise them. Deterministic per plot.
                 let chosen = if matches!(style, BuildingStyle::Hut | BuildingStyle::Cottage) {
                     let lot = crate::rng::unit_from_hash(h.rotate_left(11));
                     if lot < 0.12 {
@@ -426,9 +607,16 @@ pub fn district_buildings(
                 } else {
                     style
                 };
-                let style = chosen;
-                let (bw, bh) = style.size();
+                let (bw, bh) = chosen.size();
                 let (bx, by) = (ax + px + 1, ay + py + 1);
+                // Don't let a wide building spill into a reserved street.
+                let clips = reserved.iter().flatten().any(|&(qx, qy, qw, qh)| {
+                    bx < qx + qw && bx + bw > qx && by < qy + qh && by + bh > qy
+                });
+                if clips {
+                    px += 1;
+                    continue;
+                }
                 let side = match h % 4 {
                     0 => Side::South,
                     1 => Side::North,
@@ -436,17 +624,20 @@ pub fn district_buildings(
                     _ => Side::West,
                 };
                 out.push(PlacedBuilding {
-                    style,
+                    style: chosen,
                     x: bx,
                     y: by,
                     w: bw,
                     h: bh,
                     door: building_door(bx, by, bw, bh, side),
                 });
+                px += bw + 2; // inset(1) + building + street(1)
+                row_h = row_h.max(bh + 2);
+            } else {
+                px += 1;
             }
-            px += stride;
         }
-        py += stride;
+        py += row_h;
     }
     // The tiniest holdings (a steading) still get one dwelling with a door —
     // inset one tile from the anchor (like every plot building) so the anchor
@@ -615,36 +806,75 @@ mod tests {
 
     #[test]
     fn a_building_has_walls_a_walkable_interior_and_one_door() {
-        let mut t = blank(12, 12);
-        let (dx, dy) = lay_building(&mut t, 2, 2, 5, 4, Side::South).expect("fits");
-        // The door is on the south wall, passable.
-        assert_eq!((dx, dy), (2 + 2, 2 + 3));
-        assert_eq!(t.get(dx, dy), Some(Terrain::Door));
-        assert!(Terrain::Door.passable());
-        // The interior is floor and walkable.
-        for iy in 3..5 {
-            for ix in 3..6 {
-                assert_eq!(t.get(ix, iy), Some(Terrain::Floor), "interior ({ix},{iy})");
-                assert!(Terrain::Floor.passable());
+        // Footprints are now organic (chamfered/oval/L), not clean boxes; assert
+        // the invariants that hold for any shape, across positions + sizes (so all
+        // three shapes are exercised) + every door side.
+        for (px, py, w, h) in [(2, 2, 5, 4), (1, 1, 6, 6), (3, 2, 9, 5), (2, 3, 7, 8)] {
+            for side in [Side::North, Side::South, Side::East, Side::West] {
+                let mut t = blank(20, 20);
+                let (dx, dy) = lay_building(&mut t, px, py, w, h, side).expect("fits");
+                // The door is a passable Door, the only one in the plot, with a
+                // Floor immediately inside (you walk straight in).
+                assert_eq!(
+                    t.get(dx, dy),
+                    Some(Terrain::Door),
+                    "door tile at {px},{py} {side:?}"
+                );
+                assert!(Terrain::Door.passable());
+                let mut floors = 0;
+                let mut walls = 0;
+                let mut doors = 0;
+                for ey in py..py + h {
+                    for ex in px..px + w {
+                        match t.get(ex, ey) {
+                            Some(Terrain::Floor) => floors += 1,
+                            Some(Terrain::Wall) => walls += 1,
+                            Some(Terrain::Door) => doors += 1,
+                            _ => {} // cut corner -> yard, fine
+                        }
+                    }
+                }
+                assert!(floors > 0, "walkable interior at {px},{py} {w}x{h}");
+                assert!(walls > 0 && !Terrain::Wall.passable());
+                assert_eq!(doors, 1, "exactly one doorway at {px},{py} {side:?}");
+                // the door opens onto a floor (reachable interior)
+                let touches_floor = [(-1i64, 0), (1, 0), (0, -1), (0, 1)]
+                    .iter()
+                    .any(|(ox, oy)| {
+                        let (nx, ny) = (dx as i64 + ox, dy as i64 + oy);
+                        nx >= 0
+                            && ny >= 0
+                            && t.get(nx as usize, ny as usize) == Some(Terrain::Floor)
+                    });
+                assert!(touches_floor, "door opens onto floor at {px},{py} {side:?}");
             }
         }
-        // The border is wall (and impassable) — except the one door.
-        let mut walls = 0;
-        let mut doors = 0;
-        for ey in 2..6 {
-            for ex in 2..7 {
-                let edge = ex == 2 || ey == 2 || ex == 6 || ey == 5;
-                if edge {
-                    match t.get(ex, ey) {
-                        Some(Terrain::Wall) => walls += 1,
-                        Some(Terrain::Door) => doors += 1,
-                        other => panic!("border ({ex},{ey}) is {other:?}"),
-                    }
+    }
+
+    #[test]
+    fn footprints_are_organic_not_clean_rectangles() {
+        // At least one plot should leave a corner as yard (a non-rectangular
+        // footprint) — the whole point of the change.
+        let mut any_cut = false;
+        for (px, py, w, h) in [(2, 2, 6, 6), (3, 3, 7, 5), (1, 1, 9, 8), (2, 4, 5, 7)] {
+            let mut t = blank(20, 20);
+            lay_building(&mut t, px, py, w, h, Side::South);
+            for &(cx, cy) in &[
+                (px, py),
+                (px + w - 1, py),
+                (px, py + h - 1),
+                (px + w - 1, py + h - 1),
+            ] {
+                match t.get(cx, cy) {
+                    Some(Terrain::Wall) | Some(Terrain::Floor) | Some(Terrain::Door) => {}
+                    _ => any_cut = true, // a corner left as yard
                 }
             }
         }
-        assert_eq!(doors, 1, "exactly one doorway");
-        assert!(walls > 0 && !Terrain::Wall.passable());
+        assert!(
+            any_cut,
+            "organic footprints should cut at least one corner to yard"
+        );
     }
 
     #[test]
