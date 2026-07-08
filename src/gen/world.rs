@@ -845,12 +845,6 @@ pub fn fixup_settlement_anchors(world: &mut crate::model::World) {
     }
 }
 
-/// The district edge a settlement may claim at its spot: the most its tier
-/// wants (`max_edge`), held to the real map room left around it, and — for an
-/// ordinary town — to its even share of the sector. A great town (a Tier-II
-/// city) is exempt from the even-share cap so it can sprawl past its neighbours;
-/// `next_free_x` and the map bounds still keep districts from overlapping.
-
 /// The people of the Five whose home ground this region is, if any — so an
 /// enclave is seeded on terrain that is truly theirs (#454): the Mëräk on the
 /// coast, the Khör on the steppe, the Häl in the deep forest. Other regions
