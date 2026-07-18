@@ -17,18 +17,25 @@ pub fn load_charts_from_path(path: &Path) -> Result<Charts> {
 }
 
 fn load_charts_from_override() -> Option<Result<Charts>> {
-    if let Ok(path) = std::env::var("DEEP_WORLD_CHARTS") {
-        if !path.is_empty() {
-            return Some(load_charts_from_path(Path::new(&path)));
-        }
+    #[cfg(target_arch = "wasm32")]
+    {
+        None
     }
-    if let Some(config_dir) = dirs::config_dir() {
-        let user_path = config_dir.join("deep-world-tui").join("charts.ron");
-        if user_path.exists() {
-            return Some(load_charts_from_path(&user_path));
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Ok(path) = std::env::var("DEEP_WORLD_CHARTS") {
+            if !path.is_empty() {
+                return Some(load_charts_from_path(Path::new(&path)));
+            }
         }
+        if let Some(config_dir) = dirs::config_dir() {
+            let user_path = config_dir.join("deep-world-tui").join("charts.ron");
+            if user_path.exists() {
+                return Some(load_charts_from_path(&user_path));
+            }
+        }
+        None
     }
-    None
 }
 
 fn load_charts_embedded() -> Result<Charts> {

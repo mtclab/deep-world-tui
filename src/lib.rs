@@ -8,5 +8,6 @@ pub mod rng;
 pub mod save;
 pub mod save_migrations;
 pub mod sim;
+#[cfg(feature = "tui")]
 pub mod ui;
 pub mod voice;

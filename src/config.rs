@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+#[cfg(not(target_arch = "wasm32"))]
 const APP_NAME: &str = "deep-world-tui";
 const CONFIG_FILE: &str = "config.toml";
 
@@ -21,8 +22,14 @@ pub struct DisplayConfig {
     pub reduced_motion: bool,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn config_dir() -> Option<PathBuf> {
     dirs::config_dir().map(|p| p.join(APP_NAME))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn config_dir() -> Option<PathBuf> {
+    None
 }
 
 fn config_path() -> Option<PathBuf> {

@@ -124,7 +124,8 @@ pub fn tick_settlement_aspirations(s: &mut Settlement, seed: u64, tick: u64) -> 
                     .filter(|t| SKILLED_TRADES.contains(&t.as_str()))
                     .collect();
                 if !masters.is_empty() {
-                    let t = masters[(rng as usize) % masters.len()].clone();
+                    // Modulo in u64 before narrowing: usize is 32-bit on wasm32.
+                    let t = masters[(rng % masters.len() as u64) as usize].clone();
                     Some(Aspiration::LearnTrade {
                         trade: t,
                         progress: 0.0,

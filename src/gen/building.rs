@@ -360,7 +360,7 @@ fn pick_style(
                 .filter(|s| *s != BuildingStyle::Longhouse)
                 .collect();
             let pool = if broad.is_empty() { &fits } else { &broad };
-            let from_top = (h as usize) % 2; // 0 or 1 back from the largest
+            let from_top = (h % 2) as usize; // 0 or 1 back from the largest
             return pool.get(pool.len().saturating_sub(1 + from_top)).copied();
         }
         // Modest: the smallest that fits — the canopy-floor Häl keep it humble.
@@ -377,10 +377,14 @@ fn pick_style(
         // buildings (halls, cottages) — varied within the lean by the hash.
         BuildCharacter::Plain => {
             let lo = fits.len() / 2;
-            return fits.get(lo + (h as usize) % (fits.len() - lo)).copied();
+            // Modulo in u64 BEFORE narrowing: `h as usize` truncates to 32 bits
+            // on wasm32, so a non-power-of-two modulo diverges from native.
+            return fits
+                .get(lo + (h % (fits.len() - lo) as u64) as usize)
+                .copied();
         }
     }
-    Some(fits[(h as usize) % fits.len()])
+    Some(fits[(h % fits.len() as u64) as usize])
 }
 
 /// The door tile of a building footprint on the given side — the same gap

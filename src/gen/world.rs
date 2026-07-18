@@ -936,70 +936,92 @@ pub fn materialize_residents_capped(
     charts: &Charts,
     max_pop: Option<usize>,
 ) {
-    use rayon::prelude::*;
-    regions.par_iter_mut().enumerate().for_each(|(ri, region)| {
+    let materialize_region = |(ri, region): (usize, &mut crate::model::Region)| {
+        let materialize_settlement = |(si, s): (usize, &mut crate::model::Settlement)| {
+            let mut target = s.population.max(1) as usize;
+            if let Some(cap) = max_pop {
+                target = target.min(cap.max(1));
+            }
+            if s.people.len() > target {
+                s.people.truncate(target);
+            } else if s.people.len() < target {
+                let mut rng = SeedRng::new(seed).fork_for(&format!("materialize:{ri}:{si}"));
+                // Keep an enclave an enclave: if the existing roster is
+                // all one people, new residents share it (#454).
+                let enclave = enclave_people_of(&s.people);
+                let region_id = s.region.clone();
+                let settlement_id = s.id.clone();
+                while s.people.len() < target {
+                    let mut p = crate::gen::person::generate_person_from(
+                        rng.fork(),
+                        &region_id,
+                        &settlement_id,
+                        charts,
+                    );
+                    if let Some(home) = &enclave {
+                        p.people = home.clone();
+                    }
+                    s.people.push(p);
+                }
+            }
+            s.population = s.people.len() as u32;
+            // Keep the size tier consistent with the head-count. Capping (or
+            // any roster top-up) can move population across a tier boundary;
+            // the `size` string was set at worldgen and would otherwise go
+            // stale. No-op in the uncapped game (population is unchanged).
+            s.size =
+                crate::model::economy::Settlement::size_for_population(s.population).to_string();
+            // Seed the town's common purse (entity-first slice 4): a working
+            // wage-fund scaled to its people. Guarded on 0 so worldgen seeds
+            // it and pre-slice-4 saves are topped up on load, without wiping
+            // a treasury that real trade has since moved.
+            if s.treasury == 0 {
+                s.treasury = s.population.saturating_mul(2);
+            }
+            // Building <-> household (living/organic world): house every soul
+            // in a REAL home. The town's homes are laid deterministically, so
+            // we group the roster into household-sized chunks and give each a
+            // roof — neighbours are real families, a home has known occupants,
+            // and a death later leaves one the poorer. Door tile = the home.
+            let homes = crate::gen::town::town_buildings(s);
+            if !homes.is_empty() && !s.people.is_empty() {
+                let per = s.people.len().div_ceil(homes.len()).max(1);
+                for (i, p) in s.people.iter_mut().enumerate() {
+                    let b = &homes[(i / per).min(homes.len() - 1)];
+                    // the home's door tile — souls sharing it are a household
+                    p.home_x = b.door.0 as u32;
+                    p.home_y = b.door.1 as u32;
+                }
+            }
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use rayon::prelude::*;
+            region
+                .settlements
+                .par_iter_mut()
+                .enumerate()
+                .for_each(materialize_settlement);
+        }
+        #[cfg(target_arch = "wasm32")]
         region
             .settlements
+            .iter_mut()
+            .enumerate()
+            .for_each(materialize_settlement);
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use rayon::prelude::*;
+        regions
             .par_iter_mut()
             .enumerate()
-            .for_each(|(si, s)| {
-                let mut target = s.population.max(1) as usize;
-                if let Some(cap) = max_pop {
-                    target = target.min(cap.max(1));
-                }
-                if s.people.len() > target {
-                    s.people.truncate(target);
-                } else if s.people.len() < target {
-                    let mut rng = SeedRng::new(seed).fork_for(&format!("materialize:{ri}:{si}"));
-                    // Keep an enclave an enclave: if the existing roster is
-                    // all one people, new residents share it (#454).
-                    let enclave = enclave_people_of(&s.people);
-                    let region_id = s.region.clone();
-                    let settlement_id = s.id.clone();
-                    while s.people.len() < target {
-                        let mut p = crate::gen::person::generate_person_from(
-                            rng.fork(),
-                            &region_id,
-                            &settlement_id,
-                            charts,
-                        );
-                        if let Some(home) = &enclave {
-                            p.people = home.clone();
-                        }
-                        s.people.push(p);
-                    }
-                }
-                s.population = s.people.len() as u32;
-                // Keep the size tier consistent with the head-count. Capping (or
-                // any roster top-up) can move population across a tier boundary;
-                // the `size` string was set at worldgen and would otherwise go
-                // stale. No-op in the uncapped game (population is unchanged).
-                s.size = crate::model::economy::Settlement::size_for_population(s.population)
-                    .to_string();
-                // Seed the town's common purse (entity-first slice 4): a working
-                // wage-fund scaled to its people. Guarded on 0 so worldgen seeds
-                // it and pre-slice-4 saves are topped up on load, without wiping
-                // a treasury that real trade has since moved.
-                if s.treasury == 0 {
-                    s.treasury = s.population.saturating_mul(2);
-                }
-                // Building <-> household (living/organic world): house every soul
-                // in a REAL home. The town's homes are laid deterministically, so
-                // we group the roster into household-sized chunks and give each a
-                // roof — neighbours are real families, a home has known occupants,
-                // and a death later leaves one the poorer. Door tile = the home.
-                let homes = crate::gen::town::town_buildings(s);
-                if !homes.is_empty() && !s.people.is_empty() {
-                    let per = s.people.len().div_ceil(homes.len()).max(1);
-                    for (i, p) in s.people.iter_mut().enumerate() {
-                        let b = &homes[(i / per).min(homes.len() - 1)];
-                        // the home's door tile — souls sharing it are a household
-                        p.home_x = b.door.0 as u32;
-                        p.home_y = b.door.1 as u32;
-                    }
-                }
-            });
-    });
+            .for_each(materialize_region);
+    }
+    #[cfg(target_arch = "wasm32")]
+    regions.iter_mut().enumerate().for_each(materialize_region);
 }
 
 /// The single people of a roster if every member shares it, else None.
